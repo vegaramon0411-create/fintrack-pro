@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FinTrack Pro · Inversiones</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root{--g-dark:#0F5132;--g-main:#1A7A4A;--g-mid:#22A362;--g-light:#E8F7EF;--g-dim:rgba(26,122,74,0.10);--white:#FFFFFF;--off:#F7F8FC;--border:#E4E6F0;--text:#1A1D2E;--text2:#4A4E69;--text3:#9395A5;--red:#E63946;--red-dim:rgba(230,57,70,0.10);--amber:#F4A261;--amb-dim:rgba(244,162,97,0.12);--blue:#4A6CF7;--blu-dim:rgba(74,108,247,0.10);--purple:#7B5EA7;--pur-dim:rgba(123,94,167,0.10);--r:14px;--sidebar:240px;--topbar:58px;--shadow:0 2px 12px rgba(0,0,0,0.06);--shadow-md:0 4px 24px rgba(0,0,0,0.09);}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(--text);min-height:100vh;}
+.app{display:flex;min-height:100vh;}
+.sidebar{width:var(--sidebar);background:var(--white);border-right:1px solid var(--border);position:fixed;top:0;left:0;bottom:0;display:flex;flex-direction:column;z-index:50;overflow-y:auto;}
+.sb-logo{display:flex;align-items:center;gap:10px;padding:22px 18px 18px;border-bottom:1px solid var(--border);}
+.sb-mark{width:36px;height:36px;background:linear-gradient(135deg,var(--g-dark),var(--g-main));border-radius:11px;display:grid;place-items:center;color:white;font-size:17px;flex-shrink:0;}
+.sb-name{font-size:15px;font-weight:800;letter-spacing:-.3px;}
+.sb-tag{font-size:10px;color:var(--text3);font-weight:500;}
+.sb-nav{padding:14px 10px;flex:1;}
+.sb-section{font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);padding:10px 8px 5px;}
+.sb-link{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:10px;font-size:13px;font-weight:600;color:var(--text2);cursor:pointer;margin-bottom:2px;transition:all .15s;}
+.sb-link:hover{background:var(--off);color:var(--text);}
+.sb-link.on{background:var(--g-dim);color:var(--g-main);}
+.sb-ico{font-size:15px;width:20px;text-align:center;flex-shrink:0;}
+.sb-footer{border-top:1px solid var(--border);padding:12px 10px;}
+.sb-user{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:10px;cursor:pointer;}
+.sb-user:hover{background:var(--off);}
+.sb-avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--g-dark),var(--g-main));display:grid;place-items:center;color:white;font-size:13px;font-weight:700;flex-shrink:0;}
+.sb-uname{font-size:13px;font-weight:700;}.sb-umail{font-size:10px;color:var(--text3);}
+.main{margin-left:var(--sidebar);flex:1;display:flex;flex-direction:column;}
+.topbar{background:var(--white);border-bottom:1px solid var(--border);height:var(--topbar);padding:0 28px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:40;}
+.tb-title{font-size:17px;font-weight:800;letter-spacing:-.3px;}
+.tb-right{display:flex;align-items:center;gap:10px;}
+.lang-toggle{display:flex;background:var(--off);border:1px solid var(--border);border-radius:20px;overflow:hidden;font-size:11px;font-weight:700;}
+.lt-opt{padding:5px 11px;cursor:pointer;color:var(--text3);border-radius:20px;transition:all .15s;}
+.lt-opt.on{background:var(--g-main);color:white;}
+.btn-new{background:linear-gradient(135deg,var(--g-dark),var(--g-main));color:white;border:none;border-radius:20px;padding:8px 18px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:5px;box-shadow:0 3px 12px rgba(15,81,50,0.22);transition:opacity .15s;}
+.btn-new:hover{opacity:.88;}
+.page{padding:24px 28px;max-width:1280px;}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:20px;}
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px;}
+.card{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:20px;box-shadow:var(--shadow);}
+.card-hd{font-size:14px;font-weight:800;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;}
+.card-act{font-size:11px;font-weight:600;color:var(--g-main);cursor:pointer;}
+.kpi{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;box-shadow:var(--shadow);}
+.kpi-ico{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;font-size:16px;margin-bottom:10px;}
+.kpi-val{font-size:24px;font-weight:800;letter-spacing:-.8px;margin-bottom:3px;}
+.kpi-lbl{font-size:11px;color:var(--text3);font-weight:500;}
+.kpi-delta{font-size:11px;font-weight:700;margin-top:4px;}
+
+/* Portfolio table */
+.inv-row{display:flex;align-items:center;gap:12px;padding:12px 5px;border-bottom:1px solid var(--border);transition:background .1s;cursor:pointer;}
+.inv-row:last-child{border-bottom:none;}
+.inv-row:hover{background:var(--off);border-radius:10px;}
+.inv-ico{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-size:18px;flex-shrink:0;}
+.inv-info{flex:1;}
+.inv-name{font-size:14px;font-weight:700;}
+.inv-type{font-size:11px;color:var(--text3);margin-top:2px;}
+.inv-right{text-align:right;}
+.inv-amt{font-size:15px;font-weight:800;}
+.inv-date{font-size:10px;color:var(--text3);margin-top:2px;}
+.inv-menu-btn{color:var(--text3);cursor:pointer;font-size:18px;padding:4px;}
+.inv-pct{font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;margin-top:3px;display:inline-block;}
+
+/* Platform badges */
+.platform-badge{font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;display:inline-block;}
+
+/* Chart */
+.chart-area{height:200px;}
+
+/* Donut */
+.donut-wrap{display:flex;align-items:center;gap:16px;}
+.donut-canvas-wrap{position:relative;width:140px;height:140px;flex-shrink:0;}
+.donut-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.donut-total{font-size:16px;font-weight:800;letter-spacing:-.5px;}
+.donut-lbl{font-size:9px;color:var(--text3);}
+.donut-legend{flex:1;display:flex;flex-direction:column;gap:7px;}
+.leg-row{display:flex;align-items:center;gap:7px;}
+.leg-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+.leg-nm{font-size:12px;font-weight:600;flex:1;}
+.leg-amt{font-size:12px;font-weight:700;}
+.leg-pct{font-size:10px;color:var(--text3);min-width:30px;text-align:right;}
+
+/* Modal */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:none;place-items:center;z-index:200;backdrop-filter:blur(5px);}
+.overlay.open{display:grid;}
+.modal{background:var(--white);border-radius:24px;padding:28px;width:440px;max-width:calc(100vw - 32px);box-shadow:var(--shadow-md);animation:modalPop .25s cubic-bezier(0.34,1.56,0.64,1);}
+@keyframes modalPop{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}}
+.modal-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;}
+.modal-title{font-size:18px;font-weight:800;}
+.modal-close{color:var(--text3);cursor:pointer;font-size:22px;}
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text3);margin-bottom:6px;}
+.field input,.field select{width:100%;background:var(--off);border:1.5px solid var(--border);border-radius:var(--r);padding:11px 14px;font-size:14px;font-weight:500;color:var(--text);font-family:inherit;outline:none;transition:border-color .15s;}
+.field input:focus,.field select:focus{border-color:var(--g-main);}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.btn-save{width:100%;background:linear-gradient(135deg,var(--g-dark),var(--g-main));color:white;border:none;border-radius:var(--r);padding:13px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:4px;}
+.btn-save:hover{opacity:.88;}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--text);color:white;padding:12px 20px;border-radius:20px;font-size:13px;font-weight:600;display:none;align-items:center;gap:8px;box-shadow:var(--shadow-md);z-index:300;}
+@media(max-width:860px){.sidebar{display:none;}.main{margin-left:0;padding-bottom:72px;}.topbar{padding:0 16px;}.page{padding:16px;}.grid-2,.grid-4{grid-template-columns:1fr 1fr;}.mob-nav{display:flex !important;}}
+.mob-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--white);border-top:1px solid var(--border);padding:10px 4px 16px;padding-bottom:calc(10px + env(safe-area-inset-bottom));z-index:50;gap:0;box-shadow:0 -4px 20px rgba(0,0,0,0.06);}
+.mob-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:9px;font-weight:600;color:var(--text3);}
+.mob-item.on{color:var(--g-main);}
+.mob-ico{font-size:20px;line-height:1;}
+.mob-add{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--g-dark),var(--g-main));display:flex;align-items:center;justify-content:center;color:white;font-size:22px;margin-top:-16px;box-shadow:0 4px 16px rgba(15,81,50,0.35);flex-shrink:0;}
+::-webkit-scrollbar{width:5px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+</style>
+</head>
+<body>
+<div class="app">
+<aside class="sidebar">
+  <div class="sb-logo"><div class="sb-mark">💎</div><div><div class="sb-name">FinTrack Pro</div><div class="sb-tag" data-es="Panel financiero" data-en="Financial dashboard">Panel financiero</div></div></div>
+  <nav class="sb-nav">
+    <div class="sb-section" data-es="Principal" data-en="Main">Principal</div>
+    <div class="sb-link" onclick="go('dashboard.html')"><span class="sb-ico">📊</span><span data-es="Dashboard" data-en="Dashboard">Dashboard</span></div>
+    <div class="sb-link" onclick="go('dashboard.html')"><span class="sb-ico">➕</span><span data-es="Nuevo registro" data-en="New entry">Nuevo registro</span></div>
+    <div class="sb-link" onclick="go('suscripciones.html')"><span class="sb-ico">🔄</span><span data-es="Suscripciones" data-en="Subscriptions">Suscripciones</span></div>
+    <div class="sb-section" data-es="Análisis" data-en="Analysis">Análisis</div>
+    <div class="sb-link" onclick="go('analisis.html')"><span class="sb-ico">📈</span><span data-es="Por categoría" data-en="By category">Por categoría</span></div>
+    <div class="sb-link" onclick="go('historial.html')"><span class="sb-ico">📅</span><span data-es="Historial" data-en="History">Historial</span></div>
+    <div class="sb-link on"><span class="sb-ico">🏦</span><span data-es="Inversiones" data-en="Investments">Inversiones</span></div>
+    <div class="sb-section" data-es="Herramientas" data-en="Tools">Herramientas</div>
+    <div class="sb-link" onclick="go('scanner.html')"><span class="sb-ico">📷</span><span data-es="Escanear recibo" data-en="Scan receipt">Escanear recibo</span></div>
+    <div class="sb-link" onclick="go('emergencia.html')"><span class="sb-ico">🛡️</span><span data-es="Fondo emergencia" data-en="Emergency fund">Fondo emergencia</span></div>
+    <div class="sb-section" data-es="Cuenta" data-en="Account">Cuenta</div>
+    <div class="sb-link" onclick="go('config.html')"><span class="sb-ico">⚙️</span><span data-es="Configuración" data-en="Settings">Configuración</span></div>
+    <div class="sb-link" onclick="logout()"><span class="sb-ico">🚪</span><span data-es="Cerrar sesión" data-en="Sign out">Cerrar sesión</span></div>
+  </nav>
+  <div class="sb-footer"><div class="sb-user"><div class="sb-avatar" id="sbAvatar">R</div><div><div class="sb-uname" id="sbName">—</div><div class="sb-umail" id="sbEmail">—</div></div></div></div>
+</aside>
+
+<div class="main">
+  <div class="topbar">
+    <div class="tb-title" data-es="Inversiones" data-en="Investments">Inversiones</div>
+    <div class="tb-right">
+      <div class="lang-toggle">
+        <div class="lt-opt on" id="ltES" onclick="setLang('es')">ES</div>
+        <div class="lt-opt"    id="ltEN" onclick="setLang('en')">EN</div>
+      </div>
+      <button class="btn-new" onclick="openModal()">＋ <span data-es="Nueva inversión" data-en="New investment">Nueva inversión</span></button>
+    </div>
+  </div>
+  <div class="page" id="page"></div>
+</div>
+</div>
+
+<nav class="mob-nav">
+  <div class="mob-item" onclick="go('dashboard.html')"><div class="mob-ico">📊</div><span data-es="Inicio" data-en="Home">Inicio</span></div>
+  <div class="mob-item" onclick="go('historial.html')"><div class="mob-ico">📅</div><span data-es="Historial" data-en="History">Historial</span></div>
+  <div class="mob-item"><div class="mob-add" onclick="openModal()">＋</div></div>
+  <div class="mob-item on"><div class="mob-ico">🏦</div><span data-es="Inversiones" data-en="Invest">Inversiones</span></div>
+  <div class="mob-item" onclick="go('config.html')"><div class="mob-ico">👤</div><span data-es="Perfil" data-en="Profile">Perfil</span></div>
+</nav>
+
+<!-- MODAL -->
+<div class="overlay" id="overlay" onclick="closeOutside(event)">
+  <div class="modal">
+    <div class="modal-hd">
+      <div class="modal-title" data-es="Nueva inversión" data-en="New investment">Nueva inversión</div>
+      <div class="modal-close" onclick="closeModal()">✕</div>
+    </div>
+    <div class="field">
+      <label data-es="Nombre / Ticker" data-en="Name / Ticker">Nombre / Ticker</label>
+      <input type="text" id="mName" placeholder="NVDA, QQQM, Bitcoin...">
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label data-es="Monto invertido ($)" data-en="Amount invested ($)">Monto invertido ($)</label>
+        <input type="number" id="mAmount" placeholder="0.00" min="0" step="0.01">
+      </div>
+      <div class="field">
+        <label data-es="Fecha" data-en="Date">Fecha</label>
+        <input type="date" id="mDate">
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label data-es="Plataforma" data-en="Platform">Plataforma</label>
+        <select id="mPlatform">
+          <option value="Fidelity">Fidelity</option>
+          <option value="Roth IRA">Roth IRA (SoFi)</option>
+          <option value="401k">401k</option>
+          <option value="Robinhood">Robinhood</option>
+          <option value="Coinbase">Coinbase</option>
+          <option value="Otro">Otro</option>
+        </select>
+      </div>
+      <div class="field">
+        <label data-es="Tipo" data-en="Type">Tipo</label>
+        <select id="mType">
+          <option value="stock" data-es="📈 Acción" data-en="📈 Stock">📈 Acción</option>
+          <option value="etf" data-es="📊 ETF" data-en="📊 ETF">📊 ETF</option>
+          <option value="crypto" data-es="₿ Cripto" data-en="₿ Crypto">₿ Cripto</option>
+          <option value="bond" data-es="📋 Bono" data-en="📋 Bond">📋 Bono</option>
+          <option value="realestate" data-es="🏠 Inmueble" data-en="🏠 Real estate">🏠 Inmueble</option>
+          <option value="other" data-es="📦 Otro" data-en="📦 Other">📦 Otro</option>
+        </select>
+      </div>
+    </div>
+    <div class="field">
+      <label data-es="Nota (opcional)" data-en="Note (optional)">Nota (opcional)</label>
+      <input type="text" id="mNote" placeholder="DCA, compra en baja...">
+    </div>
+    <input type="hidden" id="editId">
+    <button class="btn-save" onclick="saveInvestment()" data-es="Guardar inversión" data-en="Save investment">Guardar inversión</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const STORE_KEY = 'ft_data';
+const INV_KEY   = 'ft_investments';
+let lang = 'es', user = {};
+let donutChart = null, lineChart = null;
+
+const TYPE_COLORS = { stock:'var(--blue)', etf:'var(--g-main)', crypto:'var(--amber)', bond:'var(--purple)', realestate:'var(--red)', other:'var(--text3)' };
+const TYPE_ICONS  = { stock:'📈', etf:'📊', crypto:'₿', bond:'📋', realestate:'🏠', other:'📦' };
+const PLATFORM_COLORS = { Fidelity:'rgba(0,80,168,0.12)', 'Roth IRA':'rgba(26,122,74,0.12)', '401k':'rgba(123,94,167,0.12)', Robinhood:'rgba(0,192,105,0.12)', Coinbase:'rgba(22,82,240,0.12)', Otro:'var(--off)' };
+
+function loadInv() { try{return JSON.parse(localStorage.getItem(INV_KEY))||[];}catch(e){return[];} }
+function saveInv(d){ localStorage.setItem(INV_KEY,JSON.stringify(d)); }
+function fmt(n)  { return '$'+Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0}); }
+function fmtD(n) { return '$'+Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+
+function setLang(l){
+  lang=l; sessionStorage.setItem('ft_lang',l);
+  document.getElementById('ltES').classList.toggle('on',l==='es');
+  document.getElementById('ltEN').classList.toggle('on',l==='en');
+  document.querySelectorAll('[data-es]').forEach(el=>{const v=el.getAttribute('data-'+l);if(v)el.textContent=v;});
+  render();
+}
+
+function render(){
+  const invs = loadInv();
+  const T = lang==='es'?{
+    totalInvested:'Total invertido', platforms:'Plataformas', positions:'Posiciones',
+    avgDCA:'Promedio DCA', portfolio:'Mi portafolio', byType:'Por tipo',
+    history:'Historial de compras', noInv:'Sin inversiones aún',
+    noInvSub:'Registra tu primera inversión para ver tu portafolio.',
+    addFirst:'+ Agregar primera inversión', note:'Nota', platform:'Plataforma',
+    invested:'invertido', on:'el', edit:'Editar', delete:'Eliminar'
+  }:{
+    totalInvested:'Total invested', platforms:'Platforms', positions:'Positions',
+    avgDCA:'Avg DCA', portfolio:'My portfolio', byType:'By type',
+    history:'Purchase history', noInv:'No investments yet',
+    noInvSub:'Record your first investment to see your portfolio.',
+    addFirst:'+ Add first investment', note:'Note', platform:'Platform',
+    invested:'invested', on:'on', edit:'Edit', delete:'Delete'
+  };
+
+  const page = document.getElementById('page');
+
+  if (!invs.length) {
+    page.innerHTML=`<div style="text-align:center;padding:60px 20px"><div style="font-size:56px;margin-bottom:16px">🏦</div><div style="font-size:20px;font-weight:800;margin-bottom:8px">${T.noInv}</div><div style="font-size:14px;color:var(--text3);margin-bottom:24px">${T.noInvSub}</div><button onclick="openModal()" style="background:linear-gradient(135deg,var(--g-dark),var(--g-main));color:white;border:none;border-radius:20px;padding:12px 24px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">${T.addFirst}</button></div>`;
+    return;
+  }
+
+  const total   = invs.reduce((s,i)=>s+parseFloat(i.amount),0);
+  const byType  = {};
+  const byPlatform = {};
+  invs.forEach(i=>{
+    byType[i.invType]=(byType[i.invType]||0)+parseFloat(i.amount);
+    byPlatform[i.platform]=(byPlatform[i.platform]||0)+parseFloat(i.amount);
+  });
+  const platforms = Object.keys(byPlatform).length;
+  const avgDCA    = invs.length ? total/invs.length : 0;
+
+  page.innerHTML=`
+  <div class="grid-4">
+    <div class="kpi"><div class="kpi-ico" style="background:var(--blu-dim)">💰</div><div class="kpi-val" style="color:var(--blue)">${fmtD(total)}</div><div class="kpi-lbl">${T.totalInvested}</div></div>
+    <div class="kpi"><div class="kpi-ico" style="background:var(--g-light)">🏦</div><div class="kpi-val" style="color:var(--g-main)">${platforms}</div><div class="kpi-lbl">${T.platforms}</div></div>
+    <div class="kpi"><div class="kpi-ico" style="background:var(--pur-dim)">📊</div><div class="kpi-val" style="color:var(--purple)">${invs.length}</div><div class="kpi-lbl">${T.positions}</div></div>
+    <div class="kpi"><div class="kpi-ico" style="background:var(--amb-dim)">📐</div><div class="kpi-val" style="color:var(--amber)">${fmtD(avgDCA)}</div><div class="kpi-lbl">${T.avgDCA}</div></div>
+  </div>
+
+  <div class="grid-2">
+    <!-- PORTFOLIO LIST -->
+    <div class="card">
+      <div class="card-hd">${T.portfolio}</div>
+      ${invs.sort((a,b)=>parseFloat(b.amount)-parseFloat(a.amount)).map(inv=>{
+        const pct = total>0?Math.round((parseFloat(inv.amount)/total)*100):0;
+        const color = TYPE_COLORS[inv.invType]||'var(--text3)';
+        const icon  = TYPE_ICONS[inv.invType]||'📦';
+        const d = new Date(inv.date+'T00:00:00').toLocaleDateString(lang==='es'?'es-MX':'en-US',{month:'short',day:'numeric',year:'numeric'});
+        return `
+        <div class="inv-row">
+          <div class="inv-ico" style="background:${PLATFORM_COLORS[inv.platform]||'var(--off)'}">${icon}</div>
+          <div class="inv-info">
+            <div class="inv-name">${inv.name}</div>
+            <div class="inv-type">
+              <span class="platform-badge" style="background:${PLATFORM_COLORS[inv.platform]||'var(--off)'};color:var(--text2)">${inv.platform}</span>
+              ${inv.note?`<span style="font-size:10px;color:var(--text3);margin-left:4px">${inv.note}</span>`:''}
+            </div>
+          </div>
+          <div class="inv-right">
+            <div class="inv-amt" style="color:${color}">${fmtD(inv.amount)}</div>
+            <div class="inv-date">${T.on} ${d}</div>
+            <div class="inv-pct" style="background:${color}22;color:${color}">${pct}%</div>
+          </div>
+          <div style="position:relative">
+            <div class="inv-menu-btn" onclick="toggleInvMenu('imenu_${inv.id}',event)">⋯</div>
+            <div class="sub-menu" id="imenu_${inv.id}" style="position:absolute;right:0;top:24px;background:var(--white);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow-md);z-index:10;min-width:120px;display:none;">
+              <div style="padding:9px 14px;font-size:12px;font-weight:600;cursor:pointer;" onclick="editInv('${inv.id}')" onmouseover="this.style.background='var(--off)'" onmouseout="this.style.background=''">✏️ ${T.edit}</div>
+              <div style="padding:9px 14px;font-size:12px;font-weight:600;cursor:pointer;color:var(--red)" onclick="deleteInv('${inv.id}')" onmouseover="this.style.background='var(--red-dim)'" onmouseout="this.style.background=''">🗑️ ${T.delete}</div>
+            </div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+
+    <!-- DONUT BY TYPE -->
+    <div class="card">
+      <div class="card-hd">${T.byType}</div>
+      <div class="donut-wrap">
+        <div class="donut-canvas-wrap">
+          <canvas id="donutChart"></canvas>
+          <div class="donut-center">
+            <div class="donut-total">${fmtD(total)}</div>
+            <div class="donut-lbl">${lang==='es'?'total':'total'}</div>
+          </div>
+        </div>
+        <div class="donut-legend">
+          ${Object.entries(byType).map(([type,amt])=>`
+            <div class="leg-row">
+              <div class="leg-dot" style="background:${TYPE_COLORS[type]||'var(--text3)'}"></div>
+              <div class="leg-nm">${TYPE_ICONS[type]||'📦'} ${type}</div>
+              <div class="leg-amt" style="color:${TYPE_COLORS[type]||'var(--text3)'}">${fmt(amt)}</div>
+              <div class="leg-pct">${total>0?Math.round((amt/total)*100):0}%</div>
+            </div>`).join('')}
+        </div>
+      </div>
+
+      <!-- By platform -->
+      <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
+        <div style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px">${T.platforms}</div>
+        ${Object.entries(byPlatform).map(([plat,amt])=>`
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <div style="font-size:12px;font-weight:600;flex:1">${plat}</div>
+            <div style="flex:2;background:var(--off);border-radius:100px;height:6px;overflow:hidden">
+              <div style="height:100%;border-radius:100px;background:var(--g-main);width:${total>0?(amt/total)*100:0}%;transition:width 1s ease"></div>
+            </div>
+            <div style="font-size:12px;font-weight:700;min-width:60px;text-align:right">${fmt(amt)}</div>
+          </div>`).join('')}
+      </div>
+    </div>
+  </div>
+
+  <!-- HISTORY TABLE -->
+  <div class="card">
+    <div class="card-hd">${T.history}</div>
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse">
+        <thead>
+          <tr style="background:var(--off)">
+            <th style="padding:10px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text3);text-align:left">${lang==='es'?'Nombre':'Name'}</th>
+            <th style="padding:10px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text3);text-align:left">${lang==='es'?'Tipo':'Type'}</th>
+            <th style="padding:10px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text3);text-align:left">${T.platform}</th>
+            <th style="padding:10px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text3);text-align:left">${lang==='es'?'Fecha':'Date'}</th>
+            <th style="padding:10px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text3);text-align:right">${lang==='es'?'Monto':'Amount'}</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${[...invs].sort((a,b)=>new Date(b.date)-new Date(a.date)).map(inv=>`
+            <tr style="border-bottom:1px solid var(--border)" onmouseover="this.style.background='var(--off)'" onmouseout="this.style.background=''">
+              <td style="padding:11px 12px;font-size:13px;font-weight:600">${inv.name}</td>
+              <td style="padding:11px 12px"><span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;background:${TYPE_COLORS[inv.invType]}22;color:${TYPE_COLORS[inv.invType]}">${TYPE_ICONS[inv.invType]} ${inv.invType}</span></td>
+              <td style="padding:11px 12px;font-size:12px;color:var(--text2)">${inv.platform}</td>
+              <td style="padding:11px 12px;font-size:12px;color:var(--text3)">${new Date(inv.date+'T00:00:00').toLocaleDateString(lang==='es'?'es-MX':'en-US',{month:'short',day:'numeric',year:'numeric'})}</td>
+              <td style="padding:11px 12px;font-size:14px;font-weight:800;color:var(--blue);text-align:right">${fmtD(inv.amount)}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+
+  buildDonut(byType, total);
+}
+
+function buildDonut(byType, total) {
+  const canvas = document.getElementById('donutChart');
+  if (!canvas) return;
+  if (donutChart) { donutChart.destroy(); donutChart = null; }
+  const labels = Object.keys(byType);
+  const data   = Object.values(byType);
+  const colors = labels.map(t => TYPE_COLORS[t]||'var(--text3)');
+  if (!data.length) return;
+  donutChart = new Chart(canvas,{
+    type:'doughnut',
+    data:{labels,datasets:[{data,backgroundColor:colors,borderWidth:2,borderColor:'#fff',hoverOffset:6}]},
+    options:{cutout:'68%',responsive:true,maintainAspectRatio:true,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' '+ctx.label+': '+fmtD(ctx.parsed)}}},animation:{animateRotate:true,duration:900}}
+  });
+}
+
+function toggleInvMenu(id,e){
+  e.stopPropagation();
+  document.querySelectorAll('.sub-menu').forEach(m=>{if(m.id!==id)m.style.display='none';});
+  const m=document.getElementById(id);
+  m.style.display=m.style.display==='block'?'none':'block';
+}
+document.addEventListener('click',()=>document.querySelectorAll('.sub-menu').forEach(m=>m.style.display='none'));
+
+function openModal(id){
+  document.getElementById('editId').value=id||'';
+  if(id){
+    const inv=loadInv().find(i=>i.id===id);
+    if(inv){
+      document.getElementById('mName').value=inv.name;
+      document.getElementById('mAmount').value=inv.amount;
+      document.getElementById('mDate').value=inv.date;
+      document.getElementById('mPlatform').value=inv.platform;
+      document.getElementById('mType').value=inv.invType;
+      document.getElementById('mNote').value=inv.note||'';
+    }
+  } else {
+    document.getElementById('mName').value='';
+    document.getElementById('mAmount').value='';
+    document.getElementById('mDate').value=new Date().toISOString().split('T')[0];
+    document.getElementById('mPlatform').value='Fidelity';
+    document.getElementById('mType').value='stock';
+    document.getElementById('mNote').value='';
+  }
+  document.getElementById('overlay').classList.add('open');
+}
+function closeModal(){ document.getElementById('overlay').classList.remove('open'); }
+function closeOutside(e){ if(e.target===document.getElementById('overlay')) closeModal(); }
+
+function saveInvestment(){
+  const name=document.getElementById('mName').value.trim();
+  const amount=parseFloat(document.getElementById('mAmount').value);
+  const date=document.getElementById('mDate').value;
+  const platform=document.getElementById('mPlatform').value;
+  const invType=document.getElementById('mType').value;
+  const note=document.getElementById('mNote').value.trim();
+  const editId=document.getElementById('editId').value;
+
+  if(!name||!amount||!date){
+    const f=!name?'mName':!amount?'mAmount':'mDate';
+    document.getElementById(f).style.borderColor='var(--red)';
+    setTimeout(()=>document.getElementById(f).style.borderColor='',1500);
+    return;
+  }
+
+  const invs=loadInv();
+  if(editId){
+    const idx=invs.findIndex(i=>i.id===editId);
+    if(idx>=0) invs[idx]={...invs[idx],name,amount,date,platform,invType,note};
+  } else {
+    invs.push({id:'inv_'+Date.now(),name,amount,date,platform,invType,note});
+    // Also add to transactions
+    const data=JSON.parse(localStorage.getItem('ft_data')||'{"transactions":[],"emergency":0,"subscriptions":[]}');
+    data.transactions.push({id:Date.now(),type:'inversion',desc:name,amount,date,note,cat:'📈 Inversión',source:'investments'});
+    localStorage.setItem('ft_data',JSON.stringify(data));
+  }
+  saveInv(invs);
+  closeModal(); render();
+  showToast(lang==='es'?'✅ Inversión guardada':'✅ Investment saved');
+}
+
+function editInv(id){ openModal(id); }
+function deleteInv(id){
+  if(!confirm(lang==='es'?'¿Eliminar esta inversión?':'Delete this investment?')) return;
+  saveInv(loadInv().filter(i=>i.id!==id));
+  render();
+  showToast(lang==='es'?'🗑️ Eliminada':'🗑️ Deleted');
+}
+
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.style.display='flex';setTimeout(()=>t.style.display='none',3000);}
+function go(url){window.location.href=url;}
+function logout(){sessionStorage.removeItem('ft_user');sessionStorage.removeItem('ft_lang');window.location.href='login.html';}
+
+(function init(){
+  try{const s=sessionStorage.getItem('ft_user');if(!s){window.location.href='login.html';return;}user=JSON.parse(s);lang=user.lang||sessionStorage.getItem('ft_lang')||'es';}
+  catch(e){window.location.href='login.html';return;}
+  document.getElementById('sbName').textContent=user.name||'';
+  document.getElementById('sbEmail').textContent=user.email||'';
+  document.getElementById('sbAvatar').textContent=(user.name||'U').charAt(0).toUpperCase();
+  setLang(lang);render();
+})();
+</script>
+</body>
+</html>
