@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FinTrack Pro · Escanear Recibo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --g-dark:#0F5132;--g-main:#1A7A4A;--g-mid:#22A362;--g-light:#E8F7EF;--g-dim:rgba(26,122,74,0.10);
+  --white:#FFFFFF;--off:#F7F8FC;--border:#E4E6F0;--text:#1A1D2E;--text2:#4A4E69;--text3:#9395A5;
+  --red:#E63946;--red-dim:rgba(230,57,70,0.10);--amber:#F4A261;--amb-dim:rgba(244,162,97,0.12);
+  --blue:#4A6CF7;--blu-dim:rgba(74,108,247,0.10);
+  --r:14px;--sidebar:240px;--topbar:58px;
+  --shadow:0 2px 12px rgba(0,0,0,0.06);--shadow-md:0 4px 24px rgba(0,0,0,0.09);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(--text);min-height:100vh;}
+.app{display:flex;min-height:100vh;}
+
+/* SIDEBAR */
+.sidebar{width:var(--sidebar);background:var(--white);border-right:1px solid var(--border);position:fixed;top:0;left:0;bottom:0;display:flex;flex-direction:column;z-index:50;overflow-y:auto;}
+.sb-logo{display:flex;align-items:center;gap:10px;padding:22px 18px 18px;border-bottom:1px solid var(--border);}
+.sb-mark{width:36px;height:36px;background:linear-gradient(135deg,var(--g-dark),var(--g-main));border-radius:11px;display:grid;place-items:center;color:white;font-size:17px;flex-shrink:0;}
+.sb-name{font-size:15px;font-weight:800;letter-spacing:-.3px;}
+.sb-tag{font-size:10px;color:var(--text3);font-weight:500;}
+.sb-nav{padding:14px 10px;flex:1;}
+.sb-section{font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);padding:10px 8px 5px;}
+.sb-link{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:10px;font-size:13px;font-weight:600;color:var(--text2);cursor:pointer;margin-bottom:2px;transition:all .15s;}
+.sb-link:hover{background:var(--off);color:var(--text);}
+.sb-link.on{background:var(--g-dim);color:var(--g-main);}
+.sb-ico{font-size:15px;width:20px;text-align:center;flex-shrink:0;}
+.sb-footer{border-top:1px solid var(--border);padding:12px 10px;}
+.sb-user{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:10px;cursor:pointer;}
+.sb-user:hover{background:var(--off);}
+.sb-avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--g-dark),var(--g-main));display:grid;place-items:center;color:white;font-size:13px;font-weight:700;flex-shrink:0;}
+.sb-uname{font-size:13px;font-weight:700;}
+.sb-umail{font-size:10px;color:var(--text3);}
+
+/* MAIN */
+.main{margin-left:var(--sidebar);flex:1;display:flex;flex-direction:column;}
+.topbar{background:var(--white);border-bottom:1px solid var(--border);height:var(--topbar);padding:0 28px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:40;}
+.tb-title{font-size:17px;font-weight:800;letter-spacing:-.3px;}
+.tb-right{display:flex;align-items:center;gap:10px;}
+.lang-toggle{display:flex;background:var(--off);border:1px solid var(--border);border-radius:20px;overflow:hidden;font-size:11px;font-weight:700;}
+.lt-opt{padding:5px 11px;cursor:pointer;color:var(--text3);border-radius:20px;transition:all .15s;}
+.lt-opt.on{background:var(--g-main);color:white;}
+
+.page{padding:24px 28px;max-width:900px;}
+
+/* STEPPER */
+.stepper{display:flex;align-items:center;background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:16px 20px;margin-bottom:20px;box-shadow:var(--shadow);}
+.step{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;position:relative;}
+.step:not(:last-child)::after{content:'';position:absolute;top:14px;left:60%;width:80%;height:2px;background:var(--border);z-index:0;}
+.step.done:not(:last-child)::after{background:var(--g-main);}
+.step-num{width:28px;height:28px;border-radius:50%;background:var(--border);color:var(--text3);font-size:11px;font-weight:800;display:grid;place-items:center;position:relative;z-index:1;transition:all .3s;}
+.step.done .step-num{background:var(--g-main);color:white;}
+.step.active .step-num{background:var(--g-main);color:white;box-shadow:0 0 0 4px var(--g-dim);}
+.step-lbl{font-size:9px;font-weight:600;color:var(--text3);}
+.step.done .step-lbl,.step.active .step-lbl{color:var(--g-main);}
+
+/* CARD */
+.card{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:20px;box-shadow:var(--shadow);margin-bottom:16px;}
+.card-hd{font-size:14px;font-weight:800;margin-bottom:16px;}
+
+/* UPLOAD ZONE */
+.upload-zone{border:2px dashed var(--border);border-radius:var(--r);padding:40px 20px;text-align:center;cursor:pointer;transition:all .2s;position:relative;overflow:hidden;}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--g-main);background:var(--g-light);}
+.upload-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+.uz-icon{font-size:48px;margin-bottom:12px;}
+.uz-title{font-size:16px;font-weight:700;margin-bottom:6px;}
+.uz-sub{font-size:13px;color:var(--text3);}
+
+/* UPLOAD OPTS */
+.upload-opts{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px;}
+.upload-opt{background:var(--white);border:1.5px solid var(--border);border-radius:var(--r);padding:14px;text-align:center;cursor:pointer;transition:all .15s;}
+.upload-opt:hover,.upload-opt.on{border-color:var(--g-main);background:var(--g-light);}
+.uo-icon{font-size:24px;margin-bottom:6px;}
+.uo-title{font-size:13px;font-weight:700;}
+.uo-sub{font-size:11px;color:var(--text3);margin-top:2px;}
+
+/* IMAGE PREVIEW */
+.img-preview{border-radius:var(--r);overflow:hidden;margin-bottom:16px;position:relative;max-height:300px;display:none;}
+.img-preview img{width:100%;object-fit:cover;display:block;}
+.img-overlay{position:absolute;inset:0;background:rgba(15,81,50,0.5);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:white;}
+.scan-line{position:absolute;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,var(--g-mid),transparent);box-shadow:0 0 10px var(--g-main);animation:scanAnim 1.5s ease-in-out infinite;}
+@keyframes scanAnim{0%{top:10%}50%{top:85%}100%{top:10%}}
+.spinner-lg{width:36px;height:36px;border:3px solid rgba(255,255,255,0.3);border-top-color:white;border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* DETECTED FIELDS */
+.detected-card{background:var(--g-light);border:1px solid rgba(26,122,74,0.2);border-radius:var(--r);padding:16px;margin-bottom:16px;display:none;}
+.dc-header{display:flex;align-items:center;gap:8px;margin-bottom:14px;}
+.dc-dot{width:8px;height:8px;border-radius:50%;background:var(--g-main);animation:pulse 1.4s ease-in-out infinite;}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.3)}}
+.dc-title{font-size:13px;font-weight:700;color:var(--g-dark);}
+.conf-badge{margin-left:auto;background:var(--g-main);color:white;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;}
+
+/* FORM */
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text3);margin-bottom:6px;}
+.field input,.field select{width:100%;background:var(--white);border:1.5px solid var(--border);border-radius:var(--r);padding:11px 14px;font-size:14px;font-weight:500;color:var(--text);font-family:inherit;outline:none;transition:border-color .15s;}
+.field input:focus,.field select:focus{border-color:var(--g-main);}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+
+/* TYPE GRID */
+.type-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:16px;}
+.type-btn{padding:10px 6px;border-radius:10px;font-size:11px;font-weight:700;text-align:center;cursor:pointer;border:1.5px solid var(--border);color:var(--text3);background:var(--off);font-family:inherit;transition:all .15s;}
+.type-btn.on{border-color:var(--g-main);background:var(--g-dim);color:var(--g-main);}
+
+/* BUTTONS */
+.btn-primary{width:100%;background:linear-gradient(135deg,var(--g-dark),var(--g-main));color:white;border:none;border-radius:var(--r);padding:14px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:0 4px 16px rgba(15,81,50,0.22);transition:opacity .15s;display:flex;align-items:center;justify-content:center;gap:8px;}
+.btn-primary:hover{opacity:.88;}
+.btn-primary:disabled{opacity:.5;pointer-events:none;}
+.btn-secondary{width:100%;background:var(--white);color:var(--text2);border:1.5px solid var(--border);border-radius:var(--r);padding:12px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:8px;transition:all .15s;}
+.btn-secondary:hover{border-color:var(--g-main);color:var(--g-main);}
+
+/* HISTORY */
+.scan-history{display:flex;flex-direction:column;gap:8px;}
+.sh-item{display:flex;align-items:center;gap:12px;background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:12px 16px;box-shadow:var(--shadow);}
+.sh-ico{width:36px;height:36px;border-radius:10px;background:var(--g-light);display:grid;place-items:center;font-size:17px;flex-shrink:0;}
+.sh-info{flex:1;}
+.sh-name{font-size:13px;font-weight:600;}
+.sh-meta{font-size:11px;color:var(--text3);margin-top:2px;}
+.sh-amt{font-size:15px;font-weight:800;color:var(--red);}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--text);color:white;padding:12px 20px;border-radius:20px;font-size:13px;font-weight:600;display:none;align-items:center;gap:8px;box-shadow:var(--shadow-md);z-index:200;}
+
+/* MOBILE */
+@media(max-width:860px){
+  .sidebar{display:none;}
+  .main{margin-left:0;padding-bottom:72px;}
+  .topbar{padding:0 16px;}
+  .page{padding:16px;max-width:100%;}
+  .upload-opts{grid-template-columns:1fr 1fr;}
+  .field-row{grid-template-columns:1fr;}
+  .mob-nav{display:flex !important;}
+}
+.mob-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--white);border-top:1px solid var(--border);padding:10px 4px 16px;padding-bottom:calc(10px + env(safe-area-inset-bottom));z-index:50;gap:0;box-shadow:0 -4px 20px rgba(0,0,0,0.06);}
+.mob-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:9px;font-weight:600;color:var(--text3);}
+.mob-item.on{color:var(--g-main);}
+.mob-ico{font-size:20px;line-height:1;}
+.mob-add{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--g-dark),var(--g-main));display:flex;align-items:center;justify-content:center;color:white;font-size:22px;margin-top:-16px;box-shadow:0 4px 16px rgba(15,81,50,0.35);flex-shrink:0;}
+::-webkit-scrollbar{width:5px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sb-logo">
+    <div class="sb-mark">💎</div>
+    <div><div class="sb-name">FinTrack Pro</div><div class="sb-tag" data-es="Panel financiero" data-en="Financial dashboard">Panel financiero</div></div>
+  </div>
+  <nav class="sb-nav">
+    <div class="sb-section" data-es="Principal" data-en="Main">Principal</div>
+    <div class="sb-link" onclick="go('dashboard.html')"><span class="sb-ico">📊</span><span data-es="Dashboard" data-en="Dashboard">Dashboard</span></div>
+    <div class="sb-link" onclick="go('dashboard.html')"><span class="sb-ico">➕</span><span data-es="Nuevo registro" data-en="New entry">Nuevo registro</span></div>
+    <div class="sb-link"><span class="sb-ico">🔄</span><span data-es="Suscripciones" data-en="Subscriptions">Suscripciones</span></div>
+    <div class="sb-section" data-es="Análisis" data-en="Analysis">Análisis</div>
+    <div class="sb-link" onclick="go('analisis.html')"><span class="sb-ico">📈</span><span data-es="Por categoría" data-en="By category">Por categoría</span></div>
+    <div class="sb-link" onclick="go('historial.html')"><span class="sb-ico">📅</span><span data-es="Historial" data-en="History">Historial</span></div>
+    <div class="sb-link"><span class="sb-ico">🏦</span><span data-es="Inversiones" data-en="Investments">Inversiones</span></div>
+    <div class="sb-section" data-es="Herramientas" data-en="Tools">Herramientas</div>
+    <div class="sb-link on"><span class="sb-ico">📷</span><span data-es="Escanear recibo" data-en="Scan receipt">Escanear recibo</span></div>
+    <div class="sb-link"><span class="sb-ico">🛡️</span><span data-es="Fondo emergencia" data-en="Emergency fund">Fondo emergencia</span></div>
+    <div class="sb-section" data-es="Cuenta" data-en="Account">Cuenta</div>
+    <div class="sb-link" onclick="go('config.html')"><span class="sb-ico">⚙️</span><span data-es="Configuración" data-en="Settings">Configuración</span></div>
+    <div class="sb-link" onclick="logout()"><span class="sb-ico">🚪</span><span data-es="Cerrar sesión" data-en="Sign out">Cerrar sesión</span></div>
+  </nav>
+  <div class="sb-footer">
+    <div class="sb-user">
+      <div class="sb-avatar" id="sbAvatar">R</div>
+      <div><div class="sb-uname" id="sbName">—</div><div class="sb-umail" id="sbEmail">—</div></div>
+    </div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="topbar">
+    <div class="tb-title" data-es="Escanear Recibo" data-en="Scan Receipt">Escanear Recibo</div>
+    <div class="tb-right">
+      <div class="lang-toggle">
+        <div class="lt-opt on" id="ltES" onclick="setLang('es')">ES</div>
+        <div class="lt-opt"    id="ltEN" onclick="setLang('en')">EN</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="page">
+
+    <!-- STEPPER -->
+    <div class="stepper">
+      <div class="step active" id="st1"><div class="step-num" id="sn1">1</div><div class="step-lbl" data-es="Subir foto" data-en="Upload photo">Subir foto</div></div>
+      <div class="step" id="st2"><div class="step-num" id="sn2">2</div><div class="step-lbl" data-es="Detectar" data-en="Detect">Detectar</div></div>
+      <div class="step" id="st3"><div class="step-num" id="sn3">3</div><div class="step-lbl" data-es="Confirmar" data-en="Confirm">Confirmar</div></div>
+      <div class="step" id="st4"><div class="step-num" id="sn4">4</div><div class="step-lbl" data-es="Guardado" data-en="Saved">Guardado</div></div>
+    </div>
+
+    <!-- STEP 1: UPLOAD -->
+    <div id="viewUpload">
+      <div class="card">
+        <div class="card-hd" data-es="¿Cómo quieres agregar el recibo?" data-en="How do you want to add the receipt?">¿Cómo quieres agregar el recibo?</div>
+
+        <div class="upload-opts">
+          <div class="upload-opt on" id="optPhoto" onclick="selectOpt('photo')">
+            <div class="uo-icon">📷</div>
+            <div class="uo-title" data-es="Cámara" data-en="Camera">Cámara</div>
+            <div class="uo-sub" data-es="Foto en vivo" data-en="Live photo">Foto en vivo</div>
+          </div>
+          <div class="upload-opt" id="optGallery" onclick="selectOpt('gallery')">
+            <div class="uo-icon">🖼️</div>
+            <div class="uo-title" data-es="Galería" data-en="Gallery">Galería</div>
+            <div class="uo-sub" data-es="Desde tus fotos" data-en="From your photos">Desde tus fotos</div>
+          </div>
+          <div class="upload-opt" id="optManual" onclick="selectOpt('manual')">
+            <div class="uo-icon">⌨️</div>
+            <div class="uo-title" data-es="Manual" data-en="Manual">Manual</div>
+            <div class="uo-sub" data-es="Ingresar a mano" data-en="Enter manually">Ingresar a mano</div>
+          </div>
+        </div>
+
+        <!-- Upload zone (photo/gallery) -->
+        <div class="upload-zone" id="uploadZone">
+          <input type="file" id="fileInput" accept="image/*" onchange="handleFile(this)">
+          <div class="uz-icon">📸</div>
+          <div class="uz-title" data-es="Toca para tomar o seleccionar foto" data-en="Tap to take or select photo">Toca para tomar o seleccionar foto</div>
+          <div class="uz-sub" data-es="JPG, PNG — La IA detectará el monto, fecha y comercio" data-en="JPG, PNG — AI will detect amount, date and merchant">JPG, PNG — La IA detectará el monto, fecha y comercio</div>
+        </div>
+      </div>
+
+      <!-- Tips -->
+      <div class="card">
+        <div class="card-hd" data-es="💡 Tips para mejor resultado" data-en="💡 Tips for best results">💡 Tips para mejor resultado</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;gap:10px;align-items:flex-start">
+            <div style="width:24px;height:24px;border-radius:50%;background:var(--g-main);color:white;display:grid;place-items:center;font-size:11px;font-weight:800;flex-shrink:0">1</div>
+            <div style="font-size:13px;color:var(--text2);line-height:1.5" data-es="Asegúrate de que el total sea visible y legible" data-en="Make sure the total is visible and readable">Asegúrate de que el total sea visible y legible</div>
+          </div>
+          <div style="display:flex;gap:10px;align-items:flex-start">
+            <div style="width:24px;height:24px;border-radius:50%;background:var(--g-main);color:white;display:grid;place-items:center;font-size:11px;font-weight:800;flex-shrink:0">2</div>
+            <div style="font-size:13px;color:var(--text2);line-height:1.5" data-es="Buena iluminación — evita sombras sobre el recibo" data-en="Good lighting — avoid shadows over the receipt">Buena iluminación — evita sombras sobre el recibo</div>
+          </div>
+          <div style="display:flex;gap:10px;align-items:flex-start">
+            <div style="width:24px;height:24px;border-radius:50%;background:var(--g-main);color:white;display:grid;place-items:center;font-size:11px;font-weight:800;flex-shrink:0">3</div>
+            <div style="font-size:13px;color:var(--text2);line-height:1.5" data-es="Centra el recibo en la foto para mejor lectura" data-en="Center the receipt in the photo for better reading">Centra el recibo en la foto para mejor lectura</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 2: SCANNING -->
+    <div id="viewScanning" style="display:none">
+      <div class="card" style="text-align:center;padding:40px 20px">
+        <!-- Image preview with scan animation -->
+        <div class="img-preview" id="imgPreview" style="display:block;margin-bottom:20px">
+          <img id="previewImg" src="" alt="receipt">
+          <div class="img-overlay" id="scanOverlay">
+            <div class="scan-line"></div>
+            <div class="spinner-lg"></div>
+            <div style="font-size:13px;font-weight:600;margin-top:8px" id="scanMsg" data-es="Analizando con IA..." data-en="Analyzing with AI...">Analizando con IA...</div>
+          </div>
+        </div>
+        <div style="font-size:14px;font-weight:600;color:var(--text2)" id="scanStatus" data-es="Detectando monto, fecha y comercio..." data-en="Detecting amount, date and merchant...">Detectando monto, fecha y comercio...</div>
+      </div>
+    </div>
+
+    <!-- STEP 3: CONFIRM -->
+    <div id="viewConfirm" style="display:none">
+
+      <!-- Detected notice -->
+      <div class="detected-card" id="detectedCard" style="display:block">
+        <div class="dc-header">
+          <div class="dc-dot"></div>
+          <div class="dc-title" data-es="✨ Datos detectados automáticamente" data-en="✨ Data detected automatically">✨ Datos detectados automáticamente</div>
+          <div class="conf-badge" id="confBadge">95%</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-hd" data-es="Confirma los datos del recibo" data-en="Confirm receipt data">Confirma los datos del recibo</div>
+
+        <!-- Type -->
+        <div style="margin-bottom:16px">
+          <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text3);margin-bottom:8px" data-es="Tipo de registro" data-en="Entry type">Tipo de registro</label>
+          <div class="type-grid">
+            <button class="type-btn on" onclick="pickType(this,'gasto')">💸 <span data-es="Gasto" data-en="Expense">Gasto</span></button>
+            <button class="type-btn" onclick="pickType(this,'ingreso')">💰 <span data-es="Ingreso" data-en="Income">Ingreso</span></button>
+            <button class="type-btn" onclick="pickType(this,'inversion')">📈 <span data-es="Inversión" data-en="Investment">Inversión</span></button>
+            <button class="type-btn" onclick="pickType(this,'ahorro')">🛡️ <span data-es="Ahorro" data-en="Savings">Ahorro</span></button>
+            <button class="type-btn" onclick="pickType(this,'suscripcion')">🔄 <span data-es="Suscripción" data-en="Subscription">Suscripción</span></button>
+            <button class="type-btn" onclick="pickType(this,'hipoteca')">🏠 <span data-es="Renta" data-en="Rent">Renta</span></button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label data-es="Comercio / Descripción" data-en="Merchant / Description">Comercio / Descripción</label>
+          <input type="text" id="cfDesc" placeholder="">
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label data-es="Monto total ($)" data-en="Total amount ($)">Monto total ($)</label>
+            <input type="number" id="cfAmount" placeholder="0.00" min="0" step="0.01">
+          </div>
+          <div class="field">
+            <label data-es="Fecha" data-en="Date">Fecha</label>
+            <input type="date" id="cfDate">
+          </div>
+        </div>
+        <div class="field">
+          <label data-es="Categoría" data-en="Category">Categoría</label>
+          <select id="cfCat">
+            <option data-es="🛒 Supermercado" data-en="🛒 Grocery">🛒 Supermercado</option>
+            <option data-es="🏠 Renta / Hipoteca" data-en="🏠 Rent / Mortgage">🏠 Renta / Hipoteca</option>
+            <option data-es="⛽ Gasolina" data-en="⛽ Gas">⛽ Gasolina</option>
+            <option data-es="🍔 Restaurantes" data-en="🍔 Restaurants">🍔 Restaurantes</option>
+            <option data-es="💊 Salud" data-en="💊 Health">💊 Salud</option>
+            <option data-es="🎬 Entretenimiento" data-en="🎬 Entertainment">🎬 Entretenimiento</option>
+            <option data-es="👕 Ropa" data-en="👕 Clothing">👕 Ropa</option>
+            <option data-es="📱 Teléfono/Internet" data-en="📱 Phone/Internet">📱 Teléfono/Internet</option>
+            <option data-es="✈️ Viajes" data-en="✈️ Travel">✈️ Viajes</option>
+            <option data-es="🔧 Mantenimiento" data-en="🔧 Maintenance">🔧 Mantenimiento</option>
+            <option data-es="📦 Otros" data-en="📦 Other">📦 Otros</option>
+          </select>
+        </div>
+        <div class="field">
+          <label data-es="Nota (opcional)" data-en="Note (optional)">Nota (opcional)</label>
+          <input type="text" id="cfNote" placeholder="">
+        </div>
+
+        <button class="btn-primary" onclick="saveEntry()" id="btnSave">
+          ✓ <span data-es="Confirmar y guardar" data-en="Confirm and save">Confirmar y guardar</span>
+        </button>
+        <button class="btn-secondary" onclick="resetScanner()" data-es="← Escanear otro recibo" data-en="← Scan another receipt">← Escanear otro recibo</button>
+      </div>
+    </div>
+
+    <!-- STEP 4: SUCCESS -->
+    <div id="viewSuccess" style="display:none">
+      <div class="card" style="text-align:center;padding:40px 20px">
+        <div style="width:72px;height:72px;background:var(--g-light);border-radius:50%;display:grid;place-items:center;font-size:34px;margin:0 auto 16px;animation:popIn .5s cubic-bezier(0.34,1.56,0.64,1)">✅</div>
+        <div style="font-size:22px;font-weight:800;margin-bottom:6px" id="successTitle">¡Guardado!</div>
+        <div style="font-size:13px;color:var(--text3);margin-bottom:24px" id="successDesc"></div>
+        <button class="btn-primary" onclick="go('dashboard.html')" style="margin-bottom:8px">
+          📊 <span data-es="Ver en Dashboard" data-en="View in Dashboard">Ver en Dashboard</span>
+        </button>
+        <button class="btn-secondary" onclick="resetScanner()" data-es="📷 Escanear otro recibo" data-en="📷 Scan another receipt">📷 Escanear otro recibo</button>
+      </div>
+
+      <!-- Scan history -->
+      <div class="card" id="historyCard" style="display:none">
+        <div class="card-hd" data-es="📋 Recibos escaneados hoy" data-en="📋 Receipts scanned today">📋 Recibos escaneados hoy</div>
+        <div class="scan-history" id="scanHistory"></div>
+      </div>
+    </div>
+
+  </div><!-- /page -->
+</div><!-- /main -->
+</div><!-- /app -->
+
+<!-- MOBILE NAV -->
+<nav class="mob-nav">
+  <div class="mob-item" onclick="go('dashboard.html')"><div class="mob-ico">📊</div><span data-es="Inicio" data-en="Home">Inicio</span></div>
+  <div class="mob-item" onclick="go('historial.html')"><div class="mob-ico">📅</div><span data-es="Historial" data-en="History">Historial</span></div>
+  <div class="mob-item"><div class="mob-add" onclick="go('dashboard.html')">＋</div></div>
+  <div class="mob-item on"><div class="mob-ico">📷</div><span data-es="Scanner" data-en="Scanner">Scanner</span></div>
+  <div class="mob-item" onclick="go('config.html')"><div class="mob-ico">👤</div><span data-es="Perfil" data-en="Profile">Perfil</span></div>
+</nav>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+/* ── STATE ── */
+const STORE_KEY = 'ft_data';
+let lang = 'es';
+let user = {};
+let currentType = 'gasto';
+let scannedHistory = [];
+
+/* ── DATA ── */
+function loadData() {
+  try { return JSON.parse(localStorage.getItem(STORE_KEY)) || {transactions:[],emergency:0,subscriptions:[]}; }
+  catch(e) { return {transactions:[],emergency:0,subscriptions:[]}; }
+}
+function saveData(d) { localStorage.setItem(STORE_KEY, JSON.stringify(d)); }
+function fmtD(n) { return '$'+Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+
+/* ── LANG ── */
+function setLang(l) {
+  lang = l;
+  sessionStorage.setItem('ft_lang', l);
+  document.getElementById('ltES').classList.toggle('on', l==='es');
+  document.getElementById('ltEN').classList.toggle('on', l==='en');
+  document.querySelectorAll('[data-es]').forEach(el => {
+    const v = el.getAttribute('data-'+l);
+    if (v) el.textContent = v;
+  });
+}
+
+/* ── UPLOAD OPTION ── */
+let selectedOpt = 'photo';
+function selectOpt(opt) {
+  selectedOpt = opt;
+  ['photo','gallery','manual'].forEach(o => {
+    document.getElementById('opt'+o.charAt(0).toUpperCase()+o.slice(1))?.classList.toggle('on', o===opt);
+  });
+  const zone = document.getElementById('uploadZone');
+  const input = document.getElementById('fileInput');
+
+  if (opt === 'manual') {
+    zone.style.display = 'none';
+    // Go directly to confirm with empty fields
+    goToConfirm({ desc:'', amount:'', date:new Date().toISOString().split('T')[0], cat:'', confidence:0, manual:true });
+  } else {
+    zone.style.display = '';
+    if (opt === 'photo') {
+      input.setAttribute('capture', 'environment');
+    } else {
+      input.removeAttribute('capture');
+    }
+  }
+}
+
+/* ── FILE HANDLER ── */
+function handleFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    document.getElementById('previewImg').src = e.target.result;
+    showStep('scanning');
+    analyzeImage(e.target.result, file.name);
+  };
+  reader.readAsDataURL(file);
+}
+
+/* ── AI ANALYSIS via Claude API ── */
+async function analyzeImage(base64Data, fileName) {
+  const statusEl = document.getElementById('scanStatus');
+
+  const messages = [lang==='es'?'Leyendo el recibo...':'Reading receipt...',
+                    lang==='es'?'Detectando monto total...':'Detecting total amount...',
+                    lang==='es'?'Identificando comercio...':'Identifying merchant...',
+                    lang==='es'?'Clasificando categoría...':'Classifying category...'];
+
+  let msgIdx = 0;
+  const iv = setInterval(() => {
+    if (msgIdx < messages.length) statusEl.textContent = messages[msgIdx++];
+  }, 800);
+
+  try {
+    // Extract base64 without prefix
+    const b64 = base64Data.split(',')[1];
+    const mediaType = base64Data.split(';')[0].split(':')[1] || 'image/jpeg';
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 500,
+        messages: [{
+          role: 'user',
+          content: [
+            {
+              type: 'image',
+              source: { type: 'base64', media_type: mediaType, data: b64 }
+            },
+            {
+              type: 'text',
+              text: `Analyze this receipt image and extract the following information. Respond ONLY with a valid JSON object, no markdown, no explanation:
+{
+  "merchant": "store or restaurant name",
+  "amount": 0.00,
+  "date": "YYYY-MM-DD",
+  "category": "one of: Supermercado, Restaurantes, Gasolina, Entretenimiento, Salud, Ropa, Viajes, Telefono, Renta, Mantenimiento, Otros",
+  "confidence": 85,
+  "items": ["item1", "item2"]
+}
+If you cannot read the receipt clearly, use your best estimate and lower the confidence score. Today's date is ${new Date().toISOString().split('T')[0]}.`
+            }
+          ]
+        }]
+      })
+    });
+
+    clearInterval(iv);
+
+    if (!response.ok) throw new Error('API error');
+
+    const data = await response.json();
+    const text = data.content[0].text.trim();
+    const clean = text.replace(/```json|```/g,'').trim();
+    const result = JSON.parse(clean);
+
+    goToConfirm({
+      desc:   result.merchant || '',
+      amount: result.amount   || '',
+      date:   result.date     || new Date().toISOString().split('T')[0],
+      cat:    result.category || 'Otros',
+      confidence: result.confidence || 80,
+      manual: false
+    });
+
+  } catch(err) {
+    clearInterval(iv);
+    console.error('AI error:', err);
+    // Fallback to manual with partial data
+    goToConfirm({
+      desc: '', amount: '', date: new Date().toISOString().split('T')[0],
+      cat: 'Otros', confidence: 0, manual: true,
+      error: lang==='es'?'No se pudo leer el recibo. Ingresa los datos manualmente.':'Could not read receipt. Please enter data manually.'
+    });
+  }
+}
+
+/* ── GO TO CONFIRM ── */
+function goToConfirm(data) {
+  // Populate form
+  document.getElementById('cfDesc').value   = data.desc   || '';
+  document.getElementById('cfAmount').value = data.amount || '';
+  document.getElementById('cfDate').value   = data.date   || new Date().toISOString().split('T')[0];
+  document.getElementById('cfNote').value   = '';
+
+  // Set category
+  const catMap = {
+    'Supermercado':'🛒 Supermercado','Restaurantes':'🍔 Restaurantes','Gasolina':'⛽ Gasolina',
+    'Entretenimiento':'🎬 Entretenimiento','Salud':'💊 Salud','Ropa':'👕 Ropa',
+    'Viajes':'✈️ Viajes','Telefono':'📱 Teléfono/Internet','Renta':'🏠 Renta / Hipoteca',
+    'Mantenimiento':'🔧 Mantenimiento','Otros':'📦 Otros'
+  };
+  const select = document.getElementById('cfCat');
+  const mapped = catMap[data.cat] || '📦 Otros';
+  for (let o of select.options) { if (o.value.includes(data.cat) || o.text.includes(data.cat)) { select.value = o.value; break; } }
+
+  // Confidence badge
+  const badge = document.getElementById('confBadge');
+  if (data.manual || data.confidence === 0) {
+    document.getElementById('detectedCard').style.display = 'none';
+  } else {
+    document.getElementById('detectedCard').style.display = 'block';
+    badge.textContent = data.confidence+'%';
+    badge.style.background = data.confidence >= 80 ? 'var(--g-main)' : 'var(--amber)';
+  }
+
+  if (data.error) showToast('⚠️ '+data.error);
+
+  showStep('confirm');
+}
+
+/* ── PICK TYPE ── */
+function pickType(btn, type) {
+  currentType = type;
+  document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+}
+
+/* ── SAVE ENTRY ── */
+function saveEntry() {
+  const desc   = document.getElementById('cfDesc').value.trim();
+  const amount = parseFloat(document.getElementById('cfAmount').value);
+  const date   = document.getElementById('cfDate').value;
+  const note   = document.getElementById('cfNote').value.trim();
+  const cat    = document.getElementById('cfCat').value;
+
+  if (!desc || !amount || !date) {
+    const f = !desc?'cfDesc':!amount?'cfAmount':'cfDate';
+    document.getElementById(f).style.borderColor = 'var(--red)';
+    setTimeout(() => document.getElementById(f).style.borderColor = '', 1500);
+    return;
+  }
+
+  const data  = loadData();
+  const entry = { id:Date.now(), type:currentType, desc, amount, date, note, cat, source:'scanner' };
+
+  if (currentType === 'ahorro') data.emergency = (data.emergency||0) + amount;
+  data.transactions.push(entry);
+  saveData(data);
+
+  // Add to scan history
+  scannedHistory.unshift(entry);
+
+  // Show success
+  const successTitle = document.getElementById('successTitle');
+  const successDesc  = document.getElementById('successDesc');
+  successTitle.textContent = lang==='es' ? '¡Guardado!' : 'Saved!';
+  successDesc.textContent  = lang==='es'
+    ? `${desc} — $${amount.toFixed(2)} registrado correctamente`
+    : `${desc} — $${amount.toFixed(2)} recorded successfully`;
+
+  // Show history
+  if (scannedHistory.length) {
+    document.getElementById('historyCard').style.display = '';
+    document.getElementById('scanHistory').innerHTML = scannedHistory.slice(0,5).map(e => `
+      <div class="sh-item">
+        <div class="sh-ico">🧾</div>
+        <div class="sh-info">
+          <div class="sh-name">${e.desc}</div>
+          <div class="sh-meta">${new Date(e.date).toLocaleDateString(lang==='es'?'es-MX':'en-US',{month:'short',day:'numeric'})}</div>
+        </div>
+        <div class="sh-amt">-${fmtD(e.amount)}</div>
+      </div>`).join('');
+  }
+
+  showStep('success');
+  setStepDone(4);
+}
+
+/* ── STEPS ── */
+function showStep(name) {
+  document.getElementById('viewUpload').style.display   = name==='upload'  ?'':'none';
+  document.getElementById('viewScanning').style.display = name==='scanning'?'':'none';
+  document.getElementById('viewConfirm').style.display  = name==='confirm' ?'':'none';
+  document.getElementById('viewSuccess').style.display  = name==='success' ?'':'none';
+
+  const stepMap = {upload:1,scanning:2,confirm:3,success:4};
+  const n = stepMap[name]||1;
+  for (let i=1;i<=4;i++) {
+    const st = document.getElementById('st'+i);
+    const sn = document.getElementById('sn'+i);
+    st.classList.remove('done','active');
+    if (i<n) { st.classList.add('done'); sn.textContent='✓'; }
+    else if (i===n) { st.classList.add('active'); sn.textContent=i; }
+    else { sn.textContent=i; }
+  }
+}
+
+function setStepDone(n) {
+  const st = document.getElementById('st'+n);
+  const sn = document.getElementById('sn'+n);
+  if (st) { st.classList.remove('active'); st.classList.add('done'); }
+  if (sn) sn.textContent = '✓';
+}
+
+function resetScanner() {
+  document.getElementById('fileInput').value = '';
+  document.getElementById('previewImg').src = '';
+  showStep('upload');
+}
+
+/* ── TOAST ── */
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.display = 'flex';
+  setTimeout(() => { t.style.display='none'; }, 3500);
+}
+
+/* ── NAV ── */
+function go(url) { window.location.href = url; }
+function logout() {
+  sessionStorage.removeItem('ft_user');
+  sessionStorage.removeItem('ft_lang');
+  window.location.href = 'login.html';
+}
+
+/* ── INIT ── */
+(function init() {
+  try {
+    const s = sessionStorage.getItem('ft_user');
+    if (!s) { window.location.href = 'login.html'; return; }
+    user = JSON.parse(s);
+    lang = user.lang || sessionStorage.getItem('ft_lang') || 'es';
+  } catch(e) { window.location.href = 'login.html'; return; }
+
+  document.getElementById('sbName').textContent   = user.name  || '';
+  document.getElementById('sbEmail').textContent  = user.email || '';
+  document.getElementById('sbAvatar').textContent = (user.name||'U').charAt(0).toUpperCase();
+
+  setLang(lang);
+  showStep('upload');
+})();
+</script>
+</body>
+</html>
