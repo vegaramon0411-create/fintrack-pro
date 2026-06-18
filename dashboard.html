@@ -706,6 +706,47 @@ body {
       <div class="modal-title" data-es="Nuevo registro" data-en="New entry">Nuevo registro</div>
       <div class="modal-close" onclick="closeModal()">✕</div>
     </div>
+
+    <!-- INPUT METHOD TABS -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:5px;margin-bottom:16px;background:var(--off);border-radius:10px;padding:3px;">
+      <button class="input-tab on" onclick="switchInputTab('manual',this)" style="padding:7px 4px;border-radius:8px;font-size:11px;font-weight:700;border:none;cursor:pointer;font-family:inherit;background:var(--white);color:var(--g-main);box-shadow:0 1px 4px rgba(0,0,0,0.08);" data-es="✏️ Manual" data-en="✏️ Manual">✏️ Manual</button>
+      <button class="input-tab" onclick="switchInputTab('voice',this)" style="padding:7px 4px;border-radius:8px;font-size:11px;font-weight:700;border:none;cursor:pointer;font-family:inherit;background:transparent;color:var(--text3);" data-es="🎤 Voz" data-en="🎤 Voice">🎤 Voz</button>
+      <button class="input-tab" onclick="switchInputTab('quick',this)" style="padding:7px 4px;border-radius:8px;font-size:11px;font-weight:700;border:none;cursor:pointer;font-family:inherit;background:transparent;color:var(--text3);" data-es="⚡ Rápido" data-en="⚡ Quick">⚡ Rápido</button>
+      <button class="input-tab" onclick="switchInputTab('csv',this)" style="padding:7px 4px;border-radius:8px;font-size:11px;font-weight:700;border:none;cursor:pointer;font-family:inherit;background:transparent;color:var(--text3);" data-es="📄 CSV" data-en="📄 CSV">📄 CSV</button>
+    </div>
+
+    <!-- VOICE INPUT -->
+    <div id="tabVoice" style="display:none;margin-bottom:16px">
+      <div style="text-align:center;padding:20px;background:var(--off);border-radius:var(--r);margin-bottom:12px">
+        <div id="voiceBtn" onclick="toggleVoice()" style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,var(--g-dark),var(--g-main));display:grid;place-items:center;font-size:28px;margin:0 auto 10px;cursor:pointer;box-shadow:0 4px 16px rgba(15,81,50,0.3);transition:transform .1s;">🎤</div>
+        <div id="voiceStatus" style="font-size:13px;font-weight:600;color:var(--text2)" data-es="Toca el micrófono y habla" data-en="Tap the mic and speak">Toca el micrófono y habla</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:6px" data-es='Ejemplo: "Gasté $45 en Portillo\'s"' data-en='Example: "I spent $45 at Portillo\'s"'>Ejemplo: "Gasté $45 en Portillo's"</div>
+      </div>
+      <div id="voiceResult" style="display:none;background:var(--g-light);border:1px solid rgba(26,122,74,0.2);border-radius:var(--r);padding:12px;margin-bottom:10px">
+        <div style="font-size:11px;font-weight:700;color:var(--g-dark);margin-bottom:4px" data-es="Detectado:" data-en="Detected:">Detectado:</div>
+        <div id="voiceText" style="font-size:13px;color:var(--text2)"></div>
+      </div>
+    </div>
+
+    <!-- QUICK SHORTCUTS -->
+    <div id="tabQuick" style="display:none;margin-bottom:16px">
+      <div id="quickList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px"></div>
+      <button onclick="addQuickShortcut()" style="width:100%;border:1.5px dashed var(--border);background:transparent;border-radius:var(--r);padding:10px;font-size:12px;font-weight:600;color:var(--text3);cursor:pointer;font-family:inherit;transition:all .15s;" data-es="+ Agregar atajo rápido" data-en="+ Add quick shortcut">+ Agregar atajo rápido</button>
+    </div>
+
+    <!-- CSV IMPORT -->
+    <div id="tabCsv" style="display:none;margin-bottom:16px">
+      <div style="border:2px dashed var(--border);border-radius:var(--r);padding:24px;text-align:center;cursor:pointer;transition:all .2s;position:relative" id="csvZone">
+        <input type="file" accept=".csv" id="csvFile" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;" onchange="handleCSV(this)">
+        <div style="font-size:32px;margin-bottom:8px">📄</div>
+        <div style="font-size:14px;font-weight:700;margin-bottom:4px" data-es="Subir estado de cuenta CSV" data-en="Upload bank statement CSV">Subir estado de cuenta CSV</div>
+        <div style="font-size:12px;color:var(--text3)" data-es="Chase, SoFi, Bank of America, y más" data-en="Chase, SoFi, Bank of America, and more">Chase, SoFi, Bank of America, y más</div>
+      </div>
+      <div id="csvPreview" style="display:none;margin-top:10px"></div>
+    </div>
+
+    <!-- MANUAL (default) -->
+    <div id="tabManual">
     <div class="type-grid">
       <button class="type-btn on" onclick="pickType(this,'gasto')">💸 <span data-es="Gasto" data-en="Expense">Gasto</span></button>
       <button class="type-btn" onclick="pickType(this,'ingreso')">💰 <span data-es="Ingreso" data-en="Income">Ingreso</span></button>
@@ -750,6 +791,7 @@ body {
       <input type="text" id="mNote" placeholder="">
     </div>
     <button class="btn-save" onclick="saveEntry()" data-es="Guardar registro" data-en="Save entry">Guardar registro</button>
+    </div><!-- /tabManual -->
   </div>
 </div>
 
@@ -1150,6 +1192,270 @@ function showToast(icon, title, msg, color) {
   t.querySelector('.toast-msg').textContent    = msg;
   t.style.display = 'flex';
   setTimeout(() => { t.style.display='none'; }, 3500);
+}
+
+/* ══════════════════════════════════════════
+   INPUT TABS
+══════════════════════════════════════════ */
+function switchInputTab(tab, btn) {
+  // Reset all tabs
+  document.querySelectorAll('.input-tab').forEach(b => {
+    b.style.background = 'transparent';
+    b.style.color = 'var(--text3)';
+    b.style.boxShadow = 'none';
+  });
+  btn.style.background = 'var(--white)';
+  btn.style.color = 'var(--g-main)';
+  btn.style.boxShadow = '0 1px 4px rgba(0,0,0,0.08)';
+
+  document.getElementById('tabManual').style.display = tab==='manual' ? '' : 'none';
+  document.getElementById('tabVoice').style.display  = tab==='voice'  ? '' : 'none';
+  document.getElementById('tabQuick').style.display  = tab==='quick'  ? '' : 'none';
+  document.getElementById('tabCsv').style.display    = tab==='csv'    ? '' : 'none';
+
+  if (tab==='quick') renderQuickShortcuts();
+}
+
+/* ══════════════════════════════════════════
+   🎤 VOICE INPUT
+══════════════════════════════════════════ */
+let recognition = null;
+let isListening = false;
+
+function toggleVoice() {
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+    showToast(lang==='es'?'⚠️ Tu navegador no soporta reconocimiento de voz':'⚠️ Your browser does not support voice recognition');
+    return;
+  }
+
+  if (isListening) {
+    recognition.stop();
+    return;
+  }
+
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  recognition = new SR();
+  recognition.lang = lang==='es' ? 'es-MX' : 'en-US';
+  recognition.continuous = false;
+  recognition.interimResults = false;
+
+  recognition.onstart = () => {
+    isListening = true;
+    const btn = document.getElementById('voiceBtn');
+    btn.style.transform = 'scale(1.1)';
+    btn.style.background = 'linear-gradient(135deg,var(--red),#FF6B6B)';
+    btn.textContent = '⏹️';
+    document.getElementById('voiceStatus').textContent = lang==='es' ? 'Escuchando...' : 'Listening...';
+  };
+
+  recognition.onresult = (e) => {
+    const text = e.results[0][0].transcript;
+    processVoiceInput(text);
+  };
+
+  recognition.onerror = () => {
+    resetVoiceBtn();
+    showToast(lang==='es'?'⚠️ No se pudo escuchar. Intenta de nuevo.':'⚠️ Could not hear. Try again.');
+  };
+
+  recognition.onend = () => { resetVoiceBtn(); };
+
+  recognition.start();
+}
+
+function resetVoiceBtn() {
+  isListening = false;
+  const btn = document.getElementById('voiceBtn');
+  btn.style.transform = 'scale(1)';
+  btn.style.background = 'linear-gradient(135deg,var(--g-dark),var(--g-main))';
+  btn.textContent = '🎤';
+  document.getElementById('voiceStatus').textContent = lang==='es' ? 'Toca el micrófono y habla' : 'Tap the mic and speak';
+}
+
+function processVoiceInput(text) {
+  document.getElementById('voiceResult').style.display = '';
+  document.getElementById('voiceText').textContent = '"' + text + '"';
+
+  // Parse: "Gasté $45 en Portillo's" or "spent 45 dollars at walmart"
+  const amountMatch = text.match(/\$?\d+(\.\d{1,2})?/);
+  const amount = amountMatch ? parseFloat(amountMatch[0].replace('$','')) : '';
+
+  // Extract merchant — words after "en", "at", "in"
+  const merchantMatch = text.match(/(?:en|at|in|para)\s+(.+)/i);
+  const merchant = merchantMatch ? merchantMatch[1].trim() : text.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g,'').trim();
+
+  // Detect type from keywords
+  let type = 'gasto';
+  const lw = text.toLowerCase();
+  if (/cobr|ingres|pag[oó]|recibi|earn|income|received/i.test(lw)) type = 'ingreso';
+  if (/invert|invest/i.test(lw)) type = 'inversion';
+  if (/ahorr|save|saving/i.test(lw)) type = 'ahorro';
+
+  // Switch to manual tab and fill fields
+  switchInputTab('manual', document.querySelector('.input-tab'));
+  document.getElementById('mDesc').value   = merchant || '';
+  document.getElementById('mAmount').value = amount   || '';
+  document.getElementById('mDate').value   = new Date().toISOString().split('T')[0];
+
+  // Set type
+  currentType = type;
+  document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('on'));
+  document.querySelectorAll('.type-btn').forEach(b => {
+    if (b.getAttribute('onclick')?.includes("'"+type+"'")) b.classList.add('on');
+  });
+
+  showToast(lang==='es'?'🎤 Voz detectada — revisa y guarda':'🎤 Voice detected — review and save');
+}
+
+/* ══════════════════════════════════════════
+   ⚡ QUICK SHORTCUTS
+══════════════════════════════════════════ */
+const SHORTCUTS_KEY = 'ft_shortcuts';
+
+function loadShortcuts() {
+  try { return JSON.parse(localStorage.getItem(SHORTCUTS_KEY)) || []; }
+  catch(e) { return []; }
+}
+
+function saveShortcuts(s) { localStorage.setItem(SHORTCUTS_KEY, JSON.stringify(s)); }
+
+function renderQuickShortcuts() {
+  const shortcuts = loadShortcuts();
+  const el = document.getElementById('quickList');
+
+  if (!shortcuts.length) {
+    el.innerHTML = `<div style="text-align:center;padding:16px;color:var(--text3);font-size:13px">
+      ${lang==='es'?'Sin atajos aún. Agrega tus gastos frecuentes.':'No shortcuts yet. Add your frequent expenses.'}</div>`;
+    return;
+  }
+
+  el.innerHTML = shortcuts.map((s,i) => `
+    <div style="display:flex;align-items:center;gap:10px;background:var(--off);border-radius:var(--r);padding:10px 12px;">
+      <div style="font-size:18px">${s.icon||'💸'}</div>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:600">${s.desc}</div>
+        <div style="font-size:11px;color:var(--text3)">${fmtD(s.amount)} · ${lang==='es'?s.catEs||s.cat:s.catEn||s.cat}</div>
+      </div>
+      <button onclick="useShortcut(${i})" style="background:var(--g-main);color:white;border:none;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">${lang==='es'?'Usar':'Use'}</button>
+      <button onclick="deleteShortcut(${i})" style="background:var(--red-dim);color:var(--red);border:none;border-radius:8px;padding:6px 8px;font-size:11px;cursor:pointer;">✕</button>
+    </div>`).join('');
+}
+
+function useShortcut(i) {
+  const s = loadShortcuts()[i];
+  if (!s) return;
+  switchInputTab('manual', document.querySelector('.input-tab'));
+  document.getElementById('mDesc').value   = s.desc;
+  document.getElementById('mAmount').value = s.amount;
+  document.getElementById('mDate').value   = new Date().toISOString().split('T')[0];
+  currentType = s.type || 'gasto';
+  document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('on'));
+  document.querySelectorAll('.type-btn').forEach(b => {
+    if (b.getAttribute('onclick')?.includes("'"+currentType+"'")) b.classList.add('on');
+  });
+  showToast(lang==='es'?'⚡ Atajo cargado — toca Guardar':'⚡ Shortcut loaded — tap Save');
+}
+
+function deleteShortcut(i) {
+  const s = loadShortcuts();
+  s.splice(i,1);
+  saveShortcuts(s);
+  renderQuickShortcuts();
+}
+
+function addQuickShortcut() {
+  const desc   = prompt(lang==='es'?'Nombre del gasto (ej: Gasolina Shell):':'Expense name (e.g. Shell Gas):');
+  if (!desc) return;
+  const amount = parseFloat(prompt(lang==='es'?'Monto ($):':'Amount ($):'));
+  if (!amount || isNaN(amount)) return;
+
+  const shortcuts = loadShortcuts();
+  shortcuts.push({ desc, amount, type:'gasto', icon:'💸', cat:'📦 Otros', catEs:'Otros', catEn:'Other' });
+  saveShortcuts(shortcuts);
+  renderQuickShortcuts();
+  showToast(lang==='es'?'⚡ Atajo guardado':'⚡ Shortcut saved');
+}
+
+/* ══════════════════════════════════════════
+   📄 CSV IMPORT
+══════════════════════════════════════════ */
+function handleCSV(input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const lines  = e.target.result.split('\n').filter(l => l.trim());
+      const header = lines[0].toLowerCase();
+
+      // Detect columns — Chase, SoFi, BofA, generic
+      let dateCol=0, descCol=1, amtCol=3;
+      if (header.includes('transaction date')) { dateCol=1; descCol=2; amtCol=4; } // Chase
+      if (header.includes('effective date'))   { dateCol=0; descCol=2; amtCol=4; } // SoFi
+      if (header.includes('posted date'))      { dateCol=0; descCol=2; amtCol=3; } // BofA
+
+      const rows = lines.slice(1).map(line => {
+        const cols = line.split(',').map(c => c.replace(/"/g,'').trim());
+        const rawAmt = parseFloat(cols[amtCol]?.replace(/[$,]/g,'')) || 0;
+        return {
+          date: cols[dateCol] || new Date().toISOString().split('T')[0],
+          desc: cols[descCol] || 'Sin descripción',
+          amount: Math.abs(rawAmt),
+          type: rawAmt < 0 ? 'gasto' : 'ingreso'
+        };
+      }).filter(r => r.amount > 0 && r.desc);
+
+      showCSVPreview(rows);
+    } catch(err) {
+      showToast(lang==='es'?'❌ Error al leer el CSV':'❌ Error reading CSV');
+    }
+  };
+  reader.readAsText(file);
+}
+
+function showCSVPreview(rows) {
+  const el = document.getElementById('csvPreview');
+  el.style.display = '';
+
+  const preview = rows.slice(0,5);
+  el.innerHTML = `
+    <div style="font-size:12px;font-weight:700;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px">
+      ${rows.length} ${lang==='es'?'transacciones detectadas':'transactions detected'} · ${lang==='es'?'Primeras 5:':'First 5:'}
+    </div>
+    ${preview.map(r=>`
+      <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)">
+        <div style="font-size:13px">${r.type==='ingreso'?'💰':'💸'}</div>
+        <div style="flex:1;font-size:12px;font-weight:500">${r.desc.substring(0,30)}</div>
+        <div style="font-size:12px;font-weight:700;color:${r.type==='ingreso'?'var(--g-main)':'var(--red)'}">
+          ${r.type==='ingreso'?'+':'-'}${fmtD(r.amount)}
+        </div>
+      </div>`).join('')}
+    <button onclick="importAllCSV(${JSON.stringify(rows).replace(/'/g,"\\'")})" style="width:100%;margin-top:10px;background:linear-gradient(135deg,var(--g-dark),var(--g-main));color:white;border:none;border-radius:var(--r);padding:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">
+      ✓ ${lang==='es'?'Importar todas las transacciones':'Import all transactions'} (${rows.length})
+    </button>`;
+}
+
+function importAllCSV(rows) {
+  const data = loadData();
+  let imported = 0;
+  rows.forEach(r => {
+    data.transactions.push({
+      id: Date.now()+imported,
+      type: r.type,
+      desc: r.desc,
+      amount: r.amount,
+      date: r.date,
+      note: 'CSV import',
+      cat: '📦 Otros',
+      source: 'csv'
+    });
+    imported++;
+  });
+  saveData(data);
+  closeModal();
+  renderDashboard();
+  showToast(`✅ ${imported} ${lang==='es'?'transacciones importadas':'transactions imported'}`);
 }
 
 /* ══════════════════════════════════════════
