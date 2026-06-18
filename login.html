@@ -593,11 +593,17 @@ function showOnboarding() {
   // Pre-fill name from Google
   if (userData.name) document.getElementById('inputName').value = userData.name;
   showView('vOnboard');
+  // Make sure step2 is visible inside onboarding
+  document.getElementById('step2').classList.add('show');
+  document.getElementById('step3').classList.remove('show');
 }
 
 /* ─── VIEWS ─── */
 function showView(id) {
-  document.querySelectorAll('.view').forEach(v => v.classList.remove('show'));
+  // Only hide top-level views, not children
+  ['vConnect','vOnboard','vSuccess'].forEach(v => {
+    document.getElementById(v).classList.remove('show');
+  });
   document.getElementById(id).classList.add('show');
   document.getElementById('tabsWrap').style.display = id === 'vConnect' ? '' : 'none';
 }
@@ -612,18 +618,20 @@ function goStep3() {
     setTimeout(() => inp.classList.remove('error'), 1500);
     return;
   }
-  document.querySelectorAll('#vOnboard .view').forEach(v => v.classList.remove('show'));
+  document.getElementById('step2').classList.remove('show');
   document.getElementById('step3').classList.add('show');
-  document.getElementById('ob2').classList.replace('active','done');
+  document.getElementById('ob2').classList.remove('active');
+  document.getElementById('ob2').classList.add('done');
   document.getElementById('ob2').querySelector('.ob-num').textContent = '✓';
   document.getElementById('ob3').classList.add('active');
 }
 
 function backStep2() {
-  document.querySelectorAll('#vOnboard .view').forEach(v => v.classList.remove('show'));
+  document.getElementById('step3').classList.remove('show');
   document.getElementById('step2').classList.add('show');
   document.getElementById('ob3').classList.remove('active');
-  document.getElementById('ob2').classList.replace('done','active');
+  document.getElementById('ob2').classList.remove('done');
+  document.getElementById('ob2').classList.add('active');
   document.getElementById('ob2').querySelector('.ob-num').textContent = '2';
 }
 
