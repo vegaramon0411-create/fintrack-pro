@@ -42,6 +42,7 @@ body {
   background: var(--off);
   color: var(--text);
   min-height: 100vh;
+  overflow-x: hidden;
 }
 
 /* ─── LAYOUT ─── */
@@ -373,7 +374,9 @@ body {
 @media(max-width:860px){
   .sidebar { transform:translateX(-100%); }
   .main { margin-left:0; padding-bottom:72px; }
-  .topbar { padding:0 16px; }
+  .topbar { height:auto; min-height:var(--topbar); padding:12px 16px; flex-direction:column; align-items:stretch; gap:10px; }
+  .tb-title { font-size:16px; white-space:normal; }
+  .tb-right { width:100%; justify-content:space-between; gap:8px; flex-wrap:wrap; }
   .page { padding:16px; }
   .kpi-row { grid-template-columns:1fr 1fr; }
   .grid-2, .grid-3 { grid-template-columns:1fr; }
@@ -721,8 +724,45 @@ body {
   <div class="mob-item" onclick="go('historial.html')"><div class="mob-ico">📅</div><span data-es="Historial" data-en="History">Historial</span></div>
   <div class="mob-item"><div class="mob-add" onclick="openModal()">＋</div></div>
   <div class="mob-item" onclick="go('analisis.html')"><div class="mob-ico">📈</div><span data-es="Análisis" data-en="Analysis">Análisis</span></div>
-  <div class="mob-item" onclick="go('perfil.html')"><div class="mob-ico">👤</div><span data-es="Perfil" data-en="Profile">Perfil</span></div>
+  <div class="mob-item" onclick="openMoreMenu()"><div class="mob-ico">☰</div><span data-es="Más" data-en="More">Más</span></div>
 </nav>
+
+<!-- MORE MENU PANEL (mobile) -->
+<div class="more-overlay" id="moreOverlay" onclick="closeMoreOutside(event)">
+  <div class="more-panel">
+    <div class="more-handle"></div>
+    <div class="more-title" data-es="Más opciones" data-en="More options">Más opciones</div>
+    <div class="more-grid">
+      <div class="more-item" onclick="go('metas.html')"><div class="more-ico" style="background:var(--g-light)">🎯</div><span data-es="Metas" data-en="Goals">Metas</span></div>
+      <div class="more-item" onclick="go('suscripciones.html')"><div class="more-ico" style="background:var(--pur-dim,rgba(123,94,167,.1))">🔄</div><span data-es="Suscripciones" data-en="Subscriptions">Suscripciones</span></div>
+      <div class="more-item" onclick="go('inversiones.html')"><div class="more-ico" style="background:var(--blu-dim,rgba(74,108,247,.1))">🏦</div><span data-es="Inversiones" data-en="Investments">Inversiones</span></div>
+      <div class="more-item" onclick="go('scanner.html')"><div class="more-ico" style="background:var(--g-light)">📷</div><span data-es="Escanear" data-en="Scan">Escanear</span></div>
+      <div class="more-item" onclick="go('emergencia.html')"><div class="more-ico" style="background:var(--amb-dim,rgba(244,162,97,.12))">🛡️</div><span data-es="Emergencia" data-en="Emergency">Emergencia</span></div>
+      <div class="more-item" onclick="go('hogar.html')"><div class="more-ico" style="background:var(--pur-dim,rgba(123,94,167,.1))">🏠</div><span data-es="Hogar" data-en="Household">Hogar</span></div>
+      <div class="more-item" onclick="go('perfil.html')"><div class="more-ico" style="background:var(--g-light)">👤</div><span data-es="Perfil" data-en="Profile">Perfil</span></div>
+      <div class="more-item" onclick="go('config.html')"><div class="more-ico" style="background:var(--off,#F7F8FC)">⚙️</div><span data-es="Configuración" data-en="Settings">Configuración</span></div>
+    </div>
+  </div>
+</div>
+
+<style>
+.more-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.4);display:none;align-items:flex-end;z-index:250;backdrop-filter:blur(3px);}
+.more-overlay.open{display:flex;}
+.more-panel{background:var(--white);width:100%;border-radius:24px 24px 0 0;padding:10px 20px 28px;box-shadow:0 -8px 32px rgba(0,0,0,.15);animation:moreSlideUp .25s cubic-bezier(0.34,1.56,0.64,1);}
+@keyframes moreSlideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.more-handle{width:36px;height:4px;background:var(--border);border-radius:100px;margin:0 auto 14px;}
+.more-title{font-size:15px;font-weight:800;margin-bottom:16px;}
+.more-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
+.more-item{display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;}
+.more-ico{width:52px;height:52px;border-radius:16px;display:grid;place-items:center;font-size:24px;}
+.more-item span{font-size:11px;font-weight:600;color:var(--text2);text-align:center;}
+</style>
+
+<script>
+function openMoreMenu(){ document.getElementById('moreOverlay').classList.add('open'); }
+function closeMoreMenu(){ document.getElementById('moreOverlay').classList.remove('open'); }
+function closeMoreOutside(e){ if(e.target===document.getElementById('moreOverlay')) closeMoreMenu(); }
+</script>
 
 <!-- MODAL: NEW ENTRY -->
 <div class="overlay" id="overlay" onclick="closeOutside(event)">
