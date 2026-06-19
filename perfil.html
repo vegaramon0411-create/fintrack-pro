@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FinTrack Pro · Mi Perfil</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--g-dark:#0F5132;--g-main:#1A7A4A;--g-mid:#22A362;--g-light:#E8F7EF;--g-dim:rgba(26,122,74,0.10);--white:#FFFFFF;--off:#F7F8FC;--border:#E4E6F0;--text:#1A1D2E;--text2:#4A4E69;--text3:#9395A5;--red:#E63946;--red-dim:rgba(230,57,70,0.10);--amber:#F4A261;--amb-dim:rgba(244,162,97,0.12);--blue:#4A6CF7;--blu-dim:rgba(74,108,247,0.10);--purple:#7B5EA7;--pur-dim:rgba(123,94,167,0.10);--r:14px;--sidebar:240px;--topbar:58px;--shadow:0 2px 12px rgba(0,0,0,0.06);--shadow-md:0 4px 24px rgba(0,0,0,0.09);}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(--text);min-height:100vh;}
+.app{display:flex;min-height:100vh;}
+.sidebar{width:var(--sidebar);background:var(--white);border-right:1px solid var(--border);position:fixed;top:0;left:0;bottom:0;display:flex;flex-direction:column;z-index:50;overflow-y:auto;}
+.sb-logo{display:flex;align-items:center;gap:10px;padding:22px 18px 18px;border-bottom:1px solid var(--border);}
+.sb-mark{width:36px;height:36px;background:linear-gradient(135deg,var(--g-dark),var(--g-main));border-radius:11px;display:grid;place-items:center;color:white;font-size:17px;flex-shrink:0;}
+.sb-name{font-size:15px;font-weight:800;letter-spacing:-.3px;}.sb-tag{font-size:10px;color:var(--text3);font-weight:500;}
+.sb-nav{padding:14px 10px;flex:1;}
+.sb-section{font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);padding:10px 8px 5px;}
+.sb-link{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:10px;font-size:13px;font-weight:600;color:var(--text2);cursor:pointer;margin-bottom:2px;transition:all .15s;}
+.sb-link:hover{background:var(--off);color:var(--text);}
+.sb-link.on{background:var(--g-dim);color:var(--g-main);}
+.sb-ico{font-size:15px;width:20px;text-align:center;flex-shrink:0;}
+.sb-footer{border-top:1px solid var(--border);padding:12px 10px;}
+.sb-user{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:10px;cursor:pointer;}
+.sb-user:hover{background:var(--off);}
+.sb-avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--g-dark),var(--g-main));display:grid;place-items:center;color:white;font-size:13px;font-weight:700;flex-shrink:0;}
+.sb-uname{font-size:13px;font-weight:700;}.sb-umail{font-size:10px;color:var(--text3);}
+.main{margin-left:var(--sidebar);flex:1;display:flex;flex-direction:column;}
+.topbar{background:var(--white);border-bottom:1px solid var(--border);height:var(--topbar);padding:0 28px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:40;}
+.tb-title{font-size:17px;font-weight:800;letter-spacing:-.3px;}
+.tb-right{display:flex;align-items:center;gap:10px;}
+.lang-toggle{display:flex;background:var(--off);border:1px solid var(--border);border-radius:20px;overflow:hidden;font-size:11px;font-weight:700;}
+.lt-opt{padding:5px 11px;cursor:pointer;color:var(--text3);border-radius:20px;transition:all .15s;}
+.lt-opt.on{background:var(--g-main);color:white;}
+.page{padding:24px 28px;max-width:1000px;}
+
+/* PROFILE HERO */
+.profile-hero{background:linear-gradient(135deg,var(--g-dark) 0%,var(--g-main) 55%,var(--g-mid) 100%);border-radius:22px;padding:32px;color:white;margin-bottom:20px;position:relative;overflow:hidden;display:flex;align-items:center;gap:22px;}
+.profile-hero::before{content:'';position:absolute;top:-60px;right:-60px;width:220px;height:220px;border-radius:50%;background:rgba(255,255,255,.07);}
+.profile-hero::after{content:'';position:absolute;bottom:-70px;right:90px;width:160px;height:160px;border-radius:50%;background:rgba(255,255,255,.04);}
+
+.avatar-wrap{position:relative;z-index:1;flex-shrink:0;}
+.avatar-big{width:96px;height:96px;border-radius:50%;background:rgba(255,255,255,.2);border:3px solid rgba(255,255,255,.4);display:grid;place-items:center;font-size:38px;font-weight:800;color:white;overflow:hidden;}
+.avatar-big img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
+.avatar-edit{position:absolute;bottom:-2px;right:-2px;width:32px;height:32px;border-radius:50%;background:white;color:var(--g-main);display:grid;place-items:center;font-size:14px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.2);border:none;}
+.avatar-edit:hover{transform:scale(1.08);}
+
+.profile-info{position:relative;z-index:1;flex:1;}
+.profile-name{font-size:26px;font-weight:800;letter-spacing:-.6px;}
+.profile-email{font-size:13px;opacity:.7;margin-top:3px;}
+.profile-since{font-size:12px;opacity:.55;margin-top:6px;display:flex;align-items:center;gap:6px;}
+.profile-tier{display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.18);border-radius:20px;padding:4px 12px;font-size:11px;font-weight:700;margin-top:10px;}
+
+/* STATS GRID */
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px;}
+.stat-card{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:18px;box-shadow:var(--shadow);text-align:center;}
+.stat-ico{font-size:24px;margin-bottom:8px;}
+.stat-val{font-size:22px;font-weight:800;letter-spacing:-.6px;}
+.stat-lbl{font-size:11px;color:var(--text3);font-weight:500;margin-top:3px;}
+
+/* GRID 2 */
+.grid-2{display:grid;grid-template-columns:1.3fr 1fr;gap:18px;margin-bottom:20px;}
+.card{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:20px;box-shadow:var(--shadow);}
+.card-hd{font-size:14px;font-weight:800;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;}
+
+/* ACHIEVEMENTS */
+.achv-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.achv-card{border-radius:12px;padding:14px;text-align:center;border:1.5px solid var(--border);transition:all .15s;}
+.achv-card.unlocked{background:linear-gradient(135deg,var(--g-light),rgba(34,163,98,.08));border-color:rgba(26,122,74,.25);}
+.achv-card.locked{opacity:.45;filter:grayscale(.6);}
+.achv-ico{font-size:30px;margin-bottom:6px;}
+.achv-name{font-size:11px;font-weight:700;}
+.achv-desc{font-size:9px;color:var(--text3);margin-top:2px;line-height:1.3;}
+
+/* PROGRESS RINGS */
+.health-score{text-align:center;padding:10px 0;}
+.score-ring-wrap{position:relative;width:140px;height:140px;margin:0 auto 14px;}
+.score-val{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.score-num{font-size:32px;font-weight:800;letter-spacing:-1px;}
+.score-lbl{font-size:10px;color:var(--text3);font-weight:600;}
+.score-desc{font-size:13px;color:var(--text2);font-weight:600;margin-top:4px;}
+.score-tips{margin-top:14px;text-align:left;}
+.score-tip{display:flex;gap:8px;align-items:flex-start;font-size:12px;color:var(--text2);margin-bottom:8px;line-height:1.45;}
+.score-tip:last-child{margin-bottom:0;}
+
+/* TIMELINE */
+.tl-item{display:flex;gap:12px;padding:11px 0;border-bottom:1px solid var(--border);}
+.tl-item:last-child{border-bottom:none;padding-bottom:0;}
+.tl-dot{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;font-size:16px;flex-shrink:0;}
+.tl-text{flex:1;}
+.tl-title{font-size:13px;font-weight:600;}
+.tl-date{font-size:11px;color:var(--text3);margin-top:2px;}
+
+/* EDIT MODAL */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:none;place-items:center;z-index:200;backdrop-filter:blur(5px);}
+.overlay.open{display:grid;}
+.modal{background:var(--white);border-radius:24px;padding:28px;width:400px;max-width:calc(100vw - 32px);box-shadow:var(--shadow-md);}
+.modal-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;}
+.modal-title{font-size:18px;font-weight:800;}
+.modal-close{color:var(--text3);cursor:pointer;font-size:22px;}
+.avatar-options{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:16px;}
+.avatar-opt{width:100%;aspect-ratio:1;border-radius:50%;display:grid;place-items:center;font-size:22px;cursor:pointer;border:2px solid transparent;transition:all .15s;background:var(--off);}
+.avatar-opt.on{border-color:var(--g-main);background:var(--g-light);}
+.btn-save{width:100%;background:linear-gradient(135deg,var(--g-dark),var(--g-main));color:white;border:none;border-radius:var(--r);padding:13px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--text);color:white;padding:12px 20px;border-radius:20px;font-size:13px;font-weight:600;display:none;align-items:center;gap:8px;box-shadow:var(--shadow-md);z-index:300;}
+
+@media(max-width:860px){.sidebar{display:none;}.main{margin-left:0;padding-bottom:72px;}.topbar{padding:0 16px;}.page{padding:16px;}.stats-grid{grid-template-columns:1fr 1fr;}.grid-2{grid-template-columns:1fr;}.profile-hero{flex-direction:column;text-align:center;}.achv-grid{grid-template-columns:1fr 1fr;}.mob-nav{display:flex !important;}}
+.mob-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--white);border-top:1px solid var(--border);padding:10px 4px 16px;padding-bottom:calc(10px + env(safe-area-inset-bottom));z-index:50;gap:0;box-shadow:0 -4px 20px rgba(0,0,0,0.06);}
+.mob-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:9px;font-weight:600;color:var(--text3);}
+.mob-item.on{color:var(--g-main);}
+.mob-ico{font-size:20px;line-height:1;}
+.mob-add{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--g-dark),var(--g-main));display:flex;align-items:center;justify-content:center;color:white;font-size:22px;margin-top:-16px;box-shadow:0 4px 16px rgba(15,81,50,0.35);flex-shrink:0;}
+::-webkit-scrollbar{width:5px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+</style>
+</head>
+<body>
+<div class="app">
+<aside class="sidebar">
+  <div class="sb-logo"><div class="sb-mark">💎</div><div><div class="sb-name">FinTrack Pro</div><div class="sb-tag" data-es="Panel financiero" data-en="Financial dashboard">Panel financiero</div></div></div>
+  <nav class="sb-nav">
+    <div class="sb-section" data-es="Principal" data-en="Main">Principal</div>
+    <div class="sb-link" onclick="go('dashboard.html')"><span class="sb-ico">📊</span><span data-es="Dashboard" data-en="Dashboard">Dashboard</span></div>
+    <div class="sb-link" onclick="go('dashboard.html')"><span class="sb-ico">➕</span><span data-es="Nuevo registro" data-en="New entry">Nuevo registro</span></div>
+    <div class="sb-link" onclick="go('suscripciones.html')"><span class="sb-ico">🔄</span><span data-es="Suscripciones" data-en="Subscriptions">Suscripciones</span></div>
+    <div class="sb-link" onclick="go('metas.html')"><span class="sb-ico">🎯</span><span data-es="Metas" data-en="Goals">Metas</span></div>
+    <div class="sb-section" data-es="Análisis" data-en="Analysis">Análisis</div>
+    <div class="sb-link" onclick="go('analisis.html')"><span class="sb-ico">📈</span><span data-es="Por categoría" data-en="By category">Por categoría</span></div>
+    <div class="sb-link" onclick="go('historial.html')"><span class="sb-ico">📅</span><span data-es="Historial" data-en="History">Historial</span></div>
+    <div class="sb-link" onclick="go('inversiones.html')"><span class="sb-ico">🏦</span><span data-es="Inversiones" data-en="Investments">Inversiones</span></div>
+    <div class="sb-section" data-es="Herramientas" data-en="Tools">Herramientas</div>
+    <div class="sb-link" onclick="go('scanner.html')"><span class="sb-ico">📷</span><span data-es="Escanear recibo" data-en="Scan receipt">Escanear recibo</span></div>
+    <div class="sb-link" onclick="go('emergencia.html')"><span class="sb-ico">🛡️</span><span data-es="Fondo emergencia" data-en="Emergency fund">Fondo emergencia</span></div>
+    <div class="sb-link" onclick="go('hogar.html')"><span class="sb-ico">🏠</span><span data-es="Hogar" data-en="Household">Hogar</span></div>
+    <div class="sb-section" data-es="Cuenta" data-en="Account">Cuenta</div>
+    <div class="sb-link on"><span class="sb-ico">👤</span><span data-es="Mi perfil" data-en="My profile">Mi perfil</span></div>
+    <div class="sb-link" onclick="go('config.html')"><span class="sb-ico">⚙️</span><span data-es="Configuración" data-en="Settings">Configuración</span></div>
+    <div class="sb-link" onclick="logout()"><span class="sb-ico">🚪</span><span data-es="Cerrar sesión" data-en="Sign out">Cerrar sesión</span></div>
+  </nav>
+  <div class="sb-footer"><div class="sb-user" onclick="go('perfil.html')"><div class="sb-avatar" id="sbAvatar">R</div><div><div class="sb-uname" id="sbName">—</div><div class="sb-umail" id="sbEmail">—</div></div></div></div>
+</aside>
+
+<div class="main">
+  <div class="topbar">
+    <div class="tb-title" data-es="Mi Perfil" data-en="My Profile">Mi Perfil</div>
+    <div class="tb-right">
+      <div class="lang-toggle">
+        <div class="lt-opt on" id="ltES" onclick="setLang('es')">ES</div>
+        <div class="lt-opt"    id="ltEN" onclick="setLang('en')">EN</div>
+      </div>
+    </div>
+  </div>
+  <div class="page" id="page"></div>
+</div>
+</div>
+
+<nav class="mob-nav">
+  <div class="mob-item" onclick="go('dashboard.html')"><div class="mob-ico">📊</div><span data-es="Inicio" data-en="Home">Inicio</span></div>
+  <div class="mob-item" onclick="go('historial.html')"><div class="mob-ico">📅</div><span data-es="Historial" data-en="History">Historial</span></div>
+  <div class="mob-item"><div class="mob-add" onclick="go('dashboard.html')">＋</div></div>
+  <div class="mob-item" onclick="go('analisis.html')"><div class="mob-ico">📈</div><span data-es="Análisis" data-en="Analysis">Análisis</span></div>
+  <div class="mob-item on"><div class="mob-ico">👤</div><span data-es="Perfil" data-en="Profile">Perfil</span></div>
+</nav>
+
+<!-- AVATAR MODAL -->
+<div class="overlay" id="overlay" onclick="closeOutside(event)">
+  <div class="modal">
+    <div class="modal-hd">
+      <div class="modal-title" data-es="Elegir avatar" data-en="Choose avatar">Elegir avatar</div>
+      <div class="modal-close" onclick="closeModal()">✕</div>
+    </div>
+    <div class="avatar-options" id="avatarOptions"></div>
+    <button class="btn-save" onclick="saveAvatar()" data-es="Guardar" data-en="Save">Guardar</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const STORE_KEY='ft_data';
+const AVATAR_KEY='ft_avatar';
+const AVATAR_OPTIONS=['😀','😎','🤓','🥳','😊','🦸','🧑‍💼','👩‍💼','🧑‍🚀','🐱','🐶','🦊','🐼','🦁','🐨','🌟','💎','🔥','🚀','⭐'];
+let lang='es', user={}, selectedAvatar='';
+
+function loadData(){try{return JSON.parse(localStorage.getItem(STORE_KEY))||{transactions:[],emergency:0,subscriptions:[]};}catch(e){return{transactions:[],emergency:0,subscriptions:[]};}}
+function loadInv(){try{return JSON.parse(localStorage.getItem('ft_investments'))||[];}catch(e){return[];}}
+function fmt(n){return '$'+Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0});}
+function fmtD(n){return '$'+Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
+
+function setLang(l){
+  lang=l;sessionStorage.setItem('ft_lang',l);
+  document.getElementById('ltES').classList.toggle('on',l==='es');
+  document.getElementById('ltEN').classList.toggle('on',l==='en');
+  document.querySelectorAll('[data-es]').forEach(el=>{const v=el.getAttribute('data-'+l);if(v)el.textContent=v;});
+  render();
+}
+
+/* ── COMPUTE STATS ── */
+function computeStats(){
+  const data=loadData();
+  const invs=loadInv();
+  const txs=data.transactions||[];
+
+  // Months active (since account creation)
+  const created = user.createdAt ? new Date(user.createdAt) : new Date();
+  const now = new Date();
+  const monthsActive = Math.max(1, Math.round((now-created)/(1000*60*60*24*30)));
+
+  // Total saved (ahorro + inversion)
+  const totalSaved = txs.filter(t=>t.type==='ahorro'||t.type==='inversion').reduce((s,t)=>s+parseFloat(t.amount),0);
+
+  // Total invested
+  const totalInvested = invs.reduce((s,i)=>s+parseFloat(i.amount),0);
+
+  // Streak — consecutive days with at least 1 entry (simplified: distinct days with entries in last 30 days)
+  const uniqueDays = new Set(txs.map(t=>t.date)).size;
+
+  // Total transactions
+  const totalTx = txs.length;
+
+  // Emergency fund %
+  const emergency = data.emergency||0;
+  const income = user.income||0;
+  const efGoal = income*3;
+  const efPct = efGoal>0 ? Math.min(100, Math.round((emergency/efGoal)*100)) : 0;
+
+  return { monthsActive, totalSaved, totalInvested, uniqueDays, totalTx, emergency, efPct, income };
+}
+
+/* ── ACHIEVEMENTS ── */
+function getAchievements(stats){
+  return [
+    { id:'first', ico:'🎯', name:lang==='es'?'Primer registro':'First entry', desc:lang==='es'?'Registraste tu primer movimiento':'Recorded your first entry', unlocked: stats.totalTx>=1 },
+    { id:'week', ico:'🔥', name:lang==='es'?'Constancia':'Consistency', desc:lang==='es'?'10+ registros realizados':'10+ entries recorded', unlocked: stats.totalTx>=10 },
+    { id:'saver', ico:'💰', name:lang==='es'?'Ahorrador':'Saver', desc:lang==='es'?'Ahorraste $500+':'Saved $500+', unlocked: stats.totalSaved>=500 },
+    { id:'investor', ico:'📈', name:lang==='es'?'Inversionista':'Investor', desc:lang==='es'?'Tu primera inversión':'Your first investment', unlocked: stats.totalInvested>0 },
+    { id:'efund1', ico:'🛡️', name:lang==='es'?'Protegido':'Protected', desc:lang==='es'?'1 mes de fondo emergencia':'1 month emergency fund', unlocked: stats.efPct>=33 },
+    { id:'efund3', ico:'🏆', name:lang==='es'?'Blindado':'Armored', desc:lang==='es'?'Meta de 3 meses lograda':'3-month goal reached', unlocked: stats.efPct>=100 },
+    { id:'organized', ico:'📊', name:lang==='es'?'Organizado':'Organized', desc:lang==='es'?'30+ registros realizados':'30+ entries recorded', unlocked: stats.totalTx>=30 },
+    { id:'veteran', ico:'⭐', name:lang==='es'?'Veterano':'Veteran', desc:lang==='es'?'3+ meses usando la app':'3+ months using the app', unlocked: stats.monthsActive>=3 },
+  ];
+}
+
+/* ── HEALTH SCORE ── */
+function computeHealthScore(stats){
+  let score = 50;
+  if (stats.efPct>=100) score+=20; else if(stats.efPct>=33) score+=10;
+  if (stats.totalSaved>0) score+=10;
+  if (stats.totalInvested>0) score+=10;
+  if (stats.totalTx>=10) score+=10;
+  score = Math.min(100, score);
+
+  let label, color;
+  if (score>=80) { label = lang==='es'?'Excelente':'Excellent'; color='var(--g-main)'; }
+  else if (score>=60) { label = lang==='es'?'Buena':'Good'; color='var(--blue)'; }
+  else if (score>=40) { label = lang==='es'?'Regular':'Fair'; color='var(--amber)'; }
+  else { label = lang==='es'?'Necesita atención':'Needs attention'; color='var(--red)'; }
+
+  return {score, label, color};
+}
+
+/* ── RENDER ── */
+function render(){
+  const stats = computeStats();
+  const achievements = getAchievements(stats);
+  const health = computeHealthScore(stats);
+  const unlockedCount = achievements.filter(a=>a.unlocked).length;
+
+  const T = lang==='es' ? {
+    memberSince:'Miembro desde', freePlan:'Plan Gratuito',
+    statSaved:'Total ahorrado', statMonths:'Meses activo', statTx:'Registros totales', statDays:'Días con actividad',
+    achievements:'Logros', unlockedOf:'de', achieved:'desbloqueados',
+    healthTitle:'Salud financiera', editAvatar:'Cambiar avatar',
+    activity:'Actividad reciente', noActivity:'Sin actividad reciente',
+    tip1efLow:'Aumenta tu fondo de emergencia — solo tienes '+stats.efPct+'% de tu meta de 3 meses.',
+    tip1efOk:'¡Tu fondo de emergencia está saludable!',
+    tip2noInv:'Aún no registras inversiones. Considera invertir parte de tus ahorros.',
+    tip2hasInv:'Buen trabajo invirtiendo regularmente.',
+    tip3:'Sigue registrando tus gastos diariamente para mantener buenos hábitos.',
+    plan:'Plan'
+  } : {
+    memberSince:'Member since', freePlan:'Free Plan',
+    statSaved:'Total saved', statMonths:'Months active', statTx:'Total entries', statDays:'Days with activity',
+    achievements:'Achievements', unlockedOf:'of', achieved:'unlocked',
+    healthTitle:'Financial health', editAvatar:'Change avatar',
+    activity:'Recent activity', noActivity:'No recent activity',
+    tip1efLow:'Boost your emergency fund — you only have '+stats.efPct+'% of your 3-month goal.',
+    tip1efOk:'Your emergency fund is healthy!',
+    tip2noInv:"You haven't recorded investments yet. Consider investing part of your savings.",
+    tip2hasInv:'Great job investing regularly.',
+    tip3:'Keep recording your expenses daily to maintain good habits.',
+    plan:'Plan'
+  };
+
+  const savedAvatar = localStorage.getItem(AVATAR_KEY);
+  const since = user.createdAt ? new Date(user.createdAt).toLocaleDateString(lang==='es'?'es-MX':'en-US',{year:'numeric',month:'long'}) : '—';
+
+  const page = document.getElementById('page');
+  page.innerHTML = `
+  <!-- HERO -->
+  <div class="profile-hero">
+    <div class="avatar-wrap">
+      <div class="avatar-big">${savedAvatar || (user.name||'U').charAt(0).toUpperCase()}</div>
+      <button class="avatar-edit" onclick="openModal()">✏️</button>
+    </div>
+    <div class="profile-info">
+      <div class="profile-name">${user.name||''}</div>
+      <div class="profile-email">${user.email||''}</div>
+      <div class="profile-since">📅 ${T.memberSince} ${since}</div>
+      <div class="profile-tier">⭐ ${T.freePlan}</div>
+    </div>
+  </div>
+
+  <!-- STATS -->
+  <div class="stats-grid">
+    <div class="stat-card"><div class="stat-ico">💰</div><div class="stat-val" style="color:var(--g-main)">${fmt(stats.totalSaved)}</div><div class="stat-lbl">${T.statSaved}</div></div>
+    <div class="stat-card"><div class="stat-ico">📅</div><div class="stat-val" style="color:var(--blue)">${stats.monthsActive}</div><div class="stat-lbl">${T.statMonths}</div></div>
+    <div class="stat-card"><div class="stat-ico">📝</div><div class="stat-val" style="color:var(--purple)">${stats.totalTx}</div><div class="stat-lbl">${T.statTx}</div></div>
+    <div class="stat-card"><div class="stat-ico">🔥</div><div class="stat-val" style="color:var(--amber)">${stats.uniqueDays}</div><div class="stat-lbl">${T.statDays}</div></div>
+  </div>
+
+  <div class="grid-2">
+
+    <!-- ACHIEVEMENTS -->
+    <div class="card">
+      <div class="card-hd">🏆 ${T.achievements} <span style="font-size:12px;font-weight:500;color:var(--text3)">${unlockedCount} ${T.unlockedOf} ${achievements.length} ${T.achieved}</span></div>
+      <div class="achv-grid">
+        ${achievements.map(a=>`
+          <div class="achv-card ${a.unlocked?'unlocked':'locked'}">
+            <div class="achv-ico">${a.unlocked?a.ico:'🔒'}</div>
+            <div class="achv-name">${a.name}</div>
+            <div class="achv-desc">${a.desc}</div>
+          </div>`).join('')}
+      </div>
+    </div>
+
+    <!-- HEALTH SCORE -->
+    <div class="card">
+      <div class="card-hd">💚 ${T.healthTitle}</div>
+      <div class="health-score">
+        <div class="score-ring-wrap">
+          <svg width="140" height="140" viewBox="0 0 140 140">
+            <circle cx="70" cy="70" r="60" fill="none" stroke="var(--off)" stroke-width="12"/>
+            <circle cx="70" cy="70" r="60" fill="none" stroke="${health.color}" stroke-width="12"
+              stroke-dasharray="${377}" stroke-dashoffset="${377 - (377*health.score/100)}"
+              stroke-linecap="round" transform="rotate(-90 70 70)" style="transition:stroke-dashoffset 1.2s ease"/>
+          </svg>
+          <div class="score-val">
+            <div class="score-num" style="color:${health.color}">${health.score}</div>
+            <div class="score-lbl">/ 100</div>
+          </div>
+        </div>
+        <div class="score-desc" style="color:${health.color}">${health.label}</div>
+        <div class="score-tips">
+          <div class="score-tip">${stats.efPct<100?'⚠️':'✅'} ${stats.efPct<100?T.tip1efLow:T.tip1efOk}</div>
+          <div class="score-tip">${stats.totalInvested>0?'✅':'💡'} ${stats.totalInvested>0?T.tip2hasInv:T.tip2noInv}</div>
+          <div class="score-tip">📝 ${T.tip3}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RECENT ACTIVITY -->
+  <div class="card">
+    <div class="card-hd">🕐 ${T.activity}</div>
+    ${buildRecentActivity(T)}
+  </div>
+  `;
+}
+
+function buildRecentActivity(T){
+  const data=loadData();
+  const recent=[...(data.transactions||[])].sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,5);
+  if(!recent.length) return `<div style="text-align:center;padding:20px;color:var(--text3);font-size:13px">${T.noActivity}</div>`;
+
+  const icons={gasto:'💸',ingreso:'💰',inversion:'📈',ahorro:'🛡️',suscripcion:'🔄',hipoteca:'🏠'};
+  const bgs={gasto:'var(--red-dim)',ingreso:'var(--g-light)',inversion:'var(--blu-dim)',ahorro:'var(--amb-dim)',suscripcion:'var(--pur-dim)',hipoteca:'var(--red-dim)'};
+
+  return recent.map(t=>{
+    const d=new Date(t.date+'T00:00:00').toLocaleDateString(lang==='es'?'es-MX':'en-US',{month:'short',day:'numeric',year:'numeric'});
+    return `<div class="tl-item">
+      <div class="tl-dot" style="background:${bgs[t.type]||'var(--off)'}">${icons[t.type]||'💳'}</div>
+      <div class="tl-text"><div class="tl-title">${t.desc}</div><div class="tl-date">${d} · ${fmtD(t.amount)}</div></div>
+    </div>`;
+  }).join('');
+}
+
+/* ── AVATAR MODAL ── */
+function openModal(){
+  selectedAvatar = localStorage.getItem(AVATAR_KEY) || '';
+  document.getElementById('avatarOptions').innerHTML = AVATAR_OPTIONS.map(a=>
+    `<div class="avatar-opt ${a===selectedAvatar?'on':''}" onclick="pickAvatar(this,'${a}')">${a}</div>`
+  ).join('');
+  document.getElementById('overlay').classList.add('open');
+}
+function closeModal(){document.getElementById('overlay').classList.remove('open');}
+function closeOutside(e){if(e.target===document.getElementById('overlay'))closeModal();}
+function pickAvatar(el,a){
+  selectedAvatar=a;
+  document.querySelectorAll('.avatar-opt').forEach(o=>o.classList.remove('on'));
+  el.classList.add('on');
+}
+function saveAvatar(){
+  localStorage.setItem(AVATAR_KEY, selectedAvatar);
+  closeModal();
+  render();
+  showToast(lang==='es'?'✅ Avatar actualizado':'✅ Avatar updated');
+}
+
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.style.display='flex';setTimeout(()=>t.style.display='none',2500);}
+function go(url){window.location.href=url;}
+function logout(){sessionStorage.removeItem('ft_user');sessionStorage.removeItem('ft_lang');window.location.href='login.html';}
+
+(function init(){
+  try{const s=sessionStorage.getItem('ft_user');if(!s){window.location.href='login.html';return;}user=JSON.parse(s);lang=user.lang||sessionStorage.getItem('ft_lang')||'es';}
+  catch(e){window.location.href='login.html';return;}
+  const savedAvatar = localStorage.getItem(AVATAR_KEY);
+  document.getElementById('sbName').textContent=user.name||'';
+  document.getElementById('sbEmail').textContent=user.email||'';
+  document.getElementById('sbAvatar').textContent=savedAvatar||(user.name||'U').charAt(0).toUpperCase();
+  setLang(lang);
+  render();
+})();
+</script>
+</body>
+</html>
