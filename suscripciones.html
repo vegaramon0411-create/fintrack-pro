@@ -184,6 +184,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
     <div class="sb-link" onclick="go('dashboard.html')"><span class="sb-ico">📊</span><span data-es="Dashboard" data-en="Dashboard">Dashboard</span></div>
     <div class="sb-link" onclick="go('dashboard.html')"><span class="sb-ico">➕</span><span data-es="Nuevo registro" data-en="New entry">Nuevo registro</span></div>
     <div class="sb-link on"><span class="sb-ico">🔄</span><span data-es="Suscripciones" data-en="Subscriptions">Suscripciones</span></div>
+    <div class="sb-link" onclick="go('metas.html')"><span class="sb-ico">🎯</span><span data-es="Metas" data-en="Goals">Metas</span></div>
     <div class="sb-section" data-es="Análisis" data-en="Analysis">Análisis</div>
     <div class="sb-link" onclick="go('analisis.html')"><span class="sb-ico">📈</span><span data-es="Por categoría" data-en="By category">Por categoría</span></div>
     <div class="sb-link" onclick="go('historial.html')"><span class="sb-ico">📅</span><span data-es="Historial" data-en="History">Historial</span></div>
@@ -191,12 +192,14 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
     <div class="sb-section" data-es="Herramientas" data-en="Tools">Herramientas</div>
     <div class="sb-link" onclick="go('scanner.html')"><span class="sb-ico">📷</span><span data-es="Escanear recibo" data-en="Scan receipt">Escanear recibo</span></div>
     <div class="sb-link" onclick="go('emergencia.html')"><span class="sb-ico">🛡️</span><span data-es="Fondo emergencia" data-en="Emergency fund">Fondo emergencia</span></div>
+    <div class="sb-link" onclick="go('hogar.html')"><span class="sb-ico">🏠</span><span data-es="Hogar" data-en="Household">Hogar</span></div>
     <div class="sb-section" data-es="Cuenta" data-en="Account">Cuenta</div>
+    <div class="sb-link" onclick="go('perfil.html')"><span class="sb-ico">👤</span><span data-es="Mi perfil" data-en="My profile">Mi perfil</span></div>
     <div class="sb-link" onclick="go('config.html')"><span class="sb-ico">⚙️</span><span data-es="Configuración" data-en="Settings">Configuración</span></div>
     <div class="sb-link" onclick="logout()"><span class="sb-ico">🚪</span><span data-es="Cerrar sesión" data-en="Sign out">Cerrar sesión</span></div>
   </nav>
   <div class="sb-footer">
-    <div class="sb-user">
+    <div class="sb-user" onclick="go('perfil.html')">
       <div class="sb-avatar" id="sbAvatar">R</div>
       <div><div class="sb-uname" id="sbName">—</div><div class="sb-umail" id="sbEmail">—</div></div>
     </div>
@@ -545,7 +548,7 @@ function openModal(id) {
     document.getElementById('mName').value   = '';
     document.getElementById('mAmount').value = '';
     document.getElementById('mFreq').value   = 'monthly';
-    document.getElementById('mNext').value   = '';
+    document.getElementById('mNext').value   = new Date().toISOString().split('T')[0];
     document.getElementById('mCat').value    = 'entretenimiento';
     selectedEmoji = '📦';
     selectedColor = 'rgba(100,100,100,0.10)';
@@ -583,10 +586,22 @@ function saveSub() {
   const next   = document.getElementById('mNext').value;
   const cat    = document.getElementById('mCat').value;
 
-  if (!name || !amount || !next) {
-    const f = !name?'mName':!amount?'mAmount':'mNext';
-    document.getElementById(f).style.borderColor='var(--red)';
-    setTimeout(()=>document.getElementById(f).style.borderColor='',1500);
+  if (!name) {
+    document.getElementById('mName').style.borderColor='var(--red)';
+    setTimeout(()=>document.getElementById('mName').style.borderColor='',1500);
+    showToast(lang==='es'?'⚠️ Falta el nombre':'⚠️ Name is missing');
+    return;
+  }
+  if (!amount || isNaN(amount) || amount<=0) {
+    document.getElementById('mAmount').style.borderColor='var(--red)';
+    setTimeout(()=>document.getElementById('mAmount').style.borderColor='',1500);
+    showToast(lang==='es'?'⚠️ Falta el monto':'⚠️ Amount is missing');
+    return;
+  }
+  if (!next) {
+    document.getElementById('mNext').style.borderColor='var(--red)';
+    setTimeout(()=>document.getElementById('mNext').style.borderColor='',1500);
+    showToast(lang==='es'?'⚠️ Falta la fecha de próximo cobro':'⚠️ Next charge date is missing');
     return;
   }
 
