@@ -321,7 +321,15 @@ function render(){
     tip2noInv:'Aún no registras inversiones. Considera invertir parte de tus ahorros.',
     tip2hasInv:'Buen trabajo invirtiendo regularmente.',
     tip3:'Sigue registrando tus gastos diariamente para mantener buenos hábitos.',
-    plan:'Plan'
+    plan:'Plan',
+    household:'Hogar compartido',
+    noHousehold:'Lleva el control en pareja',
+    noHouseholdSub:'Invita a tu pareja para ver la salud financiera combinada del hogar, con tips y comparativas — cada quien mantiene sus datos privados hasta que decidan compartirlos.',
+    inviteBtn:'+ Invitar a mi hogar', joinBtn:'Ya tengo un código',
+    connectedAs:'Conectado con', viewHousehold:'Ver Hogar →', leaveHousehold:'Salir del hogar',
+    pendingTitle:'Invitación pendiente', pendingSub:'Comparte este código con tu pareja para que se una.',
+    copyCode:'Copiar código', codeCopied:'¡Código copiado!',
+    cancelInvite:'Cancelar invitación'
   } : {
     memberSince:'Member since', freePlan:'Free Plan',
     statSaved:'Total saved', statMonths:'Months active', statTx:'Total entries', statDays:'Days with activity',
@@ -333,7 +341,15 @@ function render(){
     tip2noInv:"You haven't recorded investments yet. Consider investing part of your savings.",
     tip2hasInv:'Great job investing regularly.',
     tip3:'Keep recording your expenses daily to maintain good habits.',
-    plan:'Plan'
+    plan:'Plan',
+    household:'Shared household',
+    noHousehold:'Manage finances as a couple',
+    noHouseholdSub:"Invite your partner to see your household's combined financial health, with tips and comparisons — each of you keeps your data private until you decide to share it.",
+    inviteBtn:'+ Invite to my household', joinBtn:'I have a code',
+    connectedAs:'Connected with', viewHousehold:'View Household →', leaveHousehold:'Leave household',
+    pendingTitle:'Pending invitation', pendingSub:'Share this code with your partner so they can join.',
+    copyCode:'Copy code', codeCopied:'Code copied!',
+    cancelInvite:'Cancel invitation'
   };
 
   const savedAvatar = localStorage.getItem(AVATAR_KEY);
@@ -404,12 +420,202 @@ function render(){
     </div>
   </div>
 
+  <!-- HOUSEHOLD CARD -->
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-hd">🏠 ${T.household}</div>
+    ${buildHouseholdSection(T)}
+  </div>
+
   <!-- RECENT ACTIVITY -->
   <div class="card">
     <div class="card-hd">🕐 ${T.activity}</div>
     ${buildRecentActivity(T)}
   </div>
   `;
+}
+
+/* ══════════════════════════════════════════
+   HOUSEHOLD (HOGAR) — Invitation system
+   Simulated locally with localStorage since there's no backend yet.
+   ft_hogar shape:
+   {
+     connected: bool,
+     pendingInvite: bool,
+     inviteCode: string,
+     myProfile: 'A'|'B',
+     partnerName: string,
+     partnerEmail: string,
+     connectedAt: ISOString
+   }
+══════════════════════════════════════════ */
+const HOGAR_KEY = 'ft_hogar';
+
+function loadHogar(){
+  try { return JSON.parse(localStorage.getItem(HOGAR_KEY)) || { connected:false, pendingInvite:false }; }
+  catch(e) { return { connected:false, pendingInvite:false }; }
+}
+function saveHogar(h){ localStorage.setItem(HOGAR_KEY, JSON.stringify(h)); }
+
+function generateInviteCode(){
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = 'FT-';
+  for (let i=0;i<4;i++) code += chars[Math.floor(Math.random()*chars.length)];
+  return code;
+}
+
+function buildHouseholdSection(T){
+  const hogar = loadHogar();
+
+  if (hogar.connected) {
+    return `
+    <div style="display:flex;align-items:center;gap:12px;background:var(--g-light);border:1px solid rgba(26,122,74,.2);border-radius:14px;padding:14px 16px;margin-bottom:12px">
+      <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--g-dark),var(--g-main));display:grid;place-items:center;color:white;font-size:16px;font-weight:800;flex-shrink:0">${(hogar.partnerName||'P').charAt(0).toUpperCase()}</div>
+      <div style="flex:1">
+        <div style="font-size:11px;color:var(--text3);font-weight:600">${T.connectedAs}</div>
+        <div style="font-size:14px;font-weight:800">${hogar.partnerName||'—'}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:10px;color:var(--g-main);font-weight:700">✓ ${lang==='es'?'Activo':'Active'}</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button onclick="go('hogar.html')" style="flex:1;background:linear-gradient(135deg,var(--g-dark),var(--g-main));color:white;border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">${T.viewHousehold}</button>
+      <button onclick="leaveHousehold()" style="background:var(--red-dim);color:var(--red);border:none;border-radius:10px;padding:11px 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">${T.leaveHousehold}</button>
+    </div>`;
+  }
+
+  if (hogar.pendingInvite) {
+    return `
+    <div style="text-align:center;padding:8px 0 14px">
+      <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px">${T.pendingTitle}</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:16px">${T.pendingSub}</div>
+      <div style="background:var(--off);border:1.5px dashed var(--border);border-radius:14px;padding:18px;margin-bottom:14px">
+        <div style="font-size:26px;font-weight:800;letter-spacing:2px;color:var(--g-main)">${hogar.inviteCode}</div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button onclick="copyInviteCode('${hogar.inviteCode}')" style="flex:1;background:linear-gradient(135deg,var(--g-dark),var(--g-main));color:white;border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">📋 ${T.copyCode}</button>
+        <button onclick="cancelInvite()" style="background:var(--red-dim);color:var(--red);border:none;border-radius:10px;padding:11px 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">${T.cancelInvite}</button>
+      </div>
+    </div>`;
+  }
+
+  return `
+  <div style="text-align:center;padding:8px 0 4px">
+    <div style="font-size:38px;margin-bottom:10px">💑</div>
+    <div style="font-size:15px;font-weight:800;margin-bottom:6px">${T.noHousehold}</div>
+    <div style="font-size:12px;color:var(--text3);line-height:1.5;margin-bottom:18px;max-width:380px;margin-left:auto;margin-right:auto">${T.noHouseholdSub}</div>
+    <div style="display:flex;gap:8px">
+      <button onclick="openInviteModal()" style="flex:1;background:linear-gradient(135deg,var(--g-dark),var(--g-main));color:white;border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">${T.inviteBtn}</button>
+      <button onclick="openJoinModal()" style="flex:1;background:var(--off);border:1.5px solid var(--border);color:var(--text2);border-radius:10px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">${T.joinBtn}</button>
+    </div>
+  </div>`;
+}
+
+function openInviteModal(){
+  const code = generateInviteCode();
+  const hogar = { connected:false, pendingInvite:true, inviteCode:code, myProfile:'A' };
+  saveHogar(hogar);
+  render();
+}
+
+function copyInviteCode(code){
+  navigator.clipboard.writeText(code).then(()=>{
+    showToast(lang==='es'?'📋 ¡Código copiado!':'📋 Code copied!');
+  }).catch(()=>{
+    showToast(lang==='es'?'Código: '+code:'Code: '+code);
+  });
+}
+
+function cancelInvite(){
+  if (!confirm(lang==='es'?'¿Cancelar la invitación?':'Cancel the invitation?')) return;
+  saveHogar({ connected:false, pendingInvite:false });
+  render();
+  showToast(lang==='es'?'Invitación cancelada':'Invitation cancelled');
+}
+
+function leaveHousehold(){
+  const msg = lang==='es'
+    ? '¿Salir del hogar? Dejarás de ver el dashboard combinado. Tus datos personales no se borran.'
+    : 'Leave the household? You will stop seeing the combined dashboard. Your personal data is not deleted.';
+  if (!confirm(msg)) return;
+  saveHogar({ connected:false, pendingInvite:false });
+  // Clean up simulated profile snapshots
+  localStorage.removeItem('ft_profile_A');
+  localStorage.removeItem('ft_profile_B');
+  localStorage.removeItem('ft_active_profile');
+  render();
+  showToast(lang==='es'?'Saliste del hogar':'You left the household');
+}
+
+/* ── JOIN MODAL (simple prompt-based since this is a small flow) ── */
+function openJoinModal(){
+  const code = prompt(lang==='es'
+    ? 'Ingresa el código de invitación (ej. FT-X7K9):'
+    : 'Enter the invitation code (e.g. FT-X7K9):');
+  if (!code) return;
+
+  const trimmed = code.trim().toUpperCase();
+  if (!trimmed.startsWith('FT-') || trimmed.length < 6) {
+    showToast(lang==='es'?'⚠️ Código inválido':'⚠️ Invalid code');
+    return;
+  }
+
+  showAcceptInviteWarning(trimmed);
+}
+
+function showAcceptInviteWarning(code){
+  const msg = lang==='es'
+    ? `Vas a unirte a un hogar compartido.\n\n⚠️ Importante: tus datos financieros (ingresos, gastos, ahorros, inversiones) serán visibles para la otra persona en la vista de Hogar.\n\nTus registros individuales en Dashboard, Análisis e Historial siguen siendo solo tuyos — nadie más puede editarlos.\n\n¿Continuar y unirte con el código ${code}?`
+    : `You're about to join a shared household.\n\n⚠️ Important: your financial data (income, expenses, savings, investments) will be visible to the other person in the Household view.\n\nYour individual records in Dashboard, Analysis and History remain yours only — no one else can edit them.\n\nContinue and join with code ${code}?`;
+
+  if (!confirm(msg)) return;
+
+  // Simulate acceptance: mark this profile as 'B' (the joiner), connected.
+  const hogar = {
+    connected: true,
+    pendingInvite: false,
+    inviteCode: code,
+    myProfile: 'B',
+    partnerName: lang==='es' ? 'Tu pareja' : 'Your partner',
+    partnerEmail: '',
+    connectedAt: new Date().toISOString()
+  };
+  saveHogar(hogar);
+
+  // Snapshot current data into profile B slot, and create a starter profile A
+  // so the Hogar screen has something to compare against in this local simulation.
+  snapshotCurrentProfile('B');
+  ensureProfileExists('A');
+
+  render();
+  showToast(lang==='es'?'🎉 ¡Te uniste al hogar!':'🎉 Joined the household!');
+}
+
+function snapshotCurrentProfile(slot){
+  const data = JSON.parse(localStorage.getItem('ft_data')||'{"transactions":[],"emergency":0,"subscriptions":[]}');
+  const profile = {
+    name: user.name || (slot==='A' ? 'Persona A' : 'Persona B'),
+    email: user.email || '',
+    income: user.income || 0,
+    needs: user.needs || 0,
+    wants: user.wants || 0,
+    savings: user.savings || 0,
+    data
+  };
+  localStorage.setItem('ft_profile_'+slot, JSON.stringify(profile));
+}
+
+function ensureProfileExists(slot){
+  if (localStorage.getItem('ft_profile_'+slot)) return;
+  // Create a placeholder partner profile with sample-free empty data,
+  // so hogar.html has something valid to render in this local simulation.
+  const placeholder = {
+    name: lang==='es' ? 'Tu pareja' : 'Your partner',
+    email: '',
+    income: 0, needs: 0, wants: 0, savings: 0,
+    data: { transactions:[], emergency:0, subscriptions:[] }
+  };
+  localStorage.setItem('ft_profile_'+slot, JSON.stringify(placeholder));
 }
 
 function buildRecentActivity(T){
