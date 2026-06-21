@@ -252,6 +252,29 @@ function closeMoreOutside(e){ if(e.target===document.getElementById('moreOverlay
   </div>
 </div>
 
+<!-- BREAKDOWN MODAL -->
+<div class="overlay" id="breakdownOverlay" onclick="closeBreakdownOutside(event)">
+  <div class="modal" style="width:460px">
+    <div class="modal-hd">
+      <div class="modal-title" data-es="Desglosar inversión" data-en="Break down investment">Desglosar inversión</div>
+      <div class="modal-close" onclick="closeBreakdownModal()">✕</div>
+    </div>
+    <div style="background:var(--off);border-radius:10px;padding:12px 14px;margin-bottom:16px">
+      <div style="font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.4px" data-es="Monto total a dividir" data-en="Total amount to split">Monto total a dividir</div>
+      <div style="font-size:22px;font-weight:800;color:var(--text)" id="bdTotalAmount">$0.00</div>
+    </div>
+
+    <div id="bdRows" style="display:flex;flex-direction:column;gap:10px;margin-bottom:12px"></div>
+
+    <button onclick="addBreakdownRow()" style="width:100%;border:1.5px dashed var(--border);background:transparent;border-radius:10px;padding:9px;font-size:12px;font-weight:600;color:var(--text3);cursor:pointer;font-family:inherit;margin-bottom:14px" data-es="+ Agregar posición" data-en="+ Add position">+ Agregar posición</button>
+
+    <div id="bdRemainingBox" style="border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:13px;font-weight:700;text-align:center"></div>
+
+    <input type="hidden" id="bdInvId">
+    <button class="btn-save" onclick="saveBreakdown()" data-es="Guardar desglose" data-en="Save breakdown">Guardar desglose</button>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -260,8 +283,8 @@ const INV_KEY   = 'ft_investments';
 let lang = 'es', user = {};
 let donutChart = null, lineChart = null;
 
-const TYPE_COLORS = { stock:'var(--blue)', etf:'var(--g-main)', crypto:'var(--amber)', bond:'var(--purple)', realestate:'var(--red)', other:'var(--text3)' };
-const TYPE_ICONS  = { stock:'📈', etf:'📊', crypto:'₿', bond:'📋', realestate:'🏠', other:'📦' };
+const TYPE_COLORS = { stock:'var(--blue)', etf:'var(--g-main)', crypto:'var(--amber)', bond:'var(--purple)', realestate:'var(--red)', other:'var(--text3)', varias:'var(--text3)' };
+const TYPE_ICONS  = { stock:'📈', etf:'📊', crypto:'₿', bond:'📋', realestate:'🏠', other:'📦', varias:'🔀' };
 const PLATFORM_COLORS = { Fidelity:'rgba(0,80,168,0.12)', 'Roth IRA':'rgba(26,122,74,0.12)', '401k':'rgba(123,94,167,0.12)', Robinhood:'rgba(0,192,105,0.12)', Coinbase:'rgba(22,82,240,0.12)', Otro:'var(--off)' };
 
 function loadInv() { try{return JSON.parse(localStorage.getItem(INV_KEY))||[];}catch(e){return[];} }
@@ -285,14 +308,16 @@ function render(){
     history:'Historial de compras', noInv:'Sin inversiones aún',
     noInvSub:'Registra tu primera inversión para ver tu portafolio.',
     addFirst:'+ Agregar primera inversión', note:'Nota', platform:'Plataforma',
-    invested:'invertido', on:'el', edit:'Editar', delete:'Eliminar'
+    invested:'invertido', on:'el', edit:'Editar', delete:'Eliminar',
+    breakdown:'Desglosar'
   }:{
     totalInvested:'Total invested', platforms:'Platforms', positions:'Positions',
     avgDCA:'Avg DCA', portfolio:'My portfolio', byType:'By type',
     history:'Purchase history', noInv:'No investments yet',
     noInvSub:'Record your first investment to see your portfolio.',
     addFirst:'+ Add first investment', note:'Note', platform:'Platform',
-    invested:'invested', on:'on', edit:'Edit', delete:'Delete'
+    invested:'invested', on:'on', edit:'Edit', delete:'Delete',
+    breakdown:'Break down'
   };
 
   const page = document.getElementById('page');
@@ -329,11 +354,12 @@ function render(){
         const color = TYPE_COLORS[inv.invType]||'var(--text3)';
         const icon  = TYPE_ICONS[inv.invType]||'📦';
         const d = new Date(inv.date+'T00:00:00').toLocaleDateString(lang==='es'?'es-MX':'en-US',{month:'short',day:'numeric',year:'numeric'});
+        const isVarias = inv.invType === 'varias' || inv.fromDashboard;
         return `
-        <div class="inv-row">
+        <div class="inv-row" style="${isVarias?'background:rgba(147,149,165,0.06);border-radius:10px':''}">
           <div class="inv-ico" style="background:${PLATFORM_COLORS[inv.platform]||'var(--off)'}">${icon}</div>
           <div class="inv-info">
-            <div class="inv-name">${inv.name}</div>
+            <div class="inv-name">${inv.name}${isVarias?` <span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:20px;background:var(--off);color:var(--text3);margin-left:4px">${lang==='es'?'Sin desglosar':'Not broken down'}</span>`:''}</div>
             <div class="inv-type">
               <span class="platform-badge" style="background:${PLATFORM_COLORS[inv.platform]||'var(--off)'};color:var(--text2)">${inv.platform}</span>
               ${inv.note?`<span style="font-size:10px;color:var(--text3);margin-left:4px">${inv.note}</span>`:''}
@@ -342,7 +368,9 @@ function render(){
           <div class="inv-right">
             <div class="inv-amt" style="color:${color}">${fmtD(inv.amount)}</div>
             <div class="inv-date">${T.on} ${d}</div>
-            <div class="inv-pct" style="background:${color}22;color:${color}">${pct}%</div>
+            ${isVarias
+              ? `<div style="cursor:pointer;font-size:10px;font-weight:700;color:var(--g-main);margin-top:3px" onclick="openBreakdownModal('${inv.id}')">🔀 ${T.breakdown}</div>`
+              : `<div class="inv-pct" style="background:${color}22;color:${color}">${pct}%</div>`}
           </div>
           <div style="position:relative">
             <div class="inv-menu-btn" onclick="toggleInvMenu('imenu_${inv.id}',event)">⋯</div>
@@ -471,6 +499,138 @@ function openModal(id){
 function closeModal(){ document.getElementById('overlay').classList.remove('open'); }
 function closeOutside(e){ if(e.target===document.getElementById('overlay')) closeModal(); }
 
+/* ══════════════════════════════════════════
+   BREAKDOWN MODAL — split a "Varias" (unallocated)
+   investment into specific positions.
+══════════════════════════════════════════ */
+let breakdownInvId = null;
+let breakdownRowCount = 0;
+
+function openBreakdownModal(invId){
+  const inv = loadInv().find(i=>i.id===invId);
+  if (!inv) return;
+
+  breakdownInvId = invId;
+  breakdownRowCount = 0;
+  document.getElementById('bdInvId').value = invId;
+  document.getElementById('bdTotalAmount').textContent = fmtD(inv.amount);
+  document.getElementById('bdRows').innerHTML = '';
+
+  // Start with 2 empty rows to make the intent obvious
+  addBreakdownRow();
+  addBreakdownRow();
+  updateBreakdownRemaining();
+
+  document.getElementById('breakdownOverlay').classList.add('open');
+}
+
+function closeBreakdownModal(){ document.getElementById('breakdownOverlay').classList.remove('open'); }
+function closeBreakdownOutside(e){ if(e.target===document.getElementById('breakdownOverlay')) closeBreakdownModal(); }
+
+function addBreakdownRow(){
+  breakdownRowCount++;
+  const rowId = 'bdrow_'+breakdownRowCount;
+  const wrap = document.createElement('div');
+  wrap.id = rowId;
+  wrap.style.cssText = 'display:flex;gap:8px;align-items:center';
+  wrap.innerHTML = `
+    <input type="text" placeholder="${lang==='es'?'Nombre/Ticker':'Name/Ticker'}" class="bd-name" style="flex:2;background:var(--off);border:1.5px solid var(--border);border-radius:8px;padding:9px 11px;font-size:13px;font-family:inherit;outline:none">
+    <select class="bd-type" style="flex:1.2;background:var(--off);border:1.5px solid var(--border);border-radius:8px;padding:9px 8px;font-size:12px;font-family:inherit;outline:none">
+      <option value="stock">📈 ${lang==='es'?'Acción':'Stock'}</option>
+      <option value="etf">📊 ETF</option>
+      <option value="crypto">₿ ${lang==='es'?'Cripto':'Crypto'}</option>
+      <option value="bond">📋 ${lang==='es'?'Bono':'Bond'}</option>
+      <option value="other">📦 ${lang==='es'?'Otro':'Other'}</option>
+    </select>
+    <input type="number" placeholder="$0.00" class="bd-amount" min="0" step="0.01" oninput="updateBreakdownRemaining()" style="flex:1;background:var(--off);border:1.5px solid var(--border);border-radius:8px;padding:9px 11px;font-size:13px;font-family:inherit;outline:none">
+    <div onclick="removeBreakdownRow('${rowId}')" style="color:var(--text3);cursor:pointer;font-size:16px;padding:4px">✕</div>
+  `;
+  document.getElementById('bdRows').appendChild(wrap);
+}
+
+function removeBreakdownRow(rowId){
+  const el = document.getElementById(rowId);
+  if (el) el.remove();
+  updateBreakdownRemaining();
+}
+
+function updateBreakdownRemaining(){
+  const inv = loadInv().find(i=>i.id===breakdownInvId);
+  if (!inv) return;
+
+  const amounts = Array.from(document.querySelectorAll('.bd-amount')).map(i=>parseFloat(i.value)||0);
+  const allocated = amounts.reduce((s,a)=>s+a,0);
+  const remaining = parseFloat(inv.amount) - allocated;
+
+  const box = document.getElementById('bdRemainingBox');
+  if (Math.abs(remaining) < 0.01) {
+    box.style.background = 'var(--g-light)';
+    box.style.color = 'var(--g-main)';
+    box.textContent = '✅ ' + (lang==='es' ? 'Cuadra perfecto — $0.00 restante' : 'Perfectly balanced — $0.00 remaining');
+  } else if (remaining > 0) {
+    box.style.background = 'var(--amb-dim)';
+    box.style.color = 'var(--amber)';
+    box.textContent = '⚠️ ' + (lang==='es' ? 'Faltan por asignar: ' : 'Still unallocated: ') + fmtD(remaining);
+  } else {
+    box.style.background = 'var(--red-dim)';
+    box.style.color = 'var(--red)';
+    box.textContent = '🚨 ' + (lang==='es' ? 'Te pasaste por: ' : 'Over by: ') + fmtD(Math.abs(remaining));
+  }
+}
+
+function saveBreakdown(){
+  const inv = loadInv().find(i=>i.id===breakdownInvId);
+  if (!inv) return;
+
+  const rows = Array.from(document.querySelectorAll('#bdRows > div'));
+  const newPositions = [];
+  let allocated = 0;
+
+  rows.forEach(row=>{
+    const name = row.querySelector('.bd-name').value.trim();
+    const invType = row.querySelector('.bd-type').value;
+    const amount = parseFloat(row.querySelector('.bd-amount').value)||0;
+    if (name && amount > 0) {
+      newPositions.push({
+        id: 'inv_'+Date.now()+'_'+Math.random().toString(36).substr(2,5),
+        name, invType, amount,
+        date: inv.date, platform: inv.platform,
+        note: inv.note || ''
+      });
+      allocated += amount;
+    }
+  });
+
+  if (!newPositions.length) {
+    showToast(lang==='es'?'⚠️ Agrega al menos una posición con nombre y monto':'⚠️ Add at least one position with name and amount');
+    return;
+  }
+
+  const remaining = parseFloat(inv.amount) - allocated;
+
+  let invs = loadInv();
+  // Remove the original "varias" entry
+  invs = invs.filter(i=>i.id!==breakdownInvId);
+  // Add the new broken-down positions
+  invs = invs.concat(newPositions);
+
+  // If there's a meaningful remainder left, keep it as a smaller "Varias" entry so nothing is lost
+  if (Math.abs(remaining) > 0.01 && remaining > 0) {
+    invs.push({
+      ...inv,
+      id: 'inv_remainder_'+Date.now(),
+      amount: remaining,
+      invType: 'varias',
+      fromDashboard: true
+    });
+  }
+
+  saveInv(invs);
+  closeBreakdownModal();
+  render();
+  showToast(lang==='es'?'✅ Inversión desglosada':'✅ Investment broken down');
+}
+
 function saveInvestment(){
   const name=document.getElementById('mName').value.trim();
   const amount=parseFloat(document.getElementById('mAmount').value);
@@ -506,6 +666,18 @@ function saveInvestment(){
 function editInv(id){ openModal(id); }
 function deleteInv(id){
   if(!confirm(lang==='es'?'¿Eliminar esta inversión?':'Delete this investment?')) return;
+
+  // If this entry came from the Dashboard (id prefixed with 'tx_'), also remove
+  // the underlying transaction so it doesn't keep showing in Recent Transactions.
+  if (id.startsWith('tx_')) {
+    try {
+      const data = JSON.parse(localStorage.getItem('ft_data')||'{"transactions":[]}');
+      const originalTxId = parseInt(id.replace('tx_',''));
+      data.transactions = (data.transactions||[]).filter(t => t.id !== originalTxId);
+      localStorage.setItem('ft_data', JSON.stringify(data));
+    } catch(e) {}
+  }
+
   saveInv(loadInv().filter(i=>i.id!==id));
   render();
   showToast(lang==='es'?'🗑️ Eliminada':'🗑️ Deleted');
