@@ -1386,11 +1386,16 @@ function saveEntry() {
         data.emergency = Math.max(0, (data.emergency||0) - parseFloat(old.amount));
         removeEmergencyHistoryEntry(old.id);
       }
+      // Reverse old investment sync if it was an investment
+      if (old.type === 'inversion') removeInvestmentSyncEntry(old.id);
       // Apply new values
       data.transactions[idx] = { ...old, type:currentType, desc, amount, date, note, cat };
       if (currentType === 'ahorro') {
         data.emergency = (data.emergency||0) + amount;
         addEmergencyHistoryEntry({ id: old.id, amount, date, type:'deposito', note: desc });
+      }
+      if (currentType === 'inversion') {
+        addInvestmentSyncEntry({ id: old.id, name: desc, amount, date, note });
       }
     }
     editingEntryId = null;
@@ -1401,6 +1406,9 @@ function saveEntry() {
     if (currentType === 'ahorro') {
       data.emergency = (data.emergency||0) + amount;
       addEmergencyHistoryEntry({ id: entry.id, amount, date, type:'deposito', note: desc });
+    }
+    if (currentType === 'inversion') {
+      addInvestmentSyncEntry({ id: entry.id, name: desc, amount, date, note });
     }
     data.transactions.push(entry);
   }
@@ -1436,6 +1444,45 @@ function addEmergencyHistoryEntry(entry) {
 function removeEmergencyHistoryEntry(txId) {
   const hist = loadEmergencyHistory().filter(h => h.id !== ('tx_'+txId));
   saveEmergencyHistory(hist);
+}
+
+/* ══════════════════════════════════════════
+   INVESTMENT SYNC
+   Keeps ft_investments (used by inversiones.html) in sync with
+   "inversion"-type entries created/edited/deleted from the
+   Dashboard's Nuevo Registro modal. Synced entries arrive with
+   invType:'varias' (unallocated) until the user breaks them down
+   into specific positions inside Inversiones.
+══════════════════════════════════════════ */
+const INV_SYNC_KEY = 'ft_investments';
+
+function loadInvestmentSync() {
+  try { return JSON.parse(localStorage.getItem(INV_SYNC_KEY)) || []; }
+  catch(e) { return []; }
+}
+function saveInvestmentSync(list) { localStorage.setItem(INV_SYNC_KEY, JSON.stringify(list)); }
+
+function addInvestmentSyncEntry(entry) {
+  const list = loadInvestmentSync();
+  const syncId = 'tx_'+entry.id;
+  // Remove any previous sync for this tx id first (covers edit case cleanly)
+  const filtered = list.filter(i => i.id !== syncId);
+  filtered.push({
+    id: syncId,
+    name: entry.name || (lang==='es' ? 'Varias' : 'Various'),
+    amount: entry.amount,
+    date: entry.date,
+    platform: lang==='es' ? 'Sin asignar' : 'Unassigned',
+    invType: 'varias',
+    note: entry.note || '',
+    fromDashboard: true
+  });
+  saveInvestmentSync(filtered);
+}
+
+function removeInvestmentSyncEntry(txId) {
+  const list = loadInvestmentSync().filter(i => i.id !== ('tx_'+txId));
+  saveInvestmentSync(list);
 }
 
 function editEntry(id) {
@@ -1475,6 +1522,7 @@ function deleteEntry() {
       data.emergency = Math.max(0, (data.emergency||0) - parseFloat(old.amount));
       removeEmergencyHistoryEntry(old.id);
     }
+    if (old.type === 'inversion') removeInvestmentSyncEntry(old.id);
     data.transactions.splice(idx, 1);
     saveData(data);
   }
@@ -1713,6 +1761,9 @@ function useShortcut(i) {
   if (entry.type === 'ahorro') {
     data.emergency = (data.emergency||0) + entry.amount;
     addEmergencyHistoryEntry({ id: entry.id, amount: entry.amount, date: entry.date, type:'deposito', note: entry.desc });
+  }
+  if (entry.type === 'inversion') {
+    addInvestmentSyncEntry({ id: entry.id, name: entry.desc, amount: entry.amount, date: entry.date, note: '' });
   }
 
   data.transactions.push(entry);
