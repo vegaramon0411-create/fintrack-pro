@@ -982,6 +982,39 @@ function greeting() {
 /* ══════════════════════════════════════════
    COMPUTE MONTH TOTALS
 ══════════════════════════════════════════ */
+/* ══════════════════════════════════════════
+   CATEGORY CLASSIFICATION — Needs vs Wants
+   Shared logic used across Dashboard, Analysis, History.
+   Classification is by REAL CATEGORY, not transaction type.
+══════════════════════════════════════════ */
+const CATEGORY_TYPE_MAP = {
+  // Needs — essential, fixed or hard-to-avoid expenses
+  '🛒 Supermercado':        'needs',
+  '🏠 Renta / Hipoteca':    'needs',
+  '⛽ Gasolina':             'needs',
+  '💊 Salud':                'needs',
+  '📱 Teléfono/Internet':   'needs',
+  '📱 Teléfono / Internet': 'needs',
+  '🔧 Mantenimiento':       'needs',
+  // Wants — discretionary, lifestyle expenses
+  '🍔 Restaurantes':        'wants',
+  '🎬 Entretenimiento':     'wants',
+  '👕 Ropa':                 'wants',
+  '✈️ Viajes':               'wants',
+  '📈 Inversión':            'wants', // fallback only; investments are normally tracked separately
+  '📦 Otros':                'wants'
+};
+
+function getCategoryType(cat) {
+  if (!cat) return 'wants';
+  if (CATEGORY_TYPE_MAP[cat]) return CATEGORY_TYPE_MAP[cat];
+  // Fuzzy fallback: match by emoji prefix or partial text
+  for (const key in CATEGORY_TYPE_MAP) {
+    if (cat.includes(key.replace(/^[^\w\sáéíóúÁÉÍÓÚñÑ]+/,'').trim())) return CATEGORY_TYPE_MAP[key];
+  }
+  return 'wants'; // unclassified categories default to Wants (safer than silently inflating Needs)
+}
+
 function getMonthTotals() {
   const data = loadData();
   const now  = new Date();
@@ -994,7 +1027,20 @@ function getMonthTotals() {
   txs.forEach(t => { totals[t.type] = (totals[t.type]||0) + parseFloat(t.amount); });
 
   const spent = totals.gasto + totals.suscripcion + totals.hipoteca;
-  return { ...totals, spent, txs };
+
+  // ── Classify spending-type transactions (gasto, suscripcion, hipoteca) by CATEGORY ──
+  let needsSpent = 0, wantsSpent = 0;
+  txs.forEach(t => {
+    if (t.type === 'gasto' || t.type === 'suscripcion' || t.type === 'hipoteca') {
+      const amt = parseFloat(t.amount) || 0;
+      // Renta/Hipoteca type always counts as Needs regardless of category field
+      if (t.type === 'hipoteca') { needsSpent += amt; return; }
+      const kind = getCategoryType(t.cat);
+      if (kind === 'needs') needsSpent += amt; else wantsSpent += amt;
+    }
+  });
+
+  return { ...totals, spent, needsSpent, wantsSpent, txs };
 }
 
 /* ══════════════════════════════════════════
@@ -1042,9 +1088,9 @@ function renderDashboard() {
   document.getElementById('kpiSavingsGoal').textContent = fmt(savings);
   document.getElementById('kpiEmergency').textContent   = fmt(loadData().emergency || 0);
 
-  // ── 50/30/20 ──
-  const needsSpent  = totals.gasto   + totals.hipoteca;
-  const wantsSpent  = totals.suscripcion;
+  // ── 50/30/20 — classified by REAL CATEGORY (needs vs wants), not transaction type ──
+  const needsSpent  = totals.needsSpent;
+  const wantsSpent  = totals.wantsSpent;
   const savingsSpent= totals.ahorro  + totals.inversion;
 
   const nPct = needs   > 0 ? Math.min((needsSpent/needs)*100,  100) : 0;
