@@ -445,11 +445,54 @@ function getCategoryTotals() {
     .sort((a,b) => b.amount - a.amount);
 }
 
+/* ══════════════════════════════════
+   CATEGORY CLASSIFICATION — Needs vs Wants
+   Shared logic, same map as dashboard.html
+══════════════════════════════════ */
+const CATEGORY_TYPE_MAP = {
+  '🛒 Supermercado':        'needs',
+  '🏠 Renta / Hipoteca':    'needs',
+  '⛽ Gasolina':             'needs',
+  '💊 Salud':                'needs',
+  '📱 Teléfono/Internet':   'needs',
+  '📱 Teléfono / Internet': 'needs',
+  '🔧 Mantenimiento':       'needs',
+  '🍔 Restaurantes':        'wants',
+  '🎬 Entretenimiento':     'wants',
+  '👕 Ropa':                 'wants',
+  '✈️ Viajes':               'wants',
+  '📈 Inversión':            'wants',
+  '📦 Otros':                'wants'
+};
+
+function getCategoryType(cat) {
+  if (!cat) return 'wants';
+  if (CATEGORY_TYPE_MAP[cat]) return CATEGORY_TYPE_MAP[cat];
+  for (const key in CATEGORY_TYPE_MAP) {
+    if (cat.includes(key.replace(/^[^\w\sáéíóúÁÉÍÓÚñÑ]+/,'').trim())) return CATEGORY_TYPE_MAP[key];
+  }
+  return 'wants';
+}
+
 function getTotals() {
   const txs = getFilteredTx();
   const r = { gasto:0, ingreso:0, inversion:0, ahorro:0, suscripcion:0, hipoteca:0 };
   txs.forEach(t => { r[t.type] = (r[t.type]||0) + parseFloat(t.amount); });
   r.spent = r.gasto + r.suscripcion + r.hipoteca;
+
+  // ── Classify spending-type transactions by REAL CATEGORY ──
+  let needsSpent = 0, wantsSpent = 0;
+  txs.forEach(t => {
+    if (t.type === 'gasto' || t.type === 'suscripcion' || t.type === 'hipoteca') {
+      const amt = parseFloat(t.amount) || 0;
+      if (t.type === 'hipoteca') { needsSpent += amt; return; }
+      const kind = getCategoryType(t.cat);
+      if (kind === 'needs') needsSpent += amt; else wantsSpent += amt;
+    }
+  });
+  r.needsSpent = needsSpent;
+  r.wantsSpent = wantsSpent;
+
   return r;
 }
 
@@ -508,9 +551,9 @@ function render() {
       const el = document.getElementById('catfill_'+i);
       if (el) el.style.width = (totalSpent>0?(c.amount/totalSpent)*100:0)+'%';
     });
-    // Rule bars
-    const nPct = needs>0   ? Math.min((totals.spent/needs)*100,100)   : 0;
-    const wPct = wants>0   ? Math.min((totals.suscripcion/wants)*100,100)  : 0;
+    // Rule bars — classified by REAL CATEGORY
+    const nPct = needs>0   ? Math.min((totals.needsSpent/needs)*100,100)   : 0;
+    const wPct = wants>0   ? Math.min((totals.wantsSpent/wants)*100,100)  : 0;
     const sPct = savings>0 ? Math.min(((totals.ahorro+totals.inversion)/savings)*100,100) : 0;
     const nEl = document.getElementById('ruleNeedsFill');
     const wEl = document.getElementById('ruleWantsFill');
@@ -549,8 +592,8 @@ function buildPage(totals, cats, income, needs, wants, savings) {
     }
   }[lang];
 
-  const nPct = needs>0   ? Math.min(Math.round((totals.spent/needs)*100),999)   : 0;
-  const wPct = wants>0   ? Math.min(Math.round((totals.suscripcion/wants)*100),999) : 0;
+  const nPct = needs>0   ? Math.min(Math.round((totals.needsSpent/needs)*100),999)   : 0;
+  const wPct = wants>0   ? Math.min(Math.round((totals.wantsSpent/wants)*100),999) : 0;
   const sPct = savings>0 ? Math.min(Math.round(((totals.ahorro+totals.inversion)/savings)*100),999) : 0;
 
   const insightsList = buildInsights(totals, cats, income, needs, wants, savings, T);
@@ -655,8 +698,8 @@ function buildPage(totals, cats, income, needs, wants, savings) {
             <div class="rule-ring-target" style="left:100%"></div>
           </div>
           <div class="rule-ring-amounts">
-            <span style="font-weight:600;color:${nPct>=90?'var(--red)':'var(--g-main)'}">${fmt(totals.spent)} ${T.spent}</span>
-            <span>${fmt(Math.max(0,needs-totals.spent))} ${T.left}</span>
+            <span style="font-weight:600;color:${nPct>=90?'var(--red)':'var(--g-main)'}">${fmt(totals.needsSpent)} ${T.spent}</span>
+            <span>${fmt(Math.max(0,needs-totals.needsSpent))} ${T.left}</span>
           </div>
         </div>
 
@@ -675,8 +718,8 @@ function buildPage(totals, cats, income, needs, wants, savings) {
             <div class="rule-ring-fill" id="ruleWantsFill" style="width:0%;background:var(--blue)"></div>
           </div>
           <div class="rule-ring-amounts">
-            <span style="font-weight:600;color:var(--blue)">${fmt(totals.suscripcion)} ${T.spent}</span>
-            <span>${fmt(Math.max(0,wants-totals.suscripcion))} ${T.left}</span>
+            <span style="font-weight:600;color:var(--blue)">${fmt(totals.wantsSpent)} ${T.spent}</span>
+            <span>${fmt(Math.max(0,wants-totals.wantsSpent))} ${T.left}</span>
           </div>
         </div>
 
@@ -718,12 +761,12 @@ function buildPage(totals, cats, income, needs, wants, savings) {
 function buildInsights(totals, cats, income, needs, wants, savings, T) {
   const insights = [];
   const spent = totals.spent;
-  const nPct  = needs>0   ? Math.round((spent/needs)*100)   : 0;
+  const nPct  = needs>0   ? Math.round((totals.needsSpent/needs)*100)   : 0;
   const sPct  = savings>0 ? Math.round(((totals.ahorro+totals.inversion)/savings)*100) : 0;
   const savedActual = totals.ahorro + totals.inversion;
 
   if (lang==='es') {
-    if (nPct >= 90) insights.push({ type:'warn', ico:'🚨', text:`<strong>Necesidades al ${nPct}%</strong> — Te quedan solo ${fmt(Math.max(0,needs-spent))} del límite.` });
+    if (nPct >= 90) insights.push({ type:'warn', ico:'🚨', text:`<strong>Necesidades al ${nPct}%</strong> — Te quedan solo ${fmt(Math.max(0,needs-totals.needsSpent))} del límite.` });
     else if (nPct < 60) insights.push({ type:'good', ico:'✅', text:`<strong>Buen control</strong> — Solo usaste ${nPct}% de tu límite de necesidades.` });
 
     if (sPct >= 100) insights.push({ type:'good', ico:'🎯', text:`<strong>¡Meta de ahorro alcanzada!</strong> Ahorrado: ${fmt(savedActual)} de ${fmt(savings)}.` });
@@ -737,7 +780,7 @@ function buildInsights(totals, cats, income, needs, wants, savings, T) {
     if (income > 0 && spent > income) insights.push({ type:'warn', ico:'⚠️', text:`<strong>Gastaste más de lo que ganas</strong>. Déficit de ${fmt(spent-income)}.` });
     else if (income > 0 && spent < income*0.7) insights.push({ type:'good', ico:'💚', text:`Excelente — gastaste solo el ${Math.round((spent/income)*100)}% de tu ingreso.` });
   } else {
-    if (nPct >= 90) insights.push({ type:'warn', ico:'🚨', text:`<strong>Needs at ${nPct}%</strong> — Only ${fmt(Math.max(0,needs-spent))} left in your limit.` });
+    if (nPct >= 90) insights.push({ type:'warn', ico:'🚨', text:`<strong>Needs at ${nPct}%</strong> — Only ${fmt(Math.max(0,needs-totals.needsSpent))} left in your limit.` });
     else if (nPct < 60) insights.push({ type:'good', ico:'✅', text:`<strong>Great control</strong> — You only used ${nPct}% of your needs limit.` });
 
     if (sPct >= 100) insights.push({ type:'good', ico:'🎯', text:`<strong>Savings goal reached!</strong> Saved: ${fmt(savedActual)} of ${fmt(savings)}.` });
