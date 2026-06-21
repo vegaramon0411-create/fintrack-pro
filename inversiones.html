@@ -205,50 +205,104 @@ function closeMoreOutside(e){ if(e.target===document.getElementById('moreOverlay
       <div class="modal-title" data-es="Nueva inversión" data-en="New investment">Nueva inversión</div>
       <div class="modal-close" onclick="closeModal()">✕</div>
     </div>
-    <div class="field">
-      <label data-es="Nombre / Ticker" data-en="Name / Ticker">Nombre / Ticker</label>
-      <input type="text" id="mName" placeholder="NVDA, QQQM, Bitcoin...">
+
+    <!-- INPUT METHOD TABS -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:5px;margin-bottom:16px;background:var(--off);border-radius:10px;padding:3px;">
+      <button class="inv-input-tab" id="invTabBtnManual" onclick="switchInvTab('manual',this)" style="padding:7px 4px;border-radius:8px;font-size:11px;font-weight:700;border:none;cursor:pointer;font-family:inherit;background:var(--white);color:var(--g-main);box-shadow:0 1px 4px rgba(0,0,0,0.08);" data-es="✏️ Manual" data-en="✏️ Manual">✏️ Manual</button>
+      <button class="inv-input-tab" id="invTabBtnVoice" onclick="switchInvTab('voice',this)" style="padding:7px 4px;border-radius:8px;font-size:11px;font-weight:700;border:none;cursor:pointer;font-family:inherit;background:transparent;color:var(--text3);" data-es="🎤 Voz" data-en="🎤 Voice">🎤 Voz</button>
+      <button class="inv-input-tab" id="invTabBtnScan" onclick="switchInvTab('scan',this)" style="padding:7px 4px;border-radius:8px;font-size:11px;font-weight:700;border:none;cursor:pointer;font-family:inherit;background:transparent;color:var(--text3);" data-es="📷 Escanear" data-en="📷 Scan">📷 Escanear</button>
+      <button class="inv-input-tab" id="invTabBtnCsv" onclick="switchInvTab('csv',this)" style="padding:7px 4px;border-radius:8px;font-size:11px;font-weight:700;border:none;cursor:pointer;font-family:inherit;background:transparent;color:var(--text3);" data-es="📄 CSV" data-en="📄 CSV">📄 CSV</button>
     </div>
-    <div class="field-row">
-      <div class="field">
-        <label data-es="Monto invertido ($)" data-en="Amount invested ($)">Monto invertido ($)</label>
-        <input type="number" id="mAmount" placeholder="0.00" min="0" step="0.01">
+
+    <!-- VOICE TAB -->
+    <div id="invTabVoice" style="display:none;margin-bottom:16px">
+      <div style="text-align:center;padding:20px;background:var(--off);border-radius:14px;margin-bottom:12px">
+        <div id="invVoiceBtn" onclick="toggleInvVoice()" style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,var(--g-dark),var(--g-main));display:grid;place-items:center;font-size:28px;margin:0 auto 10px;cursor:pointer;box-shadow:0 4px 16px rgba(15,81,50,0.3);transition:transform .1s;">🎤</div>
+        <div id="invVoiceStatus" style="font-size:13px;font-weight:600;color:var(--text2)" data-es="Toca el micrófono y habla" data-en="Tap the mic and speak">Toca el micrófono y habla</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:6px" data-es='Ejemplo: "Compré 500 dólares de NVDA en Fidelity"' data-en='Example: "I bought $500 of NVDA on Fidelity"'>Ejemplo: "Compré 500 dólares de NVDA en Fidelity"</div>
       </div>
-      <div class="field">
-        <label data-es="Fecha" data-en="Date">Fecha</label>
-        <input type="date" id="mDate">
-      </div>
-    </div>
-    <div class="field-row">
-      <div class="field">
-        <label data-es="Plataforma" data-en="Platform">Plataforma</label>
-        <select id="mPlatform">
-          <option value="Fidelity">Fidelity</option>
-          <option value="Roth IRA">Roth IRA (SoFi)</option>
-          <option value="401k">401k</option>
-          <option value="Robinhood">Robinhood</option>
-          <option value="Coinbase">Coinbase</option>
-          <option value="Otro">Otro</option>
-        </select>
-      </div>
-      <div class="field">
-        <label data-es="Tipo" data-en="Type">Tipo</label>
-        <select id="mType">
-          <option value="stock" data-es="📈 Acción" data-en="📈 Stock">📈 Acción</option>
-          <option value="etf" data-es="📊 ETF" data-en="📊 ETF">📊 ETF</option>
-          <option value="crypto" data-es="₿ Cripto" data-en="₿ Crypto">₿ Cripto</option>
-          <option value="bond" data-es="📋 Bono" data-en="📋 Bond">📋 Bono</option>
-          <option value="realestate" data-es="🏠 Inmueble" data-en="🏠 Real estate">🏠 Inmueble</option>
-          <option value="other" data-es="📦 Otro" data-en="📦 Other">📦 Otro</option>
-        </select>
+      <div id="invVoiceResult" style="display:none;background:var(--g-light);border:1px solid rgba(26,122,74,0.2);border-radius:10px;padding:12px;margin-bottom:10px">
+        <div style="font-size:11px;font-weight:700;color:var(--g-dark);margin-bottom:4px" data-es="Detectado:" data-en="Detected:">Detectado:</div>
+        <div id="invVoiceText" style="font-size:13px;color:var(--text2)"></div>
       </div>
     </div>
-    <div class="field">
-      <label data-es="Nota (opcional)" data-en="Note (optional)">Nota (opcional)</label>
-      <input type="text" id="mNote" placeholder="DCA, compra en baja...">
+
+    <!-- SCAN TAB -->
+    <div id="invTabScan" style="display:none;margin-bottom:16px">
+      <div id="invScanUpload" style="border:2px dashed var(--border);border-radius:14px;padding:28px 20px;text-align:center;cursor:pointer;transition:all .2s;position:relative">
+        <input type="file" accept="image/*" id="invScanFile" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%" onchange="handleInvScan(this)">
+        <div style="font-size:32px;margin-bottom:8px">📸</div>
+        <div style="font-size:14px;font-weight:700;margin-bottom:4px" data-es="Sube screenshot de tu orden" data-en="Upload your order screenshot">Sube screenshot de tu orden</div>
+        <div style="font-size:11px;color:var(--text3)" data-es="Confirmación de Fidelity, Robinhood, Coinbase, etc." data-en="Fidelity, Robinhood, Coinbase confirmation, etc.">Confirmación de Fidelity, Robinhood, Coinbase, etc.</div>
+      </div>
+      <div id="invScanPreview" style="display:none;margin-top:12px;border-radius:14px;overflow:hidden;position:relative;max-height:220px">
+        <img id="invScanImg" src="" style="width:100%;object-fit:cover;display:block">
+        <div id="invScanOverlay" style="position:absolute;inset:0;background:rgba(15,81,50,0.5);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:white">
+          <div style="width:32px;height:32px;border:3px solid rgba(255,255,255,0.3);border-top-color:white;border-radius:50%;animation:invSpin .7s linear infinite"></div>
+          <div style="font-size:12px;font-weight:600" id="invScanMsg" data-es="Analizando con IA..." data-en="Analyzing with AI...">Analizando con IA...</div>
+        </div>
+      </div>
+      <style>@keyframes invSpin{to{transform:rotate(360deg)}}</style>
     </div>
-    <input type="hidden" id="editId">
-    <button class="btn-save" onclick="saveInvestment()" data-es="Guardar inversión" data-en="Save investment">Guardar inversión</button>
+
+    <!-- CSV TAB -->
+    <div id="invTabCsv" style="display:none;margin-bottom:16px">
+      <div style="border:2px dashed var(--border);border-radius:14px;padding:24px;text-align:center;cursor:pointer;position:relative">
+        <input type="file" accept=".csv" id="invCsvFile" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%" onchange="handleInvCSV(this)">
+        <div style="font-size:32px;margin-bottom:8px">📄</div>
+        <div style="font-size:14px;font-weight:700;margin-bottom:4px" data-es="Subir historial del broker" data-en="Upload broker history">Subir historial del broker</div>
+        <div style="font-size:12px;color:var(--text3)" data-es="Fidelity, Robinhood, SoFi y más" data-en="Fidelity, Robinhood, SoFi and more">Fidelity, Robinhood, SoFi y más</div>
+      </div>
+      <div id="invCsvPreview" style="display:none;margin-top:10px"></div>
+    </div>
+
+    <!-- MANUAL TAB (default) -->
+    <div id="invTabManual">
+      <div class="field">
+        <label data-es="Nombre / Ticker" data-en="Name / Ticker">Nombre / Ticker</label>
+        <input type="text" id="mName" placeholder="NVDA, QQQM, Bitcoin...">
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label data-es="Monto invertido ($)" data-en="Amount invested ($)">Monto invertido ($)</label>
+          <input type="number" id="mAmount" placeholder="0.00" min="0" step="0.01">
+        </div>
+        <div class="field">
+          <label data-es="Fecha" data-en="Date">Fecha</label>
+          <input type="date" id="mDate">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label data-es="Plataforma" data-en="Platform">Plataforma</label>
+          <select id="mPlatform">
+            <option value="Fidelity">Fidelity</option>
+            <option value="Roth IRA">Roth IRA (SoFi)</option>
+            <option value="401k">401k</option>
+            <option value="Robinhood">Robinhood</option>
+            <option value="Coinbase">Coinbase</option>
+            <option value="Otro">Otro</option>
+          </select>
+        </div>
+        <div class="field">
+          <label data-es="Tipo" data-en="Type">Tipo</label>
+          <select id="mType">
+            <option value="stock" data-es="📈 Acción" data-en="📈 Stock">📈 Acción</option>
+            <option value="etf" data-es="📊 ETF" data-en="📊 ETF">📊 ETF</option>
+            <option value="crypto" data-es="₿ Cripto" data-en="₿ Crypto">₿ Cripto</option>
+            <option value="bond" data-es="📋 Bono" data-en="📋 Bond">📋 Bono</option>
+            <option value="realestate" data-es="🏠 Inmueble" data-en="🏠 Real estate">🏠 Inmueble</option>
+            <option value="other" data-es="📦 Otro" data-en="📦 Other">📦 Otro</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label data-es="Nota (opcional)" data-en="Note (optional)">Nota (opcional)</label>
+        <input type="text" id="mNote" placeholder="DCA, compra en baja...">
+      </div>
+      <input type="hidden" id="editId">
+      <button class="btn-save" onclick="saveInvestment()" data-es="Guardar inversión" data-en="Save investment">Guardar inversión</button>
+    </div>
   </div>
 </div>
 
@@ -474,6 +528,258 @@ function toggleInvMenu(id,e){
 }
 document.addEventListener('click',()=>document.querySelectorAll('.sub-menu').forEach(m=>m.style.display='none'));
 
+/* ══════════════════════════════════════════
+   INVESTMENT INPUT TABS — Manual / Voice / Scan / CSV
+══════════════════════════════════════════ */
+function switchInvTab(tab, btn) {
+  const tabBtns = {
+    manual: document.getElementById('invTabBtnManual'),
+    voice:  document.getElementById('invTabBtnVoice'),
+    scan:   document.getElementById('invTabBtnScan'),
+    csv:    document.getElementById('invTabBtnCsv')
+  };
+  Object.values(tabBtns).forEach(b => {
+    b.style.background = 'transparent';
+    b.style.color = 'var(--text3)';
+    b.style.boxShadow = 'none';
+  });
+  const activeBtn = tabBtns[tab] || btn;
+  activeBtn.style.background = 'var(--white)';
+  activeBtn.style.color = 'var(--g-main)';
+  activeBtn.style.boxShadow = '0 1px 4px rgba(0,0,0,0.08)';
+
+  document.getElementById('invTabManual').style.display = tab==='manual' ? '' : 'none';
+  document.getElementById('invTabVoice').style.display  = tab==='voice'  ? '' : 'none';
+  document.getElementById('invTabScan').style.display   = tab==='scan'   ? '' : 'none';
+  document.getElementById('invTabCsv').style.display    = tab==='csv'    ? '' : 'none';
+}
+
+/* ── 🎤 VOICE INPUT ── */
+let invRecognition = null;
+let invIsListening = false;
+
+function toggleInvVoice() {
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+    showToast(lang==='es'?'⚠️ Tu navegador no soporta reconocimiento de voz':'⚠️ Your browser does not support voice recognition');
+    return;
+  }
+  if (invIsListening) { invRecognition.stop(); return; }
+
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  invRecognition = new SR();
+  invRecognition.lang = lang==='es' ? 'es-MX' : 'en-US';
+  invRecognition.continuous = false;
+  invRecognition.interimResults = false;
+
+  invRecognition.onstart = () => {
+    invIsListening = true;
+    const btn = document.getElementById('invVoiceBtn');
+    btn.style.transform = 'scale(1.1)';
+    btn.style.background = 'linear-gradient(135deg,var(--red),#FF6B6B)';
+    btn.textContent = '⏹️';
+    document.getElementById('invVoiceStatus').textContent = lang==='es' ? 'Escuchando...' : 'Listening...';
+  };
+  invRecognition.onresult = (e) => processInvVoice(e.results[0][0].transcript);
+  invRecognition.onerror = () => { resetInvVoiceBtn(); showToast(lang==='es'?'⚠️ No se pudo escuchar. Intenta de nuevo.':'⚠️ Could not hear. Try again.'); };
+  invRecognition.onend = () => { resetInvVoiceBtn(); };
+  invRecognition.start();
+}
+
+function resetInvVoiceBtn() {
+  invIsListening = false;
+  const btn = document.getElementById('invVoiceBtn');
+  btn.style.transform = 'scale(1)';
+  btn.style.background = 'linear-gradient(135deg,var(--g-dark),var(--g-main))';
+  btn.textContent = '🎤';
+  document.getElementById('invVoiceStatus').textContent = lang==='es' ? 'Toca el micrófono y habla' : 'Tap the mic and speak';
+}
+
+const PLATFORM_KEYWORDS = [
+  { re:/fidelity/i, val:'Fidelity' },
+  { re:/roth|sofi/i, val:'Roth IRA' },
+  { re:/401\s?k/i, val:'401k' },
+  { re:/robinhood/i, val:'Robinhood' },
+  { re:/coinbase/i, val:'Coinbase' }
+];
+const INVTYPE_KEYWORDS = [
+  { re:/bitcoin|crypto|criptomoneda|eth|ethereum/i, val:'crypto' },
+  { re:/etf|qqqm|fxaix|vnq|spy\b/i, val:'etf' },
+  { re:/bono|bond/i, val:'bond' },
+  { re:/inmueble|real estate|propiedad/i, val:'realestate' }
+];
+
+function processInvVoice(text) {
+  document.getElementById('invVoiceResult').style.display = '';
+  document.getElementById('invVoiceText').textContent = '"' + text + '"';
+
+  const amountMatch = text.match(/\$?\d+(\.\d{1,2})?/);
+  const amount = amountMatch ? parseFloat(amountMatch[0].replace('$','')) : '';
+
+  // Try to find a ticker-like word (uppercase 2-5 letters) or fallback to "de X" / "of X"
+  let name = '';
+  const tickerMatch = text.match(/\b([A-Z]{2,5})\b/);
+  const ofMatch = text.match(/(?:de|of)\s+([a-zA-ZÁÉÍÓÚáéíóú]+)/i);
+  if (tickerMatch) name = tickerMatch[1];
+  else if (ofMatch) name = ofMatch[1];
+
+  let platform = 'Fidelity';
+  for (const p of PLATFORM_KEYWORDS) { if (p.re.test(text)) { platform = p.val; break; } }
+
+  let invType = 'stock';
+  for (const t of INVTYPE_KEYWORDS) { if (t.re.test(text)) { invType = t.val; break; } }
+
+  switchInvTab('manual', document.getElementById('invTabBtnManual'));
+  document.getElementById('mName').value = name || '';
+  document.getElementById('mAmount').value = amount || '';
+  document.getElementById('mDate').value = new Date().toISOString().split('T')[0];
+  document.getElementById('mPlatform').value = platform;
+  document.getElementById('mType').value = invType;
+
+  showToast(lang==='es'?'🎤 Voz detectada — revisa y guarda':'🎤 Voice detected — review and save');
+}
+
+/* ── 📷 SCAN ORDER WITH CLAUDE VISION ── */
+function handleInvScan(input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    document.getElementById('invScanImg').src = e.target.result;
+    document.getElementById('invScanUpload').style.display = 'none';
+    document.getElementById('invScanPreview').style.display = 'block';
+    analyzeInvImage(e.target.result);
+  };
+  reader.readAsDataURL(file);
+}
+
+async function analyzeInvImage(base64Data) {
+  const msgEl = document.getElementById('invScanMsg');
+  const messages = lang==='es'
+    ? ['Leyendo la orden...','Detectando ticker y monto...','Identificando plataforma...']
+    : ['Reading the order...','Detecting ticker and amount...','Identifying platform...'];
+  let i = 0;
+  const iv = setInterval(()=>{ if(i<messages.length) msgEl.textContent = messages[i++]; }, 700);
+
+  try {
+    const b64 = base64Data.split(',')[1];
+    const mediaType = base64Data.split(';')[0].split(':')[1] || 'image/jpeg';
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model:'claude-sonnet-4-6',
+        max_tokens:400,
+        messages:[{
+          role:'user',
+          content:[
+            { type:'image', source:{ type:'base64', media_type:mediaType, data:b64 } },
+            { type:'text', text:`Analyze this brokerage order confirmation or trading screenshot. Respond ONLY with valid JSON, no markdown:
+{
+  "ticker": "stock/ETF/crypto symbol or name",
+  "amount": 0.00,
+  "date": "YYYY-MM-DD",
+  "platform": "one of: Fidelity, Roth IRA, 401k, Robinhood, Coinbase, Otro",
+  "invType": "one of: stock, etf, crypto, bond, realestate, other",
+  "confidence": 85
+}
+Today's date is ${new Date().toISOString().split('T')[0]}. If unclear, make your best estimate and lower confidence.` }
+          ]
+        }]
+      })
+    });
+
+    clearInterval(iv);
+    if (!response.ok) throw new Error('API error');
+
+    const data = await response.json();
+    const text = data.content[0].text.trim().replace(/```json|```/g,'').trim();
+    const result = JSON.parse(text);
+
+    switchInvTab('manual', document.getElementById('invTabBtnManual'));
+    document.getElementById('mName').value = result.ticker || '';
+    document.getElementById('mAmount').value = result.amount || '';
+    document.getElementById('mDate').value = result.date || new Date().toISOString().split('T')[0];
+    document.getElementById('mPlatform').value = result.platform || 'Fidelity';
+    document.getElementById('mType').value = result.invType || 'stock';
+
+    showToast(lang==='es'?'✨ Orden detectada — revisa y guarda':'✨ Order detected — review and save');
+  } catch(err) {
+    clearInterval(iv);
+    console.error('Invest scan error:', err);
+    switchInvTab('manual', document.getElementById('invTabBtnManual'));
+    showToast(lang==='es'?'⚠️ No se pudo leer la imagen. Ingresa los datos manualmente.':'⚠️ Could not read image. Enter data manually.');
+  }
+}
+
+/* ── 📄 CSV IMPORT — broker transaction history ── */
+function handleInvCSV(input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const lines = e.target.result.split('\n').filter(l=>l.trim());
+      const header = lines[0].toLowerCase();
+
+      // Common broker CSV layouts (best-effort detection)
+      let dateCol=0, nameCol=1, amtCol=2, platCol=-1;
+      if (header.includes('run date') || header.includes('symbol')) { dateCol=0; nameCol=2; amtCol=6; } // Fidelity-like
+      if (header.includes('instrument')) { dateCol=0; nameCol=1; amtCol=4; } // Robinhood-like
+
+      const rows = lines.slice(1).map(line=>{
+        const cols = line.split(',').map(c=>c.replace(/"/g,'').trim());
+        const amt = Math.abs(parseFloat(cols[amtCol]?.replace(/[$,]/g,''))||0);
+        return {
+          name: cols[nameCol] || (lang==='es'?'Sin nombre':'Unnamed'),
+          amount: amt,
+          date: cols[dateCol] || new Date().toISOString().split('T')[0],
+          platform: 'Fidelity', invType:'stock'
+        };
+      }).filter(r=>r.amount>0);
+
+      showInvCsvPreview(rows);
+    } catch(err) {
+      showToast(lang==='es'?'❌ Error al leer el CSV':'❌ Error reading CSV');
+    }
+  };
+  reader.readAsText(file);
+}
+
+function showInvCsvPreview(rows) {
+  const el = document.getElementById('invCsvPreview');
+  el.style.display = '';
+  const preview = rows.slice(0,5);
+  el.innerHTML = `
+    <div style="font-size:12px;font-weight:700;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px">
+      ${rows.length} ${lang==='es'?'órdenes detectadas':'orders detected'} · ${lang==='es'?'Primeras 5:':'First 5:'}
+    </div>
+    ${preview.map(r=>`
+      <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)">
+        <div style="font-size:13px">📈</div>
+        <div style="flex:1;font-size:12px;font-weight:500">${r.name.substring(0,28)}</div>
+        <div style="font-size:12px;font-weight:700;color:var(--blue)">${fmtD(r.amount)}</div>
+      </div>`).join('')}
+    <button onclick='importAllInvCSV(${JSON.stringify(rows)})' style="width:100%;margin-top:10px;background:linear-gradient(135deg,var(--g-dark),var(--g-main));color:white;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">
+      ✓ ${lang==='es'?'Importar todas las órdenes':'Import all orders'} (${rows.length})
+    </button>`;
+}
+
+function importAllInvCSV(rows) {
+  const invs = loadInv();
+  let imported = 0;
+  rows.forEach(r=>{
+    invs.push({ id:'inv_csv_'+Date.now()+'_'+imported, name:r.name, amount:r.amount, date:r.date, platform:r.platform, invType:r.invType, note:'CSV import' });
+    imported++;
+  });
+  saveInv(invs);
+  closeModal();
+  render();
+  showToast(`✅ ${imported} ${lang==='es'?'órdenes importadas':'orders imported'}`);
+}
+
 function openModal(id){
   document.getElementById('editId').value=id||'';
   if(id){
@@ -494,6 +800,16 @@ function openModal(id){
     document.getElementById('mType').value='stock';
     document.getElementById('mNote').value='';
   }
+
+  // Reset input method tabs back to Manual, and clear voice/scan/csv state
+  switchInvTab('manual', document.getElementById('invTabBtnManual'));
+  document.getElementById('invVoiceResult').style.display = 'none';
+  document.getElementById('invScanUpload').style.display = '';
+  document.getElementById('invScanPreview').style.display = 'none';
+  document.getElementById('invScanFile').value = '';
+  document.getElementById('invCsvFile').value = '';
+  document.getElementById('invCsvPreview').style.display = 'none';
+
   document.getElementById('overlay').classList.add('open');
 }
 function closeModal(){ document.getElementById('overlay').classList.remove('open'); }
