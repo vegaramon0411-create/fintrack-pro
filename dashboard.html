@@ -6,6 +6,7 @@
 <title>FinTrack Pro · Dashboard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="premium.js"></script>
 <style>
 :root {
   --g-dark:  #0F5132;
@@ -450,7 +451,7 @@ body {
     <div class="sb-link" onclick="go('inversiones.html')"><span class="sb-ico">🏦</span> <span data-es="Inversiones" data-en="Investments">Inversiones</span></div>
 
     <div class="sb-section" data-es="Herramientas" data-en="Tools">Herramientas</div>
-    <div class="sb-link" onclick="go('scanner.html')"><span class="sb-ico">📷</span> <span data-es="Escanear recibo" data-en="Scan receipt">Escanear recibo</span></div>
+    <div class="sb-link" onclick="go('scanner.html')"><span class="sb-ico">📷</span><span data-es="Escanear recibo" data-en="Scan receipt">Escanear recibo</span></div>
     <div class="sb-link" onclick="go('emergencia.html')"><span class="sb-ico">🛡️</span> <span data-es="Fondo emergencia" data-en="Emergency fund">Fondo emergencia</span></div>
     <div class="sb-link" onclick="go('hogar.html')"><span class="sb-ico">🏠</span> <span data-es="Hogar" data-en="Household">Hogar</span> <span class="sb-badge" id="hogarBadge" style="display:none">!</span></div>
 
@@ -1145,6 +1146,63 @@ function renderDashboard() {
 
   // ── GOALS PREVIEW ──
   renderGoalsPreview();
+
+  // ── APPLY PREMIUM LOCKS ──
+  applyDashboardLocks();
+}
+
+function applyDashboardLocks() {
+  if (typeof isPremium === 'undefined') return; // premium.js not loaded yet
+
+  // Lock scanner in sidebar if not Premium
+  const sbLinks = document.querySelectorAll('.sb-link');
+  sbLinks.forEach(link => {
+    const text = link.textContent || '';
+    if ((text.includes('Escanear') || text.includes('Scan')) && !isPremium()) {
+      const existingBadge = link.querySelector('.sb-lock');
+      if (!existingBadge) {
+        const lockBadge = document.createElement('span');
+        lockBadge.className = 'sb-lock';
+        lockBadge.style.cssText = 'font-size:10px;margin-left:auto;opacity:.6';
+        lockBadge.textContent = '🔒';
+        link.appendChild(lockBadge);
+        link.onclick = (e) => { e.preventDefault(); showUpgradeModal(); };
+      }
+    }
+    // Lock Hogar if not Premium
+    if ((text.includes('Hogar') || text.includes('Household')) && !isPremium()) {
+      const existingBadge = link.querySelector('.sb-lock');
+      if (!existingBadge) {
+        const lockBadge = document.createElement('span');
+        lockBadge.className = 'sb-lock';
+        lockBadge.style.cssText = 'font-size:10px;margin-left:auto;opacity:.6';
+        lockBadge.textContent = '🔒';
+        link.appendChild(lockBadge);
+        link.onclick = (e) => { e.preventDefault(); showUpgradeModal(); };
+      }
+    }
+  });
+
+  // Lock "Exportar datos" in config if it shows in this page
+  // Lock the "+ Depósito" Fondo emergencia card-act if over Free limit (no limit for EF actually — it's free)
+  // For subs: warn if over 3 and not Premium
+  const data = loadData();
+  const subCount = (data.subscriptions||[]).length;
+  if (subCount >= 3 && !isPremium()) {
+    // Show a subtle notice on the subs card
+    const subsCard = document.querySelector('.subs-card, [data-subs-card]');
+    if (subsCard) {
+      const notice = document.createElement('div');
+      notice.style.cssText = 'font-size:10px;color:var(--amber);margin-top:6px;font-weight:600;cursor:pointer;';
+      notice.textContent = '🔒 ' + (lang==='es' ? 'Límite Free alcanzado (3). Actualiza para más.' : 'Free limit reached (3). Upgrade for more.');
+      notice.onclick = () => showUpgradeModal();
+      // only add if not already present
+      if (!subsCard.querySelector('.sub-limit-notice')) {
+        notice.className = 'sub-limit-notice';
+        subsCard.appendChild(notice);
+      }
+    }
+  }
 }
 
 /* ══════════════════════════════════════════
