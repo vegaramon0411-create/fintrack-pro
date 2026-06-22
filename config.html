@@ -6,6 +6,7 @@
 <title>FinTrack Pro · Configuración</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="premium.js"></script>
 <style>
 :root {
   --g-dark:#0F5132;--g-main:#1A7A4A;--g-mid:#22A362;--g-light:#E8F7EF;--g-dim:rgba(26,122,74,0.10);
@@ -302,11 +303,11 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
       <div class="set-row">
         <div class="set-icon" style="background:#FEE8EB">📧</div>
         <div class="set-info">
-          <div class="set-label" data-es="Reporte mensual por email" data-en="Monthly email report">Reporte mensual por email</div>
+          <div class="set-label" data-es="Reporte mensual por email" data-en="Monthly email report">Reporte mensual por email <span id="reportPremiumBadge"></span></div>
           <div class="set-desc" data-es="El día 1 de cada mes: 50/30/20, categorías y comparativa vs. mes anterior. Se envía a tu Gmail." data-en="On the 1st of each month: 50/30/20, categories and comparison vs. previous month. Sent to your Gmail.">El día 1 de cada mes: 50/30/20, categorías y comparativa vs. mes anterior. Se envía a tu Gmail.</div>
         </div>
         <div class="set-control">
-          <label class="toggle">
+          <label class="toggle" onclick="if(typeof isPremium!=='undefined'&&!isPremium()){event.preventDefault();if(typeof showUpgradeModal!=='undefined')showUpgradeModal();}">
             <input type="checkbox" id="cfgReport">
             <div class="toggle-track"></div>
             <div class="toggle-thumb"></div>
@@ -370,6 +371,12 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
 
       <input type="file" id="importFile" accept=".json" style="display:none" onchange="handleImport(this)">
 
+    </div>
+
+    <!-- PREMIUM STATUS -->
+    <div class="sec-hd">💎 <span data-es="Plan y activación" data-en="Plan & activation">Plan y activación</span></div>
+    <div class="card" id="premiumCard">
+      <!-- Rendered by JS after premium.js loads -->
     </div>
 
     <!-- SAVE BUTTON -->
@@ -558,6 +565,10 @@ function saveConfig() {
 
 /* ── EXPORT ── */
 function exportData() {
+  if (typeof isPremium !== 'undefined' && !isPremium()) {
+    if (typeof showUpgradeModal !== 'undefined') showUpgradeModal();
+    return;
+  }
   const data = loadData();
   const blob = new Blob([JSON.stringify({user, data}, null, 2)], {type:'application/json'});
   const a = document.createElement('a');
@@ -616,6 +627,37 @@ function showToast(msg) {
 
 /* ── NAV ── */
 function go(url) { window.location.href = url; }
+
+function renderPremiumCard() {
+  const card = document.getElementById('premiumCard');
+  if (!card || typeof isPremium === 'undefined') return;
+
+  const premium = isPremium();
+  const info = getPremiumInfo ? getPremiumInfo() : null;
+
+  if (premium) {
+    const since = info?.activatedAt ? new Date(info.activatedAt).toLocaleDateString(lang==='es'?'es-MX':'en-US',{year:'numeric',month:'long',day:'numeric'}) : '—';
+    card.innerHTML = `
+      <div class="set-row">
+        <div class="set-icon" style="background:var(--g-light)">💎</div>
+        <div class="set-info">
+          <div class="set-label" style="color:var(--g-main)" data-es="Plan Premium activo" data-en="Premium plan active">Plan Premium activo</div>
+          <div class="set-desc">${lang==='es'?'Activado el':'Activated on'} ${since} · ${lang==='es'?'Código':'Code'}: ${info?.code||'—'}</div>
+        </div>
+        <div class="set-control"><span style="font-size:20px">✅</span></div>
+      </div>`;
+  } else {
+    card.innerHTML = `
+      <div class="set-row" onclick="showUpgradeModal()" style="cursor:pointer">
+        <div class="set-icon" style="background:var(--off)">🆓</div>
+        <div class="set-info">
+          <div class="set-label" data-es="Plan Gratuito" data-en="Free Plan">Plan Gratuito</div>
+          <div class="set-desc" data-es="Toca aquí para activar Premium con tu código de Etsy" data-en="Tap here to activate Premium with your Etsy code">Toca aquí para activar Premium con tu código de Etsy</div>
+        </div>
+        <div class="set-control" style="color:var(--g-main);font-size:18px">→</div>
+      </div>`;
+  }
+}
 function logout() {
   sessionStorage.removeItem('ft_user');
   sessionStorage.removeItem('ft_lang');
@@ -633,6 +675,13 @@ function logout() {
 
   setLang(lang);
   loadConfig();
+  renderPremiumCard();
+
+  // Show Premium badges on locked features
+  const reportBadge = document.getElementById('reportPremiumBadge');
+  if (reportBadge && typeof premiumBadge !== 'undefined' && !isPremium()) {
+    reportBadge.innerHTML = premiumBadge();
+  }
 })();
 </script>
 </body>
