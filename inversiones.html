@@ -6,6 +6,7 @@
 <title>FinTrack Pro · Inversiones</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="premium.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
 :root{--g-dark:#0F5132;--g-main:#1A7A4A;--g-mid:#22A362;--g-light:#E8F7EF;--g-dim:rgba(26,122,74,0.10);--white:#FFFFFF;--off:#F7F8FC;--border:#E4E6F0;--text:#1A1D2E;--text2:#4A4E69;--text3:#9395A5;--red:#E63946;--red-dim:rgba(230,57,70,0.10);--amber:#F4A261;--amb-dim:rgba(244,162,97,0.12);--blue:#4A6CF7;--blu-dim:rgba(74,108,247,0.10);--purple:#7B5EA7;--pur-dim:rgba(123,94,167,0.10);--r:14px;--sidebar:240px;--topbar:58px;--shadow:0 2px 12px rgba(0,0,0,0.06);--shadow-md:0 4px 24px rgba(0,0,0,0.09);}
@@ -123,6 +124,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
     <div class="sb-link" onclick="go('dashboard.html')"><span class="sb-ico">➕</span><span data-es="Nuevo registro" data-en="New entry">Nuevo registro</span></div>
     <div class="sb-link" onclick="go('suscripciones.html')"><span class="sb-ico">🔄</span><span data-es="Suscripciones" data-en="Subscriptions">Suscripciones</span></div>
     <div class="sb-link" onclick="go('metas.html')"><span class="sb-ico">🎯</span><span data-es="Metas" data-en="Goals">Metas</span></div>
+    <div class="sb-link" onclick="go('deudas.html')"><span class="sb-ico">💳</span><span data-es="Deudas" data-en="Debts">Deudas</span></div>
     <div class="sb-section" data-es="Análisis" data-en="Analysis">Análisis</div>
     <div class="sb-link" onclick="go('analisis.html')"><span class="sb-ico">📈</span><span data-es="Por categoría" data-en="By category">Por categoría</span></div>
     <div class="sb-link" onclick="go('historial.html')"><span class="sb-ico">📅</span><span data-es="Historial" data-en="History">Historial</span></div>
@@ -173,6 +175,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
       <div class="more-item" onclick="go('scanner.html')"><div class="more-ico" style="background:var(--g-light,#E8F7EF)">📷</div><span data-es="Escanear" data-en="Scan">Escanear</span></div>
       <div class="more-item" onclick="go('emergencia.html')"><div class="more-ico" style="background:var(--amb-dim,rgba(244,162,97,.12))">🛡️</div><span data-es="Emergencia" data-en="Emergency">Emergencia</span></div>
       <div class="more-item" onclick="go('hogar.html')"><div class="more-ico" style="background:var(--pur-dim,rgba(123,94,167,.1))">🏠</div><span data-es="Hogar" data-en="Household">Hogar</span></div>
+      <div class="more-item" onclick="go('deudas.html')"><div class="more-ico" style="background:var(--red-dim,rgba(230,57,70,.1))">💳</div><span data-es="Deudas" data-en="Debts">Deudas</span></div>
       <div class="more-item" onclick="go('config.html')"><div class="more-ico" style="background:var(--off,#F7F8FC)">⚙️</div><span data-es="Configuración" data-en="Settings">Configuración</span></div>
     </div>
   </div>
@@ -532,6 +535,11 @@ document.addEventListener('click',()=>document.querySelectorAll('.sub-menu').for
    INVESTMENT INPUT TABS — Manual / Voice / Scan / CSV
 ══════════════════════════════════════════ */
 function switchInvTab(tab, btn) {
+  // Block Scan tab for Free users
+  if (tab === 'scan' && typeof isPremium !== 'undefined' && !isPremium()) {
+    if (typeof showUpgradeModal !== 'undefined') showUpgradeModal();
+    return;
+  }
   const tabBtns = {
     manual: document.getElementById('invTabBtnManual'),
     voice:  document.getElementById('invTabBtnVoice'),
