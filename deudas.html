@@ -736,7 +736,7 @@ function buildDebtCard(d, T){
 
     <div class="kind-row">
       <span data-es="Cuenta como:" data-en="Counts as:">${lang==='es'?'Cuenta como:':'Counts as:'}</span>
-      <span class="kind-tag ${d.kind==='needs'?'kind-needs':'kind-wants'}">${d.kind==='needs'?'🏠 '+(lang==='es'?'Necesidad':'Need'):'🎬 '+(lang==='es'?'Gusto':'Want')}</span>
+      <span class="kind-tag ${d.kind==='needs'?'kind-needs':'kind-wants'}" onclick="editDebt('${d.id}')">${d.kind==='needs'?'🏠 '+(lang==='es'?'Necesidad':'Need'):'🎬 '+(lang==='es'?'Gusto':'Want')}</span>
     </div>
 
     <div class="debt-actions" style="margin-top:12px">
