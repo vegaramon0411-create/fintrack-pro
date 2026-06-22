@@ -580,7 +580,7 @@ body {
         </div>
 
         <!-- NEEDS -->
-        <div class="rule-item">
+        <div class="rule-item" onclick="go('analisis.html?bucket=needs')" style="cursor:pointer">
           <div class="rule-header">
             <div class="rule-name-wrap">
               <div class="rule-dot" style="background:var(--g-main)"></div>
@@ -597,7 +597,7 @@ body {
         </div>
 
         <!-- WANTS -->
-        <div class="rule-item">
+        <div class="rule-item" onclick="go('analisis.html?bucket=wants')" style="cursor:pointer">
           <div class="rule-header">
             <div class="rule-name-wrap">
               <div class="rule-dot" style="background:var(--blue)"></div>
@@ -614,7 +614,7 @@ body {
         </div>
 
         <!-- SAVINGS -->
-        <div class="rule-item">
+        <div class="rule-item" onclick="go('analisis.html?bucket=savings')" style="cursor:pointer">
           <div class="rule-header">
             <div class="rule-name-wrap">
               <div class="rule-dot" style="background:var(--amber)"></div>
@@ -1558,6 +1558,11 @@ function setType(type) {
   });
   // Show/hide category field for types that need it
   document.getElementById('catField').style.display = ['gasto','suscripcion','hipoteca'].includes(type) ? '' : 'none';
+
+  // Auto-set the matching category so a type like "hipoteca" never gets silently
+  // miscounted under whatever the <select> defaulted to (e.g. Supermercado).
+  if (type === 'hipoteca') setCategory('🏠 Renta / Hipoteca');
+  else if (type === 'suscripcion') setCategory('🎬 Entretenimiento');
 }
 
 function setCategory(catValue) {
@@ -1933,9 +1938,32 @@ function logout() {
 }
 
 /* ══════════════════════════════════════════
+   DATA MIGRATION — fix transactions that were
+   saved before the category auto-select fix.
+   A "hipoteca" type transaction should always carry
+   the "🏠 Renta / Hipoteca" category, regardless of
+   whatever the <select> defaulted to when it was saved.
+   Runs once on load; safe to run repeatedly (idempotent).
+══════════════════════════════════════════ */
+function migrateLegacyCategories() {
+  const data = loadData();
+  let changed = false;
+
+  (data.transactions||[]).forEach(t => {
+    if (t.type === 'hipoteca' && t.cat !== '🏠 Renta / Hipoteca') {
+      t.cat = '🏠 Renta / Hipoteca';
+      changed = true;
+    }
+  });
+
+  if (changed) saveData(data);
+}
+
+/* ══════════════════════════════════════════
    INIT
 ══════════════════════════════════════════ */
 loadSession();
+migrateLegacyCategories();
 setLang(lang);
 renderDashboard();
 updateBadges();
