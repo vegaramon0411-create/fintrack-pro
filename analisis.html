@@ -384,6 +384,161 @@ function closeMoreMenu(){ document.getElementById('moreOverlay').classList.remov
 function closeMoreOutside(e){ if(e.target===document.getElementById('moreOverlay')) closeMoreMenu(); }
 </script>
 
+<!-- CATEGORY DETAIL MODAL -->
+<div class="detail-overlay" id="detailOverlay" onclick="closeDetailOutside(event)">
+  <div class="detail-modal">
+    <div class="detail-hd">
+      <div>
+        <div class="detail-title" id="detailTitle">Categoría</div>
+        <div class="detail-sub" id="detailSub"></div>
+      </div>
+      <div class="detail-close" onclick="closeDetailModal()">✕</div>
+    </div>
+    <div class="detail-total" id="detailTotal"></div>
+    <div class="detail-list" id="detailList"></div>
+  </div>
+</div>
+
+<style>
+.detail-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:none;place-items:center;z-index:260;backdrop-filter:blur(5px);}
+.detail-overlay.open{display:grid;}
+.detail-modal{background:var(--white,#fff);border-radius:24px;padding:24px;width:460px;max-width:calc(100vw - 32px);max-height:80vh;display:flex;flex-direction:column;box-shadow:0 16px 56px rgba(0,0,0,.18);}
+.detail-hd{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;}
+.detail-title{font-size:17px;font-weight:800;}
+.detail-sub{font-size:12px;color:var(--text3,#9395A5);margin-top:2px;}
+.detail-close{color:var(--text3,#9395A5);cursor:pointer;font-size:22px;line-height:1;flex-shrink:0;}
+.detail-total{background:var(--off,#F7F8FC);border-radius:12px;padding:12px 16px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;}
+.detail-total-lbl{font-size:11px;color:var(--text3,#9395A5);font-weight:600;}
+.detail-total-val{font-size:20px;font-weight:800;}
+.detail-list{overflow-y:auto;flex:1;}
+.detail-row{display:flex;align-items:center;gap:11px;padding:10px 4px;border-bottom:1px solid var(--border,#E4E6F0);}
+.detail-row:last-child{border-bottom:none;}
+.detail-ico{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;font-size:16px;flex-shrink:0;}
+.detail-info{flex:1;min-width:0;}
+.detail-name{font-size:13px;font-weight:600;}
+.detail-date{font-size:11px;color:var(--text3,#9395A5);margin-top:1px;}
+.detail-amt{font-size:14px;font-weight:800;flex-shrink:0;}
+.detail-empty{text-align:center;padding:24px;color:var(--text3,#9395A5);font-size:13px;}
+</style>
+
+<script>
+/* ══════════════════════════════════
+   CATEGORY DETAIL MODAL
+   Shows every transaction that makes up a category total
+   or a 50/30/20 bucket (needs/wants/savings), so the user
+   can see exactly what's being summed without cross-checking
+   History manually.
+══════════════════════════════════ */
+function openCategoryDetail(catName){
+  const txs = getFilteredTx()
+    .filter(t => ['gasto','hipoteca','suscripcion'].includes(t.type) && (t.cat||'📦 Otros') === catName)
+    .sort((a,b)=>new Date(b.date)-new Date(a.date));
+
+  const total = txs.reduce((s,t)=>s+parseFloat(t.amount),0);
+
+  document.getElementById('detailTitle').textContent = catName;
+  document.getElementById('detailSub').textContent = lang==='es'
+    ? `${txs.length} ${txs.length===1?'compra':'compras'} en este período`
+    : `${txs.length} ${txs.length===1?'purchase':'purchases'} in this period`;
+  document.getElementById('detailTotal').innerHTML = `
+    <span class="detail-total-lbl">${lang==='es'?'Total de esta categoría':'Total for this category'}</span>
+    <span class="detail-total-val">${fmtD(total)}</span>`;
+
+  renderDetailList(txs);
+  document.getElementById('detailOverlay').classList.add('open');
+}
+
+function openBucketDetail(bucket){
+  // bucket: 'needs' | 'wants' | 'savings'
+  const txs = getFilteredTx().filter(t=>{
+    if (bucket==='savings') return ['ahorro','inversion'].includes(t.type);
+    if (!['gasto','hipoteca','suscripcion'].includes(t.type)) return false;
+    if (t.type==='hipoteca') return bucket==='needs';
+    const kind = getCategoryType(t.cat);
+    return kind===bucket;
+  }).sort((a,b)=>new Date(b.date)-new Date(a.date));
+
+  const total = txs.reduce((s,t)=>s+parseFloat(t.amount),0);
+
+  const titles = {
+    needs:  { es:'Necesidades', en:'Needs' },
+    wants:  { es:'Gustos', en:'Wants' },
+    savings:{ es:'Ahorro', en:'Savings' }
+  };
+  const subDesc = {
+    needs:  { es:'Gastos esenciales que componen este monto', en:'Essential expenses that make up this amount' },
+    wants:  { es:'Gastos discrecionales que componen este monto', en:'Discretionary expenses that make up this amount' },
+    savings:{ es:'Ahorro e inversión que componen este monto', en:'Savings and investments that make up this amount' }
+  };
+
+  document.getElementById('detailTitle').textContent = titles[bucket][lang];
+  document.getElementById('detailSub').textContent = subDesc[bucket][lang];
+  document.getElementById('detailTotal').innerHTML = `
+    <span class="detail-total-lbl">${lang==='es'?'Total':'Total'}</span>
+    <span class="detail-total-val">${fmtD(total)}</span>`;
+
+  renderDetailList(txs);
+  document.getElementById('detailOverlay').classList.add('open');
+}
+
+function renderDetailList(txs){
+  const el = document.getElementById('detailList');
+  if (!txs.length){
+    el.innerHTML = `<div class="detail-empty">${lang==='es'?'Sin movimientos':'No transactions'}</div>`;
+    return;
+  }
+  const icons = { gasto:'💸', ingreso:'💰', inversion:'📈', ahorro:'🛡️', suscripcion:'🔄', hipoteca:'🏠' };
+  const bgs   = { gasto:'#FEECEE', ingreso:'#E8F7EF', inversion:'#EEF2FF', ahorro:'#FFF3E0', suscripcion:'#F3EFFD', hipoteca:'#FEECEE' };
+
+  el.innerHTML = txs.map(t=>{
+    const d = new Date(t.date+'T00:00:00').toLocaleDateString(lang==='es'?'es-MX':'en-US',{month:'short',day:'numeric',year:'numeric'});
+    return `<div class="detail-row">
+      <div class="detail-ico" style="background:${bgs[t.type]||'#F7F8FC'}">${icons[t.type]||'💳'}</div>
+      <div class="detail-info">
+        <div class="detail-name">${t.desc || t.cat || t.type}</div>
+        <div class="detail-date">${d}</div>
+      </div>
+      <div class="detail-amt" style="color:var(--red,#E63946)">${fmtD(t.amount)}</div>
+    </div>`;
+  }).join('');
+}
+
+function closeDetailModal(){ document.getElementById('detailOverlay').classList.remove('open'); }
+function closeDetailOutside(e){ if(e.target===document.getElementById('detailOverlay')) closeDetailModal(); }
+
+/* "Ver todas" — shows every category (not just the top 6) as a clickable list */
+function openAllCategories(){
+  const cats = lastRenderedCats;
+  const totalSpent = lastRenderedTotalSpent;
+
+  document.getElementById('detailTitle').textContent = lang==='es' ? 'Todas las categorías' : 'All categories';
+  document.getElementById('detailSub').textContent = lang==='es'
+    ? `${cats.length} categorías con gasto este período`
+    : `${cats.length} categories with spending this period`;
+  document.getElementById('detailTotal').innerHTML = `
+    <span class="detail-total-lbl">${lang==='es'?'Total gastado':'Total spent'}</span>
+    <span class="detail-total-val">${fmtD(totalSpent)}</span>`;
+
+  const el = document.getElementById('detailList');
+  if (!cats.length){
+    el.innerHTML = `<div class="detail-empty">${lang==='es'?'Sin datos':'No data'}</div>`;
+  } else {
+    el.innerHTML = cats.map(c=>{
+      const pct = totalSpent>0 ? Math.round((c.amount/totalSpent)*100) : 0;
+      return `<div class="detail-row" onclick="closeDetailModal();setTimeout(()=>openCategoryDetail('${c.name.replace(/'/g,"\\'")}'),150)" style="cursor:pointer">
+        <div class="detail-ico" style="background:${c.color}22">${c.emoji}</div>
+        <div class="detail-info">
+          <div class="detail-name">${c.name}</div>
+          <div class="detail-date">${pct}% ${lang==='es'?'del total':'of total'}</div>
+        </div>
+        <div class="detail-amt" style="color:${c.color}">${fmtD(c.amount)}</div>
+      </div>`;
+    }).join('');
+  }
+
+  document.getElementById('detailOverlay').classList.add('open');
+}
+</script>
 
 <script>
 /* ══════════════════════════════════
@@ -400,6 +555,8 @@ const CAT_COLORS = {
 
 let lang   = 'es';
 let period = 'month';
+let lastRenderedCats = [];
+let lastRenderedTotalSpent = 0;
 let user   = {};
 let donutChart = null;
 
@@ -537,6 +694,10 @@ function render() {
   const totalSpent = totals.spent;
   const hasData    = getFilteredTx().length > 0;
 
+  // Stash for the "see all categories" modal
+  lastRenderedCats = cats;
+  lastRenderedTotalSpent = totalSpent;
+
   const page = document.getElementById('pageContent');
 
   if (!hasData) {
@@ -641,7 +802,7 @@ function buildPage(totals, cats, income, needs, wants, savings) {
         </div>
         <div class="donut-legend">
           ${cats.slice(0,5).map(c => `
-            <div class="leg-row">
+            <div class="leg-row" onclick="openCategoryDetail('${c.name.replace(/'/g,"\\'")}')" style="cursor:pointer">
               <div class="leg-dot" style="background:${c.color}"></div>
               <div class="leg-info">
                 <div class="leg-name">${c.name}</div>
@@ -658,9 +819,9 @@ function buildPage(totals, cats, income, needs, wants, savings) {
 
     <!-- TOP CATEGORIES -->
     <div class="card">
-      <div class="card-hd">${T.topCats} <span class="card-act">${T.seeAll}</span></div>
+      <div class="card-hd">${T.topCats} <span class="card-act" onclick="openAllCategories()" style="cursor:pointer">${T.seeAll}</span></div>
       ${cats.slice(0,6).map((c,i) => `
-        <div class="cat-row">
+        <div class="cat-row" onclick="openCategoryDetail('${c.name.replace(/'/g,"\\'")}')" style="cursor:pointer">
           <div class="cat-ico" style="background:${c.color}22">${c.emoji}</div>
           <div class="cat-info">
             <div class="cat-name">${c.name}</div>
@@ -684,7 +845,7 @@ function buildPage(totals, cats, income, needs, wants, savings) {
       <div class="card-hd">📐 ${T.rule}</div>
       <div class="rule-ring-wrap">
 
-        <div class="rule-ring-item">
+        <div class="rule-ring-item" onclick="openBucketDetail('needs')" style="cursor:pointer">
           <div class="rule-ring-header">
             <div style="display:flex;align-items:center;gap:7px">
               <div style="width:9px;height:9px;border-radius:50%;background:var(--g-main)"></div>
@@ -705,7 +866,7 @@ function buildPage(totals, cats, income, needs, wants, savings) {
           </div>
         </div>
 
-        <div class="rule-ring-item">
+        <div class="rule-ring-item" onclick="openBucketDetail('wants')" style="cursor:pointer">
           <div class="rule-ring-header">
             <div style="display:flex;align-items:center;gap:7px">
               <div style="width:9px;height:9px;border-radius:50%;background:var(--blue)"></div>
@@ -725,7 +886,7 @@ function buildPage(totals, cats, income, needs, wants, savings) {
           </div>
         </div>
 
-        <div class="rule-ring-item">
+        <div class="rule-ring-item" onclick="openBucketDetail('savings')" style="cursor:pointer">
           <div class="rule-ring-header">
             <div style="display:flex;align-items:center;gap:7px">
               <div style="width:9px;height:9px;border-radius:50%;background:var(--amber)"></div>
@@ -884,6 +1045,18 @@ function logout() {
 /* ══════════════════════════════════
    INIT
 ══════════════════════════════════ */
+function migrateLegacyCategories() {
+  const data = loadData();
+  let changed = false;
+  (data.transactions||[]).forEach(t => {
+    if (t.type === 'hipoteca' && t.cat !== '🏠 Renta / Hipoteca') {
+      t.cat = '🏠 Renta / Hipoteca';
+      changed = true;
+    }
+  });
+  if (changed) localStorage.setItem('ft_data', JSON.stringify(data));
+}
+
 (function init() {
   try {
     const s = sessionStorage.getItem('ft_user');
@@ -896,8 +1069,17 @@ function logout() {
   document.getElementById('sbEmail').textContent  = user.email || '';
   document.getElementById('sbAvatar').textContent = (user.name||'U').charAt(0).toUpperCase();
 
+  migrateLegacyCategories();
   setLang(lang);
   render();
+
+  // If navigated here from the Dashboard with ?bucket=needs|wants|savings,
+  // automatically open that bucket's detail so the user sees the breakdown right away.
+  const params = new URLSearchParams(window.location.search);
+  const bucketParam = params.get('bucket');
+  if (bucketParam && ['needs','wants','savings'].includes(bucketParam)) {
+    setTimeout(() => openBucketDetail(bucketParam), 350);
+  }
 })();
 </script>
 </body>
