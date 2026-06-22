@@ -6,6 +6,7 @@
 <title>FinTrack Pro · Deudas</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="premium.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
 :root{--g-dark:#0F5132;--g-main:#1A7A4A;--g-mid:#22A362;--g-light:#E8F7EF;--g-dim:rgba(26,122,74,0.10);--white:#FFFFFF;--off:#F7F8FC;--border:#E4E6F0;--text:#1A1D2E;--text2:#4A4E69;--text3:#9395A5;--red:#E63946;--red-dim:rgba(230,57,70,0.10);--amber:#F4A261;--amb-dim:rgba(244,162,97,0.12);--blue:#4A6CF7;--blu-dim:rgba(74,108,247,0.10);--purple:#7B5EA7;--pur-dim:rgba(123,94,167,0.10);--r:14px;--sidebar:240px;--topbar:58px;--shadow:0 2px 12px rgba(0,0,0,0.06);--shadow-md:0 4px 24px rgba(0,0,0,0.09);overflow-x:hidden;}
@@ -416,6 +417,11 @@ function pickDebtKind(kind){
 }
 
 function pickDebtMode(mode){
+  // Block advanced mode for Free users
+  if (mode === 'advanced' && typeof isPremium !== 'undefined' && !isPremium()) {
+    if (typeof showUpgradeModal !== 'undefined') showUpgradeModal();
+    return;
+  }
   debtMode = mode;
   document.getElementById('modeSimpleBtn').classList.toggle('on', mode==='simple');
   document.getElementById('modeAdvancedBtn').classList.toggle('on', mode==='advanced');
