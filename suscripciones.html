@@ -6,6 +6,7 @@
 <title>FinTrack Pro · Suscripciones</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="premium.js"></script>
 <style>
 :root {
   --g-dark:#0F5132;--g-main:#1A7A4A;--g-mid:#22A362;--g-light:#E8F7EF;--g-dim:rgba(26,122,74,0.10);
@@ -620,6 +621,14 @@ function pickColor(el, c) {
 }
 
 function saveSub() {
+  // Free plan: max 3 subscriptions
+  if (!editingId && typeof isPremium !== 'undefined' && !isPremium()) {
+    const data = loadData();
+    if ((data.subscriptions||[]).length >= 3) {
+      if (typeof showUpgradeModal !== 'undefined') showUpgradeModal();
+      return;
+    }
+  }
   const name   = document.getElementById('mName').value.trim();
   const amount = parseFloat(document.getElementById('mAmount').value);
   const freq   = document.getElementById('mFreq').value;
