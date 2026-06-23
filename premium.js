@@ -11,7 +11,7 @@
 const PREMIUM_KEY = 'ft_premium';
 
 // ── Replace this URL after deploying your GAS ──
-const GAS_URL = 'https://script.google.com/macros/s/PLACEHOLDER/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzLRil-YqDzyYOEjYqo63Dk4AJwm8f2MtDiA808Morur06fhkd0IHyAPYAZUBfbszF-/exec';
 
 /* ══════════════════════════════════════
    STATE HELPERS
