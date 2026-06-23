@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <!-- Google Identity Services -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="premium.js"></script>
 <style>
 :root {
   --g-dark:  #0F5132;
@@ -496,6 +497,39 @@ body {
       </div>
     </div>
 
+    <!-- ACCESS DENIED SCREEN -->
+    <div class="view" id="vDenied">
+      <div class="success-wrap" style="text-align:center">
+        <div class="success-icon">🔒</div>
+        <div class="success-title" data-es="Acceso no activado" data-en="Access not activated">Acceso no activado</div>
+        <div class="success-sub" id="deniedReason" style="color:var(--text2);margin-bottom:20px"></div>
+        <div style="font-size:12px;color:var(--text3);margin-bottom:24px" data-es="FinTrack Pro requiere una licencia activa." data-en="FinTrack Pro requires an active license.">FinTrack Pro requiere una licencia activa.</div>
+
+        <a href="https://www.etsy.com/shop/finanzone" target="_blank"
+          style="display:block;background:linear-gradient(135deg,var(--g-dark),var(--g-main));color:white;border-radius:14px;padding:14px;font-size:15px;font-weight:700;text-decoration:none;margin-bottom:12px">
+          🛒 <span data-es="Obtener licencia en Etsy →" data-en="Get license on Etsy →">Obtener licencia en Etsy →</span>
+        </a>
+
+        <button onclick="showView('vConnect')"
+          style="width:100%;background:var(--off);border:1.5px solid var(--border);border-radius:14px;padding:12px;font-size:14px;font-weight:600;color:var(--text2);cursor:pointer;font-family:inherit;margin-bottom:10px">
+          <span data-es="Intentar con otra cuenta" data-en="Try with a different account">Intentar con otra cuenta</span>
+        </button>
+
+        <div style="font-size:11px;color:var(--text3)">
+          <span data-es="¿Ya compraste? Escríbenos a " data-en="Already purchased? Email us at ">¿Ya compraste? Escríbenos a </span>
+          <a href="mailto:finanzone@gmail.com" style="color:var(--g-main);font-weight:600">finanzone@gmail.com</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- VERIFYING MESSAGE (shown while GAS check runs) -->
+    <div id="verifyingMsg" style="display:none;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;text-align:center">
+      <div style="width:44px;height:44px;border:3px solid var(--border);border-top-color:var(--g-main);border-radius:50%;animation:spin .7s linear infinite;margin-bottom:16px"></div>
+      <div style="font-size:15px;font-weight:700;color:var(--text)" data-es="Verificando acceso..." data-en="Verifying access...">Verificando acceso...</div>
+      <div style="font-size:12px;color:var(--text3);margin-top:6px" data-es="Consultando tu licencia" data-en="Checking your license">Consultando tu licencia</div>
+    </div>
+    <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+
   </div><!-- /right -->
 </div><!-- /shell -->
 
@@ -574,7 +608,10 @@ function handleCredentialResponse(response) {
     avatar: payload.picture
   };
   sessionStorage.setItem('ft_google_user', JSON.stringify(userData));
-  showOnboarding();
+
+  // ── ACCESS GATE ──
+  // Check if this email has been activated in the Sheet before letting them in.
+  verifyAccessAndProceed(userData.email);
 }
 
 function fetchUserInfo(token) {
@@ -585,8 +622,116 @@ function fetchUserInfo(token) {
   .then(info => {
     userData = { name: info.name, email: info.email, avatar: info.picture };
     sessionStorage.setItem('ft_google_user', JSON.stringify(userData));
-    showOnboarding();
+    verifyAccessAndProceed(userData.email);
   });
+}
+
+/* ── ACCESS VERIFICATION ──
+   Sends the user's Gmail to GAS.
+   If ACTIVO → save plan to localStorage → show onboarding (first time)
+              or go straight to dashboard (returning user).
+   If not found / inactive → show "not activated" screen.
+──────────────────────────────────────────────────────── */
+async function verifyAccessAndProceed(email) {
+  showVerifying(true);
+
+  try {
+    // Use checkAccessWithGAS from premium.js if available
+    let result;
+    if (typeof checkAccessWithGAS !== 'undefined') {
+      result = await checkAccessWithGAS(email);
+    } else {
+      // Fallback: allow access in dev mode without GAS
+      result = { access: true, plan: 'free' };
+    }
+
+    showVerifying(false);
+
+    if (result.access) {
+      // Save the plan FIRST, then navigate
+      if (typeof savePlan !== 'undefined') {
+        savePlan(result.plan, email, result.expiresAt || null);
+      } else {
+        // Fallback: save manually if premium.js didn't load yet
+        const info = { plan: result.plan, email, activatedAt: new Date().toISOString(), expiresAt: result.expiresAt || null };
+        localStorage.setItem('ft_premium', JSON.stringify(info));
+      }
+
+      // Verify it was saved correctly before navigating
+      const saved = localStorage.getItem('ft_premium');
+      if (!saved) {
+        // localStorage might be blocked — try sessionStorage as fallback
+        const info = { plan: result.plan, email, activatedAt: new Date().toISOString(), expiresAt: result.expiresAt || null };
+        sessionStorage.setItem('ft_premium', JSON.stringify(info));
+      }
+
+      // If returning user with setup done, go to dashboard
+      const setupDone = localStorage.getItem('ft_user_setup');
+      if (setupDone) {
+        window.location.href = 'dashboard.html';
+      } else {
+        showOnboarding();
+      }
+    } else {
+      showAccessDenied(result.reason, email);
+    }
+  } catch(err) {
+    showVerifying(false);
+    // Network error — let them through in dev mode, block in production
+    const isPlaceholder = typeof GAS_URL !== 'undefined' && GAS_URL.includes('PLACEHOLDER');
+    if (isPlaceholder) {
+      showOnboarding(); // dev mode: don't block
+    } else {
+      showAccessDenied('network_error', email);
+    }
+  }
+}
+
+function showVerifying(show) {
+  const btn = document.getElementById('googleSignInBtn');
+  const verif = document.getElementById('verifyingMsg');
+  if (btn) btn.style.display = show ? 'none' : '';
+  if (verif) verif.style.display = show ? 'flex' : 'none';
+}
+
+function showAccessDenied(reason, email) {
+  const T = lang === 'es' ? {
+    title: 'Acceso no activado',
+    reasons: {
+      not_found:     'Tu cuenta de Google (' + email + ') no está registrada aún.',
+      inactive:      'Tu acceso está desactivado temporalmente.',
+      expired:       'Tu plan Premium ha expirado. Renueva en Etsy para continuar.',
+      network_error: 'No se pudo verificar tu acceso. Revisa tu conexión e intenta de nuevo.',
+    },
+    sub:    'FinTrack Pro requiere una licencia activa para usarse.',
+    buy:    '🛒 Obtener licencia en Etsy →',
+    retry:  'Intentar con otra cuenta',
+    support:'¿Ya compraste? Contacta soporte'
+  } : {
+    title: 'Access not activated',
+    reasons: {
+      not_found:     'Your Google account (' + email + ') is not registered yet.',
+      inactive:      'Your access has been temporarily deactivated.',
+      expired:       'Your Premium plan has expired. Renew on Etsy to continue.',
+      network_error: 'Could not verify your access. Check your connection and try again.',
+    },
+    sub:    'FinTrack Pro requires an active license to use.',
+    buy:    '🛒 Get license on Etsy →',
+    retry:  'Try with a different account',
+    support:'Already purchased? Contact support'
+  };
+
+  const reasonMsg = T.reasons[reason] || T.reasons['not_found'];
+
+  // Inject denied screen
+  const denied = document.getElementById('vDenied');
+  if (denied) {
+    document.getElementById('deniedReason').textContent = reasonMsg;
+    showView('vDenied');
+  } else {
+    // Fallback: show alert (shouldn't happen if HTML is updated)
+    alert(T.title + '\n\n' + reasonMsg);
+  }
 }
 
 function showOnboarding() {
@@ -600,12 +745,17 @@ function showOnboarding() {
 
 /* ─── VIEWS ─── */
 function showView(id) {
-  // Only hide top-level views, not children
-  ['vConnect','vOnboard','vSuccess'].forEach(v => {
-    document.getElementById(v).classList.remove('show');
+  ['vConnect','vOnboard','vSuccess','vDenied'].forEach(v => {
+    const el = document.getElementById(v);
+    if (el) el.classList.remove('show');
   });
-  document.getElementById(id).classList.add('show');
-  document.getElementById('tabsWrap').style.display = id === 'vConnect' ? '' : 'none';
+  const target = document.getElementById(id);
+  if (target) target.classList.add('show');
+  const tabsWrap = document.getElementById('tabsWrap');
+  if (tabsWrap) tabsWrap.style.display = id === 'vConnect' ? '' : 'none';
+  // Hide verifying message when switching views
+  const verif = document.getElementById('verifyingMsg');
+  if (verif) verif.style.display = 'none';
 }
 
 /* ─── ONBOARDING ─── */
@@ -668,6 +818,7 @@ function finishSetup() {
 
   sessionStorage.setItem('ft_user', JSON.stringify(session));
   sessionStorage.setItem('ft_lang', langPref);
+  localStorage.setItem('ft_user_setup', '1'); // marks that setup is done for this device
 
   // Show success
   document.getElementById('uName').textContent  = name;
