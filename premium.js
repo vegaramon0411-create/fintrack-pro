@@ -1,24 +1,44 @@
 /* ═══════════════════════════════════════════════════════════
-   FinTrack Pro — Premium Engine
-   Single source of truth for Free vs. Premium features.
-   Imported by every HTML file via <script src="premium.js">.
+   FinTrack Pro — Premium Engine v2
+   
+   ACCESS MODEL:
+   - User enters their email at login
+   - GAS checks it against the Sheet (you manage)
+   - Returns plan: 'free' or 'premium'
+   - Plan is stored in localStorage for the session
    ═══════════════════════════════════════════════════════════ */
 
-const PREMIUM_KEY  = 'ft_premium';
-const GAS_VERIFY_URL = 'https://script.google.com/macros/s/AKfycbwyEK8zX4gubyOZdDdxZtPgAGlB9CKxaIlVRTjK1VOyFS1N6XVH4gTypNr6xkeKaGWo/exec'; // replaced when GAS is deployed
+const PREMIUM_KEY = 'ft_premium';
 
-/* ── STATE ── */
-function isPremium() {
+// ── Replace this URL after deploying your GAS ──
+const GAS_URL = 'https://script.google.com/macros/s/PLACEHOLDER/exec';
+
+/* ══════════════════════════════════════
+   STATE HELPERS
+══════════════════════════════════════ */
+function getActivePlan() {
   try {
     const p = JSON.parse(localStorage.getItem(PREMIUM_KEY) || 'null');
-    if (!p) return false;
-    // Check expiry if set (lifetime = no expiry)
+    if (!p || !p.plan) return null;
+    // Check expiry for premium annual
     if (p.expiresAt && new Date(p.expiresAt) < new Date()) {
       localStorage.removeItem(PREMIUM_KEY);
-      return false;
+      return null;
     }
-    return !!p.active;
-  } catch(e) { return false; }
+    return p.plan; // 'free' or 'premium'
+  } catch(e) { return null; }
+}
+
+function isPremium() {
+  return getActivePlan() === 'premium';
+}
+
+function isFree() {
+  return getActivePlan() === 'free';
+}
+
+function hasAccess() {
+  return getActivePlan() !== null;
 }
 
 function getPremiumInfo() {
@@ -26,58 +46,66 @@ function getPremiumInfo() {
   catch(e) { return null; }
 }
 
-function activatePremium(code) {
-  const info = { active:true, code, activatedAt: new Date().toISOString(), plan:'lifetime' };
+function savePlan(plan, email, expiresAt) {
+  const info = {
+    plan,
+    email,
+    activatedAt: new Date().toISOString(),
+    expiresAt: expiresAt || null
+  };
   localStorage.setItem(PREMIUM_KEY, JSON.stringify(info));
 }
 
-function deactivatePremium() {
+function clearPlan() {
   localStorage.removeItem(PREMIUM_KEY);
 }
 
-/* ── FEATURE FLAGS ──
-   Each key maps to a feature. Returns true if the user
-   is allowed to use it.
-──────────────────────────────────────────────────────── */
-const FEATURES = {
-  // Always available (Free)
-  dashboard:          ()=>true,
-  nuevo_registro:     ()=>true,
-  historial:          ()=>true,
-  analisis_basico:    ()=>true,
-  emergencia:         ()=>true,
-  metas_basico:       ()=>true,   // up to 3 goals
-  suscripciones_basico:()=>true,  // up to 3 subscriptions
-  voz:                ()=>true,
-  atajos:             ()=>true,
-  csv_import:         ()=>true,
-  deudas_simple:      ()=>true,
+/* ══════════════════════════════════════
+   ACCESS CHECK via GAS
+   Called from login.html after user enters their email.
+   Returns { access, plan, email, expiresAt } or { access:false, reason }
+══════════════════════════════════════ */
+async function checkAccessWithGAS(email) {
+  // Dev/demo fallback when GAS is not yet deployed
+  if (GAS_URL.includes('PLACEHOLDER')) {
+    await new Promise(r => setTimeout(r, 700)); // simulate network
+    const testAccounts = {
+      'free@test.com':    { access:true, plan:'free',    expiresAt:null },
+      'premium@test.com': { access:true, plan:'premium', expiresAt:null },
+    };
+    const match = testAccounts[email.trim().toLowerCase()];
+    return match || { access:false, reason:'not_found' };
+  }
 
-  // Premium only
-  scanner_ia:         ()=>isPremium(),
-  scanner_inversiones:()=>isPremium(),
-  reporte_email:      ()=>isPremium(),
-  exportar:           ()=>isPremium(),
-  insights_completos: ()=>isPremium(),
-  suscripciones_full: ()=>isPremium(),  // unlimited subscriptions
-  metas_full:         ()=>isPremium(),  // unlimited goals
-  hogar:              ()=>isPremium(),
-  analisis_avanzado:  ()=>isPremium(),
-  deudas_avanzado:    ()=>isPremium(),
-  inversiones_scanner:()=>isPremium(),
-};
-
-function canUse(feature) {
-  return FEATURES[feature] ? FEATURES[feature]() : true;
+  const url = GAS_URL + '?action=checkAccess&email=' + encodeURIComponent(email.trim());
+  const res  = await fetch(url);
+  if (!res.ok) throw new Error('GAS error ' + res.status);
+  return await res.json();
 }
 
-/* ── UPGRADE MODAL ──
-   Injected once into the page. Any call to showUpgradeModal()
-   shows it. The modal has an activation code field so the
-   user can enter their Etsy code right there.
-──────────────────────────────────────────────────────── */
+/* ══════════════════════════════════════
+   FEATURE FLAGS
+══════════════════════════════════════ */
+function canUse(feature) {
+  const plan = getActivePlan();
+  if (!plan) return false; // no access at all
+
+  const FREE_FEATURES = [
+    'dashboard','nuevo_registro','historial','analisis_basico',
+    'emergencia','metas_basico','suscripciones_basico',
+    'voz','atajos','csv_import','deudas_simple'
+  ];
+
+  if (FREE_FEATURES.includes(feature)) return true;
+  return plan === 'premium'; // premium-only features
+}
+
+/* ══════════════════════════════════════
+   UPGRADE MODAL
+   Shown when a Free user tries to use a Premium feature.
+══════════════════════════════════════ */
 function injectUpgradeModal() {
-  if (document.getElementById('ftUpgradeOverlay')) return; // already injected
+  if (document.getElementById('ftUpgradeOverlay')) return;
 
   const lang = sessionStorage.getItem('ft_lang') || 'es';
 
@@ -94,15 +122,9 @@ function injectUpgradeModal() {
       '🏠 Hogar compartido (control en pareja)',
       '📐 Amortización real de deudas con interés',
     ],
-    activate:'¿Ya tienes Premium? Activa tu código',
-    codePlaceholder:'Código de activación (ej. FTP-XXXX-XXXX)',
-    activateBtn:'Activar Premium',
-    buyBtn:'Obtener Premium en Etsy',
-    cancel:'Cerrar',
-    activating:'Verificando...',
-    success:'✅ ¡Premium activado! Bienvenido.',
-    errorInvalid:'⚠️ Código inválido o ya usado.',
-    errorNetwork:'⚠️ Sin conexión. Intenta de nuevo.',
+    buyBtn:'Obtener Premium en Etsy →',
+    close:'Cerrar',
+    alreadyPremium:'¿Ya tienes Premium? Contacta soporte para activarlo.',
   } : {
     title:'Premium Feature',
     sub:'This feature is included in FinTrack Pro Premium.',
@@ -116,15 +138,9 @@ function injectUpgradeModal() {
       '🏠 Shared household (couple finance control)',
       '📐 Real debt amortization with interest',
     ],
-    activate:'Already have Premium? Enter your code',
-    codePlaceholder:'Activation code (e.g. FTP-XXXX-XXXX)',
-    activateBtn:'Activate Premium',
-    buyBtn:'Get Premium on Etsy',
-    cancel:'Close',
-    activating:'Verifying...',
-    success:'✅ Premium activated! Welcome.',
-    errorInvalid:'⚠️ Invalid or already used code.',
-    errorNetwork:'⚠️ No connection. Try again.',
+    buyBtn:'Get Premium on Etsy →',
+    close:'Close',
+    alreadyPremium:'Already have Premium? Contact support to activate it.',
   };
 
   const overlay = document.createElement('div');
@@ -133,10 +149,8 @@ function injectUpgradeModal() {
   overlay.onclick = e => { if(e.target===overlay) hideUpgradeModal(); };
 
   overlay.innerHTML = `
-  <div style="background:#fff;border-radius:24px;padding:28px;width:460px;max-width:calc(100vw - 32px);max-height:90vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,.22);animation:ftModalPop .3s cubic-bezier(0.34,1.56,0.64,1)">
-    <style>@keyframes ftModalPop{from{opacity:0;transform:scale(.9) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}</style>
-
-    <!-- Header -->
+  <div style="background:#fff;border-radius:24px;padding:28px;width:460px;max-width:calc(100vw-32px);max-height:90vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,.22);animation:ftPop .3s cubic-bezier(0.34,1.56,0.64,1)">
+    <style>@keyframes ftPop{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}}</style>
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px">
       <div>
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
@@ -145,53 +159,30 @@ function injectUpgradeModal() {
         </div>
         <div style="font-size:13px;color:#9395A5;font-family:'Plus Jakarta Sans',sans-serif">${T.sub}</div>
       </div>
-      <div onclick="hideUpgradeModal()" style="color:#9395A5;cursor:pointer;font-size:22px;line-height:1;flex-shrink:0">✕</div>
+      <div onclick="hideUpgradeModal()" style="color:#9395A5;cursor:pointer;font-size:22px;flex-shrink:0">✕</div>
     </div>
 
-    <!-- Feature list -->
     <div style="background:#F7F8FC;border-radius:14px;padding:16px;margin-bottom:18px">
       ${T.features.map(f=>`
         <div style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;font-family:'Plus Jakarta Sans',sans-serif;color:#1A1D2E">
-          <div style="color:#1A7A4A;font-weight:700;flex-shrink:0">✓</div>
-          <span>${f}</span>
+          <span style="color:#1A7A4A;font-weight:700">✓</span> ${f}
         </div>`).join('')}
     </div>
 
-    <!-- Buy button -->
-    <a href="https://www.etsy.com/shop/finanzone" target="_blank" id="ftBuyBtn" style="display:block;text-align:center;background:linear-gradient(135deg,#0F5132,#1A7A4A);color:white;border-radius:14px;padding:14px;font-size:15px;font-weight:700;text-decoration:none;font-family:'Plus Jakarta Sans',sans-serif;margin-bottom:16px">
+    <a href="https://www.etsy.com/shop/finanzone" target="_blank"
+      style="display:block;text-align:center;background:linear-gradient(135deg,#0F5132,#1A7A4A);color:white;border-radius:14px;padding:14px;font-size:15px;font-weight:700;text-decoration:none;font-family:'Plus Jakarta Sans',sans-serif;margin-bottom:12px">
       🛒 ${T.buyBtn}
     </a>
 
-    <!-- Divider -->
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
-      <div style="flex:1;height:1px;background:#E4E6F0"></div>
-      <div style="font-size:12px;color:#9395A5;font-family:'Plus Jakarta Sans',sans-serif">${T.activate}</div>
-      <div style="flex:1;height:1px;background:#E4E6F0"></div>
-    </div>
+    <div style="font-size:11px;color:#9395A5;text-align:center;font-family:'Plus Jakarta Sans',sans-serif;margin-bottom:14px">${T.alreadyPremium}</div>
 
-    <!-- Code input -->
-    <div style="display:flex;gap:8px">
-      <input id="ftCodeInput" type="text" placeholder="${T.codePlaceholder}"
-        style="flex:1;background:#F7F8FC;border:1.5px solid #E4E6F0;border-radius:10px;padding:11px 14px;font-size:13px;font-family:'Plus Jakarta Sans',sans-serif;outline:none;color:#1A1D2E"
-        onkeydown="if(event.key==='Enter') verifyPremiumCode()">
-      <button onclick="verifyPremiumCode()" id="ftActivateBtn"
-        style="background:linear-gradient(135deg,#0F5132,#1A7A4A);color:white;border:none;border-radius:10px;padding:11px 18px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Plus Jakarta Sans',sans-serif;white-space:nowrap">
-        ${T.activateBtn}
-      </button>
-    </div>
-    <div id="ftCodeMsg" style="font-size:12px;margin-top:8px;min-height:18px;font-family:'Plus Jakarta Sans',sans-serif"></div>
-
-    <!-- Close -->
     <button onclick="hideUpgradeModal()"
-      style="width:100%;margin-top:14px;background:transparent;border:1.5px solid #E4E6F0;border-radius:10px;padding:10px;font-size:13px;font-weight:600;color:#9395A5;cursor:pointer;font-family:'Plus Jakarta Sans',sans-serif">
-      ${T.cancel}
+      style="width:100%;background:transparent;border:1.5px solid #E4E6F0;border-radius:10px;padding:10px;font-size:13px;font-weight:600;color:#9395A5;cursor:pointer;font-family:'Plus Jakarta Sans',sans-serif">
+      ${T.close}
     </button>
   </div>`;
 
   document.body.appendChild(overlay);
-
-  // Store translations for verifyPremiumCode
-  overlay._T = T;
 }
 
 function showUpgradeModal() {
@@ -203,123 +194,26 @@ function showUpgradeModal() {
 function hideUpgradeModal() {
   const overlay = document.getElementById('ftUpgradeOverlay');
   if (overlay) overlay.style.display = 'none';
-  const input = document.getElementById('ftCodeInput');
-  if (input) input.value = '';
-  const msg = document.getElementById('ftCodeMsg');
-  if (msg) { msg.textContent = ''; msg.style.color = ''; }
 }
 
-/* ── CODE VERIFICATION ──
-   Sends the code to GAS for validation.
-   GAS marks the code as used and returns {valid:true/false}.
-   Falls back to a local list if GAS is unreachable (dev mode).
-──────────────────────────────────────────────────────── */
-
-// Fallback local codes for testing before GAS is deployed.
-// Format: sha256-like prefix — replace with real hashed codes in production.
-const LOCAL_TEST_CODES = ['FTP-TEST-2024','FTP-DEMO-0001','FTP-BETA-9999'];
-
-async function verifyPremiumCode() {
-  const input  = document.getElementById('ftCodeInput');
-  const btn    = document.getElementById('ftActivateBtn');
-  const msgEl  = document.getElementById('ftCodeMsg');
-  const T      = document.getElementById('ftUpgradeOverlay')._T;
-
-  if (!input || !input.value.trim()) return;
-
-  const code = input.value.trim().toUpperCase();
-
-  btn.disabled = true;
-  btn.textContent = T.activating;
-  msgEl.textContent = '';
-
-  try {
-    let valid = false;
-
-    // Try GAS first (only if placeholder has been replaced with real URL)
-    if (!GAS_VERIFY_URL.includes('PLACEHOLDER')) {
-      const res = await fetch(GAS_VERIFY_URL + '?action=verifyCode&code=' + encodeURIComponent(code), {
-        method: 'GET'
-      });
-      if (res.ok) {
-        const data = await res.json();
-        valid = data.valid === true;
-      }
-    } else {
-      // Dev/demo: validate against local test codes
-      valid = LOCAL_TEST_CODES.includes(code);
-      // Simulate network delay
-      await new Promise(r => setTimeout(r, 800));
-    }
-
-    if (valid) {
-      activatePremium(code);
-      msgEl.textContent = T.success;
-      msgEl.style.color = '#1A7A4A';
-      btn.disabled = false;
-      btn.textContent = '✅ Activado';
-      setTimeout(() => {
-        hideUpgradeModal();
-        // Reload page so premium features unlock immediately
-        window.location.reload();
-      }, 1500);
-    } else {
-      msgEl.textContent = T.errorInvalid;
-      msgEl.style.color = '#E63946';
-      btn.disabled = false;
-      const lang = sessionStorage.getItem('ft_lang') || 'es';
-      btn.textContent = lang === 'es' ? 'Activar Premium' : 'Activate Premium';
-    }
-  } catch(err) {
-    msgEl.textContent = T.errorNetwork;
-    msgEl.style.color = '#E63946';
-    btn.disabled = false;
-    const lang = sessionStorage.getItem('ft_lang') || 'es';
-    btn.textContent = lang === 'es' ? 'Activar Premium' : 'Activate Premium';
-  }
-}
-
-/* ── LOCK ICON HELPER ──
-   Wraps any element or replaces any button with a locked version.
-   Usage:
-     lockElement(document.getElementById('scannerBtn'), 'scanner_ia');
-──────────────────────────────────────────────────────── */
-function lockElement(el, feature, onUnlocked) {
-  if (!el) return;
-  if (canUse(feature)) {
-    if (onUnlocked) onUnlocked();
-    return;
-  }
-  // Add lock badge overlay
-  el.style.position = 'relative';
-  el.style.opacity = '0.55';
-  el.style.pointerEvents = 'none';
-  el.style.cursor = 'not-allowed';
-
-  const lock = document.createElement('div');
-  lock.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:20px;pointer-events:all;cursor:pointer;z-index:10;';
-  lock.textContent = '🔒';
-  lock.onclick = e => { e.stopPropagation(); showUpgradeModal(); };
-  el.appendChild(lock);
-}
-
-/* ── PREMIUM BADGE ──
-   Shows a small "Premium" pill next to any element.
-──────────────────────────────────────────────────────── */
+/* ══════════════════════════════════════
+   LOCK / BADGE HELPERS
+══════════════════════════════════════ */
 function premiumBadge() {
   return '<span style="display:inline-flex;align-items:center;gap:3px;background:linear-gradient(135deg,#0F5132,#1A7A4A);color:white;font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px;margin-left:6px;vertical-align:middle">💎 Premium</span>';
 }
 
-/* ── AUTO-INIT ──
-   Adds the "💎 Premium" or "Free" indicator to any element
-   with data-premium-indicator="true" found in the page.
-──────────────────────────────────────────────────────── */
-document.addEventListener('DOMContentLoaded', () => {
-  const premium = isPremium();
+/* ══════════════════════════════════════
+   AUTO-INIT — protect every page
+   Any page that imports premium.js is automatically
+   protected: if there's no active plan, redirect to login.
+══════════════════════════════════════ */
+(function autoProtect() {
+  // login.html handles its own flow — don't redirect there
+  const isLoginPage = window.location.pathname.includes('login');
+  if (isLoginPage) return;
 
-  // Update any sidebar badge showing plan
-  document.querySelectorAll('[data-plan-indicator]').forEach(el => {
-    el.textContent = premium ? '💎 Premium' : '🆓 Free';
-    el.style.color = premium ? '#1A7A4A' : '#9395A5';
-  });
-});
+  if (!hasAccess()) {
+    window.location.href = 'login.html';
+  }
+})();
