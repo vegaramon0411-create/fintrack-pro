@@ -676,7 +676,9 @@ function go(url){window.location.href=url;}
 function logout(){sessionStorage.removeItem('ft_user');sessionStorage.removeItem('ft_lang');window.location.href='login.html';}
 
 (function init(){
-  try{let s=sessionStorage.getItem('ft_user')||localStorage.getItem('ft_user');if(!s){window.location.replace('login.html');return;}user=JSON.parse(s);lang=user.lang||sessionStorage.getItem('ft_lang')||localStorage.getItem('ft_lang')||'es';if(!sessionStorage.getItem('ft_user'))sessionStorage.setItem('ft_user',s);}
+  try{let s=sessionStorage.getItem('ft_user')||localStorage.getItem('ft_user');
+    if(!s){const setup=localStorage.getItem('ft_user_setup');if(setup){const fb={name:'Usuario',email:'',income:3000,currency:'USD',lang:localStorage.getItem('ft_lang')||'es',needs:1500,wants:900,savings:600,setupDone:true,createdAt:new Date().toISOString()};try{const gu=JSON.parse(sessionStorage.getItem('ft_google_user')||'{}');if(gu.name)fb.name=gu.name;if(gu.email)fb.email=gu.email;}catch(e){}s=JSON.stringify(fb);sessionStorage.setItem('ft_user',s);localStorage.setItem('ft_user',s);}else{window.location.replace('login.html');return;}}
+    user=JSON.parse(s);lang=user.lang||sessionStorage.getItem('ft_lang')||localStorage.getItem('ft_lang')||'es';if(!sessionStorage.getItem('ft_user'))sessionStorage.setItem('ft_user',s);}
   catch(e){window.location.href='login.html';return;}
   document.getElementById('sbName').textContent=user.name||'';
   document.getElementById('sbEmail').textContent=user.email||'';

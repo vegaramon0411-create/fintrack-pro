@@ -706,7 +706,11 @@ function logout(){ sessionStorage.removeItem('ft_user'); sessionStorage.removeIt
 
 (function init(){
   try{
-    const s = sessionStorage.getItem('ft_user') || localStorage.getItem('ft_user');
+    const s = sessionStorage.getItem('ft_user') || localStorage.getItem('ft_user') ||
+      (()=>{ const setup=localStorage.getItem('ft_user_setup'); if(!setup) return null;
+        const fb={name:'Usuario',email:'',income:3000,currency:'USD',lang:localStorage.getItem('ft_lang')||'es',needs:1500,wants:900,savings:600,setupDone:true,createdAt:new Date().toISOString()};
+        try{const gu=JSON.parse(sessionStorage.getItem('ft_google_user')||'{}');if(gu.name)fb.name=gu.name;if(gu.email)fb.email=gu.email;}catch(e){}
+        const str=JSON.stringify(fb); sessionStorage.setItem('ft_user',str); localStorage.setItem('ft_user',str); return str; })();
     if(!s){ window.location.replace('login.html'); return; }
     user = JSON.parse(s);
     lang = user.lang || sessionStorage.getItem('ft_lang') || localStorage.getItem('ft_lang') || 'es';
