@@ -648,10 +648,15 @@ async function verifyAccessAndProceed(email) {
     showVerifying(false);
 
     if (result.access) {
-      // Save a default free plan so the app always has something to read
-      const defaultPlan = { plan: 'free', email: email, activatedAt: new Date().toISOString(), expiresAt: null };
-      try { localStorage.setItem('ft_premium', JSON.stringify(defaultPlan)); } catch(e) {}
-      try { sessionStorage.setItem('ft_premium', JSON.stringify(defaultPlan)); } catch(e) {}
+      // Save the REAL plan returned by GAS (premium or free)
+      const planInfo = {
+        plan: result.plan || 'free',
+        email: email,
+        activatedAt: new Date().toISOString(),
+        expiresAt: result.expiresAt || null
+      };
+      try { localStorage.setItem('ft_premium', JSON.stringify(planInfo)); } catch(e) {}
+      try { sessionStorage.setItem('ft_premium', JSON.stringify(planInfo)); } catch(e) {}
 
       // If returning user (setup already done), go straight to dashboard
       const setupDone = localStorage.getItem('ft_user_setup');

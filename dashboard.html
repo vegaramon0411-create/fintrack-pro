@@ -2028,14 +2028,13 @@ function updateBadges() {
    LOGOUT
 ══════════════════════════════════════════ */
 function logout() {
-  // Clear session
-  sessionStorage.removeItem('ft_user');
-  sessionStorage.removeItem('ft_lang');
-  sessionStorage.removeItem('ft_google_user');
-  // Clear localStorage so loadSession doesn't auto-restore
+  // Clear everything — including ft_user_setup so loadSession
+  // doesn't auto-rebuild the session from localStorage
+  sessionStorage.clear();
   localStorage.removeItem('ft_user');
   localStorage.removeItem('ft_user_setup');
   localStorage.removeItem('ft_premium');
+  localStorage.removeItem('ft_lang');
   window.location.replace('login.html');
 }
 

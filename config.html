@@ -659,15 +659,7 @@ function renderPremiumCard() {
       </div>`;
   }
 }
-function logout() {
-  sessionStorage.removeItem('ft_user');
-  sessionStorage.removeItem('ft_lang');
-  sessionStorage.removeItem('ft_google_user');
-  localStorage.removeItem('ft_user');
-  localStorage.removeItem('ft_user_setup');
-  localStorage.removeItem('ft_premium');
-  window.location.replace('login.html');
-}
+function logout(){sessionStorage.clear();localStorage.removeItem('ft_user');localStorage.removeItem('ft_user_setup');localStorage.removeItem('ft_premium');localStorage.removeItem('ft_lang');window.location.replace('login.html');}
 
 /* ── INIT ── */
 (function init() {
