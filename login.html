@@ -821,7 +821,9 @@ function finishSetup() {
 
   sessionStorage.setItem('ft_user', JSON.stringify(session));
   sessionStorage.setItem('ft_lang', langPref);
-  localStorage.setItem('ft_user_setup', '1'); // marks that setup is done for this device
+  localStorage.setItem('ft_user', JSON.stringify(session));   // persists across reloads
+  localStorage.setItem('ft_lang', langPref);
+  localStorage.setItem('ft_user_setup', '1');
 
   // Show success
   document.getElementById('uName').textContent  = name;
