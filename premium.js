@@ -226,11 +226,39 @@ function premiumBadge() {
   const path = window.location.pathname;
   if (path.includes('login') || path.endsWith('/') || path.endsWith('index.html')) return;
 
-  // Small delay to allow savePlan() from login to finish writing to localStorage
-  // before we check — avoids race condition on page load after login redirect.
-  setTimeout(function() {
-    if (!hasAccess()) {
-      window.location.href = 'login.html';
-    }
-  }, 150);
+  // Read plan synchronously — localStorage is synchronous so no race condition
+  function readPlan() {
+    try {
+      // Check localStorage
+      let raw = localStorage.getItem('ft_premium');
+      // Fallback to sessionStorage
+      if (!raw) raw = sessionStorage.getItem('ft_premium');
+      if (!raw) return null;
+      const p = JSON.parse(raw);
+      if (!p || !p.plan) return null;
+      if (p.expiresAt && new Date(p.expiresAt) < new Date()) return null;
+      return p.plan;
+    } catch(e) { return null; }
+  }
+
+  // Also check if user just completed onboarding/login
+  // ft_user_setup in localStorage means they've been through the flow
+  function justLoggedIn() {
+    return !!localStorage.getItem('ft_user_setup');
+  }
+
+  const plan = readPlan();
+
+  if (!plan) {
+    // No plan found — but give a short grace period for the
+    // login redirect to finish writing to localStorage
+    // before deciding to bounce them back.
+    setTimeout(function() {
+      const planRetry = readPlan();
+      if (!planRetry) {
+        // Still no plan after grace period — redirect to login
+        window.location.replace('login.html');
+      }
+    }, 300);
+  }
 })();
