@@ -221,44 +221,24 @@ function premiumBadge() {
    Any page that imports premium.js is automatically
    protected: if there's no active plan, redirect to login.
 ══════════════════════════════════════ */
-(function autoProtect() {
-  // login.html and index.html handle their own flow
-  const path = window.location.pathname;
-  if (path.includes('login') || path.endsWith('/') || path.endsWith('index.html')) return;
-
-  // Read plan synchronously — localStorage is synchronous so no race condition
-  function readPlan() {
-    try {
-      // Check localStorage
-      let raw = localStorage.getItem('ft_premium');
-      // Fallback to sessionStorage
-      if (!raw) raw = sessionStorage.getItem('ft_premium');
-      if (!raw) return null;
-      const p = JSON.parse(raw);
-      if (!p || !p.plan) return null;
-      if (p.expiresAt && new Date(p.expiresAt) < new Date()) return null;
-      return p.plan;
-    } catch(e) { return null; }
+/* ══════════════════════════════════════
+   PAGE PROTECTION HELPER
+   Call this from each page's init() function
+   AFTER the page has fully loaded, not on script load.
+   
+   Usage in any HTML page:
+   protectPage(); // call this inside your init function
+══════════════════════════════════════ */
+function protectPage() {
+  if (!hasAccess()) {
+    window.location.replace('login.html');
+    return false;
   }
+  return true;
+}
 
-  // Also check if user just completed onboarding/login
-  // ft_user_setup in localStorage means they've been through the flow
-  function justLoggedIn() {
-    return !!localStorage.getItem('ft_user_setup');
-  }
-
-  const plan = readPlan();
-
-  if (!plan) {
-    // No plan found — but give a short grace period for the
-    // login redirect to finish writing to localStorage
-    // before deciding to bounce them back.
-    setTimeout(function() {
-      const planRetry = readPlan();
-      if (!planRetry) {
-        // Still no plan after grace period — redirect to login
-        window.location.replace('login.html');
-      }
-    }, 300);
-  }
-})();
+// NOTE: No auto-execution here on purpose.
+// autoProtect was removed because it caused a race condition:
+// premium.js loads and checks localStorage before login.html
+// has finished writing the plan, causing a redirect loop.
+// Each page calls protectPage() from its own init() instead.
