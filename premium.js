@@ -1,17 +1,16 @@
 /* ═══════════════════════════════════════════════════════════
    FinTrack Pro — Premium Engine
-   NOTE: Access control via GAS is disabled until GAS is
-   fully configured. The app works normally for all users.
+   Access verified via Google Apps Script + Google Sheets
    ═══════════════════════════════════════════════════════════ */
 
 const PREMIUM_KEY = 'ft_premium';
-const GAS_URL = 'https://script.google.com/macros/s/PLACEHOLDER/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzLRil-YqDzyYOEjYqo63Dk4AJwm8f2MtDiA808Morur06fhkd0IHyAPYAZUBfbszF-/exec';
 
 /* ── STATE ── */
 function getActivePlan() {
   try {
     const raw = localStorage.getItem(PREMIUM_KEY);
-    if (!raw) return 'free'; // default everyone to free if no plan stored
+    if (!raw) return 'free';
     const p = JSON.parse(raw);
     if (!p || !p.plan) return 'free';
     if (p.expiresAt && new Date(p.expiresAt) < new Date()) return 'free';
@@ -19,18 +18,9 @@ function getActivePlan() {
   } catch(e) { return 'free'; }
 }
 
-function isPremium() {
-  return getActivePlan() === 'premium';
-}
-
-function isFree() {
-  return getActivePlan() === 'free';
-}
-
-// Always returns true — access control handled by login.html + GAS
-function hasAccess() {
-  return true;
-}
+function isPremium() { return getActivePlan() === 'premium'; }
+function isFree()    { return getActivePlan() === 'free'; }
+function hasAccess() { return true; } // access controlled by login + GAS
 
 function getPremiumInfo() {
   try { return JSON.parse(localStorage.getItem(PREMIUM_KEY) || 'null'); }
@@ -42,9 +32,7 @@ function savePlan(plan, email, expiresAt) {
   localStorage.setItem(PREMIUM_KEY, JSON.stringify(info));
 }
 
-function clearPlan() {
-  localStorage.removeItem(PREMIUM_KEY);
-}
+function clearPlan() { localStorage.removeItem(PREMIUM_KEY); }
 
 /* ── FEATURE FLAGS ── */
 function canUse(feature) {
@@ -59,18 +47,15 @@ function canUse(feature) {
 
 /* ── GAS ACCESS CHECK ── */
 async function checkAccessWithGAS(email) {
-  // Dev mode — allow everyone through
-  if (GAS_URL.includes('PLACEHOLDER')) {
-    await new Promise(r => setTimeout(r, 400));
-    return { access: true, plan: 'free', expiresAt: null };
-  }
   try {
     const url = GAS_URL + '?action=checkAccess&email=' + encodeURIComponent(email.trim());
     const res = await fetch(url);
-    if (!res.ok) throw new Error('GAS error');
-    return await res.json();
+    if (!res.ok) throw new Error('GAS error ' + res.status);
+    const data = await res.json();
+    return data;
   } catch(err) {
-    // Network error — allow access so users aren't blocked
+    console.warn('GAS unreachable, allowing free access:', err);
+    // If GAS is unreachable, allow free access so users aren't blocked
     return { access: true, plan: 'free', expiresAt: null };
   }
 }
@@ -128,7 +113,7 @@ function injectUpgradeModal() {
       <div onclick="hideUpgradeModal()" style="color:#9395A5;cursor:pointer;font-size:22px;flex-shrink:0">✕</div>
     </div>
     <div style="background:#F7F8FC;border-radius:14px;padding:16px;margin-bottom:18px">
-      ${T.features.map(f=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;font-family:'Plus Jakarta Sans',sans-serif;color:#1A1D2E"><span style="color:#1A7A4A;font-weight:700">✓</span>${f}</div>`).join('')}
+      ${T.features.map(f=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;font-family:'Plus Jakarta Sans',sans-serif;color:#1A1D2E"><span style="color:#1A7A4A;font-weight:700">✓</span> ${f}</div>`).join('')}
     </div>
     <a href="https://www.etsy.com/shop/finanzone" target="_blank"
       style="display:block;text-align:center;background:linear-gradient(135deg,#0F5132,#1A7A4A);color:white;border-radius:14px;padding:14px;font-size:15px;font-weight:700;text-decoration:none;font-family:'Plus Jakarta Sans',sans-serif;margin-bottom:12px">
@@ -157,6 +142,4 @@ function premiumBadge() {
   return '<span style="display:inline-flex;align-items:center;gap:3px;background:linear-gradient(135deg,#0F5132,#1A7A4A);color:white;font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px;margin-left:6px;vertical-align:middle">💎 Premium</span>';
 }
 
-function protectPage() {
-  return true; // no blocking until GAS is configured
-}
+function protectPage() { return true; }
