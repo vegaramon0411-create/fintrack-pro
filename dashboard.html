@@ -931,11 +931,16 @@ let lang = 'es';
 
 function loadSession() {
   try {
-    const s = sessionStorage.getItem('ft_user');
-    if (!s) { window.location.href = 'login.html'; return; }
+    // Try sessionStorage first (current tab)
+    let s = sessionStorage.getItem('ft_user');
+    // Fallback to localStorage (persists across tabs/reloads)
+    if (!s) s = localStorage.getItem('ft_user');
+    if (!s) { window.location.replace('login.html'); return; }
     user = JSON.parse(s);
-    lang = user.lang || sessionStorage.getItem('ft_lang') || 'es';
-  } catch(e) { window.location.href = 'login.html'; }
+    lang = user.lang || sessionStorage.getItem('ft_lang') || localStorage.getItem('ft_lang') || 'es';
+    // Sync back to sessionStorage if it was missing
+    if (!sessionStorage.getItem('ft_user')) sessionStorage.setItem('ft_user', s);
+  } catch(e) { window.location.replace('login.html'); }
 }
 
 /* ══════════════════════════════════════════
