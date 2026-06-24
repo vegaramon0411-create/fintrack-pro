@@ -648,27 +648,30 @@ async function verifyAccessAndProceed(email) {
     showVerifying(false);
 
     if (result.access) {
-      // Save the plan FIRST, then navigate
-      if (typeof savePlan !== 'undefined') {
-        savePlan(result.plan, email, result.expiresAt || null);
-      } else {
-        // Fallback: save manually if premium.js didn't load yet
-        const info = { plan: result.plan, email, activatedAt: new Date().toISOString(), expiresAt: result.expiresAt || null };
-        localStorage.setItem('ft_premium', JSON.stringify(info));
+      // Build plan object
+      const planInfo = {
+        plan: result.plan,
+        email: email,
+        activatedAt: new Date().toISOString(),
+        expiresAt: result.expiresAt || null
+      };
+
+      // Save to BOTH localStorage and sessionStorage for redundancy
+      try { localStorage.setItem('ft_premium', JSON.stringify(planInfo)); } catch(e) {}
+      try { sessionStorage.setItem('ft_premium', JSON.stringify(planInfo)); } catch(e) {}
+
+      // Double-check it was saved
+      const check = localStorage.getItem('ft_premium') || sessionStorage.getItem('ft_premium');
+      if (!check) {
+        // Last resort: use a cookie-style approach via URL param
+        console.warn('localStorage unavailable, using sessionStorage only');
       }
 
-      // Verify it was saved correctly before navigating
-      const saved = localStorage.getItem('ft_premium');
-      if (!saved) {
-        // localStorage might be blocked — try sessionStorage as fallback
-        const info = { plan: result.plan, email, activatedAt: new Date().toISOString(), expiresAt: result.expiresAt || null };
-        sessionStorage.setItem('ft_premium', JSON.stringify(info));
-      }
-
-      // If returning user with setup done, go to dashboard
+      // If returning user (setup already done), go straight to dashboard
+      // Use location.replace so there's no "back" loop to login
       const setupDone = localStorage.getItem('ft_user_setup');
       if (setupDone) {
-        window.location.href = 'dashboard.html';
+        window.location.replace('dashboard.html');
       } else {
         showOnboarding();
       }
@@ -838,7 +841,7 @@ function animateRedirect() {
     fill.style.width = pct + '%';
     if (pct >= 100) {
       clearInterval(iv);
-      window.location.href = 'dashboard.html';
+      window.location.replace('dashboard.html');
     }
   }, 40);
 }
@@ -846,12 +849,13 @@ function animateRedirect() {
 /* ─── INIT ─── */
 setLang(lang);
 
-// If already logged in → go straight to dashboard
+// If already logged in AND has active plan → go straight to dashboard
 const saved = sessionStorage.getItem('ft_user');
 if (saved) {
   try {
     const u = JSON.parse(saved);
-    if (u.setupDone) window.location.href = 'dashboard.html';
+    const hasPlan = localStorage.getItem('ft_premium') || sessionStorage.getItem('ft_premium');
+    if (u.setupDone && hasPlan) window.location.replace('dashboard.html');
   } catch(e) {}
 }
 </script>
