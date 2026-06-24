@@ -2028,10 +2028,15 @@ function updateBadges() {
    LOGOUT
 ══════════════════════════════════════════ */
 function logout() {
+  // Clear session
   sessionStorage.removeItem('ft_user');
   sessionStorage.removeItem('ft_lang');
   sessionStorage.removeItem('ft_google_user');
-  window.location.href = 'login.html';
+  // Clear localStorage so loadSession doesn't auto-restore
+  localStorage.removeItem('ft_user');
+  localStorage.removeItem('ft_user_setup');
+  localStorage.removeItem('ft_premium');
+  window.location.replace('login.html');
 }
 
 /* ══════════════════════════════════════════
