@@ -706,10 +706,11 @@ function logout(){ sessionStorage.removeItem('ft_user'); sessionStorage.removeIt
 
 (function init(){
   try{
-    const s = sessionStorage.getItem('ft_user');
-    if(!s){ window.location.href='login.html'; return; }
+    const s = sessionStorage.getItem('ft_user') || localStorage.getItem('ft_user');
+    if(!s){ window.location.replace('login.html'); return; }
     user = JSON.parse(s);
-    lang = user.lang || sessionStorage.getItem('ft_lang') || 'es';
+    lang = user.lang || sessionStorage.getItem('ft_lang') || localStorage.getItem('ft_lang') || 'es';
+    if(!sessionStorage.getItem('ft_user')) sessionStorage.setItem('ft_user', s);
   } catch(e){ window.location.href='login.html'; return; }
 
   document.getElementById('sbName').textContent  = user.name  || '';
