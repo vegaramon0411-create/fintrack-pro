@@ -11,21 +11,29 @@
 const PREMIUM_KEY = 'ft_premium';
 
 // ── Replace this URL after deploying your GAS ──
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbzLRil-YqDzyYOEjYqo63Dk4AJwm8f2MtDiA808Morur06fhkd0IHyAPYAZUBfbszF-/exec';
+const GAS_URL = 'https://script.google.com/macros/s/PLACEHOLDER/exec';
 
 /* ══════════════════════════════════════
    STATE HELPERS
 ══════════════════════════════════════ */
 function getActivePlan() {
   try {
-    const p = JSON.parse(localStorage.getItem(PREMIUM_KEY) || 'null');
+    // Check localStorage first
+    let p = JSON.parse(localStorage.getItem(PREMIUM_KEY) || 'null');
+    // Fallback to sessionStorage (used during login transition)
+    if (!p) p = JSON.parse(sessionStorage.getItem(PREMIUM_KEY) || 'null');
     if (!p || !p.plan) return null;
-    // Check expiry for premium annual
+    // Check expiry for premium annual plans
     if (p.expiresAt && new Date(p.expiresAt) < new Date()) {
       localStorage.removeItem(PREMIUM_KEY);
+      sessionStorage.removeItem(PREMIUM_KEY);
       return null;
     }
-    return p.plan; // 'free' or 'premium'
+    // If found in sessionStorage, copy to localStorage for persistence
+    if (!localStorage.getItem(PREMIUM_KEY) && sessionStorage.getItem(PREMIUM_KEY)) {
+      localStorage.setItem(PREMIUM_KEY, sessionStorage.getItem(PREMIUM_KEY));
+    }
+    return p.plan;
   } catch(e) { return null; }
 }
 
@@ -66,21 +74,26 @@ function clearPlan() {
    Returns { access, plan, email, expiresAt } or { access:false, reason }
 ══════════════════════════════════════ */
 async function checkAccessWithGAS(email) {
-  // Dev/demo fallback when GAS is not yet deployed
+  // ── DEV MODE: GAS not yet deployed ──
+  // While PLACEHOLDER is in the URL, allow ANY email through with 'free' plan.
+  // This lets you test the full app before GAS is set up.
+  // Replace PLACEHOLDER with your real GAS URL to enable real verification.
   if (GAS_URL.includes('PLACEHOLDER')) {
-    await new Promise(r => setTimeout(r, 700)); // simulate network
-    const testAccounts = {
-      'free@test.com':    { access:true, plan:'free',    expiresAt:null },
-      'premium@test.com': { access:true, plan:'premium', expiresAt:null },
-    };
-    const match = testAccounts[email.trim().toLowerCase()];
-    return match || { access:false, reason:'not_found' };
+    await new Promise(r => setTimeout(r, 600)); // simulate network delay
+    return { access: true, plan: 'free', expiresAt: null };
   }
 
-  const url = GAS_URL + '?action=checkAccess&email=' + encodeURIComponent(email.trim());
-  const res  = await fetch(url);
-  if (!res.ok) throw new Error('GAS error ' + res.status);
-  return await res.json();
+  // ── PRODUCTION: verify against your Google Sheet ──
+  try {
+    const url = GAS_URL + '?action=checkAccess&email=' + encodeURIComponent(email.trim());
+    const res  = await fetch(url);
+    if (!res.ok) throw new Error('GAS error ' + res.status);
+    return await res.json();
+  } catch(err) {
+    // Network error — fail open so the user isn't blocked by a connectivity issue
+    console.warn('GAS unreachable, allowing access in fallback mode:', err);
+    return { access: true, plan: 'free', expiresAt: null };
+  }
 }
 
 /* ══════════════════════════════════════
@@ -209,11 +222,15 @@ function premiumBadge() {
    protected: if there's no active plan, redirect to login.
 ══════════════════════════════════════ */
 (function autoProtect() {
-  // login.html handles its own flow — don't redirect there
-  const isLoginPage = window.location.pathname.includes('login');
-  if (isLoginPage) return;
+  // login.html and index.html handle their own flow
+  const path = window.location.pathname;
+  if (path.includes('login') || path.endsWith('/') || path.endsWith('index.html')) return;
 
-  if (!hasAccess()) {
-    window.location.href = 'login.html';
-  }
+  // Small delay to allow savePlan() from login to finish writing to localStorage
+  // before we check — avoids race condition on page load after login redirect.
+  setTimeout(function() {
+    if (!hasAccess()) {
+      window.location.href = 'login.html';
+    }
+  }, 150);
 })();
