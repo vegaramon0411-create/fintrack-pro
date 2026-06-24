@@ -648,27 +648,12 @@ async function verifyAccessAndProceed(email) {
     showVerifying(false);
 
     if (result.access) {
-      // Build plan object
-      const planInfo = {
-        plan: result.plan,
-        email: email,
-        activatedAt: new Date().toISOString(),
-        expiresAt: result.expiresAt || null
-      };
-
-      // Save to BOTH localStorage and sessionStorage for redundancy
-      try { localStorage.setItem('ft_premium', JSON.stringify(planInfo)); } catch(e) {}
-      try { sessionStorage.setItem('ft_premium', JSON.stringify(planInfo)); } catch(e) {}
-
-      // Double-check it was saved
-      const check = localStorage.getItem('ft_premium') || sessionStorage.getItem('ft_premium');
-      if (!check) {
-        // Last resort: use a cookie-style approach via URL param
-        console.warn('localStorage unavailable, using sessionStorage only');
-      }
+      // Save a default free plan so the app always has something to read
+      const defaultPlan = { plan: 'free', email: email, activatedAt: new Date().toISOString(), expiresAt: null };
+      try { localStorage.setItem('ft_premium', JSON.stringify(defaultPlan)); } catch(e) {}
+      try { sessionStorage.setItem('ft_premium', JSON.stringify(defaultPlan)); } catch(e) {}
 
       // If returning user (setup already done), go straight to dashboard
-      // Use location.replace so there's no "back" loop to login
       const setupDone = localStorage.getItem('ft_user_setup');
       if (setupDone) {
         window.location.replace('dashboard.html');
@@ -851,13 +836,12 @@ function animateRedirect() {
 /* ─── INIT ─── */
 setLang(lang);
 
-// If already logged in AND has active plan → go straight to dashboard
-const saved = sessionStorage.getItem('ft_user');
+// If already logged in → go straight to dashboard
+const saved = sessionStorage.getItem('ft_user') || localStorage.getItem('ft_user');
 if (saved) {
   try {
     const u = JSON.parse(saved);
-    const hasPlan = localStorage.getItem('ft_premium') || sessionStorage.getItem('ft_premium');
-    if (u.setupDone && hasPlan) window.location.replace('dashboard.html');
+    if (u.setupDone) window.location.replace('dashboard.html');
   } catch(e) {}
 }
 </script>
