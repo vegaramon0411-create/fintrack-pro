@@ -331,6 +331,13 @@ function closeMoreOutside(e){ if(e.target===document.getElementById('moreOverlay
           </select>
         </div>
       </div>
+      <div class="field">
+        <label data-es="Plazo restante (meses)" data-en="Remaining term (months)">Plazo restante (meses)</label>
+        <input type="number" id="mTerm" placeholder="ej. 60 = 5 años, 360 = 30 años" min="1" step="1" oninput="updateAmortPreview()">
+        <div style="font-size:10px;color:var(--text3);margin-top:4px">
+          <span data-es="Ejemplos: tarjeta 12-24 meses · auto 48-72 meses · hipoteca 180-360 meses" data-en="Examples: credit card 12-24 mo · car 48-72 mo · mortgage 180-360 mo">Ejemplos: tarjeta 12-24 meses · auto 48-72 meses · hipoteca 180-360 meses</span>
+        </div>
+      </div>
 
       <div class="amort-preview" id="amortPreview" style="display:none">
         <div class="ap-row"><span class="ap-label" data-es="Pagas en intereses:" data-en="You'll pay in interest:">Pagas en intereses:</span><span class="ap-val" id="apInterest">$0</span></div>
@@ -443,9 +450,46 @@ function updateAmortPreview(){
   const payment = parseFloat(document.getElementById('mPayment').value)||0;
   const hasInterest = document.getElementById('mHasInterest').value;
   const apr = hasInterest==='no' ? 0 : (parseFloat(document.getElementById('mAPR').value)||0);
+  const term = parseInt(document.getElementById('mTerm').value)||0;
 
   const preview = document.getElementById('amortPreview');
-  if (balance<=0 || payment<=0) { preview.style.display='none'; return; }
+  if (balance<=0) { preview.style.display='none'; return; }
+
+  // If we have term + APR, calculate the recommended payment
+  if (term > 0 && apr > 0) {
+    const monthlyRate = (apr/100)/12;
+    // Standard amortization payment formula: P = B * r / (1 - (1+r)^-n)
+    const recommendedPayment = balance * monthlyRate / (1 - Math.pow(1+monthlyRate, -term));
+    const totalPaid = recommendedPayment * term;
+    const totalInterest = totalPaid - balance;
+
+    preview.style.display='block';
+    document.getElementById('apInterest').textContent = fmtD(Math.max(0, totalInterest));
+    document.getElementById('apMonths').textContent = term + ' ' + (lang==='es'?'meses':'months');
+    const d = new Date(); d.setMonth(d.getMonth()+term);
+    document.getElementById('apDate').textContent = d.toLocaleDateString(lang==='es'?'es-MX':'en-US',{month:'long',year:'numeric'});
+
+    // Show recommended payment if user hasn't entered one
+    const paymentEl = document.getElementById('mPayment');
+    if (!paymentEl.value || parseFloat(paymentEl.value) === 0) {
+      paymentEl.value = recommendedPayment.toFixed(2);
+      paymentEl.style.borderColor = 'var(--g-main)';
+      setTimeout(()=>paymentEl.style.borderColor='',2000);
+    }
+
+    // Show extra info if user entered a different payment
+    if (payment > 0 && Math.abs(payment - recommendedPayment) > 1) {
+      const result = calcAmortization(balance, payment, apr);
+      if (result.payoffPossible) {
+        document.getElementById('apMonths').textContent = result.months + ' ' + (lang==='es'?'meses (con tu pago)':'months (with your payment)');
+        document.getElementById('apInterest').textContent = fmtD(result.totalInterest);
+      }
+    }
+    return;
+  }
+
+  // Fallback: calculate with payment only (no term)
+  if (payment <= 0) { preview.style.display='none'; return; }
 
   const result = calcAmortization(balance, payment, apr);
   preview.style.display='block';
@@ -480,6 +524,7 @@ function openModal(id){
       document.getElementById('mPayment').value = d.payment;
       document.getElementById('mMinPayment').value = d.minPayment||'';
       document.getElementById('mAPR').value = d.apr||'';
+      document.getElementById('mTerm').value = d.term||'';
       document.getElementById('mHasInterest').value = d.apr>0 ? 'yes' : 'no';
       pickDebtKind(d.kind||'needs');
       pickDebtMode(d.mode||'simple');
@@ -492,6 +537,7 @@ function openModal(id){
     document.getElementById('mPayment').value = '';
     document.getElementById('mMinPayment').value = '';
     document.getElementById('mAPR').value = '';
+    document.getElementById('mTerm').value = '';
     document.getElementById('mHasInterest').value = 'yes';
     pickDebtKind('needs');
     pickDebtMode('simple');
@@ -511,13 +557,14 @@ function saveDebt(){
   const minPayment = parseFloat(document.getElementById('mMinPayment').value)||0;
   const hasInterest = document.getElementById('mHasInterest').value;
   const apr = debtMode==='advanced' && hasInterest==='yes' ? (parseFloat(document.getElementById('mAPR').value)||0) : 0;
+  const term = debtMode==='advanced' ? (parseInt(document.getElementById('mTerm').value)||0) : 0;
 
   if (!name){ flagError('mDebtName'); return; }
   if (!balance || balance<=0){ flagError('mBalance'); return; }
   if (!payment || payment<=0){ flagError('mPayment'); return; }
 
   const debts = loadDebts();
-  const payload = { debtType, name, balance, payment, minPayment, apr, mode:debtMode, kind:debtKind };
+  const payload = { debtType, name, balance, payment, minPayment, apr, term, mode:debtMode, kind:debtKind };
 
   if (editingDebtId){
     const idx = debts.findIndex(d=>d.id===editingDebtId);

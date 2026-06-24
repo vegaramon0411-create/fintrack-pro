@@ -279,20 +279,31 @@ function render(){
     return;
   }
 
-  // Load both profiles (A = me originally, B = partner, or vice versa depending on flow)
-  const mySlot = hogar.myProfile || 'A';
-  const partnerSlot = mySlot === 'A' ? 'B' : 'A';
+  // Load both profiles — use email as unique key to prevent data mixing between users
+  // My profile key is based on my own email hash
+  const myEmail = user.email || 'user_a';
+  const myKey = 'profile_' + myEmail.replace(/[^a-z0-9]/gi,'_');
 
-  let profileMe = loadProfile(mySlot);
-  let profilePartner = loadProfile(partnerSlot);
+  let profileMe = loadProfile(myKey);
+  let profilePartner = null;
+
+  // Try to get partner profile from hogar state
+  const partnerEmail = hogar.partnerEmail || '';
+  const partnerKey = partnerEmail
+    ? 'profile_' + partnerEmail.replace(/[^a-z0-9]/gi,'_')
+    : (hogar.myProfile === 'A' ? 'ft_profile_B' : 'ft_profile_A'); // fallback legacy
+
+  profilePartner = loadProfile(partnerKey);
 
   // Fallback: if "me" snapshot doesn't exist yet, build it live from current session
   if (!profileMe) {
     const data = JSON.parse(localStorage.getItem('ft_data')||'{"transactions":[],"emergency":0,"subscriptions":[]}');
     profileMe = { name:user.name||'Tú', email:user.email||'', income:user.income||0, needs:user.needs||0, wants:user.wants||0, savings:user.savings||0, data };
+    // Save it so it persists
+    try { localStorage.setItem(myKey, JSON.stringify(profileMe)); } catch(e) {}
   }
   if (!profilePartner) {
-    profilePartner = { name: hogar.partnerName || (lang==='es'?'Tu pareja':'Your partner'), email:'', income:0, needs:0, wants:0, savings:0, data:{transactions:[],emergency:0,subscriptions:[]} };
+    profilePartner = { name: hogar.partnerName || (lang==='es'?'Tu pareja':'Your partner'), email:partnerEmail, income:0, needs:0, wants:0, savings:0, data:{transactions:[],emergency:0,subscriptions:[]} };
   }
 
   const T = lang==='es' ? {

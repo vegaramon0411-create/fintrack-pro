@@ -579,7 +579,7 @@ function showAcceptInviteWarning(code){
     inviteCode: code,
     myProfile: 'B',
     partnerName: lang==='es' ? 'Tu pareja' : 'Your partner',
-    partnerEmail: '',
+    partnerEmail: '',  // will be updated when partner logs in
     connectedAt: new Date().toISOString()
   };
   saveHogar(hogar);
@@ -604,7 +604,12 @@ function snapshotCurrentProfile(slot){
     savings: user.savings || 0,
     data
   };
+  // Save with both legacy key (A/B) AND email-based key for compatibility
   localStorage.setItem('ft_profile_'+slot, JSON.stringify(profile));
+  if (user.email) {
+    const emailKey = 'profile_' + user.email.replace(/[^a-z0-9]/gi,'_');
+    localStorage.setItem(emailKey, JSON.stringify(profile));
+  }
 }
 
 function ensureProfileExists(slot){
