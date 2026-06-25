@@ -287,7 +287,7 @@ function renderStep2(){
   const isAI = importMode === 'ai';
   const isFid = importMode === 'fidelity';
 
-  const accept = isAI ? 'image/*,.pdf' : '.csv';
+  const accept = isAI ? 'image/*,.pdf,.csv,.xlsx' : '.csv';
   const modeLabel = {
     bank: lang==='es'?'Estado de cuenta bancario':'Bank statement',
     fidelity: lang==='es'?'Historial Fidelity':'Fidelity history',
@@ -324,7 +324,7 @@ function renderStep2(){
           : (lang==='es'?'Toca para seleccionar tu CSV':'Tap to select your CSV')}
       </div>
       <div class="uz-sub">
-        ${isAI?'JPG · PNG · HEIC · PDF':'CSV · máx 10MB'}
+        ${isAI?'JPG · PNG · HEIC · PDF · CSV — cualquier formato':'CSV · máx 10MB'}
       </div>
     </div>
 
@@ -364,21 +364,53 @@ function processFile(file){
   const zone = document.getElementById('dropZone');
   zone.innerHTML = `<div class="uz-ico">⏳</div><div class="uz-title">${lang==='es'?'Procesando...':'Processing...'}</div>`;
 
+  const isCSV = file.name.toLowerCase().endsWith('.csv') || file.type === 'text/csv';
+  const isImage = file.type.startsWith('image/');
+  const isPDF = file.type === 'application/pdf';
+
   if(importMode === 'ai'){
-    processAIFile(file);
+    if(isCSV){
+      // AI mode + CSV: read as text, try auto-detect first
+      const reader = new FileReader();
+      reader.onload = e => {
+        const text = e.target.result;
+        const clean = text.replace(/^\uFEFF/,'').replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+        const lines = clean.split('\n').filter(l=>l.trim());
+        const header = lines.length > 0 ? parseCSVLine(lines[0]).map(h=>h.trim().toLowerCase()) : [];
+
+        // Check if it's a known format — if yes, parse directly (no AI credit used)
+        const isKnown = header.includes('symbol') || header.includes('account name') ||
+                        header.includes('primary category') || header.includes('fecha') ||
+                        header.includes('monto');
+
+        if(isKnown){
+          showToast(lang==='es'?'✅ Formato detectado — sin usar crédito IA':'✅ Format detected — no AI credit used');
+          try { parseCSV(text, file.name); }
+          catch(err){ zone.innerHTML=`<div class="uz-ico">❌</div><div class="uz-title">${err.message}</div>`; }
+        } else {
+          // Unknown CSV — send to Claude as text
+          processAIFile(file, 'text/csv', text);
+        }
+      };
+      reader.readAsText(file, 'UTF-8');
+    } else {
+      // Image or PDF
+      processAIFile(file);
+    }
     return;
   }
 
-  const reader = new FileReader();
-  reader.onload = e => {
-    const text = e.target.result;
-    try {
-      parseCSV(text, file.name);
-    } catch(err) {
-      zone.innerHTML = `<div class="uz-ico">❌</div><div class="uz-title">${lang==='es'?'Error al leer el archivo':'Error reading file'}</div><div class="uz-sub">${err.message}</div>`;
-    }
-  };
-  reader.readAsText(file, 'UTF-8');
+  // Non-AI modes
+  if(isCSV || file.name.toLowerCase().endsWith('.csv')){
+    const reader = new FileReader();
+    reader.onload = e => {
+      try { parseCSV(e.target.result, file.name); }
+      catch(err){ zone.innerHTML=`<div class="uz-ico">❌</div><div class="uz-title">${lang==='es'?'Error al leer el archivo':'Error reading file'}</div><div class="uz-sub">${err.message}</div>`; }
+    };
+    reader.readAsText(file, 'UTF-8');
+  } else {
+    zone.innerHTML = `<div class="uz-ico">❌</div><div class="uz-title">${lang==='es'?'Formato no soportado en este modo':'Format not supported in this mode'}</div><div class="uz-sub">${lang==='es'?'Usa el modo Foto/PDF para imágenes':'Use Photo/PDF mode for images'}</div>`;
+  }
 }
 
 /* ══════════════════════════════════════
@@ -1028,7 +1060,7 @@ function renderStep4(){
 /* ══════════════════════════════════════
    AI FILE PROCESSOR (Premium)
 ══════════════════════════════════════ */
-async function processAIFile(file){
+async function processAIFile(file, forcedMediaType, csvText){
   if(creditsLeft() <= 0){
     showToast(lang==='es'?'❌ Sin análisis IA disponibles este mes':'❌ No AI analyses left this month');
     renderStep2();
@@ -1039,39 +1071,84 @@ async function processAIFile(file){
   zone.innerHTML = `<div class="uz-ico">🤖</div><div class="uz-title">${lang==='es'?'Analizando con IA...':'Analyzing with AI...'}</div><div class="uz-sub">${lang==='es'?'Esto puede tomar unos segundos':'This may take a few seconds'}</div>`;
 
   try {
-    const isImage = file.type.startsWith('image/');
-    let b64, mediaType;
+    const isCSVText = forcedMediaType === 'text/csv' && csvText;
+    const isImage = !isCSVText && file.type.startsWith('image/');
+    const isPDF = !isCSVText && file.type === 'application/pdf';
 
-    if(isImage){
-      b64 = await compressAndEncode(file);
-      mediaType = 'image/jpeg';
-    } else {
-      // PDF
-      const buf = await file.arrayBuffer();
-      b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
-      mediaType = 'application/pdf';
-    }
-
-    const prompt = `Analyze this financial document (receipt, bank statement, or investment statement).
-Extract ALL transactions and respond ONLY with a JSON array, no markdown:
+    const basePrompt = `Extract ALL transactions from this financial document.
+Respond ONLY with a raw JSON array, no markdown, no explanation:
 [
   {
     "date": "YYYY-MM-DD",
     "description": "merchant or description",
     "amount": -10.50,
     "category": "one of: Restaurantes, Supermercado, Gasolina, Salud, Entretenimiento, Ropa, Servicios, Inversión, Ingreso, Otros",
-    "type": "gasto or ingreso or inversion",
-    "is_transfer": false
+    "type": "gasto or ingreso or inversion or venta",
+    "is_transfer": false,
+    "ticker": ""
   }
 ]
-Negative amounts = expenses. Positive = income.
-Mark internal transfers (between own accounts) with "is_transfer": true.
-Today is ${new Date().toISOString().split('T')[0]}.`;
+Rules:
+- Negative amounts = expenses/purchases
+- Positive amounts = income/deposits
+- Mark transfers between own accounts with "is_transfer": true
+- For investments: fill "ticker" with the stock symbol (NVDA, AAPL, etc.)
+- Ignore "Electronic Funds Transfer" lines (internal deposits to brokerage)
+- Today is ${new Date().toISOString().split('T')[0]}`;
 
+    let requestBody;
+
+    if(isCSVText){
+      // CSV as plain text — send as text message (no image)
+      const truncated = csvText.slice(0, 8000); // Claude context limit safety
+      requestBody = {
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 4000,
+        messages: [{
+          role: 'user',
+          content: `${basePrompt}\n\nHere is the CSV content:\n\`\`\`\n${truncated}\n\`\`\``
+        }]
+      };
+    } else {
+      // Image or PDF
+      let b64, mediaType;
+      if(isImage){
+        b64 = await compressAndEncode(file);
+        mediaType = 'image/jpeg';
+      } else {
+        // PDF
+        const buf = await file.arrayBuffer();
+        const bytes = new Uint8Array(buf);
+        let bin = '';
+        for(let i=0;i<bytes.length;i++) bin += String.fromCharCode(bytes[i]);
+        b64 = btoa(bin);
+        mediaType = 'application/pdf';
+      }
+
+      requestBody = {
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 4000,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: mediaType, data: b64 } },
+            { type: 'text', text: basePrompt }
+          ]
+        }]
+      };
+    }
+
+    // Call API via Vercel Function
     const res = await fetch('/api/scan', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ image:b64, mediaType, prompt })
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        image: requestBody.messages[0].content?.[0]?.source?.data || null,
+        mediaType: requestBody.messages[0].content?.[0]?.source?.media_type || null,
+        prompt: isCSVText ? `${basePrompt}\n\nHere is the CSV content:\n\`\`\`\n${csvText.slice(0,8000)}\n\`\`\`` : basePrompt,
+        isTextOnly: isCSVText,
+        csvContent: isCSVText ? csvText.slice(0, 8000) : null,
+      })
     });
 
     const data = await res.json();
@@ -1080,12 +1157,13 @@ Today is ${new Date().toISOString().split('T')[0]}.`;
     let rows;
     try {
       const raw = (data.raw||'').replace(/```json|```/g,'').trim();
-      rows = data.result || JSON.parse(raw);
+      const parsed = data.result || JSON.parse(raw);
+      rows = Array.isArray(parsed) ? parsed : [parsed];
     } catch(e){
-      throw new Error(lang==='es'?'No se pudieron extraer transacciones del documento':'Could not extract transactions from document');
+      throw new Error(lang==='es'?'No se pudieron extraer transacciones':'Could not extract transactions');
     }
 
-    if(!Array.isArray(rows) || !rows.length) throw new Error(lang==='es'?'No se encontraron transacciones':'No transactions found');
+    if(!rows.length) throw new Error(lang==='es'?'No se encontraron transacciones':'No transactions found');
 
     parsedRows = rows.map(r=>({
       date: parseDate(r.date||''),
@@ -1093,12 +1171,14 @@ Today is ${new Date().toISOString().split('T')[0]}.`;
       cat: r.category||'Otros',
       amount: parseFloat(r.amount)||0,
       isTransfer: r.is_transfer||false,
+      ticker: r.ticker||'',
+      type: r.type||'gasto',
     }));
 
     reviewRows = parsedRows.map(r=>({
       ...r,
       status: r.isTransfer ? 'exclude' : 'include',
-      type: r.amount<0?'gasto':'ingreso',
+      type: r.type||( r.amount<0?'gasto':'ingreso'),
       ftCat: r.cat,
       zelleType: null,
       isDuplicate: checkDuplicate(r.date, Math.abs(r.amount), r.desc),
@@ -1108,7 +1188,15 @@ Today is ${new Date().toISOString().split('T')[0]}.`;
     renderStep3();
 
   } catch(err){
-    zone.innerHTML = `<div class="uz-ico">❌</div><div class="uz-title">${lang==='es'?'Error al analizar':'Error analyzing'}</div><div class="uz-sub">${err.message}</div><br><button class="btn-secondary" style="margin:0 auto;display:block" onclick="renderStep2()">Intentar de nuevo</button>`;
+    const zone2 = document.getElementById('dropZone');
+    if(zone2) zone2.innerHTML = `
+      <div class="uz-ico">❌</div>
+      <div class="uz-title">${lang==='es'?'Error al analizar':'Error analyzing'}</div>
+      <div class="uz-sub">${err.message}</div>
+      <br>
+      <button class="btn-secondary" style="max-width:200px;margin:0 auto;display:block" onclick="renderStep2()">
+        ${lang==='es'?'Intentar de nuevo':'Try again'}
+      </button>`;
   }
 }
 
