@@ -317,30 +317,34 @@ function render(){
   }
 
   // Load both profiles — use email as unique key to prevent data mixing between users
-  // My profile key is based on my own email hash
   const myEmail = user.email || 'user_a';
   const myKey = 'profile_' + myEmail.replace(/[^a-z0-9]/gi,'_');
 
   let profileMe = loadProfile(myKey);
   let profilePartner = null;
 
-  // Try to get partner profile from hogar state
+  // Try to get partner profile from localStorage (may have been cached by async loader)
   const partnerEmail = hogar.partnerEmail || '';
-  const partnerKey = partnerEmail
-    ? 'profile_' + partnerEmail.replace(/[^a-z0-9]/gi,'_')
-    : (hogar.myProfile === 'A' ? 'ft_profile_B' : 'ft_profile_A'); // fallback legacy
+  if(partnerEmail){
+    const partnerKey = 'profile_' + partnerEmail.replace(/[^a-z0-9]/gi,'_');
+    profilePartner = loadProfile(partnerKey) || loadProfile('ft_profile_B');
+  }
 
-  profilePartner = loadProfile(partnerKey);
-
-  // Fallback: if "me" snapshot doesn't exist yet, build it live from current session
+  // Fallback: build "me" profile from current session data
   if (!profileMe) {
     const data = JSON.parse(localStorage.getItem('ft_data')||'{"transactions":[],"emergency":0,"subscriptions":[]}');
     profileMe = { name:user.name||'Tú', email:user.email||'', income:user.income||0, needs:user.needs||0, wants:user.wants||0, savings:user.savings||0, data };
-    // Save it so it persists
     try { localStorage.setItem(myKey, JSON.stringify(profileMe)); } catch(e) {}
   }
+
+  // Fallback: empty partner profile (will be replaced when async load completes)
   if (!profilePartner) {
-    profilePartner = { name: hogar.partnerName || (lang==='es'?'Tu pareja':'Your partner'), email:partnerEmail, income:0, needs:0, wants:0, savings:0, data:{transactions:[],emergency:0,subscriptions:[]} };
+    profilePartner = {
+      name: hogar.partnerName || (lang==='es'?'Tu pareja':'Your partner'),
+      email: partnerEmail,
+      income: 0, needs: 0, wants: 0, savings: 0,
+      data: { transactions:[], emergency:0, subscriptions:[] }
+    };
   }
 
   const T = lang==='es' ? {
@@ -685,40 +689,44 @@ function logout(){sessionStorage.clear();localStorage.removeItem('ft_user');loca
     return;
   }
 
-  render();
-
-  // Load partner profile from GAS and re-render with real data
+  // Load partner profile from GAS FIRST, then render
   const hogar = loadHogar();
 
-  // Don't auto-reconnect if user manually left
-  if(hogar.manuallyLeft) return;
-
-  if(hogar.connected && hogar.partnerEmail){
-    loadPartnerProfileFromGAS(hogar.partnerEmail).then(partnerProfile => {
-      if(!partnerProfile) return;
-      const partnerKey = 'profile_' + hogar.partnerEmail.replace(/[^a-z0-9]/gi,'_');
-      localStorage.setItem(partnerKey, JSON.stringify(partnerProfile));
-      localStorage.setItem('ft_profile_B', JSON.stringify(partnerProfile));
-      render();
-    });
+  if(hogar.manuallyLeft){
+    setLang(lang);
+    render();
+    return;
   }
 
-  // Check GAS for updated partner connection status
+  if(hogar.connected && hogar.partnerEmail){
+    // Load partner data from GAS before first render
+    loadPartnerProfileFromGAS(hogar.partnerEmail).then(partnerProfile => {
+      if(partnerProfile){
+        const partnerKey = 'profile_' + hogar.partnerEmail.replace(/[^a-z0-9]/gi,'_');
+        localStorage.setItem(partnerKey, JSON.stringify(partnerProfile));
+        localStorage.setItem('ft_profile_B', JSON.stringify(partnerProfile));
+      }
+      setLang(lang);
+      render();
+    }).catch(()=>{ setLang(lang); render(); });
+  } else {
+    setLang(lang);
+    render();
+  }
+
+  // Also check GAS for updated partner connection status
   checkPartnerFromGAS().then(gasData => {
     if(!gasData || !gasData.connected) return;
     const hogar2 = loadHogar();
-    // Don't auto-reconnect if user manually left
     if(hogar2.manuallyLeft) return;
-    let updated = false;
     if(gasData.partnerEmail && gasData.partnerEmail !== hogar2.partnerEmail){
       hogar2.connected = true;
       hogar2.pendingInvite = false;
       hogar2.partnerEmail = gasData.partnerEmail;
       hogar2.partnerName = gasData.partnerName || hogar2.partnerName || (lang==='es'?'Tu pareja':'Your partner');
       localStorage.setItem('ft_hogar', JSON.stringify(hogar2));
-      updated = true;
+      render();
     }
-    if(updated) render();
   });
 })();
 </script>
