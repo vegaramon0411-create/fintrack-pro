@@ -201,7 +201,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
 <script>
 let lang='es', user={};
 let activeSection = 'overview';
-const GAS_URL_HOGAR = 'https://script.google.com/macros/s/AKfycbx9V8bcr7zASHwGRyID9z-m3qugeF-TlENlc5lx3NGdbiXzXprE5yCArb3AbZMk15A/exec';
+const GAS_URL_HOGAR = 'https://script.google.com/macros/s/AKfycbx1wpmwx3aO3NqGKPp-e2X-ade2adjPx3ts9XeAU3zmoCMXgmUoG1i9qSTO9BiGP-V9/exec';
 
 function fmt(n){return '$'+Math.abs(n||0).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0});}
 function fmtD(n){return '$'+Math.abs(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
@@ -221,6 +221,31 @@ async function checkPartnerFromGAS(){
     const res = await fetch(url);
     const data = await res.json();
     return data;
+  } catch(e) { return null; }
+}
+
+// Load partner profile from GAS
+async function loadPartnerProfileFromGAS(partnerEmail){
+  try {
+    if(!partnerEmail) return null;
+    const url = `${GAS_URL_HOGAR}?action=getProfile&email=${encodeURIComponent(partnerEmail)}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if(!data.success) return null;
+
+    // Parse the dataJson
+    let parsedData = { transactions:[], emergency:0, subscriptions:[] };
+    try { parsedData = JSON.parse(data.dataJson||'{}'); } catch(e){}
+
+    return {
+      name: data.name || 'Tu pareja',
+      email: data.email || partnerEmail,
+      income: parseFloat(data.income)||0,
+      needs: parseFloat(data.needs)||0,
+      wants: parseFloat(data.wants)||0,
+      savings: parseFloat(data.savings)||0,
+      data: parsedData
+    };
   } catch(e) { return null; }
 }
 
@@ -662,24 +687,33 @@ function logout(){sessionStorage.clear();localStorage.removeItem('ft_user');loca
 
   render();
 
-  // After initial render, check GAS for updated partner status
-  // This handles the case where partner accepted from another device
+  // Load partner profile from GAS and re-render with real data
+  const hogar = loadHogar();
+  if(hogar.connected && hogar.partnerEmail){
+    loadPartnerProfileFromGAS(hogar.partnerEmail).then(partnerProfile => {
+      if(!partnerProfile) return;
+      // Cache partner profile locally
+      const partnerKey = 'profile_' + hogar.partnerEmail.replace(/[^a-z0-9]/gi,'_');
+      localStorage.setItem(partnerKey, JSON.stringify(partnerProfile));
+      localStorage.setItem('ft_profile_B', JSON.stringify(partnerProfile));
+      // Re-render with real partner data
+      render();
+    });
+  }
+
+  // Check GAS for updated partner connection status
   checkPartnerFromGAS().then(gasData => {
     if(!gasData || !gasData.connected) return;
-
-    const hogar = loadHogar();
+    const hogar2 = loadHogar();
     let updated = false;
-
-    // Update partner info if GAS has more up-to-date data
-    if(gasData.partnerEmail && gasData.partnerEmail !== hogar.partnerEmail){
-      hogar.connected = true;
-      hogar.pendingInvite = false;
-      hogar.partnerEmail = gasData.partnerEmail;
-      hogar.partnerName = gasData.partnerName || hogar.partnerName || (lang==='es'?'Tu pareja':'Your partner');
-      localStorage.setItem('ft_hogar', JSON.stringify(hogar));
+    if(gasData.partnerEmail && gasData.partnerEmail !== hogar2.partnerEmail){
+      hogar2.connected = true;
+      hogar2.pendingInvite = false;
+      hogar2.partnerEmail = gasData.partnerEmail;
+      hogar2.partnerName = gasData.partnerName || hogar2.partnerName || (lang==='es'?'Tu pareja':'Your partner');
+      localStorage.setItem('ft_hogar', JSON.stringify(hogar2));
       updated = true;
     }
-
     if(updated) render();
   });
 })();
