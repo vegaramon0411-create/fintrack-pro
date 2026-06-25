@@ -689,14 +689,16 @@ function logout(){sessionStorage.clear();localStorage.removeItem('ft_user');loca
 
   // Load partner profile from GAS and re-render with real data
   const hogar = loadHogar();
+
+  // Don't auto-reconnect if user manually left
+  if(hogar.manuallyLeft) return;
+
   if(hogar.connected && hogar.partnerEmail){
     loadPartnerProfileFromGAS(hogar.partnerEmail).then(partnerProfile => {
       if(!partnerProfile) return;
-      // Cache partner profile locally
       const partnerKey = 'profile_' + hogar.partnerEmail.replace(/[^a-z0-9]/gi,'_');
       localStorage.setItem(partnerKey, JSON.stringify(partnerProfile));
       localStorage.setItem('ft_profile_B', JSON.stringify(partnerProfile));
-      // Re-render with real partner data
       render();
     });
   }
@@ -705,6 +707,8 @@ function logout(){sessionStorage.clear();localStorage.removeItem('ft_user');loca
   checkPartnerFromGAS().then(gasData => {
     if(!gasData || !gasData.connected) return;
     const hogar2 = loadHogar();
+    // Don't auto-reconnect if user manually left
+    if(hogar2.manuallyLeft) return;
     let updated = false;
     if(gasData.partnerEmail && gasData.partnerEmail !== hogar2.partnerEmail){
       hogar2.connected = true;

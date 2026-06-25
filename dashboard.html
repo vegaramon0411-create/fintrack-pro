@@ -2072,34 +2072,31 @@ renderDashboard();
 updateBadges();
 
 // Auto-sync profile to GAS if user is part of a household
-// This ensures partner always sees up-to-date data
 (function syncProfileToGAS(){
   try {
     const hogar = JSON.parse(localStorage.getItem('ft_hogar')||'{}');
-    if(!hogar.connected || !user.email) return;
+    if(!hogar.connected || !user.email || hogar.manuallyLeft) return;
 
     const GAS = 'https://script.google.com/macros/s/AKfycbx1wpmwx3aO3NqGKPp-e2X-ade2adjPx3ts9XeAU3zmoCMXgmUoG1i9qSTO9BiGP-V9/exec';
     const data = JSON.parse(localStorage.getItem('ft_data')||'{"transactions":[],"emergency":0,"subscriptions":[]}');
-    const limitedData = {
-      transactions: (data.transactions||[]).slice(-50),
+    const limited = {
+      transactions: (data.transactions||[]).slice(-30),
       emergency: data.emergency||0,
-      subscriptions: (data.subscriptions||[]).slice(-20)
+      subscriptions: (data.subscriptions||[]).slice(-10)
     };
 
-    fetch(GAS, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'saveProfile',
-        email: user.email,
-        name: user.name||'',
-        income: user.income||0,
-        needs: user.needs||0,
-        wants: user.wants||0,
-        savings: user.savings||0,
-        dataJson: JSON.stringify(limitedData)
-      })
-    }).catch(()=>{}); // Silent fail — non-critical
+    // Use GET — more reliable with GAS CORS restrictions
+    const params = new URLSearchParams({
+      action: 'saveProfile',
+      email: user.email,
+      name: user.name||'',
+      income: user.income||0,
+      needs: user.needs||0,
+      wants: user.wants||0,
+      savings: user.savings||0,
+      dataJson: JSON.stringify(limited)
+    });
+    fetch(`${GAS}?${params.toString()}`).catch(()=>{});
   } catch(e){}
 })();
 </script>

@@ -606,10 +606,31 @@ function leaveHousehold(){
     : 'Leave the household? You will stop seeing the combined dashboard. Your personal data is not deleted.';
   if (!confirm(msg)) return;
   if (pollingInterval) { clearInterval(pollingInterval); pollingInterval = null; }
-  saveHogar({ connected:false, pendingInvite:false });
+
+  // Clear ALL hogar-related localStorage keys
+  const hogar = loadHogar();
+  localStorage.removeItem(HOGAR_KEY);
   localStorage.removeItem('ft_profile_A');
   localStorage.removeItem('ft_profile_B');
   localStorage.removeItem('ft_active_profile');
+
+  // Also remove email-based profile caches
+  if (hogar.partnerEmail) {
+    const partnerKey = 'profile_' + hogar.partnerEmail.replace(/[^a-z0-9]/gi,'_');
+    localStorage.removeItem(partnerKey);
+  }
+  if (user.email) {
+    const myKey = 'profile_' + user.email.replace(/[^a-z0-9]/gi,'_');
+    localStorage.removeItem(myKey);
+  }
+
+  // Save explicitly disconnected state with a flag to prevent auto-reconnect
+  localStorage.setItem(HOGAR_KEY, JSON.stringify({
+    connected: false,
+    pendingInvite: false,
+    manuallyLeft: true  // prevents auto-reconnect from GAS
+  }));
+
   render();
   showToast(lang==='es'?'Saliste del hogar':'You left the household');
 }
@@ -715,37 +736,22 @@ function snapshotCurrentProfile(slot){
   // Also save to GAS so partner can read it from their device
   if (user.email) {
     try {
-      // Limit dataJson to last 50 transactions to avoid URL length limits
-      const limitedData = {
-        transactions: (data.transactions||[]).slice(-50),
+      const limited = {
+        transactions: (data.transactions||[]).slice(-30),
         emergency: data.emergency||0,
-        subscriptions: (data.subscriptions||[]).slice(-20)
+        subscriptions: (data.subscriptions||[]).slice(-10)
       };
-      const dataJson = encodeURIComponent(JSON.stringify(limitedData));
-      const url = `${GAS_URL_HOGAR}?action=saveProfile`
-        + `&email=${encodeURIComponent(user.email)}`
-        + `&name=${encodeURIComponent(user.name||'')}`
-        + `&income=${user.income||0}`
-        + `&needs=${user.needs||0}`
-        + `&wants=${user.wants||0}`
-        + `&savings=${user.savings||0}`
-        + `&dataJson=${dataJson}`;
-
-      // Use POST to handle large data
-      fetch(GAS_URL_HOGAR, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'saveProfile',
-          email: user.email,
-          name: user.name||'',
-          income: user.income||0,
-          needs: user.needs||0,
-          wants: user.wants||0,
-          savings: user.savings||0,
-          dataJson: JSON.stringify(limitedData)
-        })
-      }).catch(e => console.warn('Profile sync failed:', e));
+      const params = new URLSearchParams({
+        action: 'saveProfile',
+        email: user.email,
+        name: user.name||'',
+        income: user.income||0,
+        needs: user.needs||0,
+        wants: user.wants||0,
+        savings: user.savings||0,
+        dataJson: JSON.stringify(limited)
+      });
+      fetch(`${GAS_URL_HOGAR}?${params.toString()}`).catch(e => console.warn('Profile sync failed:', e));
     } catch(e) { console.warn('Profile upload error:', e); }
   }
 }
