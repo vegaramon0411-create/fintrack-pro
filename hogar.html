@@ -715,18 +715,35 @@ function logout(){sessionStorage.clear();localStorage.removeItem('ft_user');loca
   }
 
   // Also check GAS for updated partner connection status
-  checkPartnerFromGAS().then(gasData => {
+  checkPartnerFromGAS().then(async gasData => {
     if(!gasData || !gasData.connected) return;
     const hogar2 = loadHogar();
     if(hogar2.manuallyLeft) return;
+
+    let needsRender = false;
+
+    // Update partner email/name if changed
     if(gasData.partnerEmail && gasData.partnerEmail !== hogar2.partnerEmail){
       hogar2.connected = true;
       hogar2.pendingInvite = false;
       hogar2.partnerEmail = gasData.partnerEmail;
       hogar2.partnerName = gasData.partnerName || hogar2.partnerName || (lang==='es'?'Tu pareja':'Your partner');
       localStorage.setItem('ft_hogar', JSON.stringify(hogar2));
-      render();
+      needsRender = true;
     }
+
+    // Always try to load partner profile from GAS
+    if(gasData.partnerEmail){
+      const partnerProfile = await loadPartnerProfileFromGAS(gasData.partnerEmail);
+      if(partnerProfile){
+        const partnerKey = 'profile_' + gasData.partnerEmail.replace(/[^a-z0-9]/gi,'_');
+        localStorage.setItem(partnerKey, JSON.stringify(partnerProfile));
+        localStorage.setItem('ft_profile_B', JSON.stringify(partnerProfile));
+        needsRender = true;
+      }
+    }
+
+    if(needsRender) render();
   });
 })();
 </script>
