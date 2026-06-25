@@ -1,5 +1,5 @@
-// Vercel Serverless Function — FinTrack Pro Scanner
-// Proxies image analysis to Anthropic API securely
+// Vercel Serverless Function — FinTrack Pro
+// Handles: receipt images, PDFs, and CSV text analysis via Claude
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -10,17 +10,38 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { image, mediaType, prompt } = req.body;
-    if (!image || !mediaType) return res.status(400).json({ error: 'Missing image or mediaType' });
+    const { image, mediaType, prompt, isTextOnly, csvContent } = req.body;
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) return res.status(500).json({ error: 'API key not configured' });
 
-    const defaultPrompt = `You are analyzing a receipt image. Extract the information and respond with ONLY a raw JSON object (no markdown, no code blocks, no explanation, just the JSON):
-{"merchant":"store name","amount":0.00,"date":"YYYY-MM-DD","category":"Supermercado","items":["item1"],"confidence":85}
+    // Build message based on input type
+    let messages;
 
-Category must be exactly one of: Supermercado, Restaurantes, Gasolina, Salud, Entretenimiento, Ropa, Servicios, Otros
+    if (isTextOnly && (csvContent || prompt)) {
+      // TEXT ONLY MODE — for CSV content sent as plain text
+      const textPrompt = prompt || `Extract all transactions from this CSV and return a JSON array.`;
+      messages = [{ role: 'user', content: textPrompt }];
+
+    } else {
+      // IMAGE/PDF MODE
+      if (!image || !mediaType) {
+        return res.status(400).json({ error: 'Missing image or mediaType' });
+      }
+
+      const defaultPrompt = `You are analyzing a receipt image. Extract the information and respond with ONLY a raw JSON object (no markdown, no code blocks, no explanation):
+{"merchant":"store name","amount":0.00,"date":"YYYY-MM-DD","category":"Supermercado","items":["item1"],"confidence":85}
+Category must be one of: Supermercado, Restaurantes, Gasolina, Salud, Entretenimiento, Ropa, Servicios, Otros
 Today is ${new Date().toISOString().split('T')[0]}.`;
+
+      messages = [{
+        role: 'user',
+        content: [
+          { type: 'image', source: { type: 'base64', media_type: mediaType, data: image } },
+          { type: 'text', text: prompt || defaultPrompt }
+        ]
+      }];
+    }
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -31,14 +52,8 @@ Today is ${new Date().toISOString().split('T')[0]}.`;
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 300,
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'image', source: { type: 'base64', media_type: mediaType, data: image } },
-            { type: 'text', text: prompt || defaultPrompt }
-          ]
-        }]
+        max_tokens: 4000,
+        messages
       })
     });
 
@@ -50,31 +65,24 @@ Today is ${new Date().toISOString().split('T')[0]}.`;
 
     const data = await response.json();
     const rawText = (data.content?.[0]?.text || '').trim();
-    console.log('Raw response:', rawText);
 
-    // Aggressive JSON extraction
+    // Aggressive JSON extraction — try 4 methods
     let result = null;
 
-    // Try 1: direct parse
     try { result = JSON.parse(rawText); } catch(e) {}
 
-    // Try 2: extract JSON block
     if (!result) {
-      const jsonMatch = rawText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        try { result = JSON.parse(jsonMatch[0]); } catch(e) {}
-      }
+      const jsonMatch = rawText.match(/(\[[\s\S]*\]|\{[\s\S]*\})/);
+      if (jsonMatch) { try { result = JSON.parse(jsonMatch[0]); } catch(e) {} }
     }
 
-    // Try 3: remove markdown fences
     if (!result) {
       const clean = rawText.replace(/```json|```/g, '').trim();
       try { result = JSON.parse(clean); } catch(e) {}
     }
 
-    // Try 4: regex extraction of key fields
-    if (!result) {
-      const amountMatch = rawText.match(/"amount"\s*:\s*([\d.]+)/);
+    if (!result && !isTextOnly) {
+      const amountMatch = rawText.match(/"amount"\s*:\s*(-?[\d.]+)/);
       const merchantMatch = rawText.match(/"merchant"\s*:\s*"([^"]+)"/);
       const dateMatch = rawText.match(/"date"\s*:\s*"([^"]+)"/);
       const catMatch = rawText.match(/"category"\s*:\s*"([^"]+)"/);
