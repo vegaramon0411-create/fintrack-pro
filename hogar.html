@@ -186,7 +186,6 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
       </div>
     </div>
   </div>
-  <div id="diagPanel"></div>
   <div class="page" id="page"></div>
 </div>
 </div>
@@ -298,23 +297,6 @@ function render(){
   const hogar = loadHogar();
   const page = document.getElementById('page');
 
-  // TEMP DIAGNOSTIC
-  const diagEl = document.getElementById('diagPanel');
-  if(diagEl){
-    const partnerKey = hogar.partnerEmail ? 'profile_'+hogar.partnerEmail.replace(/[^a-z0-9]/gi,'_') : null;
-    const partnerRaw = partnerKey ? localStorage.getItem(partnerKey) : null;
-    const partnerData = partnerRaw ? JSON.parse(partnerRaw) : null;
-    const partnerB = localStorage.getItem('ft_profile_B');
-    const partnerBData = partnerB ? JSON.parse(partnerB) : null;
-    diagEl.innerHTML = `
-      <div style="background:#1A1D2E;color:#fff;padding:10px;font-size:10px;border-radius:8px;margin:8px 16px;font-family:monospace;word-break:break-all">
-        <strong>partnerEmail:</strong> ${hogar.partnerEmail||'none'}<br>
-        <strong>profile by email key income:</strong> ${partnerData?partnerData.income:'null'}<br>
-        <strong>ft_profile_B income:</strong> ${partnerBData?partnerBData.income:'null'}<br>
-        <strong>profile by email key name:</strong> ${partnerData?partnerData.name:'null'}
-      </div>`;
-  }
-
   if (!hogar.connected) {
     const T = lang==='es' ? {
       title:'Aún no tienes un Hogar conectado',
@@ -334,28 +316,42 @@ function render(){
     return;
   }
 
-  // Load both profiles — use email as unique key to prevent data mixing between users
+  // Load both profiles
   const myEmail = user.email || 'user_a';
   const myKey = 'profile_' + myEmail.replace(/[^a-z0-9]/gi,'_');
 
   let profileMe = loadProfile(myKey);
   let profilePartner = null;
 
-  // Try to get partner profile from localStorage (may have been cached by async loader)
   const partnerEmail = hogar.partnerEmail || '';
+
   if(partnerEmail){
+    // Try email-based key first, then legacy ft_profile_B
     const partnerKey = 'profile_' + partnerEmail.replace(/[^a-z0-9]/gi,'_');
-    profilePartner = loadProfile(partnerKey) || loadProfile('ft_profile_B');
+    const byEmail = localStorage.getItem(partnerKey);
+    const bySlot  = localStorage.getItem('ft_profile_B');
+
+    // Use whichever has income data
+    const fromEmail = byEmail ? JSON.parse(byEmail) : null;
+    const fromSlot  = bySlot  ? JSON.parse(bySlot)  : null;
+
+    if(fromEmail && (fromEmail.income||0) > 0){
+      profilePartner = fromEmail;
+    } else if(fromSlot && (fromSlot.income||0) > 0){
+      profilePartner = fromSlot;
+    } else {
+      profilePartner = fromEmail || fromSlot;
+    }
   }
 
-  // Fallback: build "me" profile from current session data
+  // Fallback: build "me" profile from current session
   if (!profileMe) {
     const data = JSON.parse(localStorage.getItem('ft_data')||'{"transactions":[],"emergency":0,"subscriptions":[]}');
     profileMe = { name:user.name||'Tú', email:user.email||'', income:user.income||0, needs:user.needs||0, wants:user.wants||0, savings:user.savings||0, data };
     try { localStorage.setItem(myKey, JSON.stringify(profileMe)); } catch(e) {}
   }
 
-  // Fallback: empty partner profile (will be replaced when async load completes)
+  // Fallback: empty partner (replaced when async load completes)
   if (!profilePartner) {
     profilePartner = {
       name: hogar.partnerName || (lang==='es'?'Tu pareja':'Your partner'),
