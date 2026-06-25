@@ -298,14 +298,20 @@ function render(){
   const hogar = loadHogar();
   const page = document.getElementById('page');
 
-  // TEMP DIAGNOSTIC — shows state to help debug
+  // TEMP DIAGNOSTIC
   const diagEl = document.getElementById('diagPanel');
   if(diagEl){
+    const partnerKey = hogar.partnerEmail ? 'profile_'+hogar.partnerEmail.replace(/[^a-z0-9]/gi,'_') : null;
+    const partnerRaw = partnerKey ? localStorage.getItem(partnerKey) : null;
+    const partnerData = partnerRaw ? JSON.parse(partnerRaw) : null;
+    const partnerB = localStorage.getItem('ft_profile_B');
+    const partnerBData = partnerB ? JSON.parse(partnerB) : null;
     diagEl.innerHTML = `
       <div style="background:#1A1D2E;color:#fff;padding:10px;font-size:10px;border-radius:8px;margin:8px 16px;font-family:monospace;word-break:break-all">
-        <strong>ft_hogar:</strong> ${JSON.stringify(hogar)}<br><br>
-        <strong>partner cache:</strong> ${localStorage.getItem('ft_profile_B') ? '✅ exists' : '❌ missing'}<br>
-        <strong>partnerEmail key:</strong> ${hogar.partnerEmail ? 'profile_'+hogar.partnerEmail.replace(/[^a-z0-9]/gi,'_') : 'none'}
+        <strong>partnerEmail:</strong> ${hogar.partnerEmail||'none'}<br>
+        <strong>profile by email key income:</strong> ${partnerData?partnerData.income:'null'}<br>
+        <strong>ft_profile_B income:</strong> ${partnerBData?partnerBData.income:'null'}<br>
+        <strong>profile by email key name:</strong> ${partnerData?partnerData.name:'null'}
       </div>`;
   }
 
