@@ -194,13 +194,14 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
   <div class="mob-item" onclick="go('dashboard.html')"><div class="mob-ico">📊</div><span data-es="Inicio" data-en="Home">Inicio</span></div>
   <div class="mob-item" onclick="go('historial.html')"><div class="mob-ico">📅</div><span data-es="Historial" data-en="History">Historial</span></div>
   <div class="mob-item" onclick="go('dashboard.html')"><div class="mob-ico">➕</div><span data-es="Agregar" data-en="Add">Agregar</span></div>
-  <div class="mob-item on"><div class="mob-ico">🏠</div><span data-es="Hogar" data-en="Household">Hogar</span></div>
+  <div class="mob-item on" onclick="window.scrollTo(0,0)"><div class="mob-ico">🏠</div><span data-es="Hogar" data-en="Household">Hogar</span></div>
   <div class="mob-item" onclick="go('perfil.html')"><div class="mob-ico">👤</div><span data-es="Perfil" data-en="Profile">Perfil</span></div>
 </nav>
 
 <script>
 let lang='es', user={};
 let activeSection = 'overview';
+const GAS_URL_HOGAR = 'https://script.google.com/macros/s/AKfycbx9V8bcr7zASHwGRyID9z-m3qugeF-TlENlc5lx3NGdbiXzXprE5yCArb3AbZMk15A/exec';
 
 function fmt(n){return '$'+Math.abs(n||0).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0});}
 function fmtD(n){return '$'+Math.abs(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
@@ -210,6 +211,17 @@ function loadHogar(){ try{return JSON.parse(localStorage.getItem('ft_hogar'))||{
 function loadProfile(slot){
   try { return JSON.parse(localStorage.getItem('ft_profile_'+slot)); }
   catch(e) { return null; }
+}
+
+// Check GAS for partner connection status
+async function checkPartnerFromGAS(){
+  try {
+    if(!user.email) return null;
+    const url = `${GAS_URL_HOGAR}?action=checkPartner&email=${encodeURIComponent(user.email)}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    return data;
+  } catch(e) { return null; }
 }
 
 // Category classification, same map used across the app
@@ -649,6 +661,27 @@ function logout(){sessionStorage.clear();localStorage.removeItem('ft_user');loca
   }
 
   render();
+
+  // After initial render, check GAS for updated partner status
+  // This handles the case where partner accepted from another device
+  checkPartnerFromGAS().then(gasData => {
+    if(!gasData || !gasData.connected) return;
+
+    const hogar = loadHogar();
+    let updated = false;
+
+    // Update partner info if GAS has more up-to-date data
+    if(gasData.partnerEmail && gasData.partnerEmail !== hogar.partnerEmail){
+      hogar.connected = true;
+      hogar.pendingInvite = false;
+      hogar.partnerEmail = gasData.partnerEmail;
+      hogar.partnerName = gasData.partnerName || hogar.partnerName || (lang==='es'?'Tu pareja':'Your partner');
+      localStorage.setItem('ft_hogar', JSON.stringify(hogar));
+      updated = true;
+    }
+
+    if(updated) render();
+  });
 })();
 </script>
 </body>

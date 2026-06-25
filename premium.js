@@ -4,7 +4,7 @@
    ═══════════════════════════════════════════════════════════ */
 
 const PREMIUM_KEY = 'ft_premium';
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbwnkcS7mMT4fJTlm1hbAhLLg3o3kkMct-JfuhcKfilKfJJjkOZp2AhAmb1nOdsLCxBQ/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbx9V8bcr7zASHwGRyID9z-m3qugeF-TlENlc5lx3NGdbiXzXprE5yCArb3AbZMk15A/exec';
 
 /* ── STATE ── */
 function getActivePlan() {

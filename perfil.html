@@ -226,6 +226,8 @@ function closeMoreOutside(e){ if(e.target===document.getElementById('moreOverlay
 const STORE_KEY='ft_data';
 const AVATAR_KEY='ft_avatar';
 const AVATAR_OPTIONS=['😀','😎','🤓','🥳','😊','🦸','🧑‍💼','👩‍💼','🧑‍🚀','🐱','🐶','🦊','🐼','🦁','🐨','🌟','💎','🔥','🚀','⭐'];
+// GAS URL for Hogar invite system — must match deployed Code.gs
+const GAS_URL_HOGAR = 'https://script.google.com/macros/s/AKfycbx9V8bcr7zASHwGRyID9z-m3qugeF-TlENlc5lx3NGdbiXzXprE5yCArb3AbZMk15A/exec';
 let lang='es', user={}, selectedAvatar='';
 
 function loadData(){try{return JSON.parse(localStorage.getItem(STORE_KEY))||{transactions:[],emergency:0,subscriptions:[]};}catch(e){return{transactions:[],emergency:0,subscriptions:[]};}}
@@ -491,8 +493,11 @@ function buildHouseholdSection(T){
     <div style="text-align:center;padding:8px 0 14px">
       <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px">${T.pendingTitle}</div>
       <div style="font-size:12px;color:var(--text3);margin-bottom:16px">${T.pendingSub}</div>
-      <div style="background:var(--off);border:1.5px dashed var(--border);border-radius:14px;padding:18px;margin-bottom:14px">
+      <div style="background:var(--off);border:1.5px dashed var(--border);border-radius:14px;padding:18px;margin-bottom:8px">
         <div style="font-size:26px;font-weight:800;letter-spacing:2px;color:var(--g-main)">${hogar.inviteCode}</div>
+      </div>
+      <div id="inviteStatus" style="margin-bottom:12px;min-height:18px">
+        <span style="color:var(--text3);font-size:11px">⏳ ${lang==='es'?'Esperando que tu pareja ingrese el código...':'Waiting for your partner to enter the code...'}</span>
       </div>
       <div style="display:flex;gap:8px">
         <button onclick="copyInviteCode('${hogar.inviteCode}')" style="flex:1;background:linear-gradient(135deg,var(--g-dark),var(--g-main));color:white;border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">📋 ${T.copyCode}</button>
@@ -516,18 +521,32 @@ function buildHouseholdSection(T){
 async function openInviteModal(){
   const code = generateInviteCode();
 
-  // Save invite to GAS so partner can find it from another device
-  try {
-    const gasUrl = typeof GAS_URL !== 'undefined' ? GAS_URL : '';
-    if (gasUrl && !gasUrl.includes('PLACEHOLDER')) {
-      const url = `${gasUrl}?action=createInvite&email=${encodeURIComponent(user.email)}&name=${encodeURIComponent(user.name||'')}&code=${code}`;
-      await fetch(url);
-    }
-  } catch(e) { console.warn('GAS invite save failed:', e); }
-
+  // Show pending state immediately
   const hogar = { connected:false, pendingInvite:true, inviteCode:code, myProfile:'A', myEmail:user.email, myName:user.name };
   saveHogar(hogar);
   render();
+
+  // Register invite in GAS so partner can find it from another device
+  let gasOk = false;
+  try {
+    const url = `${GAS_URL_HOGAR}?action=createInvite&email=${encodeURIComponent(user.email)}&name=${encodeURIComponent(user.name||'')}&code=${code}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    gasOk = data.success === true;
+    if(!gasOk) console.warn('GAS createInvite response:', data);
+  } catch(e) {
+    console.warn('GAS invite save failed:', e);
+  }
+
+  // Show status indicator
+  const statusEl = document.getElementById('inviteStatus');
+  if(statusEl){
+    if(gasOk){
+      statusEl.innerHTML = `<span style="color:var(--g-main);font-size:11px;font-weight:600">✅ ${lang==='es'?'Código registrado — listo para compartir':'Code registered — ready to share'}</span>`;
+    } else {
+      statusEl.innerHTML = `<span style="color:var(--amber);font-size:11px;font-weight:600">⚠️ ${lang==='es'?'El código solo funciona en este dispositivo — compártelo rápido':'Code only works on this device — share it quickly'}</span>`;
+    }
+  }
 
   // Poll GAS every 5 seconds to check if partner accepted
   startPartnerPolling();
@@ -538,7 +557,7 @@ function startPartnerPolling() {
   if (pollingInterval) clearInterval(pollingInterval);
   pollingInterval = setInterval(async () => {
     try {
-      const gasUrl = typeof GAS_URL !== 'undefined' ? GAS_URL : '';
+      const gasUrl = typeof GAS_URL_HOGAR !== 'undefined' ? GAS_URL_HOGAR : '';
       if (!gasUrl || gasUrl.includes('PLACEHOLDER')) return;
 
       const url = `${gasUrl}?action=checkPartner&email=${encodeURIComponent(user.email)}`;
@@ -625,58 +644,52 @@ async function acceptInviteWithGAS(code) {
   showToast(lang==='es'?'⏳ Verificando código...':'⏳ Verifying code...');
 
   try {
-    const gasUrl = typeof GAS_URL !== 'undefined' ? GAS_URL : '';
+    const url = `${GAS_URL_HOGAR}?action=acceptInvite&code=${encodeURIComponent(code)}&email=${encodeURIComponent(user.email)}&name=${encodeURIComponent(user.name||'')}`;
+    const res = await fetch(url);
+    const data = await res.json();
 
-    if (gasUrl && !gasUrl.includes('PLACEHOLDER')) {
-      const url = `${gasUrl}?action=acceptInvite&code=${encodeURIComponent(code)}&email=${encodeURIComponent(user.email)}&name=${encodeURIComponent(user.name||'')}`;
-      const res = await fetch(url);
-      const data = await res.json();
-
-      if (data.error) {
-        if (data.error === 'code_not_found') {
-          showToast(lang==='es'?'❌ Código no encontrado':'❌ Code not found');
-        } else if (data.error === 'code_already_used') {
-          showToast(lang==='es'?'❌ Código ya fue usado':'❌ Code already used');
-        } else {
-          showToast(lang==='es'?'❌ Error: '+data.error:'❌ Error: '+data.error);
-        }
-        return;
+    if (data.error) {
+      let msg = '';
+      if(data.error === 'code_not_found'){
+        msg = lang==='es'
+          ? '❌ Código no encontrado. Pide a tu pareja que genere un nuevo código desde su Perfil.'
+          : '❌ Code not found. Ask your partner to generate a new code from their Profile.';
+      } else if(data.error === 'code_already_used'){
+        msg = lang==='es'?'❌ Este código ya fue usado':'❌ This code was already used';
+      } else {
+        msg = '❌ Error: ' + data.error;
       }
-
-      // Success — partner found
-      const hogar = {
-        connected: true,
-        pendingInvite: false,
-        inviteCode: code,
-        myProfile: 'B',
-        myEmail: user.email,
-        myName: user.name,
-        partnerName: data.partnerName || (lang==='es'?'Tu pareja':'Your partner'),
-        partnerEmail: data.partnerEmail || '',
-        connectedAt: new Date().toISOString()
-      };
-      saveHogar(hogar);
-      snapshotCurrentProfile('B');
-
-      render();
-      showToast(lang==='es'
-        ? `🏠 ¡Conectado! Tu pareja: ${data.partnerName||'—'}`
-        : `🏠 Connected! Your partner: ${data.partnerName||'—'}`);
-
-    } else {
-      // Dev mode: simulate connection without GAS
-      const hogar = {
-        connected: true, pendingInvite: false, inviteCode: code,
-        myProfile: 'B', partnerName: 'Tu pareja', partnerEmail: '', connectedAt: new Date().toISOString()
-      };
-      saveHogar(hogar);
-      snapshotCurrentProfile('B');
-      render();
-      showToast(lang==='es'?'🏠 Conectado (modo dev)':'🏠 Connected (dev mode)');
+      showToast(msg, 5000);
+      return;
     }
+
+    // Success — connected!
+    const hogar = {
+      connected: true,
+      pendingInvite: false,
+      inviteCode: code,
+      myProfile: 'B',
+      myEmail: user.email,
+      myName: user.name,
+      partnerName: data.partnerName || (lang==='es'?'Tu pareja':'Your partner'),
+      partnerEmail: data.partnerEmail || '',
+      connectedAt: new Date().toISOString()
+    };
+    saveHogar(hogar);
+
+    // Save my own data snapshot so partner can see it
+    snapshotCurrentProfile('B');
+
+    render();
+    showToast(lang==='es'
+      ? `🏠 ¡Conectado! Tu pareja: ${data.partnerName||'—'}`
+      : `🏠 Connected! Your partner: ${data.partnerName||'—'}`, 4000);
+
   } catch(e) {
     console.error('acceptInvite error:', e);
-    showToast(lang==='es'?'❌ Error de conexión':'❌ Connection error');
+    showToast(lang==='es'
+      ?'❌ Error de conexión. Verifica tu internet e intenta de nuevo.'
+      :'❌ Connection error. Check your internet and try again.', 4000);
   }
 }
 
