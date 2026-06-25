@@ -222,50 +222,61 @@ function renderStep1(){
   if(isPrem){ cb.style.display='flex'; document.getElementById('creditsLeft').textContent=left; }
   else cb.style.display='none';
 
-  const T = {
-    title: lang==='es'?'¿Qué quieres importar?':'What do you want to import?',
-    bank: lang==='es'?'Estado de cuenta':'Bank statement',
-    bankSub: lang==='es'?'SoFi, Capital One, cualquier banco':'SoFi, Capital One, any bank',
-    fidelity: 'Fidelity',
-    fidelitySub: lang==='es'?'Historial de inversiones Fidelity':'Fidelity investment history',
-    manual: lang==='es'?'Hoja propia':'My spreadsheet',
-    manualSub: lang==='es'?'CSV con mis gastos manuales':'CSV with my manual expenses',
-    ai: lang==='es'?'Foto / PDF ✨':'Photo / PDF ✨',
-    aiSub: isPrem
-      ? (lang==='es'?`${left} análisis disponibles este mes`:`${left} analyses left this month`)
-      : (lang==='es'?'Solo Premium':'Premium only'),
-    aiLock: !isPrem,
-  };
+  const es = lang === 'es';
 
   document.getElementById('page').innerHTML = `
   <div class="card" style="margin-top:16px">
-    <div class="card-title">${T.title}</div>
-    <div class="card-sub">${lang==='es'?'Selecciona el tipo de archivo para detectar el formato correcto':'Select the file type to detect the correct format'}</div>
+    <div class="card-title">${es?'¿Qué quieres importar?':'What do you want to import?'}</div>
+    <div class="card-sub">${es?'Selecciona el tipo de archivo — detectamos el formato automáticamente':'Select the file type — we detect the format automatically'}</div>
+
     <div class="format-grid">
+
+      <!-- BANCO -->
       <div class="fmt-card" onclick="selectFormat('bank')" id="fmt_bank">
         <div class="fmt-ico">🏦</div>
-        <div class="fmt-name">${T.bank}</div>
-        <div class="fmt-sub">${T.bankSub}</div>
+        <div class="fmt-name">${es?'Banco':'Bank'}</div>
+        <div class="fmt-sub" style="margin-bottom:8px">${es?'CSV de tu banco':'Your bank CSV'}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:3px">
+          ${['SoFi','Chase','Capital One','Wells Fargo','BBVA MX','Banorte','Banamex'].map(b=>`<span style="font-size:9px;font-weight:600;background:var(--off);color:var(--text3);padding:1px 6px;border-radius:20px">${b}</span>`).join('')}
+          <span style="font-size:9px;font-weight:600;background:var(--off);color:var(--text3);padding:1px 6px;border-radius:20px">${es?'+ más':'+ more'}</span>
+        </div>
       </div>
+
+      <!-- BROKER -->
       <div class="fmt-card" onclick="selectFormat('fidelity')" id="fmt_fidelity">
         <div class="fmt-ico">📈</div>
-        <div class="fmt-name">${T.fidelity}</div>
-        <div class="fmt-sub">${T.fidelitySub}</div>
+        <div class="fmt-name">${es?'Broker / Inversiones':'Broker / Investments'}</div>
+        <div class="fmt-sub" style="margin-bottom:8px">${es?'CSV de tu broker':'Your broker CSV'}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:3px">
+          ${['Fidelity','Schwab','Robinhood','Vanguard','GBM+','E*TRADE'].map(b=>`<span style="font-size:9px;font-weight:600;background:var(--off);color:var(--text3);padding:1px 6px;border-radius:20px">${b}</span>`).join('')}
+          <span style="font-size:9px;font-weight:600;background:var(--off);color:var(--text3);padding:1px 6px;border-radius:20px">${es?'+ más':'+ more'}</span>
+        </div>
       </div>
+
+      <!-- HOJA MANUAL -->
       <div class="fmt-card" onclick="selectFormat('manual')" id="fmt_manual">
         <div class="fmt-ico">📋</div>
-        <div class="fmt-name">${T.manual}</div>
-        <div class="fmt-sub">${T.manualSub}</div>
+        <div class="fmt-name">${es?'Mi hoja propia':'My spreadsheet'}</div>
+        <div class="fmt-sub">${es?'CSV personalizado con tus gastos en cualquier formato':'Custom CSV with your expenses in any format'}</div>
       </div>
-      <div class="fmt-card ${T.aiLock?'':''}${!isPrem?'opacity:0.5':''}" 
-           onclick="${isPrem?'selectFormat(\'ai\')':'showUpgradeModal()'}" id="fmt_ai"
-           style="${!isPrem?'opacity:.6;':''}">
+
+      <!-- IA -->
+      <div class="fmt-card" onclick="${isPrem&&left>0?'selectFormat(\'ai\')':'showUpgradeModal()'}" id="fmt_ai"
+           style="${!isPrem?'opacity:.6':''}">
         <div class="fmt-ico">🤖</div>
-        <div class="fmt-name">${T.ai}</div>
-        <div class="fmt-sub">${T.aiSub}</div>
-        ${!isPrem?'<div style="margin-top:6px;font-size:9px;font-weight:700;background:var(--g-light);color:var(--g-main);padding:2px 8px;border-radius:20px;display:inline-block">💎 Premium</div>':''}
-        ${isPrem&&left===0?'<div style="margin-top:6px;font-size:9px;font-weight:700;background:var(--amb-dim);color:var(--amber);padding:2px 8px;border-radius:20px;display:inline-block">Límite del mes alcanzado</div>':''}
+        <div class="fmt-name">${es?'IA — Cualquier formato ✨':'AI — Any format ✨'}</div>
+        <div class="fmt-sub" style="margin-bottom:6px">${es?'Foto · PDF · CSV desconocido':'Photo · PDF · Unknown CSV'}</div>
+        <div style="font-size:10px;color:var(--text2);margin-bottom:6px">
+          ${es?'EUA 🇺🇸 · México 🇲🇽 · Cualquier país 🌍':'USA 🇺🇸 · Mexico 🇲🇽 · Any country 🌍'}
+        </div>
+        ${!isPrem
+          ?`<div style="font-size:9px;font-weight:700;background:var(--g-light);color:var(--g-main);padding:2px 8px;border-radius:20px;display:inline-block">💎 Premium</div>`
+          :left===0
+            ?`<div style="font-size:9px;font-weight:700;background:var(--amb-dim);color:var(--amber);padding:2px 8px;border-radius:20px;display:inline-block">${es?'Límite del mes alcanzado':'Monthly limit reached'}</div>`
+            :`<div style="font-size:9px;font-weight:700;background:var(--g-light);color:var(--g-main);padding:2px 8px;border-radius:20px;display:inline-block">✨ ${left} ${es?'análisis disponibles':'analyses left'}</div>`
+        }
       </div>
+
     </div>
   </div>`;
 }
@@ -491,29 +502,92 @@ function parseDate(str){
 }
 
 /* ══════════════════════════════════════
-   PARSER: SoFi / Capital One
+   PARSER: Bancos — SoFi, Chase, Capital One,
+   Wells Fargo, BBVA MX, Banorte, Banamex, etc.
 ══════════════════════════════════════ */
 function parseSoFi(header, lines){
+  // Detect Mexican bank format (Cargo/Abono columns)
+  const hasCargo = header.includes('cargo') || header.includes('retiro') || header.includes('débito') || header.includes('debito');
+  const hasAbono = header.includes('abono') || header.includes('depósito') || header.includes('deposito') || header.includes('crédito');
+
+  if(hasCargo || hasAbono){
+    parseMexicanBank(header, lines);
+    return;
+  }
+
+  // Wells Fargo (separate debit/credit columns)
+  const hasDebit  = header.includes('debit amount') || header.includes('withdrawals');
+  const hasCredit = header.includes('credit amount') || header.includes('deposits');
+
+  // Capital One (separate debit/credit)
+  const hasCapOneDebit  = header.indexOf('debit') >= 0 && !hasCargo;
+  const hasCapOneCredit = header.indexOf('credit') >= 0 && !hasAbono;
+
   const idx = {
-    date:    header.indexOf('authorized date') >= 0 ? header.indexOf('authorized date') : header.indexOf('transaction date'),
-    account: header.indexOf('account name'),
-    desc:    header.indexOf('description'),
-    cat:     header.indexOf('primary category'),
-    detcat:  header.indexOf('detailed category'),
-    amount:  header.indexOf('amount'),
+    date:    ['authorized date','transaction date','date','fecha'].map(k=>header.indexOf(k)).find(i=>i>=0) ?? -1,
+    posted:  ['posted date','post date'].map(k=>header.indexOf(k)).find(i=>i>=0) ?? -1,
+    account: ['account name','account'].map(k=>header.indexOf(k)).find(i=>i>=0) ?? -1,
+    desc:    ['description','merchant','payee','concepto'].map(k=>header.indexOf(k)).find(i=>i>=0) ?? -1,
+    cat:     ['primary category','category','type'].map(k=>header.indexOf(k)).find(i=>i>=0) ?? -1,
+    detcat:  ['detailed category'].map(k=>header.indexOf(k)).find(i=>i>=0) ?? -1,
+    amount:  ['amount','importe','monto'].map(k=>header.indexOf(k)).find(i=>i>=0) ?? -1,
+    debit:   ['debit amount','debit','withdrawals'].map(k=>header.indexOf(k)).find(i=>i>=0) ?? -1,
+    credit:  ['credit amount','credit','deposits'].map(k=>header.indexOf(k)).find(i=>i>=0) ?? -1,
   };
 
   parsedRows = lines.filter(l=>l.trim()).map(l=>{
     const c = parseCSVLine(l);
+    let amount = 0;
+
+    if(idx.amount >= 0 && c[idx.amount]){
+      amount = parseAmount(c[idx.amount]);
+    } else if(idx.debit >= 0 || idx.credit >= 0){
+      // Separate debit/credit columns
+      const debit  = parseAmount(c[idx.debit]  || '0');
+      const credit = parseAmount(c[idx.credit] || '0');
+      amount = credit > 0 ? credit : -Math.abs(debit);
+    }
+
     return {
-      date:    parseDate(c[idx.date]||''),
-      account: c[idx.account]||'',
-      desc:    c[idx.desc]||'',
-      cat:     c[idx.cat]||'',
-      detcat:  c[idx.detcat]||'',
-      amount:  parseAmount(c[idx.amount]||'0'),
+      date:    parseDate(c[idx.date >= 0 ? idx.date : idx.posted] || ''),
+      account: idx.account >= 0 ? (c[idx.account]||'') : '',
+      desc:    idx.desc >= 0 ? (c[idx.desc]||'') : '',
+      cat:     idx.cat >= 0 ? (c[idx.cat]||'') : '',
+      detcat:  idx.detcat >= 0 ? (c[idx.detcat]||'') : '',
+      amount,
     };
   }).filter(r=>r.desc);
+
+  classifyBankRows();
+}
+
+/* ── MEXICAN BANKS (BBVA, Banorte, Banamex, Santander MX) ── */
+function parseMexicanBank(header, lines){
+  const idx = {
+    date:   ['fecha','date'].map(k=>header.indexOf(k)).find(i=>i>=0) ?? 0,
+    desc:   ['descripción','descripcion','concepto','description'].map(k=>header.indexOf(k)).find(i=>i>=0) ?? 1,
+    cargo:  ['cargo','retiro','débito','debito','debit'].map(k=>header.indexOf(k)).find(i=>i>=0) ?? -1,
+    abono:  ['abono','depósito','deposito','crédito','credito','credit'].map(k=>header.indexOf(k)).find(i=>i>=0) ?? -1,
+    saldo:  ['saldo','balance'].map(k=>header.indexOf(k)).find(i=>i>=0) ?? -1,
+  };
+
+  parsedRows = lines.filter(l=>l.trim()).map(l=>{
+    const c = parseCSVLine(l);
+    const cargo = parseAmount(c[idx.cargo] || '0');
+    const abono = parseAmount(c[idx.abono] || '0');
+    // Cargo = expense (negative), Abono = income (positive)
+    const amount = abono > 0 ? abono : -Math.abs(cargo);
+
+    return {
+      date:    parseDate(c[idx.date]||''),
+      account: 'MX',
+      desc:    c[idx.desc]||'',
+      cat:     '',
+      detcat:  '',
+      amount,
+      currency: 'MXN',
+    };
+  }).filter(r=>r.desc && r.amount !== 0);
 
   classifyBankRows();
 }
@@ -554,17 +628,28 @@ function parseManual(header, lines){
 }
 
 /* ══════════════════════════════════════
-   PARSER: Fidelity
+   PARSER: Brokers — Fidelity, Schwab, Robinhood,
+   Vanguard, E*TRADE, GBM+
 ══════════════════════════════════════ */
 function parseFidelity(header, lines){
+  // Detect broker by column signatures
+  const isSchwab    = header.includes('action') && header.includes('symbol') && !header.includes('run date');
+  const isRobinhood = header.includes('activity date') || header.includes('trans code') || header.includes('instrument');
+  const isVanguard  = header.includes('trade date') && (header.includes('transaction type') || header.includes('shares'));
+
+  if(isSchwab && !header.includes('run date'))    { parseSchwab(header, lines); return; }
+  if(isRobinhood) { parseRobinhood(header, lines); return; }
+  if(isVanguard)  { parseVanguard(header, lines); return; }
+
+  // Default: Fidelity
   const idx = {
     date:   header.indexOf('run date'),
     action: header.indexOf('action'),
     symbol: header.indexOf('symbol'),
     desc:   header.indexOf('description'),
-    price:  header.indexOf('price ($)'),
+    price:  ['price ($)','price'].map(k=>header.indexOf(k)).find(i=>i>=0) ?? -1,
     qty:    header.indexOf('quantity'),
-    amount: header.indexOf('amount ($)'),
+    amount: ['amount ($)','amount'].map(k=>header.indexOf(k)).find(i=>i>=0) ?? -1,
     acct:   header.indexOf('account number'),
   };
 
@@ -572,32 +657,153 @@ function parseFidelity(header, lines){
     const c = parseCSVLine(l);
     const action = c[idx.action]||'';
     return {
-      date:   parseDate(c[idx.date]||''),
-      action: action,
-      symbol: (c[idx.symbol]||'').trim(),
-      desc:   c[idx.desc]||'',
-      price:  parseFloat(c[idx.price]||'0')||0,
-      qty:    parseFloat(c[idx.qty]||'0')||0,
-      amount: parseAmount(c[idx.amount]||'0'),
-      acct:   c[idx.acct]||'',
+      date:   parseDate(c[idx.date >= 0 ? idx.date : 0]||''),
+      action,
+      symbol: (c[idx.symbol >= 0 ? idx.symbol : -1]||'').trim(),
+      desc:   c[idx.desc >= 0 ? idx.desc : -1]||'',
+      price:  parseFloat((c[idx.price >= 0 ? idx.price : -1]||'').replace(/[$,]/g,''))||0,
+      qty:    parseFloat(c[idx.qty >= 0 ? idx.qty : -1]||'0')||0,
+      amount: parseAmount(c[idx.amount >= 0 ? idx.amount : -1]||'0'),
+      acct:   c[idx.acct >= 0 ? idx.acct : -1]||'',
+      broker: 'Fidelity',
     };
   }).filter(r=>r.action);
 
-  classifyFidelityRows();
+  classifyBrokerRows();
 }
 
+function parseSchwab(header, lines){
+  const idx = {
+    date:   ['date','transaction date'].map(k=>header.indexOf(k)).find(i=>i>=0) ?? 0,
+    action: header.indexOf('action'),
+    symbol: header.indexOf('symbol'),
+    desc:   header.indexOf('description'),
+    qty:    header.indexOf('quantity'),
+    price:  header.indexOf('price'),
+    amount: header.indexOf('amount'),
+  };
+  parsedRows = lines.filter(l=>l.trim()).map(l=>{
+    const c = parseCSVLine(l);
+    return {
+      date:   parseDate(c[idx.date]||''),
+      action: c[idx.action]||'',
+      symbol: (c[idx.symbol >= 0 ? idx.symbol : -1]||'').trim(),
+      desc:   c[idx.desc >= 0 ? idx.desc : -1]||'',
+      price:  parseFloat((c[idx.price >= 0 ? idx.price : -1]||'').replace(/[$,]/g,''))||0,
+      qty:    parseFloat(c[idx.qty >= 0 ? idx.qty : -1]||'0')||0,
+      amount: parseAmount(c[idx.amount >= 0 ? idx.amount : -1]||'0'),
+      broker: 'Schwab',
+    };
+  }).filter(r=>r.action);
+  classifyBrokerRows();
+}
+
+function parseRobinhood(header, lines){
+  const idx = {
+    date:   ['activity date','process date'].map(k=>header.indexOf(k)).find(i=>i>=0) ?? 0,
+    action: ['trans code','transaction code','type'].map(k=>header.indexOf(k)).find(i=>i>=0) ?? -1,
+    symbol: ['instrument','symbol'].map(k=>header.indexOf(k)).find(i=>i>=0) ?? -1,
+    desc:   header.indexOf('description'),
+    qty:    header.indexOf('quantity'),
+    price:  header.indexOf('price'),
+    amount: header.indexOf('amount'),
+  };
+  parsedRows = lines.filter(l=>l.trim()).map(l=>{
+    const c = parseCSVLine(l);
+    const code = (c[idx.action >= 0 ? idx.action : -1]||'').toLowerCase();
+    const action = code.includes('buy') ? 'YOU BOUGHT'
+      : code.includes('sell') ? 'YOU SOLD'
+      : code.includes('div') ? 'DIVIDEND'
+      : c[idx.action >= 0 ? idx.action : -1]||'';
+    return {
+      date:   parseDate(c[idx.date]||''),
+      action,
+      symbol: (c[idx.symbol >= 0 ? idx.symbol : -1]||'').trim(),
+      desc:   c[idx.desc >= 0 ? idx.desc : -1]||'',
+      price:  parseFloat((c[idx.price >= 0 ? idx.price : -1]||'').replace(/[$,]/g,''))||0,
+      qty:    parseFloat(c[idx.qty >= 0 ? idx.qty : -1]||'0')||0,
+      amount: parseAmount(c[idx.amount >= 0 ? idx.amount : -1]||'0'),
+      broker: 'Robinhood',
+    };
+  }).filter(r=>r.action);
+  classifyBrokerRows();
+}
+
+function parseVanguard(header, lines){
+  const idx = {
+    date:   header.indexOf('trade date'),
+    action: header.indexOf('transaction type'),
+    symbol: ['symbol','ticker'].map(k=>header.indexOf(k)).find(i=>i>=0) ?? -1,
+    desc:   header.indexOf('investment name'),
+    qty:    header.indexOf('shares'),
+    price:  header.indexOf('share price'),
+    amount: ['transaction amount','amount'].map(k=>header.indexOf(k)).find(i=>i>=0) ?? -1,
+  };
+  parsedRows = lines.filter(l=>l.trim()).map(l=>{
+    const c = parseCSVLine(l);
+    const v = (c[idx.action >= 0 ? idx.action : -1]||'').toLowerCase();
+    const action = v.includes('buy')||v.includes('purchase') ? 'YOU BOUGHT'
+      : v.includes('sell')||v.includes('redemption') ? 'YOU SOLD'
+      : v.includes('dividend') ? 'DIVIDEND' : c[idx.action >= 0 ? idx.action : -1]||'';
+    return {
+      date:   parseDate(c[idx.date >= 0 ? idx.date : 0]||''),
+      action,
+      symbol: (c[idx.symbol >= 0 ? idx.symbol : -1]||'').trim(),
+      desc:   c[idx.desc >= 0 ? idx.desc : -1]||'',
+      price:  parseFloat((c[idx.price >= 0 ? idx.price : -1]||'').replace(/[$,]/g,''))||0,
+      qty:    parseFloat(c[idx.qty >= 0 ? idx.qty : -1]||'0')||0,
+      amount: parseAmount(c[idx.amount >= 0 ? idx.amount : -1]||'0'),
+      broker: 'Vanguard',
+    };
+  }).filter(r=>r.action);
+  classifyBrokerRows();
+}
+
+/* ── UNIFIED BROKER CLASSIFIER ── */
+function classifyBrokerRows(){
+  reviewRows = parsedRows.map(r=>{
+    const action = (r.action||'').toLowerCase();
+    let status, type, selected;
+
+    if(action.includes('electronic funds transfer')||action.includes('funds transfer')||action.includes('eft')){
+      status='exclude'; type='deposito'; selected=false;
+    } else if(action.includes('bought')||action.includes('buy')||action.includes('purchase')){
+      status='include'; type='inversion'; selected=true;
+    } else if(action.includes('sold')||action.includes('sell')||action.includes('redemption')){
+      status='pending'; type='venta'; selected=true;
+    } else if(action.includes('dividend')||action.includes('cdiv')){
+      status='include'; type='ingreso'; selected=true;
+    } else {
+      status='decide'; type='otro'; selected=false;
+    }
+
+    return {
+      ...r, status, type, selected,
+      ftCat:'📈 Inversión',
+      isDuplicate:false,
+      isFZILX: r.symbol==='FZILX',
+      sellDisposition:null,
+    };
+  });
+  renderStep3();
+}
+
+/* ── KEEP classifyFidelityRows as alias for backwards compat ── */
+function classifyFidelityRows(){ classifyBrokerRows(); }
+
 function parseGeneric(header, lines){
-  // Try to find amount and description columns by common names
-  const amtCols = ['amount','monto','total','balance','debit','credit'];
-  const descCols = ['description','descripcion','descripción','merchant','name','payee'];
+  const amtCols  = ['amount','monto','total','debit','credit','cargo','abono','importe'];
+  const descCols = ['description','descripcion','descripción','merchant','name','payee','concepto'];
   const dateCols = ['date','fecha','transaction date','posted date'];
 
-  const amtIdx = header.findIndex(h=>amtCols.some(a=>h.includes(a)));
+  const amtIdx  = header.findIndex(h=>amtCols.some(a=>h.includes(a)));
   const descIdx = header.findIndex(h=>descCols.some(d=>h.includes(d)));
   const dateIdx = header.findIndex(h=>dateCols.some(d=>h.includes(d)));
 
   if(amtIdx < 0 || descIdx < 0){
-    showToast(lang==='es'?'❌ Formato no reconocido. Usa SoFi, Fidelity o tu hoja manual.':'❌ Unrecognized format.');
+    showToast(lang==='es'
+      ?'❌ Formato no reconocido. Usa el modo IA para detectarlo automáticamente.'
+      :'❌ Unrecognized format. Use AI mode to detect it automatically.');
     renderStep2();
     return;
   }
@@ -605,7 +811,7 @@ function parseGeneric(header, lines){
   parsedRows = lines.filter(l=>l.trim()).map(l=>{
     const c = parseCSVLine(l);
     return {
-      date:   parseDate(c[dateIdx]||''),
+      date:   parseDate(c[dateIdx >= 0 ? dateIdx : 0]||''),
       desc:   c[descIdx]||'',
       cat:    '',
       amount: parseAmount(c[amtIdx]||'0'),
@@ -714,8 +920,111 @@ function classifyFidelityRows(){
 }
 
 /* ══════════════════════════════════════
-   CATEGORY MAPPERS
+   EXCLUSION REASONS — explica al usuario
+   por qué una transacción fue excluida
 ══════════════════════════════════════ */
+function getExclusionReason(row){
+  const es = lang === 'es';
+  const reasons = [];
+  const relatedTx = [];
+
+  const d = (row.desc+' '+(row.cat||'')+' '+(row.detcat||'')).toLowerCase();
+
+  if(row.cat && row.cat.toLowerCase().includes('transfer')){
+    reasons.push(es ? `La categoría del banco dice "${row.cat}"` : `Bank category says "${row.cat}"`);
+  }
+  if(row.cat && row.cat.toLowerCase().includes('debt payment')){
+    reasons.push(es ? 'Es un pago de tarjeta de crédito propia' : 'It\'s a payment to your own credit card');
+  }
+  TRANSFER_KEYWORDS.forEach(k=>{
+    if(d.includes(k)) reasons.push(es ? `La descripción contiene "${k}"` : `Description contains "${k}"`);
+  });
+
+  // Find mirror transaction (same amount, same date, opposite sign)
+  const mirror = reviewRows.filter(r2 =>
+    r2 !== row &&
+    r2.date === row.date &&
+    Math.abs(Math.abs(r2.amount) - Math.abs(row.amount)) < 0.01 &&
+    Math.sign(r2.amount) !== Math.sign(row.amount)
+  );
+  if(mirror.length){
+    reasons.push(es ? 'Encontramos una transacción espejo del mismo monto el mismo día' : 'We found a mirror transaction for the same amount on the same day');
+    mirror.forEach(m => relatedTx.push(m));
+  }
+
+  return { reasons, relatedTx };
+}
+
+function showExclusionReason(idx){
+  const row = reviewRows[idx];
+  if(!row) return;
+  const es = lang === 'es';
+  const { reasons, relatedTx } = getExclusionReason(row);
+
+  // Remove existing panel
+  const existing = document.getElementById('exclusionPanel');
+  if(existing) existing.remove();
+
+  const panel = document.createElement('div');
+  panel.id = 'exclusionPanel';
+  panel.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);display:grid;place-items:center;z-index:200;backdrop-filter:blur(4px);';
+  panel.onclick = e => { if(e.target===panel) panel.remove(); };
+
+  const relatedHtml = relatedTx.length ? `
+    <div style="margin-top:10px">
+      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">
+        ${es?'Transacciones relacionadas:':'Related transactions:'}
+      </div>
+      ${relatedTx.map(r=>`
+        <div style="display:flex;justify-content:space-between;background:var(--off);border-radius:8px;padding:8px 10px;margin-bottom:4px;font-size:12px">
+          <span style="color:var(--text2)">${r.date} · ${r.desc}</span>
+          <span style="font-weight:700;color:${r.amount>0?'var(--g-main)':'var(--red)'}">${r.amount>0?'+':''}${Math.abs(r.amount).toFixed(2)}</span>
+        </div>`).join('')}
+    </div>` : '';
+
+  panel.innerHTML = `
+  <div style="background:var(--white);border-radius:18px;padding:22px;width:400px;max-width:calc(100vw - 32px);box-shadow:0 16px 48px rgba(0,0,0,.18)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div style="font-size:15px;font-weight:800">🔴 ${es?'¿Por qué está excluida?':'Why is it excluded?'}</div>
+      <div onclick="document.getElementById('exclusionPanel').remove()" style="color:var(--text3);cursor:pointer;font-size:20px">✕</div>
+    </div>
+
+    <div style="background:var(--red-dim);border-radius:10px;padding:10px 12px;margin-bottom:12px">
+      <div style="font-size:12px;font-weight:700;color:var(--red);margin-bottom:2px">${row.desc}</div>
+      <div style="font-size:11px;color:var(--text2)">${row.date} · ${row.amount<0?'-':'+'}\$${Math.abs(row.amount).toFixed(2)}</div>
+    </div>
+
+    <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">
+      ${es?'El sistema la excluyó porque detectó:':'The system excluded it because it detected:'}
+    </div>
+    ${reasons.map(r=>`
+      <div style="display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-bottom:1px solid var(--off);font-size:12px;color:var(--text2)">
+        <span style="color:var(--red);flex-shrink:0">→</span>
+        <span>${r}</span>
+      </div>`).join('')}
+
+    ${relatedHtml}
+
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button onclick="forceInclude(${idx})" style="flex:1;background:linear-gradient(135deg,var(--g-dark),var(--g-main));color:white;border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">
+        ✅ ${es?'Incluir de todas formas':'Include anyway'}
+      </button>
+      <button onclick="document.getElementById('exclusionPanel').remove()" style="background:var(--off);border:1.5px solid var(--border);color:var(--text2);border-radius:10px;padding:11px 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">
+        ${es?'Cerrar':'Close'}
+      </button>
+    </div>
+  </div>`;
+
+  document.body.appendChild(panel);
+}
+
+function forceInclude(idx){
+  reviewRows[idx].selected = true;
+  reviewRows[idx].status = 'include';
+  document.getElementById('exclusionPanel')?.remove();
+  renderTxList();
+  showToast(lang==='es'?'✅ Transacción incluida':'✅ Transaction included');
+}
 function mapBankCategory(cat, detcat, desc){
   const c = (cat+' '+detcat+' '+desc).toLowerCase();
   if(c.includes('food') || c.includes('restaurant') || c.includes('bar') || c.includes('dunkin') || c.includes('mcdonald') || c.includes('taco') || c.includes('pizza')) return '🍔 Restaurantes';
@@ -884,7 +1193,9 @@ function renderTxList(){
         <div class="trr-meta">
           ${r.date}
           ${r.account?` · ${r.account}`:''}
-          ${r.status==='exclude'?` · <span style="color:var(--red)">${lang==='es'?'Transferencia interna':'Internal transfer'}</span>`:''}
+          ${r.status==='exclude'
+            ?` · <span style="color:var(--red);cursor:pointer;text-decoration:underline;font-weight:600" onclick="showExclusionReason(${globalIdx})">${lang==='es'?'¿Por qué? →':'Why? →'}</span>`
+            :''}
         </div>
         ${extraHtml}
       </div>
@@ -1155,15 +1466,58 @@ Rules:
     useCredit();
 
     let rows;
+    let retried = false;
+
+    // First attempt to parse
     try {
       const raw = (data.raw||'').replace(/```json|```/g,'').trim();
       const parsed = data.result || JSON.parse(raw);
       rows = Array.isArray(parsed) ? parsed : [parsed];
     } catch(e){
-      throw new Error(lang==='es'?'No se pudieron extraer transacciones':'Could not extract transactions');
+      // Auto-retry with simpler prompt if first attempt fails
+      if(!retried){
+        retried = true;
+        zone.innerHTML = `<div class="uz-ico">🤖</div><div class="uz-title">${lang==='es'?'Reintentando con formato simplificado...':'Retrying with simplified format...'}</div>`;
+
+        const simplePrompt = isCSVText
+          ? `List all transactions from this CSV. For each row, respond with just: DATE|DESCRIPTION|AMOUNT\nOne per line. Use negative amounts for expenses.\n\nCSV:\n${csvText.slice(0,4000)}`
+          : `List all transactions visible in this image. For each one: DATE|DESCRIPTION|AMOUNT\nOne per line. Negative = expense.`;
+
+        try {
+          const res2 = await fetch('/api/scan', {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({
+              image: isCSVText ? null : requestBody?.messages?.[0]?.content?.[0]?.source?.data,
+              mediaType: isCSVText ? null : 'image/jpeg',
+              prompt: simplePrompt,
+              isTextOnly: isCSVText,
+              csvContent: isCSVText ? csvText.slice(0,4000) : null,
+            })
+          });
+          const data2 = await res2.json();
+          const raw2 = (data2.raw||data2.result||'').toString();
+
+          // Parse pipe-separated format
+          rows = raw2.split('\n').filter(l=>l.includes('|')).map(l=>{
+            const parts = l.split('|');
+            return {
+              date: parseDate(parts[0]?.trim()||''),
+              description: parts[1]?.trim()||'',
+              amount: parseAmount(parts[2]?.trim()||'0'),
+              category: 'Otros',
+              type: parseAmount(parts[2]?.trim()||'0') < 0 ? 'gasto' : 'ingreso',
+              is_transfer: false,
+            };
+          }).filter(r=>r.description && r.amount !== 0);
+
+        } catch(e2){
+          throw new Error(lang==='es'?'La IA no pudo extraer transacciones tras 2 intentos':'AI could not extract transactions after 2 attempts');
+        }
+      }
     }
 
-    if(!rows.length) throw new Error(lang==='es'?'No se encontraron transacciones':'No transactions found');
+    if(!rows || !rows.length) throw new Error(lang==='es'?'No se encontraron transacciones en el documento':'No transactions found in document');
 
     parsedRows = rows.map(r=>({
       date: parseDate(r.date||''),
@@ -1189,13 +1543,38 @@ Rules:
 
   } catch(err){
     const zone2 = document.getElementById('dropZone');
+    const es = lang === 'es';
+
+    // Diagnose specific error type
+    let errTitle = es ? 'Error al analizar' : 'Error analyzing';
+    let errMsg = err.message;
+    let errTip = '';
+
+    if(err.message.includes('API key')){
+      errTitle = es ? '⚙️ Error de configuración' : '⚙️ Configuration error';
+      errMsg = es ? 'La API key no está configurada correctamente.' : 'API key is not configured correctly.';
+      errTip = es ? 'Contacta al soporte de FinTrack Pro.' : 'Contact FinTrack Pro support.';
+    } else if(err.message.includes('413') || err.message.includes('too large') || err.message.includes('grande')){
+      errTitle = es ? '📏 Archivo demasiado grande' : '📏 File too large';
+      errMsg = es ? 'El archivo es muy pesado. Intenta con una imagen más pequeña o menos páginas.' : 'File is too large. Try a smaller image or fewer pages.';
+    } else if(err.message.includes('429') || err.message.includes('rate')){
+      errTitle = es ? '⏳ Demasiadas solicitudes' : '⏳ Too many requests';
+      errMsg = es ? 'Espera unos segundos e intenta de nuevo.' : 'Wait a few seconds and try again.';
+    } else if(err.message.includes('No transactions') || err.message.includes('No se encontraron')){
+      errTitle = es ? '🔍 Sin transacciones detectadas' : '🔍 No transactions detected';
+      errMsg = es ? '¿Es un estado de cuenta o recibo válido? Asegúrate de que la imagen sea clara.' : 'Is this a valid statement or receipt? Make sure the image is clear.';
+    } else if(err.message.includes('tras 2 intentos') || err.message.includes('after 2 attempts')){
+      errTitle = es ? '🤖 La IA no pudo procesar este formato' : '🤖 AI could not process this format';
+      errMsg = es ? 'Prueba con el importador CSV manual o toma una foto más clara.' : 'Try the manual CSV importer or take a clearer photo.';
+    }
+
     if(zone2) zone2.innerHTML = `
       <div class="uz-ico">❌</div>
-      <div class="uz-title">${lang==='es'?'Error al analizar':'Error analyzing'}</div>
-      <div class="uz-sub">${err.message}</div>
-      <br>
+      <div class="uz-title" style="margin-bottom:6px">${errTitle}</div>
+      <div class="uz-sub" style="margin-bottom:${errTip?'4px':'12px'}">${errMsg}</div>
+      ${errTip?`<div class="uz-sub" style="margin-bottom:12px;font-style:italic">${errTip}</div>`:''}
       <button class="btn-secondary" style="max-width:200px;margin:0 auto;display:block" onclick="renderStep2()">
-        ${lang==='es'?'Intentar de nuevo':'Try again'}
+        ${es?'← Intentar de nuevo':'← Try again'}
       </button>`;
   }
 }
