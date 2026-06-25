@@ -168,7 +168,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
   <div class="mob-item" onclick="go('historial.html')"><div class="mob-ico">📅</div><span data-es="Historial" data-en="History">Historial</span></div>
   <div class="mob-item"><div class="mob-add" onclick="go('dashboard.html')">＋</div></div>
   <div class="mob-item" onclick="go('analisis.html')"><div class="mob-ico">📈</div><span data-es="Análisis" data-en="Analysis">Análisis</span></div>
-  <div class="mob-item on"><div class="mob-ico">👤</div><span data-es="Perfil" data-en="Profile">Perfil</span></div>
+  <div class="mob-item on" onclick="window.scrollTo(0,0)"><div class="mob-ico">👤</div><span data-es="Perfil" data-en="Profile">Perfil</span></div>
 </nav><!-- MORE MENU PANEL (mobile) -->
 <div class="more-overlay" id="moreOverlay" onclick="closeMoreOutside(event)">
   <div class="more-panel">
@@ -513,11 +513,56 @@ function buildHouseholdSection(T){
   </div>`;
 }
 
-function openInviteModal(){
+async function openInviteModal(){
   const code = generateInviteCode();
-  const hogar = { connected:false, pendingInvite:true, inviteCode:code, myProfile:'A' };
+
+  // Save invite to GAS so partner can find it from another device
+  try {
+    const gasUrl = typeof GAS_URL !== 'undefined' ? GAS_URL : '';
+    if (gasUrl && !gasUrl.includes('PLACEHOLDER')) {
+      const url = `${gasUrl}?action=createInvite&email=${encodeURIComponent(user.email)}&name=${encodeURIComponent(user.name||'')}&code=${code}`;
+      await fetch(url);
+    }
+  } catch(e) { console.warn('GAS invite save failed:', e); }
+
+  const hogar = { connected:false, pendingInvite:true, inviteCode:code, myProfile:'A', myEmail:user.email, myName:user.name };
   saveHogar(hogar);
   render();
+
+  // Poll GAS every 5 seconds to check if partner accepted
+  startPartnerPolling();
+}
+
+let pollingInterval = null;
+function startPartnerPolling() {
+  if (pollingInterval) clearInterval(pollingInterval);
+  pollingInterval = setInterval(async () => {
+    try {
+      const gasUrl = typeof GAS_URL !== 'undefined' ? GAS_URL : '';
+      if (!gasUrl || gasUrl.includes('PLACEHOLDER')) return;
+
+      const url = `${gasUrl}?action=checkPartner&email=${encodeURIComponent(user.email)}`;
+      const res = await fetch(url);
+      const data = await res.json();
+
+      if (data.connected && data.partnerEmail) {
+        clearInterval(pollingInterval);
+        pollingInterval = null;
+
+        // Partner accepted — update local state
+        const hogar = loadHogar();
+        hogar.connected = true;
+        hogar.pendingInvite = false;
+        hogar.partnerName = data.partnerName || (lang==='es'?'Tu pareja':'Your partner');
+        hogar.partnerEmail = data.partnerEmail;
+        saveHogar(hogar);
+
+        snapshotCurrentProfile('A');
+        render();
+        showToast(lang==='es'?`🏠 ${data.partnerName||'Tu pareja'} se unió al hogar`:`🏠 ${data.partnerName||'Partner'} joined the household`);
+      }
+    } catch(e) {}
+  }, 5000);
 }
 
 function copyInviteCode(code){
@@ -530,6 +575,7 @@ function copyInviteCode(code){
 
 function cancelInvite(){
   if (!confirm(lang==='es'?'¿Cancelar la invitación?':'Cancel the invitation?')) return;
+  if (pollingInterval) { clearInterval(pollingInterval); pollingInterval = null; }
   saveHogar({ connected:false, pendingInvite:false });
   render();
   showToast(lang==='es'?'Invitación cancelada':'Invitation cancelled');
@@ -540,8 +586,8 @@ function leaveHousehold(){
     ? '¿Salir del hogar? Dejarás de ver el dashboard combinado. Tus datos personales no se borran.'
     : 'Leave the household? You will stop seeing the combined dashboard. Your personal data is not deleted.';
   if (!confirm(msg)) return;
+  if (pollingInterval) { clearInterval(pollingInterval); pollingInterval = null; }
   saveHogar({ connected:false, pendingInvite:false });
-  // Clean up simulated profile snapshots
   localStorage.removeItem('ft_profile_A');
   localStorage.removeItem('ft_profile_B');
   localStorage.removeItem('ft_active_profile');
@@ -549,7 +595,7 @@ function leaveHousehold(){
   showToast(lang==='es'?'Saliste del hogar':'You left the household');
 }
 
-/* ── JOIN MODAL (simple prompt-based since this is a small flow) ── */
+/* ── JOIN MODAL ── */
 function openJoinModal(){
   const code = prompt(lang==='es'
     ? 'Ingresa el código de invitación (ej. FT-X7K9):'
@@ -567,30 +613,71 @@ function openJoinModal(){
 
 function showAcceptInviteWarning(code){
   const msg = lang==='es'
-    ? `Vas a unirte a un hogar compartido.\n\n⚠️ Importante: tus datos financieros (ingresos, gastos, ahorros, inversiones) serán visibles para la otra persona en la vista de Hogar.\n\nTus registros individuales en Dashboard, Análisis e Historial siguen siendo solo tuyos — nadie más puede editarlos.\n\n¿Continuar y unirte con el código ${code}?`
-    : `You're about to join a shared household.\n\n⚠️ Important: your financial data (income, expenses, savings, investments) will be visible to the other person in the Household view.\n\nYour individual records in Dashboard, Analysis and History remain yours only — no one else can edit them.\n\nContinue and join with code ${code}?`;
+    ? `Vas a unirte a un hogar compartido.\n\n⚠️ Tus datos financieros serán visibles para la otra persona en la vista de Hogar.\n\nTus registros en Dashboard, Análisis e Historial siguen siendo solo tuyos.\n\n¿Continuar con el código ${code}?`
+    : `You're about to join a shared household.\n\n⚠️ Your financial data will be visible to the other person in the Household view.\n\nYour individual records remain yours only.\n\nContinue with code ${code}?`;
 
   if (!confirm(msg)) return;
 
-  // Simulate acceptance: mark this profile as 'B' (the joiner), connected.
-  const hogar = {
-    connected: true,
-    pendingInvite: false,
-    inviteCode: code,
-    myProfile: 'B',
-    partnerName: lang==='es' ? 'Tu pareja' : 'Your partner',
-    partnerEmail: '',  // will be updated when partner logs in
-    connectedAt: new Date().toISOString()
-  };
-  saveHogar(hogar);
+  acceptInviteWithGAS(code);
+}
 
-  // Snapshot current data into profile B slot, and create a starter profile A
-  // so the Hogar screen has something to compare against in this local simulation.
-  snapshotCurrentProfile('B');
-  ensureProfileExists('A');
+async function acceptInviteWithGAS(code) {
+  showToast(lang==='es'?'⏳ Verificando código...':'⏳ Verifying code...');
 
-  render();
-  showToast(lang==='es'?'🎉 ¡Te uniste al hogar!':'🎉 Joined the household!');
+  try {
+    const gasUrl = typeof GAS_URL !== 'undefined' ? GAS_URL : '';
+
+    if (gasUrl && !gasUrl.includes('PLACEHOLDER')) {
+      const url = `${gasUrl}?action=acceptInvite&code=${encodeURIComponent(code)}&email=${encodeURIComponent(user.email)}&name=${encodeURIComponent(user.name||'')}`;
+      const res = await fetch(url);
+      const data = await res.json();
+
+      if (data.error) {
+        if (data.error === 'code_not_found') {
+          showToast(lang==='es'?'❌ Código no encontrado':'❌ Code not found');
+        } else if (data.error === 'code_already_used') {
+          showToast(lang==='es'?'❌ Código ya fue usado':'❌ Code already used');
+        } else {
+          showToast(lang==='es'?'❌ Error: '+data.error:'❌ Error: '+data.error);
+        }
+        return;
+      }
+
+      // Success — partner found
+      const hogar = {
+        connected: true,
+        pendingInvite: false,
+        inviteCode: code,
+        myProfile: 'B',
+        myEmail: user.email,
+        myName: user.name,
+        partnerName: data.partnerName || (lang==='es'?'Tu pareja':'Your partner'),
+        partnerEmail: data.partnerEmail || '',
+        connectedAt: new Date().toISOString()
+      };
+      saveHogar(hogar);
+      snapshotCurrentProfile('B');
+
+      render();
+      showToast(lang==='es'
+        ? `🏠 ¡Conectado! Tu pareja: ${data.partnerName||'—'}`
+        : `🏠 Connected! Your partner: ${data.partnerName||'—'}`);
+
+    } else {
+      // Dev mode: simulate connection without GAS
+      const hogar = {
+        connected: true, pendingInvite: false, inviteCode: code,
+        myProfile: 'B', partnerName: 'Tu pareja', partnerEmail: '', connectedAt: new Date().toISOString()
+      };
+      saveHogar(hogar);
+      snapshotCurrentProfile('B');
+      render();
+      showToast(lang==='es'?'🏠 Conectado (modo dev)':'🏠 Connected (dev mode)');
+    }
+  } catch(e) {
+    console.error('acceptInvite error:', e);
+    showToast(lang==='es'?'❌ Error de conexión':'❌ Connection error');
+  }
 }
 
 function snapshotCurrentProfile(slot){
@@ -679,6 +766,12 @@ function logout(){sessionStorage.clear();localStorage.removeItem('ft_user');loca
   document.getElementById('sbAvatar').textContent=savedAvatar||(user.name||'U').charAt(0).toUpperCase();
   setLang(lang);
   render();
+
+  // If there's a pending invite, resume polling for partner acceptance
+  const hogar = loadHogar();
+  if (hogar.pendingInvite && !hogar.connected) {
+    startPartnerPolling();
+  }
 })();
 </script>
 </body>

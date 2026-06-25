@@ -453,6 +453,7 @@ body {
 
     <div class="sb-section" data-es="Herramientas" data-en="Tools">Herramientas</div>
     <div class="sb-link" onclick="go('scanner.html')"><span class="sb-ico">📷</span><span data-es="Escanear recibo" data-en="Scan receipt">Escanear recibo</span></div>
+    <div class="sb-link" onclick="go('importar.html')"><span class="sb-ico">📥</span><span data-es="Importar CSV" data-en="Import CSV">Importar CSV</span></div>
     <div class="sb-link" onclick="go('emergencia.html')"><span class="sb-ico">🛡️</span> <span data-es="Fondo emergencia" data-en="Emergency fund">Fondo emergencia</span></div>
     <div class="sb-link" onclick="go('hogar.html')"><span class="sb-ico">🏠</span> <span data-es="Hogar" data-en="Household">Hogar</span> <span class="sb-badge" id="hogarBadge" style="display:none">!</span></div>
 
@@ -723,7 +724,7 @@ body {
 .goal-prev-empty-btn{display:inline-block;margin-top:10px;background:var(--g-dim);color:var(--g-main);font-size:12px;font-weight:700;padding:7px 16px;border-radius:20px;cursor:pointer;border:none;font-family:inherit;}
 </style>
 <nav class="mob-nav">
-  <div class="mob-item on"><div class="mob-ico">📊</div><span data-es="Inicio" data-en="Home">Inicio</span></div>
+  <div class="mob-item on" onclick="window.scrollTo(0,0)"><div class="mob-ico">📊</div><span data-es="Inicio" data-en="Home">Inicio</span></div>
   <div class="mob-item" onclick="go('historial.html')"><div class="mob-ico">📅</div><span data-es="Historial" data-en="History">Historial</span></div>
   <div class="mob-item"><div class="mob-add" onclick="openModal()">＋</div></div>
   <div class="mob-item" onclick="go('analisis.html')"><div class="mob-ico">📈</div><span data-es="Análisis" data-en="Analysis">Análisis</span></div>
@@ -740,6 +741,7 @@ body {
       <div class="more-item" onclick="go('suscripciones.html')"><div class="more-ico" style="background:var(--pur-dim,rgba(123,94,167,.1))">🔄</div><span data-es="Suscripciones" data-en="Subscriptions">Suscripciones</span></div>
       <div class="more-item" onclick="go('inversiones.html')"><div class="more-ico" style="background:var(--blu-dim,rgba(74,108,247,.1))">🏦</div><span data-es="Inversiones" data-en="Investments">Inversiones</span></div>
       <div class="more-item" onclick="go('scanner.html')"><div class="more-ico" style="background:var(--g-light)">📷</div><span data-es="Escanear" data-en="Scan">Escanear</span></div>
+      <div class="more-item" onclick="go('importar.html')"><div class="more-ico" style="background:var(--blu-dim)">📥</div><span data-es="Importar" data-en="Import">Importar</span></div>
       <div class="more-item" onclick="go('emergencia.html')"><div class="more-ico" style="background:var(--amb-dim,rgba(244,162,97,.12))">🛡️</div><span data-es="Emergencia" data-en="Emergency">Emergencia</span></div>
       <div class="more-item" onclick="go('hogar.html')"><div class="more-ico" style="background:var(--pur-dim,rgba(123,94,167,.1))">🏠</div><span data-es="Hogar" data-en="Household">Hogar</span></div>
       <div class="more-item" onclick="go('deudas.html')"><div class="more-ico" style="background:var(--red-dim,rgba(230,57,70,.1))">💳</div><span data-es="Deudas" data-en="Debts">Deudas</span></div>

@@ -1,0 +1,1141 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FinTrack Pro · Importar</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="premium.js"></script>
+<style>
+:root{
+  --g-dark:#0F5132;--g-main:#1A7A4A;--g-light:#E8F7EF;
+  --white:#fff;--off:#F7F8FC;--border:#E4E6F0;
+  --text:#1A1D2E;--text2:#4A4E69;--text3:#9395A5;
+  --red:#E63946;--red-dim:rgba(230,57,70,.1);
+  --amber:#F4A261;--amb-dim:rgba(244,162,97,.12);
+  --blue:#4A6CF7;--blu-dim:rgba(74,108,247,.1);
+  --shadow:0 2px 12px rgba(0,0,0,.06);
+  --shadow-md:0 4px 24px rgba(0,0,0,.09);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(--text);min-height:100vh;}
+
+/* TOPBAR */
+.topbar{background:var(--white);border-bottom:1px solid var(--border);padding:0 20px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
+.tb-left{display:flex;align-items:center;gap:10px;}
+.tb-back{width:36px;height:36px;border-radius:10px;background:var(--off);border:none;cursor:pointer;display:grid;place-items:center;font-size:18px;}
+.tb-title{font-size:16px;font-weight:800;}
+.tb-subtitle{font-size:11px;color:var(--text3);margin-top:1px;}
+
+/* STEPS */
+.steps{display:flex;gap:0;padding:20px 16px 0;max-width:700px;margin:0 auto;}
+.step{flex:1;text-align:center;position:relative;}
+.step::after{content:'';position:absolute;top:14px;left:50%;width:100%;height:2px;background:var(--border);z-index:0;}
+.step:last-child::after{display:none;}
+.step-dot{width:28px;height:28px;border-radius:50%;background:var(--border);color:var(--text3);font-size:11px;font-weight:800;display:grid;place-items:center;margin:0 auto 6px;position:relative;z-index:1;transition:all .2s;}
+.step.done .step-dot{background:var(--g-main);color:white;}
+.step.active .step-dot{background:var(--g-dark);color:white;box-shadow:0 0 0 4px rgba(15,81,50,.15);}
+.step-label{font-size:10px;font-weight:600;color:var(--text3);}
+.step.active .step-label{color:var(--g-main);}
+.step.done .step-label{color:var(--g-main);}
+
+/* MAIN */
+.page{padding:16px;max-width:700px;margin:0 auto;padding-bottom:40px;}
+
+/* CARDS */
+.card{background:var(--white);border-radius:16px;padding:20px;margin-bottom:14px;box-shadow:var(--shadow);}
+.card-title{font-size:14px;font-weight:800;margin-bottom:4px;}
+.card-sub{font-size:12px;color:var(--text3);margin-bottom:16px;}
+
+/* FORMAT SELECTOR */
+.format-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.fmt-card{border:2px solid var(--border);border-radius:14px;padding:16px;cursor:pointer;transition:all .15s;background:var(--white);}
+.fmt-card:hover{border-color:var(--g-main);background:var(--g-light);}
+.fmt-card.selected{border-color:var(--g-main);background:var(--g-light);}
+.fmt-ico{font-size:28px;margin-bottom:8px;}
+.fmt-name{font-size:13px;font-weight:800;margin-bottom:3px;}
+.fmt-sub{font-size:11px;color:var(--text3);}
+
+/* UPLOAD ZONE */
+.upload-zone{border:2px dashed var(--border);border-radius:14px;padding:32px 20px;text-align:center;cursor:pointer;transition:all .2s;background:var(--off);}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--g-main);background:var(--g-light);}
+.upload-zone input{display:none;}
+.uz-ico{font-size:36px;margin-bottom:10px;}
+.uz-title{font-size:14px;font-weight:700;margin-bottom:4px;}
+.uz-sub{font-size:12px;color:var(--text3);}
+
+/* AI CREDITS BADGE */
+.credits-badge{display:flex;align-items:center;gap:8px;background:linear-gradient(135deg,var(--g-dark),var(--g-main));color:white;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12px;font-weight:600;}
+.credits-badge .cb-num{font-size:20px;font-weight:800;margin-left:auto;}
+
+/* REVIEW TABLE */
+.review-filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;}
+.rf-chip{background:var(--off);border:1.5px solid var(--border);border-radius:20px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;color:var(--text3);transition:all .15s;}
+.rf-chip.on{background:var(--g-main);border-color:var(--g-main);color:white;}
+
+.tx-review-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--off);transition:background .1s;}
+.tx-review-row:last-child{border-bottom:none;}
+.trr-check{width:20px;height:20px;border-radius:6px;border:2px solid var(--border);display:grid;place-items:center;cursor:pointer;flex-shrink:0;transition:all .15s;}
+.trr-check.on{background:var(--g-main);border-color:var(--g-main);}
+.trr-status{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.trr-info{flex:1;min-width:0;}
+.trr-name{font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.trr-meta{font-size:10px;color:var(--text3);margin-top:1px;}
+.trr-amt{font-size:13px;font-weight:800;flex-shrink:0;}
+.trr-cat{font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;flex-shrink:0;}
+
+/* ZELLE DECISION */
+.zelle-opts{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px;}
+.zo-btn{font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;border:1.5px solid var(--border);cursor:pointer;background:var(--white);color:var(--text2);transition:all .1s;}
+.zo-btn.on{background:var(--g-main);border-color:var(--g-main);color:white;}
+
+/* SUMMARY BOX */
+.summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;}
+.sum-card{background:var(--off);border-radius:12px;padding:14px;text-align:center;}
+.sum-val{font-size:20px;font-weight:800;margin-bottom:3px;}
+.sum-lbl{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;}
+
+/* DUPLICATE WARNING */
+.dup-warn{background:#FFF3E0;border:1px solid #FAD9B5;border-radius:10px;padding:10px 12px;font-size:11px;color:#7A3B0A;margin-top:6px;display:flex;align-items:center;gap:8px;}
+
+/* BUTTONS */
+.btn-primary{background:linear-gradient(135deg,var(--g-dark),var(--g-main));color:white;border:none;border-radius:12px;padding:14px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;width:100%;transition:opacity .15s;}
+.btn-primary:hover{opacity:.9;}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed;}
+.btn-secondary{background:var(--off);border:1.5px solid var(--border);color:var(--text2);border-radius:12px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;width:100%;}
+
+/* TOAST */
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--text);color:white;padding:12px 20px;border-radius:20px;font-size:13px;font-weight:600;display:none;z-index:200;white-space:nowrap;}
+
+/* MOBILE */
+@media(max-width:600px){.format-grid{grid-template-columns:1fr 1fr;}.summary-grid{grid-template-columns:1fr 1fr;}}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="tb-left">
+    <button class="tb-back" onclick="history.back()">←</button>
+    <div>
+      <div class="tb-title" id="topTitle">Importar transacciones</div>
+      <div class="tb-subtitle" id="topSub">CSV · PDF · Imagen</div>
+    </div>
+  </div>
+  <div id="creditsBadge" style="font-size:11px;font-weight:700;color:var(--g-main);display:none">
+    💎 <span id="creditsLeft">3</span> análisis IA
+  </div>
+</div>
+
+<!-- STEPS -->
+<div class="steps" id="stepsBar">
+  <div class="step active" id="s1"><div class="step-dot">1</div><div class="step-label">Formato</div></div>
+  <div class="step" id="s2"><div class="step-dot">2</div><div class="step-label">Archivo</div></div>
+  <div class="step" id="s3"><div class="step-dot">3</div><div class="step-label">Revisar</div></div>
+  <div class="step" id="s4"><div class="step-dot">4</div><div class="step-label">Importar</div></div>
+</div>
+
+<div class="page" id="page"></div>
+<div id="toast"></div>
+
+<script>
+/* ═══════════════════════════════════════════
+   FinTrack Pro — Importador Inteligente
+   Soporta: CSV manual, SoFi, Capital One, Fidelity
+   + IA (foto/PDF) para usuarios Premium
+═══════════════════════════════════════════ */
+
+const STORE_KEY = 'ft_data';
+const INV_KEY   = 'ft_investments';
+const AI_KEY    = 'ft_ai_credits';
+const MAX_AI_FREE = 3;
+
+let lang = 'es';
+let user = {};
+let step = 1;
+let importMode = null;   // 'bank' | 'fidelity' | 'manual' | 'ai'
+let parsedRows = [];     // all detected rows
+let reviewRows = [];     // rows after classification
+let activeFilter = 'all';
+
+/* ── SESSION ── */
+function loadSession(){
+  let s = sessionStorage.getItem('ft_user')||localStorage.getItem('ft_user');
+  if(!s){window.location.replace('login.html');return;}
+  user = JSON.parse(s);
+  lang = user.lang||localStorage.getItem('ft_lang')||'es';
+  if(!sessionStorage.getItem('ft_user')) sessionStorage.setItem('ft_user',s);
+}
+
+function loadData(){
+  try{return JSON.parse(localStorage.getItem(STORE_KEY))||{transactions:[],emergency:0,subscriptions:[]};}
+  catch(e){return{transactions:[],emergency:0,subscriptions:[]};}
+}
+function saveData(d){localStorage.setItem(STORE_KEY,JSON.stringify(d));}
+
+function loadInvestments(){
+  try{return JSON.parse(localStorage.getItem(INV_KEY))||[];}catch(e){return[];}
+}
+function saveInvestments(arr){localStorage.setItem(INV_KEY,JSON.stringify(arr));}
+
+/* ── AI CREDITS ── */
+function getCredits(){
+  try{
+    const c = JSON.parse(localStorage.getItem(AI_KEY)||'null');
+    const thisMonth = new Date().toISOString().slice(0,7);
+    if(!c || c.month !== thisMonth) return {used:0, month:thisMonth};
+    return c;
+  } catch(e){ return {used:0, month:new Date().toISOString().slice(0,7)}; }
+}
+function useCredit(){
+  const c = getCredits();
+  c.used++;
+  localStorage.setItem(AI_KEY,JSON.stringify(c));
+}
+function creditsLeft(){ const c=getCredits(); return Math.max(0,MAX_AI_FREE-c.used); }
+
+/* ── UTILS ── */
+function fmt(n){return '$'+Math.abs(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function go(url){window.location.href=url;}
+function logout(){sessionStorage.clear();localStorage.removeItem('ft_user');localStorage.removeItem('ft_user_setup');localStorage.removeItem('ft_premium');window.location.replace('login.html');}
+function showToast(msg,dur=3000){const t=document.getElementById('toast');t.textContent=msg;t.style.display='block';setTimeout(()=>t.style.display='none',dur);}
+
+function setStep(n){
+  step=n;
+  [1,2,3,4].forEach(i=>{
+    const el=document.getElementById('s'+i);
+    el.classList.remove('active','done');
+    if(i<n) el.classList.add('done');
+    if(i===n) el.classList.add('active');
+  });
+}
+
+/* ══════════════════════════════════════
+   STEP 1 — FORMAT SELECTOR
+══════════════════════════════════════ */
+function renderStep1(){
+  setStep(1);
+  document.getElementById('topTitle').textContent = lang==='es'?'Importar transacciones':'Import transactions';
+
+  const isPrem = typeof isPremium!=='undefined' && isPremium();
+  const left = creditsLeft();
+  const cb = document.getElementById('creditsBadge');
+  if(isPrem){ cb.style.display='flex'; document.getElementById('creditsLeft').textContent=left; }
+  else cb.style.display='none';
+
+  const T = {
+    title: lang==='es'?'¿Qué quieres importar?':'What do you want to import?',
+    bank: lang==='es'?'Estado de cuenta':'Bank statement',
+    bankSub: lang==='es'?'SoFi, Capital One, cualquier banco':'SoFi, Capital One, any bank',
+    fidelity: 'Fidelity',
+    fidelitySub: lang==='es'?'Historial de inversiones Fidelity':'Fidelity investment history',
+    manual: lang==='es'?'Hoja propia':'My spreadsheet',
+    manualSub: lang==='es'?'CSV con mis gastos manuales':'CSV with my manual expenses',
+    ai: lang==='es'?'Foto / PDF ✨':'Photo / PDF ✨',
+    aiSub: isPrem
+      ? (lang==='es'?`${left} análisis disponibles este mes`:`${left} analyses left this month`)
+      : (lang==='es'?'Solo Premium':'Premium only'),
+    aiLock: !isPrem,
+  };
+
+  document.getElementById('page').innerHTML = `
+  <div class="card" style="margin-top:16px">
+    <div class="card-title">${T.title}</div>
+    <div class="card-sub">${lang==='es'?'Selecciona el tipo de archivo para detectar el formato correcto':'Select the file type to detect the correct format'}</div>
+    <div class="format-grid">
+      <div class="fmt-card" onclick="selectFormat('bank')" id="fmt_bank">
+        <div class="fmt-ico">🏦</div>
+        <div class="fmt-name">${T.bank}</div>
+        <div class="fmt-sub">${T.bankSub}</div>
+      </div>
+      <div class="fmt-card" onclick="selectFormat('fidelity')" id="fmt_fidelity">
+        <div class="fmt-ico">📈</div>
+        <div class="fmt-name">${T.fidelity}</div>
+        <div class="fmt-sub">${T.fidelitySub}</div>
+      </div>
+      <div class="fmt-card" onclick="selectFormat('manual')" id="fmt_manual">
+        <div class="fmt-ico">📋</div>
+        <div class="fmt-name">${T.manual}</div>
+        <div class="fmt-sub">${T.manualSub}</div>
+      </div>
+      <div class="fmt-card ${T.aiLock?'':''}${!isPrem?'opacity:0.5':''}" 
+           onclick="${isPrem?'selectFormat(\'ai\')':'showUpgradeModal()'}" id="fmt_ai"
+           style="${!isPrem?'opacity:.6;':''}">
+        <div class="fmt-ico">🤖</div>
+        <div class="fmt-name">${T.ai}</div>
+        <div class="fmt-sub">${T.aiSub}</div>
+        ${!isPrem?'<div style="margin-top:6px;font-size:9px;font-weight:700;background:var(--g-light);color:var(--g-main);padding:2px 8px;border-radius:20px;display:inline-block">💎 Premium</div>':''}
+        ${isPrem&&left===0?'<div style="margin-top:6px;font-size:9px;font-weight:700;background:var(--amb-dim);color:var(--amber);padding:2px 8px;border-radius:20px;display:inline-block">Límite del mes alcanzado</div>':''}
+      </div>
+    </div>
+  </div>`;
+}
+
+function selectFormat(fmt){
+  importMode = fmt;
+  document.querySelectorAll('.fmt-card').forEach(c=>c.classList.remove('selected'));
+  const el = document.getElementById('fmt_'+fmt);
+  if(el) el.classList.add('selected');
+  setTimeout(()=>renderStep2(), 300);
+}
+
+/* ══════════════════════════════════════
+   STEP 2 — FILE UPLOAD
+══════════════════════════════════════ */
+function renderStep2(){
+  setStep(2);
+
+  const isAI = importMode === 'ai';
+  const isFid = importMode === 'fidelity';
+
+  const accept = isAI ? 'image/*,.pdf' : '.csv';
+  const modeLabel = {
+    bank: lang==='es'?'Estado de cuenta bancario':'Bank statement',
+    fidelity: lang==='es'?'Historial Fidelity':'Fidelity history',
+    manual: lang==='es'?'Mi hoja de gastos':'My expense sheet',
+    ai: lang==='es'?'Foto o PDF':'Photo or PDF',
+  }[importMode];
+
+  document.getElementById('page').innerHTML = `
+  <div class="card" style="margin-top:16px">
+    <div class="card-title">${modeLabel}</div>
+    <div class="card-sub">
+      ${isAI
+        ? (lang==='es'?'Sube una foto del recibo, estado de cuenta o PDF. La IA extraerá los datos automáticamente.':'Upload a photo of a receipt, bank statement or PDF. AI will extract the data automatically.')
+        : (lang==='es'?'Sube tu archivo CSV. Detectaremos el formato automáticamente.':'Upload your CSV file. We will detect the format automatically.')
+      }
+    </div>
+
+    ${isAI && typeof isPremium!=='undefined' && isPremium() ? `
+    <div class="credits-badge">
+      <span>✨ Análisis IA restantes este mes</span>
+      <span class="cb-num">${creditsLeft()}</span>
+    </div>` : ''}
+
+    <div class="upload-zone" id="dropZone"
+         ondragover="event.preventDefault();this.classList.add('drag')"
+         ondragleave="this.classList.remove('drag')"
+         ondrop="handleDrop(event)"
+         onclick="document.getElementById('fileInput').click()">
+      <input type="file" id="fileInput" accept="${accept}" onchange="handleFileSelect(this)">
+      <div class="uz-ico">${isAI?'📷':'📄'}</div>
+      <div class="uz-title">
+        ${isAI
+          ? (lang==='es'?'Toca para tomar foto o subir PDF':'Tap to take photo or upload PDF')
+          : (lang==='es'?'Toca para seleccionar tu CSV':'Tap to select your CSV')}
+      </div>
+      <div class="uz-sub">
+        ${isAI?'JPG · PNG · HEIC · PDF':'CSV · máx 10MB'}
+      </div>
+    </div>
+
+    ${importMode === 'bank' ? `
+    <div style="margin-top:14px;background:var(--blu-dim);border-radius:10px;padding:12px;font-size:11px;color:#1D2C5E">
+      <strong>💡 ${lang==='es'?'Tip:':'Tip:'}</strong>
+      ${lang==='es'
+        ?'El importador detecta automáticamente SoFi, Capital One y otros bancos. Las transferencias entre tus propias cuentas las verás marcadas en rojo para que puedas excluirlas.'
+        :'The importer automatically detects SoFi, Capital One and other banks. Transfers between your own accounts will be marked in red so you can exclude them.'}
+    </div>` : ''}
+
+    ${importMode === 'fidelity' ? `
+    <div style="margin-top:14px;background:var(--blu-dim);border-radius:10px;padding:12px;font-size:11px;color:#1D2C5E">
+      <strong>💡 Fidelity:</strong>
+      ${lang==='es'
+        ?'Ve a Accounts & Trade → History → Download. Exporta en formato CSV. Los depósitos electrónicos se ignoran automáticamente (ya están reflejados en las compras).'
+        :'Go to Accounts & Trade → History → Download. Export as CSV. Electronic deposits are automatically ignored (they\'re already reflected in purchases).'}
+    </div>` : ''}
+  </div>
+
+  <button class="btn-secondary" onclick="renderStep1()">← ${lang==='es'?'Cambiar formato':'Change format'}</button>`;
+}
+
+function handleDrop(e){
+  e.preventDefault();
+  document.getElementById('dropZone').classList.remove('drag');
+  const file = e.dataTransfer.files[0];
+  if(file) processFile(file);
+}
+
+function handleFileSelect(input){
+  const file = input.files[0];
+  if(file) processFile(file);
+}
+
+function processFile(file){
+  const zone = document.getElementById('dropZone');
+  zone.innerHTML = `<div class="uz-ico">⏳</div><div class="uz-title">${lang==='es'?'Procesando...':'Processing...'}</div>`;
+
+  if(importMode === 'ai'){
+    processAIFile(file);
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    const text = e.target.result;
+    try {
+      parseCSV(text, file.name);
+    } catch(err) {
+      zone.innerHTML = `<div class="uz-ico">❌</div><div class="uz-title">${lang==='es'?'Error al leer el archivo':'Error reading file'}</div><div class="uz-sub">${err.message}</div>`;
+    }
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+/* ══════════════════════════════════════
+   CSV PARSER — Detecta formato automáticamente
+══════════════════════════════════════ */
+function parseCSV(text, filename){
+  // Clean BOM and normalize line endings
+  const clean = text.replace(/^\uFEFF/, '').replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+  const lines = clean.split('\n').filter(l=>l.trim());
+
+  // Find header line (skip empty/metadata lines at top)
+  let headerIdx = 0;
+  for(let i=0;i<Math.min(5,lines.length);i++){
+    if(lines[i].includes(',') && lines[i].length > 5){
+      headerIdx = i;
+      break;
+    }
+  }
+
+  const header = parseCSVLine(lines[headerIdx]).map(h=>h.trim().toLowerCase());
+
+  // Detect format
+  if(header.includes('symbol') || header.includes('action')){
+    importMode = 'fidelity';
+    parseFidelity(header, lines.slice(headerIdx+1));
+  } else if(header.includes('account name') || header.includes('primary category')){
+    importMode = 'bank';
+    parseSoFi(header, lines.slice(headerIdx+1));
+  } else if(header.includes('fecha') || header.includes('monto') || header.includes('descripción')){
+    importMode = 'manual';
+    parseManual(header, lines.slice(headerIdx+1));
+  } else {
+    // Unknown format — try generic
+    parseGeneric(header, lines.slice(headerIdx+1));
+  }
+}
+
+function parseCSVLine(line){
+  const result = [];
+  let cur = '';
+  let inQ = false;
+  for(let i=0;i<line.length;i++){
+    const c = line[i];
+    if(c==='"' && !inQ){ inQ=true; continue; }
+    if(c==='"' && inQ){ inQ=false; continue; }
+    if(c===',' && !inQ){ result.push(cur.trim()); cur=''; continue; }
+    cur += c;
+  }
+  result.push(cur.trim());
+  return result;
+}
+
+function parseAmount(str){
+  if(!str) return 0;
+  // Handle --$20.00, -$20.00, $20.00, 20.00, -20.00
+  const clean = String(str).replace(/--/,'-').replace(/\$/g,'').replace(/,/g,'').trim();
+  return parseFloat(clean)||0;
+}
+
+function parseDate(str){
+  if(!str) return new Date().toISOString().split('T')[0];
+  str = str.trim();
+  // YYYY-MM-DD
+  if(/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+  // MM/DD/YYYY
+  if(/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(str)){
+    const [m,d,y]=str.split('/');
+    return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+  }
+  // "2 jun 2025" / "24 jun 2026"
+  const months={ene:1,jan:1,feb:2,mar:3,abr:4,apr:4,may:5,jun:6,jul:7,ago:8,aug:8,sep:9,oct:10,nov:11,dic:12,dec:12};
+  const m2 = str.toLowerCase().match(/(\d{1,2})\s+([a-z]+)\s+(\d{4})/);
+  if(m2){
+    const mo = months[m2[2].slice(0,3)];
+    if(mo) return `${m2[3]}-${String(mo).padStart(2,'0')}-${m2[1].padStart(2,'0')}`;
+  }
+  return new Date().toISOString().split('T')[0];
+}
+
+/* ══════════════════════════════════════
+   PARSER: SoFi / Capital One
+══════════════════════════════════════ */
+function parseSoFi(header, lines){
+  const idx = {
+    date:    header.indexOf('authorized date') >= 0 ? header.indexOf('authorized date') : header.indexOf('transaction date'),
+    account: header.indexOf('account name'),
+    desc:    header.indexOf('description'),
+    cat:     header.indexOf('primary category'),
+    detcat:  header.indexOf('detailed category'),
+    amount:  header.indexOf('amount'),
+  };
+
+  parsedRows = lines.filter(l=>l.trim()).map(l=>{
+    const c = parseCSVLine(l);
+    return {
+      date:    parseDate(c[idx.date]||''),
+      account: c[idx.account]||'',
+      desc:    c[idx.desc]||'',
+      cat:     c[idx.cat]||'',
+      detcat:  c[idx.detcat]||'',
+      amount:  parseAmount(c[idx.amount]||'0'),
+    };
+  }).filter(r=>r.desc);
+
+  classifyBankRows();
+}
+
+/* ══════════════════════════════════════
+   PARSER: Manual (tu hoja)
+══════════════════════════════════════ */
+function parseManual(header, lines){
+  const idx = {
+    date:  header.indexOf('fecha'),
+    desc:  header.indexOf('descripción') >= 0 ? header.indexOf('descripción') : header.indexOf('descripcion'),
+    cat:   header.indexOf('categoría') >= 0 ? header.indexOf('categoría') : header.indexOf('categoria'),
+    amount:header.indexOf('monto'),
+  };
+
+  parsedRows = lines.filter(l=>l.trim()).map(l=>{
+    const c = parseCSVLine(l);
+    return {
+      date:   parseDate(c[idx.date]||''),
+      desc:   c[idx.desc]||'',
+      cat:    c[idx.cat]||'',
+      amount: parseAmount(c[idx.amount]||'0'),
+    };
+  }).filter(r=>r.desc);
+
+  // Manual sheet is all expenses — classify directly
+  reviewRows = parsedRows.map(r=>({
+    ...r,
+    status: 'include',
+    type: 'gasto',
+    ftCat: mapManualCategory(r.cat),
+    zelleType: null,
+    isDuplicate: checkDuplicate(r.date, Math.abs(r.amount), r.desc),
+    selected: true,
+  }));
+
+  renderStep3();
+}
+
+/* ══════════════════════════════════════
+   PARSER: Fidelity
+══════════════════════════════════════ */
+function parseFidelity(header, lines){
+  const idx = {
+    date:   header.indexOf('run date'),
+    action: header.indexOf('action'),
+    symbol: header.indexOf('symbol'),
+    desc:   header.indexOf('description'),
+    price:  header.indexOf('price ($)'),
+    qty:    header.indexOf('quantity'),
+    amount: header.indexOf('amount ($)'),
+    acct:   header.indexOf('account number'),
+  };
+
+  parsedRows = lines.filter(l=>l.trim()).map(l=>{
+    const c = parseCSVLine(l);
+    const action = c[idx.action]||'';
+    return {
+      date:   parseDate(c[idx.date]||''),
+      action: action,
+      symbol: (c[idx.symbol]||'').trim(),
+      desc:   c[idx.desc]||'',
+      price:  parseFloat(c[idx.price]||'0')||0,
+      qty:    parseFloat(c[idx.qty]||'0')||0,
+      amount: parseAmount(c[idx.amount]||'0'),
+      acct:   c[idx.acct]||'',
+    };
+  }).filter(r=>r.action);
+
+  classifyFidelityRows();
+}
+
+function parseGeneric(header, lines){
+  // Try to find amount and description columns by common names
+  const amtCols = ['amount','monto','total','balance','debit','credit'];
+  const descCols = ['description','descripcion','descripción','merchant','name','payee'];
+  const dateCols = ['date','fecha','transaction date','posted date'];
+
+  const amtIdx = header.findIndex(h=>amtCols.some(a=>h.includes(a)));
+  const descIdx = header.findIndex(h=>descCols.some(d=>h.includes(d)));
+  const dateIdx = header.findIndex(h=>dateCols.some(d=>h.includes(d)));
+
+  if(amtIdx < 0 || descIdx < 0){
+    showToast(lang==='es'?'❌ Formato no reconocido. Usa SoFi, Fidelity o tu hoja manual.':'❌ Unrecognized format.');
+    renderStep2();
+    return;
+  }
+
+  parsedRows = lines.filter(l=>l.trim()).map(l=>{
+    const c = parseCSVLine(l);
+    return {
+      date:   parseDate(c[dateIdx]||''),
+      desc:   c[descIdx]||'',
+      cat:    '',
+      amount: parseAmount(c[amtIdx]||'0'),
+    };
+  }).filter(r=>r.desc && r.amount !== 0);
+
+  reviewRows = parsedRows.map(r=>({
+    ...r,
+    status: r.amount < 0 ? 'include' : 'decide',
+    type: r.amount < 0 ? 'gasto' : 'ingreso',
+    ftCat: '📦 Otros',
+    zelleType: null,
+    isDuplicate: checkDuplicate(r.date, Math.abs(r.amount), r.desc),
+    selected: r.amount < 0,
+  }));
+
+  renderStep3();
+}
+
+/* ══════════════════════════════════════
+   CLASSIFIERS
+══════════════════════════════════════ */
+const TRANSFER_KEYWORDS = [
+  'transfer to','transfer from','transferencia','zelle payment to',
+  'apple cash sent','venmo','paypal transfer','credit card payment',
+  'debt payment','sofi credit card','capital one payment',
+];
+const ZELLE_KEYWORDS = ['zelle','apple cash','venmo','cash app','paypal'];
+const INCOME_KEYWORDS = ['direct deposit','payroll','salary','deposit','dividend','interest paid'];
+
+function isTransfer(row){
+  const d = (row.desc+' '+row.cat+' '+row.detcat).toLowerCase();
+  if(row.cat && row.cat.toLowerCase().includes('transfer')) return true;
+  if(row.cat && row.cat.toLowerCase().includes('debt payment')) return true;
+  return TRANSFER_KEYWORDS.some(k=>d.includes(k));
+}
+
+function isZelle(row){
+  const d = row.desc.toLowerCase();
+  return ZELLE_KEYWORDS.some(k=>d.includes(k));
+}
+
+function isIncome(row){
+  const d = (row.desc+' '+row.cat).toLowerCase();
+  return INCOME_KEYWORDS.some(k=>d.includes(k)) && row.amount > 0;
+}
+
+function classifyBankRows(){
+  reviewRows = parsedRows.map(r=>{
+    let status, type, selected, zelleType=null;
+
+    if(isTransfer(r)){
+      status = 'exclude'; type = 'transferencia'; selected = false;
+    } else if(isZelle(r)){
+      status = 'decide'; type = r.amount < 0 ? 'gasto' : 'ingreso'; selected = false; zelleType = null;
+    } else if(isIncome(r)){
+      status = 'include'; type = 'ingreso'; selected = true;
+    } else if(r.amount < 0){
+      status = 'include'; type = 'gasto'; selected = true;
+    } else {
+      status = 'decide'; type = 'ingreso'; selected = false;
+    }
+
+    return {
+      ...r,
+      status, type, selected, zelleType,
+      ftCat: mapBankCategory(r.cat, r.detcat, r.desc),
+      isDuplicate: checkDuplicate(r.date, Math.abs(r.amount), r.desc),
+    };
+  });
+
+  renderStep3();
+}
+
+function classifyFidelityRows(){
+  reviewRows = parsedRows.map(r=>{
+    const action = r.action.toLowerCase();
+    let status, type, selected;
+
+    if(action.includes('electronic funds transfer') || action.includes('funds transfer')){
+      status = 'exclude'; type = 'deposito'; selected = false;
+    } else if(action.includes('you bought') || action.includes('bought')){
+      status = 'include'; type = 'inversion'; selected = true;
+    } else if(action.includes('you sold') || action.includes('sold')){
+      status = 'pending'; type = 'venta'; selected = true;
+    } else if(action.includes('dividend')){
+      status = 'include'; type = 'ingreso'; selected = true;
+    } else {
+      status = 'decide'; type = 'otro'; selected = false;
+    }
+
+    // Warn about FZILX (user discarded this fund)
+    const isFZILX = r.symbol === 'FZILX';
+
+    return {
+      ...r,
+      status, type, selected,
+      ftCat: '📈 Inversión',
+      isDuplicate: false,
+      isFZILX,
+      sellDisposition: null, // 'reinvest' | 'withdraw' | 'cash'
+    };
+  });
+
+  renderStep3();
+}
+
+/* ══════════════════════════════════════
+   CATEGORY MAPPERS
+══════════════════════════════════════ */
+function mapBankCategory(cat, detcat, desc){
+  const c = (cat+' '+detcat+' '+desc).toLowerCase();
+  if(c.includes('food') || c.includes('restaurant') || c.includes('bar') || c.includes('dunkin') || c.includes('mcdonald') || c.includes('taco') || c.includes('pizza')) return '🍔 Restaurantes';
+  if(c.includes('grocery') || c.includes('supermarket') || c.includes('walmart') || c.includes('target') || c.includes('costco') || c.includes('cermak') || c.includes('aldi')) return '🛒 Supermercado';
+  if(c.includes('gas') || c.includes('fuel') || c.includes('gasoline') || c.includes('exxon') || c.includes('shell') || c.includes('bp')) return '⛽ Gasolina';
+  if(c.includes('transport') || c.includes('uber') || c.includes('lyft') || c.includes('transit') || c.includes('cta')) return '⛽ Gasolina';
+  if(c.includes('health') || c.includes('medical') || c.includes('pharmacy') || c.includes('doctor') || c.includes('gym') || c.includes('fitness')) return '💊 Salud';
+  if(c.includes('entertain') || c.includes('movie') || c.includes('netflix') || c.includes('spotify') || c.includes('amazon prime') || c.includes('disney')) return '🎬 Entretenimiento';
+  if(c.includes('shop') || c.includes('amazon') || c.includes('clothing') || c.includes('apparel') || c.includes('fashion')) return '👕 Ropa';
+  if(c.includes('utility') || c.includes('electric') || c.includes('peoples gas') || c.includes('water') || c.includes('internet') || c.includes('phone') || c.includes('comcast') || c.includes('att')) return '📱 Teléfono/Internet';
+  if(c.includes('rent') || c.includes('mortgage') || c.includes('housing')) return '🏠 Renta / Hipoteca';
+  return '📦 Otros';
+}
+
+function mapManualCategory(cat){
+  const c = (cat||'').toLowerCase();
+  if(c.includes('food')) return '🍔 Restaurantes';
+  if(c.includes('transport') || c.includes('car') && !c.includes('carwash')) return '⛽ Gasolina';
+  if(c.includes('health') || c.includes('beauty')) return '💊 Salud';
+  if(c.includes('cloth') || c.includes('shop')) return '👕 Ropa';
+  if(c.includes('entertain')) return '🎬 Entretenimiento';
+  return '📦 Otros';
+}
+
+/* ══════════════════════════════════════
+   DUPLICATE CHECK
+══════════════════════════════════════ */
+function checkDuplicate(date, amount, desc){
+  const data = loadData();
+  const txs = data.transactions||[];
+  const dNorm = (desc||'').toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,10);
+  return txs.some(t=>{
+    if(t.date !== date) return false;
+    if(Math.abs(parseFloat(t.amount)-amount)>0.01) return false;
+    const tNorm = (t.desc||'').toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,10);
+    return tNorm === dNorm;
+  });
+}
+
+/* ══════════════════════════════════════
+   STEP 3 — REVIEW
+══════════════════════════════════════ */
+function renderStep3(){
+  setStep(3);
+  activeFilter = 'all';
+
+  const isFid = importMode === 'fidelity';
+  const total     = reviewRows.length;
+  const toInclude = reviewRows.filter(r=>r.selected).length;
+  const excluded  = reviewRows.filter(r=>r.status==='exclude').length;
+  const toDecide  = reviewRows.filter(r=>r.status==='decide'||r.status==='pending').length;
+
+  document.getElementById('page').innerHTML = `
+  <div class="card" style="margin-top:16px">
+    <div class="card-title">${lang==='es'?'Revisa las transacciones':'Review transactions'}</div>
+    <div class="card-sub">
+      ${lang==='es'
+        ?`${total} encontradas · ✅ ${toInclude} para importar · 🔴 ${excluded} excluidas · ⚠️ ${toDecide} necesitan tu decisión`
+        :`${total} found · ✅ ${toInclude} to import · 🔴 ${excluded} excluded · ⚠️ ${toDecide} need your decision`}
+    </div>
+
+    <div class="review-filters">
+      <div class="rf-chip on" onclick="setFilter('all',this)">${lang==='es'?'Todas':'All'} (${total})</div>
+      <div class="rf-chip" onclick="setFilter('include',this)">✅ ${lang==='es'?'Importar':'Import'} (${toInclude})</div>
+      <div class="rf-chip" onclick="setFilter('decide',this)">⚠️ ${lang==='es'?'Decidir':'Decide'} (${toDecide})</div>
+      <div class="rf-chip" onclick="setFilter('exclude',this)">🔴 ${lang==='es'?'Excluidas':'Excluded'} (${excluded})</div>
+    </div>
+
+    <div id="txList"></div>
+
+    <div style="display:flex;gap:8px;margin-top:12px;border-top:1px solid var(--border);padding-top:12px">
+      <button onclick="toggleSelectAll(true)" class="btn-secondary" style="flex:1;padding:8px;font-size:11px">${lang==='es'?'✅ Seleccionar todas':'✅ Select all'}</button>
+      <button onclick="toggleSelectAll(false)" class="btn-secondary" style="flex:1;padding:8px;font-size:11px">${lang==='es'?'☐ Deseleccionar':'☐ Deselect all'}</button>
+    </div>
+  </div>
+
+  <button class="btn-primary" onclick="renderStep4()" id="importBtn">
+    ${lang==='es'?`Importar ${toInclude} transacciones →`:`Import ${toInclude} transactions →`}
+  </button>
+  <div style="height:8px"></div>
+  <button class="btn-secondary" onclick="renderStep2()">← ${lang==='es'?'Cambiar archivo':'Change file'}</button>`;
+
+  renderTxList();
+}
+
+function setFilter(f, el){
+  activeFilter = f;
+  document.querySelectorAll('.rf-chip').forEach(c=>c.classList.remove('on'));
+  el.classList.add('on');
+  renderTxList();
+}
+
+function renderTxList(){
+  const isFid = importMode === 'fidelity';
+  const filtered = reviewRows.filter(r=>{
+    if(activeFilter==='all') return true;
+    if(activeFilter==='include') return r.selected;
+    if(activeFilter==='decide') return r.status==='decide'||r.status==='pending';
+    if(activeFilter==='exclude') return r.status==='exclude';
+    return true;
+  });
+
+  const container = document.getElementById('txList');
+  if(!container) return;
+
+  if(!filtered.length){
+    container.innerHTML = `<div style="text-align:center;padding:24px;color:var(--text3);font-size:13px">${lang==='es'?'No hay transacciones en este filtro':'No transactions in this filter'}</div>`;
+    return;
+  }
+
+  container.innerHTML = filtered.map((r,i)=>{
+    const globalIdx = reviewRows.indexOf(r);
+    const statusColor = {include:'#1A7A4A',exclude:'#E63946',decide:'#F4A261',pending:'#4A6CF7'}[r.status]||'#9395A5';
+    const isPos = isFid ? (r.type==='venta'||r.type==='ingreso') : r.amount > 0;
+    const amtColor = isPos ? 'var(--g-main)' : 'var(--red)';
+    const amtStr = isFid
+      ? (r.amount!==0 ? fmt(Math.abs(r.amount)) : `${r.qty} acc × $${r.price}`)
+      : fmt(Math.abs(r.amount));
+    const sign = isPos ? '+' : '-';
+
+    let extraHtml = '';
+
+    // Zelle decision
+    if(r.status==='decide' && !isFid && isZelle(r)){
+      extraHtml = `
+      <div class="zelle-opts">
+        <span style="font-size:10px;color:var(--text3);margin-right:4px">¿Qué fue?</span>
+        <button class="zo-btn ${r.zelleType==='gasto'?'on':''}" onclick="setZelle(${globalIdx},'gasto')">💸 ${lang==='es'?'Pago':'Payment'}</button>
+        <button class="zo-btn ${r.zelleType==='ingreso'?'on':''}" onclick="setZelle(${globalIdx},'ingreso')">💰 ${lang==='es'?'Cobro':'Income'}</button>
+        <button class="zo-btn ${r.zelleType==='ignore'?'on':''}" onclick="setZelle(${globalIdx},'ignore')">🎁 ${lang==='es'?'Ignorar':'Ignore'}</button>
+      </div>`;
+    }
+
+    // Fidelity sell disposition
+    if(r.status==='pending' && r.type==='venta'){
+      extraHtml = `
+      <div class="zelle-opts">
+        <span style="font-size:10px;color:var(--text3);margin-right:4px">${lang==='es'?'¿Qué hiciste?':'What did you do?'}</span>
+        <button class="zo-btn ${r.sellDisposition==='reinvest'?'on':''}" onclick="setSell(${globalIdx},'reinvest')">🔄 ${lang==='es'?'Reinvertí':'Reinvested'}</button>
+        <button class="zo-btn ${r.sellDisposition==='withdraw'?'on':''}" onclick="setSell(${globalIdx},'withdraw')">🏦 ${lang==='es'?'Retiré':'Withdrew'}</button>
+        <button class="zo-btn ${r.sellDisposition==='cash'?'on':''}" onclick="setSell(${globalIdx},'cash')">💵 ${lang==='es'?'Cash en cuenta':'Cash in account'}</button>
+      </div>`;
+    }
+
+    // FZILX warning
+    if(r.isFZILX){
+      extraHtml += `<div class="dup-warn">⚠️ ${lang==='es'?'Este fondo (FZILX) ya no está en tu portafolio actual.':'This fund (FZILX) is no longer in your current portfolio.'}</div>`;
+    }
+
+    // Duplicate warning
+    if(r.isDuplicate){
+      extraHtml += `<div class="dup-warn">⚠️ ${lang==='es'?'Posible duplicado — ya existe una transacción similar.':'Possible duplicate — a similar transaction already exists.'}</div>`;
+    }
+
+    return `
+    <div class="tx-review-row" style="${r.status==='exclude'?'opacity:.5':''}">
+      <div class="trr-check ${r.selected?'on':''}" onclick="toggleRow(${globalIdx})">
+        ${r.selected?'<span style="color:white;font-size:12px;line-height:1">✓</span>':''}
+      </div>
+      <div class="trr-status" style="background:${statusColor}"></div>
+      <div class="trr-info">
+        <div class="trr-name">
+          ${isFid&&r.symbol?`<strong>${r.symbol}</strong> · `:''}${r.desc||r.action||'—'}
+          ${r.status==='pending'?'<span style="font-size:9px;font-weight:700;background:var(--blu-dim);color:var(--blue);padding:1px 6px;border-radius:20px;margin-left:4px">PENDIENTE</span>':''}
+        </div>
+        <div class="trr-meta">
+          ${r.date}
+          ${r.account?` · ${r.account}`:''}
+          ${r.status==='exclude'?` · <span style="color:var(--red)">${lang==='es'?'Transferencia interna':'Internal transfer'}</span>`:''}
+        </div>
+        ${extraHtml}
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div class="trr-amt" style="color:${amtColor}">${sign}${amtStr}</div>
+        <div class="trr-cat" style="background:var(--off);color:var(--text3)">${r.ftCat}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Update button count
+  const selected = reviewRows.filter(r=>r.selected).length;
+  const btn = document.getElementById('importBtn');
+  if(btn) btn.textContent = lang==='es' ? `Importar ${selected} transacciones →` : `Import ${selected} transactions →`;
+}
+
+function toggleRow(idx){
+  reviewRows[idx].selected = !reviewRows[idx].selected;
+  if(reviewRows[idx].selected && reviewRows[idx].status==='exclude'){
+    reviewRows[idx].status = 'include';
+  }
+  renderTxList();
+}
+
+function toggleSelectAll(val){
+  reviewRows.forEach(r=>{ if(r.status!=='exclude') r.selected=val; });
+  renderTxList();
+}
+
+function setZelle(idx, type){
+  reviewRows[idx].zelleType = type;
+  reviewRows[idx].type = type === 'ignore' ? 'ignorar' : type;
+  reviewRows[idx].selected = type !== 'ignore';
+  renderTxList();
+}
+
+function setSell(idx, disp){
+  reviewRows[idx].sellDisposition = disp;
+  reviewRows[idx].selected = disp !== 'reinvest'; // reinvest = don't log as income
+  renderTxList();
+}
+
+/* ══════════════════════════════════════
+   STEP 4 — IMPORT & SUMMARY
+══════════════════════════════════════ */
+function renderStep4(){
+  const toImport = reviewRows.filter(r=>r.selected && r.type!=='ignorar');
+  if(!toImport.length){
+    showToast(lang==='es'?'⚠️ No hay transacciones seleccionadas':'⚠️ No transactions selected');
+    return;
+  }
+
+  const isFid = importMode === 'fidelity';
+  let imported=0, gastos=0, ingresos=0, inversiones=0, ventas=0, pendientes=0;
+  const data = loadData();
+  const investments = loadInvestments();
+
+  toImport.forEach(r=>{
+    if(isFid){
+      if(r.type==='inversion'){
+        // Add to investments
+        investments.push({
+          id: Date.now()+Math.random(),
+          ticker: r.symbol,
+          name: r.desc || r.symbol,
+          amount: Math.abs(r.amount),
+          price: r.price,
+          qty: r.qty,
+          date: r.date,
+          platform: 'Fidelity',
+          invType: 'stock',
+          status: 'active',
+        });
+        inversiones++;
+      } else if(r.type==='venta'){
+        if(r.sellDisposition === 'withdraw'){
+          // Record as income
+          data.transactions.push({
+            id: Date.now()+Math.random(),
+            type:'ingreso', desc:`Venta ${r.symbol||''}`, amount:Math.abs(r.amount),
+            date:r.date, cat:'💰 Inversión', note:'Venta Fidelity',
+          });
+          ingresos++;
+        } else if(r.sellDisposition === 'cash'){
+          pendientes++;
+        }
+        ventas++;
+      } else if(r.type==='ingreso'){
+        data.transactions.push({
+          id:Date.now()+Math.random(),
+          type:'ingreso', desc:r.desc||'Dividendo', amount:Math.abs(r.amount),
+          date:r.date, cat:'💰 Inversión', note:'Fidelity dividend',
+        });
+        ingresos++;
+      }
+    } else {
+      // Bank or manual
+      const type = r.type==='gasto'?'gasto':r.type==='ingreso'?'ingreso':r.type;
+      data.transactions.push({
+        id: Date.now()+Math.random(),
+        type,
+        desc: r.desc,
+        amount: Math.abs(r.amount),
+        date: r.date,
+        cat: r.ftCat,
+        note: r.account||'',
+      });
+      if(type==='gasto') gastos++;
+      else ingresos++;
+    }
+    imported++;
+  });
+
+  saveData(data);
+  saveInvestments(investments);
+  setStep(4);
+
+  const skipped = reviewRows.length - toImport.length;
+  const totalGastos = data.transactions.filter(t=>t.type==='gasto').reduce((a,t)=>a+parseFloat(t.amount),0);
+
+  document.getElementById('page').innerHTML = `
+  <div class="card" style="margin-top:16px;text-align:center">
+    <div style="font-size:48px;margin-bottom:12px">🎉</div>
+    <div class="card-title" style="font-size:18px;margin-bottom:6px">
+      ${lang==='es'?'¡Importación completada!':'Import complete!'}
+    </div>
+    <div class="card-sub">${lang==='es'?'Tus transacciones han sido registradas':'Your transactions have been recorded'}</div>
+  </div>
+
+  <div class="summary-grid">
+    <div class="sum-card">
+      <div class="sum-val" style="color:var(--g-main)">+${imported}</div>
+      <div class="sum-lbl">${lang==='es'?'Importadas':'Imported'}</div>
+    </div>
+    <div class="sum-card">
+      <div class="sum-val" style="color:var(--text3)">${skipped}</div>
+      <div class="sum-lbl">${lang==='es'?'Omitidas':'Skipped'}</div>
+    </div>
+    ${isFid?`
+    <div class="sum-card">
+      <div class="sum-val" style="color:var(--blue)">${inversiones}</div>
+      <div class="sum-lbl">${lang==='es'?'Inversiones':'Investments'}</div>
+    </div>
+    <div class="sum-card">
+      <div class="sum-val" style="color:var(--amber)">${pendientes}</div>
+      <div class="sum-lbl">${lang==='es'?'Ventas pendientes':'Pending sales'}</div>
+    </div>`:
+    `<div class="sum-card">
+      <div class="sum-val" style="color:var(--red)">$${Math.abs(gastos).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0})}</div>
+      <div class="sum-lbl">${lang==='es'?'En gastos':'In expenses'}</div>
+    </div>
+    <div class="sum-card">
+      <div class="sum-val" style="color:var(--g-main)">$${ingresos.toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0})}</div>
+      <div class="sum-lbl">${lang==='es'?'En ingresos':'In income'}</div>
+    </div>`}
+  </div>
+
+  ${pendientes>0?`
+  <div class="card" style="background:var(--blu-dim);border:1px solid rgba(74,108,247,.2)">
+    <div style="font-size:13px;font-weight:700;color:var(--blue);margin-bottom:4px">📋 ${pendientes} venta(s) en cash en Fidelity</div>
+    <div style="font-size:12px;color:var(--text2)">${lang==='es'?'Estas ventas quedaron como "cash en cuenta". Cuando las uses para reinvertir o retirar, regístralas manualmente en Inversiones.':'These sales are marked as cash in account. When you use them to reinvest or withdraw, record them manually in Investments.'}</div>
+  </div>`:''}
+
+  <button class="btn-primary" onclick="go('dashboard.html')">
+    ${lang==='es'?'Ir al Dashboard →':'Go to Dashboard →'}
+  </button>
+  <div style="height:8px"></div>
+  <button class="btn-secondary" onclick="renderStep1()">
+    ${lang==='es'?'Importar otro archivo':'Import another file'}
+  </button>`;
+}
+
+/* ══════════════════════════════════════
+   AI FILE PROCESSOR (Premium)
+══════════════════════════════════════ */
+async function processAIFile(file){
+  if(creditsLeft() <= 0){
+    showToast(lang==='es'?'❌ Sin análisis IA disponibles este mes':'❌ No AI analyses left this month');
+    renderStep2();
+    return;
+  }
+
+  const zone = document.getElementById('dropZone');
+  zone.innerHTML = `<div class="uz-ico">🤖</div><div class="uz-title">${lang==='es'?'Analizando con IA...':'Analyzing with AI...'}</div><div class="uz-sub">${lang==='es'?'Esto puede tomar unos segundos':'This may take a few seconds'}</div>`;
+
+  try {
+    const isImage = file.type.startsWith('image/');
+    let b64, mediaType;
+
+    if(isImage){
+      b64 = await compressAndEncode(file);
+      mediaType = 'image/jpeg';
+    } else {
+      // PDF
+      const buf = await file.arrayBuffer();
+      b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+      mediaType = 'application/pdf';
+    }
+
+    const prompt = `Analyze this financial document (receipt, bank statement, or investment statement).
+Extract ALL transactions and respond ONLY with a JSON array, no markdown:
+[
+  {
+    "date": "YYYY-MM-DD",
+    "description": "merchant or description",
+    "amount": -10.50,
+    "category": "one of: Restaurantes, Supermercado, Gasolina, Salud, Entretenimiento, Ropa, Servicios, Inversión, Ingreso, Otros",
+    "type": "gasto or ingreso or inversion",
+    "is_transfer": false
+  }
+]
+Negative amounts = expenses. Positive = income.
+Mark internal transfers (between own accounts) with "is_transfer": true.
+Today is ${new Date().toISOString().split('T')[0]}.`;
+
+    const res = await fetch('/api/scan', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ image:b64, mediaType, prompt })
+    });
+
+    const data = await res.json();
+    useCredit();
+
+    let rows;
+    try {
+      const raw = (data.raw||'').replace(/```json|```/g,'').trim();
+      rows = data.result || JSON.parse(raw);
+    } catch(e){
+      throw new Error(lang==='es'?'No se pudieron extraer transacciones del documento':'Could not extract transactions from document');
+    }
+
+    if(!Array.isArray(rows) || !rows.length) throw new Error(lang==='es'?'No se encontraron transacciones':'No transactions found');
+
+    parsedRows = rows.map(r=>({
+      date: parseDate(r.date||''),
+      desc: r.description||'',
+      cat: r.category||'Otros',
+      amount: parseFloat(r.amount)||0,
+      isTransfer: r.is_transfer||false,
+    }));
+
+    reviewRows = parsedRows.map(r=>({
+      ...r,
+      status: r.isTransfer ? 'exclude' : 'include',
+      type: r.amount<0?'gasto':'ingreso',
+      ftCat: r.cat,
+      zelleType: null,
+      isDuplicate: checkDuplicate(r.date, Math.abs(r.amount), r.desc),
+      selected: !r.isTransfer,
+    }));
+
+    renderStep3();
+
+  } catch(err){
+    zone.innerHTML = `<div class="uz-ico">❌</div><div class="uz-title">${lang==='es'?'Error al analizar':'Error analyzing'}</div><div class="uz-sub">${err.message}</div><br><button class="btn-secondary" style="margin:0 auto;display:block" onclick="renderStep2()">Intentar de nuevo</button>`;
+  }
+}
+
+async function compressAndEncode(file){
+  return new Promise(resolve=>{
+    const reader = new FileReader();
+    reader.onload = e=>{
+      const img = new Image();
+      img.onload = ()=>{
+        const canvas = document.createElement('canvas');
+        let w=img.width, h=img.height;
+        if(w>1200){ h=Math.round(h*1200/w); w=1200; }
+        canvas.width=w; canvas.height=h;
+        canvas.getContext('2d').drawImage(img,0,0,w,h);
+        resolve(canvas.toDataURL('image/jpeg',0.8).split(',')[1]);
+      };
+      img.src=e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+/* ══════════════════════════════════════
+   INIT
+══════════════════════════════════════ */
+loadSession();
+renderStep1();
+</script>
+</body>
+</html>
