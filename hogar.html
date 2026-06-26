@@ -4,760 +4,957 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>FinTrack Pro · Hogar</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="premium.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
-:root{--g-dark:#0F5132;--g-main:#1A7A4A;--g-mid:#22A362;--g-light:#E8F7EF;--g-dim:rgba(26,122,74,0.10);--white:#FFFFFF;--off:#F7F8FC;--border:#E4E6F0;--text:#1A1D2E;--text2:#4A4E69;--text3:#9395A5;--red:#E63946;--red-dim:rgba(230,57,70,0.10);--amber:#F4A261;--amb-dim:rgba(244,162,97,0.12);--blue:#4A6CF7;--blu-dim:rgba(74,108,247,0.10);--purple:#7B5EA7;--pur-dim:rgba(123,94,167,0.10);--r:14px;--sidebar:240px;--topbar:58px;--shadow:0 2px 12px rgba(0,0,0,0.06);--shadow-md:0 4px 24px rgba(0,0,0,0.09);}
+:root{
+  --g-dark:#0F5132;--g-main:#1A7A4A;--g-light:#E8F7EF;
+  --white:#fff;--off:#F7F8FC;--border:#E4E6F0;
+  --text:#1A1D2E;--text2:#4A4E69;--text3:#9395A5;
+  --red:#E63946;--red-dim:rgba(230,57,70,.1);
+  --amber:#F4A261;--amb-dim:rgba(244,162,97,.12);
+  --blue:#4A6CF7;--blu-dim:rgba(74,108,247,.1);
+  --purple:#7B5EA7;
+  --shadow:0 2px 12px rgba(0,0,0,.06);
+  --shadow-md:0 4px 24px rgba(0,0,0,.09);
+}
 *{margin:0;padding:0;box-sizing:border-box;}
-body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(--text);min-height:100vh;overflow-x:hidden;}
-.app{display:flex;min-height:100vh;}
-.sidebar{width:var(--sidebar);background:var(--white);border-right:1px solid var(--border);position:fixed;top:0;left:0;bottom:0;display:flex;flex-direction:column;z-index:50;overflow-y:auto;}
-.sb-logo{display:flex;align-items:center;gap:10px;padding:22px 18px 18px;border-bottom:1px solid var(--border);}
-.sb-mark{width:36px;height:36px;background:linear-gradient(135deg,var(--g-dark),var(--g-main));border-radius:11px;display:grid;place-items:center;color:white;font-size:17px;flex-shrink:0;}
-.sb-name{font-size:15px;font-weight:800;letter-spacing:-.3px;}.sb-tag{font-size:10px;color:var(--text3);font-weight:500;}
-.sb-nav{padding:14px 10px;flex:1;}
-.sb-section{font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);padding:10px 8px 5px;}
-.sb-link{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:10px;font-size:13px;font-weight:600;color:var(--text2);cursor:pointer;margin-bottom:2px;transition:all .15s;}
-.sb-link:hover{background:var(--off);color:var(--text);}
-.sb-link.on{background:var(--pur-dim);color:var(--purple);}
-.sb-ico{font-size:15px;width:20px;text-align:center;flex-shrink:0;}
-.sb-footer{border-top:1px solid var(--border);padding:12px 10px;}
-.sb-user{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:10px;cursor:pointer;}
-.sb-user:hover{background:var(--off);}
-.sb-avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--g-dark),var(--g-main));display:grid;place-items:center;color:white;font-size:13px;font-weight:700;flex-shrink:0;}
-.sb-uname{font-size:13px;font-weight:700;}.sb-umail{font-size:10px;color:var(--text3);}
-.main{margin-left:var(--sidebar);flex:1;display:flex;flex-direction:column;}
-.topbar{background:var(--white);border-bottom:1px solid var(--border);height:var(--topbar);padding:0 28px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:40;}
-.tb-title{font-size:17px;font-weight:800;letter-spacing:-.3px;}
-.tb-right{display:flex;align-items:center;gap:10px;}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(--text);min-height:100vh;padding-bottom:80px;}
+
+/* TOPBAR */
+.topbar{background:var(--white);border-bottom:1px solid var(--border);padding:0 16px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
+.tb-title{font-size:17px;font-weight:800;}
 .lang-toggle{display:flex;background:var(--off);border:1px solid var(--border);border-radius:20px;overflow:hidden;font-size:11px;font-weight:700;}
 .lt-opt{padding:5px 11px;cursor:pointer;color:var(--text3);border-radius:20px;transition:all .15s;}
-.lt-opt.on{background:var(--purple);color:white;}
-.page{padding:24px 28px;max-width:1400px;}
+.lt-opt.on{background:var(--g-main);color:white;}
 
-/* EMPTY STATE (no household) */
-.empty-state{text-align:center;padding:80px 20px;max-width:480px;margin:0 auto;}
+/* PAGE */
+.page{padding:16px;max-width:700px;margin:0 auto;}
 
-/* SECTION TABS */
-.section-tabs{display:flex;gap:8px;margin-bottom:20px;background:var(--white);border:1px solid var(--border);border-radius:14px;padding:5px;box-shadow:var(--shadow);}
-.sec-tab{flex:1;text-align:center;padding:10px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;color:var(--text3);transition:all .15s;}
-.sec-tab.on{background:var(--pur-dim);color:var(--purple);}
+/* CARDS */
+.card{background:var(--white);border-radius:16px;padding:20px;margin-bottom:14px;box-shadow:var(--shadow);}
+.card-title{font-size:15px;font-weight:800;margin-bottom:4px;}
+.card-sub{font-size:12px;color:var(--text3);margin-bottom:16px;}
 
-/* COMBINED HERO */
-.combined-hero{background:linear-gradient(135deg,#3D1D8C 0%,var(--purple) 55%,#9171F8 100%);border-radius:22px;padding:26px 30px;color:white;margin-bottom:20px;position:relative;overflow:hidden;}
-.combined-hero::before{content:'';position:absolute;top:-50px;right:-50px;width:200px;height:200px;border-radius:50%;background:rgba(255,255,255,.08);}
-.ch-top{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;flex-wrap:wrap;position:relative;z-index:1;}
-.ch-label{font-size:12px;opacity:.7;margin-bottom:4px;}
-.ch-amount{font-size:42px;font-weight:800;letter-spacing:-2px;line-height:1;}
-.ch-sub{font-size:12px;opacity:.65;margin-top:5px;}
-.ch-chips{display:flex;gap:10px;flex-wrap:wrap;}
-.ch-chip{background:rgba(255,255,255,.16);backdrop-filter:blur(6px);border-radius:14px;padding:11px 16px;min-width:120px;}
-.cc-lbl{font-size:10px;opacity:.65;}
-.cc-val{font-size:18px;font-weight:800;margin-top:3px;letter-spacing:-.4px;}
+/* MODE CARDS */
+.mode-card{border:2px solid var(--border);border-radius:14px;padding:16px;cursor:pointer;transition:all .2s;background:var(--white);margin-bottom:10px;}
+.mode-card:hover{border-color:var(--g-main);background:var(--g-light);}
+.mode-card.selected{border-color:var(--g-main);background:var(--g-light);}
+.mode-card.recommended{position:relative;}
+.mode-card.recommended::after{content:'⭐ Recomendado';position:absolute;top:12px;right:12px;font-size:9px;font-weight:700;background:var(--g-main);color:white;padding:2px 8px;border-radius:20px;}
+.mc-header{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+.mc-ico{font-size:28px;}
+.mc-title{font-size:14px;font-weight:800;}
+.mc-sub{font-size:11px;color:var(--text3);}
+.mc-example{background:var(--off);border-radius:10px;padding:12px;margin-bottom:10px;font-size:12px;}
+.mc-example-row{display:flex;justify-content:space-between;margin-bottom:4px;}
+.mc-example-row:last-child{margin-bottom:0;font-weight:700;border-top:1px solid var(--border);padding-top:6px;margin-top:4px;}
+.mc-pros-cons{display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:11px;}
+.mc-pro{color:var(--g-main);}
+.mc-con{color:var(--amber);}
 
-/* WHO CONTRIBUTED */
-.contrib-card{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:20px;box-shadow:var(--shadow);margin-bottom:20px;}
-.contrib-row{display:flex;align-items:center;gap:12px;margin-bottom:14px;}
-.contrib-row:last-child{margin-bottom:0;}
-.contrib-name{font-size:13px;font-weight:700;width:90px;flex-shrink:0;}
-.contrib-bar-wrap{flex:1;display:flex;height:30px;border-radius:8px;overflow:hidden;background:var(--off);}
-.contrib-seg{display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:white;transition:width 1s ease;white-space:nowrap;overflow:hidden;}
-.contrib-amt{font-size:13px;font-weight:800;width:90px;text-align:right;flex-shrink:0;}
+/* DASHBOARD HOGAR */
+.hero-combined{background:linear-gradient(135deg,#1A1D2E,#2D3561);border-radius:18px;padding:22px;color:white;margin-bottom:14px;}
+.hc-label{font-size:11px;opacity:.6;margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px;}
+.hc-amount{font-size:36px;font-weight:800;letter-spacing:-.8px;margin-bottom:12px;}
+.hc-members{display:flex;gap:10px;}
+.hc-member{background:rgba(255,255,255,.1);border-radius:10px;padding:10px 14px;flex:1;}
+.hc-member-name{font-size:10px;opacity:.7;margin-bottom:2px;}
+.hc-member-amt{font-size:15px;font-weight:800;}
+.hc-member-pct{font-size:10px;opacity:.6;}
 
-/* COMBINED RULE BARS */
-.rule-mini{margin-bottom:14px;}
-.rule-mini:last-child{margin-bottom:0;}
-.rmh{display:flex;justify-content:space-between;font-size:12px;font-weight:700;margin-bottom:6px;}
-.rmt{background:var(--off);border-radius:100px;height:10px;overflow:hidden;}
-.rmf{height:100%;border-radius:100px;transition:width 1s ease;}
+/* FLOW BARS */
+.flow-section{margin-bottom:14px;}
+.flow-title{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;}
+.flow-row{display:flex;align-items:center;gap:10px;margin-bottom:6px;}
+.flow-ico{font-size:14px;width:20px;text-align:center;flex-shrink:0;}
+.flow-info{flex:1;min-width:0;}
+.flow-name{font-size:12px;font-weight:600;margin-bottom:2px;}
+.flow-bar-wrap{height:5px;background:var(--border);border-radius:100px;overflow:hidden;}
+.flow-bar-fill{height:100%;border-radius:100px;transition:width .6s ease;}
+.flow-amt{font-size:12px;font-weight:800;flex-shrink:0;}
+.flow-pct{font-size:10px;color:var(--text3);flex-shrink:0;width:32px;text-align:right;}
 
-/* SIDE BY SIDE DASHBOARDS */
-.dual-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:20px;}
-.profile-col{background:var(--white);border-radius:18px;border:1.5px solid var(--border);overflow:hidden;box-shadow:var(--shadow);}
-.profile-col.col-a{border-top:4px solid var(--blue);}
-.profile-col.col-b{border-top:4px solid var(--purple);}
-.profile-hd{padding:16px 18px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);}
-.profile-hd-avatar{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;color:white;font-weight:800;font-size:15px;flex-shrink:0;}
-.profile-hd-name{font-size:14px;font-weight:800;}
-.profile-hd-tag{font-size:10px;color:var(--text3);}
-.profile-body{padding:18px;}
+/* RESULT BOX */
+.result-box{border-radius:12px;padding:14px;margin-bottom:10px;}
+.rb-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:13px;}
+.rb-row:last-child{margin-bottom:0;font-size:15px;font-weight:800;border-top:1px solid rgba(255,255,255,.2);padding-top:8px;margin-top:4px;}
 
-.mini-kpi-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;}
-.mini-kpi{background:var(--off);border-radius:10px;padding:10px 12px;}
-.mki-lbl{font-size:9px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.3px;}
-.mki-val{font-size:16px;font-weight:800;margin-top:2px;}
+/* PERSON CARDS */
+.person-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
+.person-card{background:var(--white);border-radius:14px;padding:14px;box-shadow:var(--shadow);}
+.pc-avatar{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-size:15px;font-weight:800;color:white;margin-bottom:8px;}
+.pc-name{font-size:12px;font-weight:800;margin-bottom:4px;}
+.pc-income{font-size:11px;color:var(--text3);margin-bottom:8px;}
+.pc-stat{display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px;}
+.pc-stat-label{color:var(--text3);}
+.pc-stat-val{font-weight:700;}
+.pc-leftover{background:var(--g-light);border-radius:8px;padding:8px;margin-top:8px;text-align:center;}
+.pc-leftover-amt{font-size:16px;font-weight:800;color:var(--g-main);}
+.pc-leftover-lbl{font-size:9px;color:var(--g-dark);text-transform:uppercase;letter-spacing:.3px;}
 
-.mini-bar-item{margin-bottom:10px;}
-.mini-bar-item:last-child{margin-bottom:0;}
-.mbh{display:flex;justify-content:space-between;font-size:11px;font-weight:600;margin-bottom:4px;}
-.mbt{background:var(--off);border-radius:100px;height:6px;overflow:hidden;}
-.mbf{height:100%;border-radius:100px;transition:width 1s ease;}
+/* TIP BOX */
+.tip-box{background:var(--amb-dim);border-radius:12px;padding:14px;margin-bottom:14px;font-size:12px;color:#7A3B0A;}
+.tip-box strong{display:block;margin-bottom:4px;font-size:13px;}
 
-.mini-tx-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);}
-.mini-tx-row:last-child{border-bottom:none;}
-.mtx-ico{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;font-size:12px;flex-shrink:0;}
-.mtx-name{font-size:11px;font-weight:600;flex:1;}
-.mtx-amt{font-size:11px;font-weight:800;}
+/* HOW TO BOX */
+.howto-card{border-radius:12px;padding:14px;margin-bottom:10px;}
+.howto-option{background:var(--white);border-radius:10px;padding:12px;margin-bottom:6px;}
+.howto-option:last-child{margin-bottom:0;}
+.howto-opt-title{font-size:12px;font-weight:800;margin-bottom:4px;}
+.howto-opt-sub{font-size:11px;color:var(--text3);line-height:1.4;}
 
-/* SCENARIOS */
-.scenario-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:20px;}
-.scenario-card{background:var(--white);border:1.5px solid var(--border);border-radius:18px;padding:20px;box-shadow:var(--shadow);position:relative;}
-.scenario-card.recommended{border-color:var(--g-main);background:linear-gradient(135deg,var(--g-light),white);}
-.rec-badge{position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--g-main);color:white;font-size:10px;font-weight:800;padding:4px 14px;border-radius:20px;white-space:nowrap;}
-.sc-icon{font-size:28px;margin-bottom:8px;}
-.sc-name{font-size:15px;font-weight:800;margin-bottom:4px;}
-.sc-desc{font-size:11px;color:var(--text3);margin-bottom:14px;line-height:1.4;}
-.sc-split{display:flex;flex-direction:column;gap:8px;margin-bottom:14px;}
-.sc-split-row{display:flex;justify-content:space-between;align-items:center;background:var(--off);border-radius:8px;padding:8px 10px;}
-.sc-split-name{font-size:11px;font-weight:600;color:var(--text2);}
-.sc-split-amt{font-size:13px;font-weight:800;}
-.sc-free{display:flex;justify-content:space-between;align-items:center;background:var(--g-light);border-radius:8px;padding:8px 10px;margin-bottom:4px;}
-.sc-free:last-child{margin-bottom:0;}
-.sc-free-lbl{font-size:10px;color:var(--text3);}
-.sc-free-val{font-size:12px;font-weight:800;color:var(--g-main);}
+/* DEBT ROWS */
+.debt-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--off);}
+.debt-row:last-child{border-bottom:none;}
+.dr-ico{font-size:18px;flex-shrink:0;}
+.dr-info{flex:1;}
+.dr-name{font-size:12px;font-weight:700;}
+.dr-meta{font-size:10px;color:var(--text3);}
+.dr-amt{text-align:right;flex-shrink:0;}
+.dr-balance{font-size:13px;font-weight:800;color:var(--red);}
+.dr-payment{font-size:10px;color:var(--text3);}
 
-.recommendation-box{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:20px;box-shadow:var(--shadow);margin-bottom:20px;}
-.rec-header{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
-.rec-icon{width:40px;height:40px;border-radius:12px;background:var(--g-light);display:grid;place-items:center;font-size:20px;flex-shrink:0;}
-.rec-title{font-size:15px;font-weight:800;}
-.rec-text{font-size:13px;color:var(--text2);line-height:1.6;}
-.rec-text strong{color:var(--text);font-weight:700;}
+/* PROGRESS BAR */
+.prog-wrap{margin-bottom:14px;}
+.prog-label{display:flex;justify-content:space-between;font-size:12px;font-weight:700;margin-bottom:5px;}
+.prog-bar{height:8px;background:var(--border);border-radius:100px;overflow:hidden;}
+.prog-fill{height:100%;border-radius:100px;transition:width .6s ease;}
 
-.card{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:20px;box-shadow:var(--shadow);}
-.card-hd{font-size:14px;font-weight:800;margin-bottom:16px;}
+/* TABS */
+.tab-row{display:flex;gap:6px;margin-bottom:14px;overflow-x:auto;padding-bottom:2px;}
+.tab-btn{background:var(--off);border:1.5px solid var(--border);border-radius:20px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;color:var(--text3);font-family:inherit;white-space:nowrap;flex-shrink:0;}
+.tab-btn.on{background:var(--g-main);border-color:var(--g-main);color:white;}
 
-@media(max-width:1100px){
-  .dual-grid{grid-template-columns:1fr;}
-  .scenario-grid{grid-template-columns:1fr;}
-}
-@media(max-width:860px){
-  .sidebar{display:none;}.main{margin-left:0;padding-bottom:72px;}
-  .topbar{height:auto;min-height:var(--topbar);padding:12px 16px;flex-direction:column;align-items:stretch;gap:10px;}
-  .tb-title{font-size:16px;white-space:normal;}
-  .tb-right{width:100%;justify-content:space-between;gap:8px;flex-wrap:wrap;}
-  .page{padding:16px;}
-  .ch-amount{font-size:32px;}
-  .mob-nav{display:flex !important;}
-}
-.mob-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--white);border-top:1px solid var(--border);padding:10px 4px 16px;padding-bottom:calc(10px + env(safe-area-inset-bottom));z-index:50;gap:0;box-shadow:0 -4px 20px rgba(0,0,0,0.06);}
-.mob-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:9px;font-weight:600;color:var(--text3);}
-.mob-item.on{color:var(--purple);}
+/* BTN */
+.btn-primary{background:linear-gradient(135deg,var(--g-dark),var(--g-main));color:white;border:none;border-radius:12px;padding:14px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;width:100%;transition:opacity .15s;}
+.btn-primary:hover{opacity:.9;}
+.btn-secondary{background:var(--off);border:1.5px solid var(--border);color:var(--text2);border-radius:12px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;width:100%;}
+.btn-danger{background:var(--red-dim);color:var(--red);border:none;border-radius:12px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;}
+
+/* MOBILE NAV */
+.mob-nav{display:flex;position:fixed;bottom:0;left:0;right:0;background:var(--white);border-top:1px solid var(--border);padding:10px 4px calc(10px + env(safe-area-inset-bottom));z-index:50;}
+.mob-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:9px;font-weight:600;color:var(--text3);cursor:pointer;}
+.mob-item.on{color:var(--g-main);}
 .mob-ico{font-size:20px;line-height:1;}
-::-webkit-scrollbar{width:5px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+
+/* TOAST */
+#toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--text);color:white;padding:12px 20px;border-radius:20px;font-size:13px;font-weight:600;display:none;z-index:200;white-space:nowrap;}
+
+@media(min-width:700px){.mob-nav{display:none;}.page{padding:24px;}}
 </style>
 </head>
 <body>
-<div class="app">
-<aside class="sidebar">
-  <div class="sb-logo"><div class="sb-mark">💎</div><div><div class="sb-name">FinTrack Pro</div><div class="sb-tag" data-es="Panel financiero" data-en="Financial dashboard">Panel financiero</div></div></div>
-  <nav class="sb-nav">
-    <div class="sb-section" data-es="Principal" data-en="Main">Principal</div>
-    <div class="sb-link" onclick="go('dashboard.html')"><span class="sb-ico">📊</span><span data-es="Dashboard" data-en="Dashboard">Dashboard</span></div>
-    <div class="sb-link" onclick="go('dashboard.html')"><span class="sb-ico">➕</span><span data-es="Nuevo registro" data-en="New entry">Nuevo registro</span></div>
-    <div class="sb-link" onclick="go('suscripciones.html')"><span class="sb-ico">🔄</span><span data-es="Suscripciones" data-en="Subscriptions">Suscripciones</span></div>
-    <div class="sb-link" onclick="go('metas.html')"><span class="sb-ico">🎯</span><span data-es="Metas" data-en="Goals">Metas</span></div>
-    <div class="sb-link" onclick="go('deudas.html')"><span class="sb-ico">💳</span><span data-es="Deudas" data-en="Debts">Deudas</span></div>
-    <div class="sb-section" data-es="Análisis" data-en="Analysis">Análisis</div>
-    <div class="sb-link" onclick="go('analisis.html')"><span class="sb-ico">📈</span><span data-es="Por categoría" data-en="By category">Por categoría</span></div>
-    <div class="sb-link" onclick="go('historial.html')"><span class="sb-ico">📅</span><span data-es="Historial" data-en="History">Historial</span></div>
-    <div class="sb-link" onclick="go('inversiones.html')"><span class="sb-ico">🏦</span><span data-es="Inversiones" data-en="Investments">Inversiones</span></div>
-    <div class="sb-link" onclick="go('reporte.html')"><span class="sb-ico">📄</span><span data-es="Reporte mensual" data-en="Monthly report">Reporte mensual</span></div>
-    <div class="sb-section" data-es="Herramientas" data-en="Tools">Herramientas</div>
-    <div class="sb-link" onclick="go('scanner.html')"><span class="sb-ico">📷</span><span data-es="Escanear recibo" data-en="Scan receipt">Escanear recibo</span></div>
-    <div class="sb-link" onclick="go('emergencia.html')"><span class="sb-ico">🛡️</span><span data-es="Fondo emergencia" data-en="Emergency fund">Fondo emergencia</span></div>
-    <div class="sb-link on"><span class="sb-ico">🏠</span><span data-es="Hogar" data-en="Household">Hogar</span></div>
-    <div class="sb-section" data-es="Cuenta" data-en="Account">Cuenta</div>
-    <div class="sb-link" onclick="go('perfil.html')"><span class="sb-ico">👤</span><span data-es="Mi perfil" data-en="My profile">Mi perfil</span></div>
-    <div class="sb-link" onclick="go('config.html')"><span class="sb-ico">⚙️</span><span data-es="Configuración" data-en="Settings">Configuración</span></div>
-    <div class="sb-link" onclick="logout()"><span class="sb-ico">🚪</span><span data-es="Cerrar sesión" data-en="Sign out">Cerrar sesión</span></div>
-  </nav>
-  <div class="sb-footer"><div class="sb-user" onclick="go('perfil.html')"><div class="sb-avatar" id="sbAvatar">R</div><div><div class="sb-uname" id="sbName">—</div><div class="sb-umail" id="sbEmail">—</div></div></div></div>
-</aside>
 
-<div class="main">
-  <div class="topbar">
-    <div class="tb-title" data-es="Hogar" data-en="Household">Hogar</div>
-    <div class="tb-right">
-      <div class="lang-toggle">
-        <div class="lt-opt on" id="ltES" onclick="setLang('es')">ES</div>
-        <div class="lt-opt"    id="ltEN" onclick="setLang('en')">EN</div>
-      </div>
+<div class="topbar">
+  <div class="tb-title">🏠 Hogar</div>
+  <div style="display:flex;align-items:center;gap:10px">
+    <div class="lang-toggle">
+      <div class="lt-opt on" id="ltES" onclick="setLang('es')">ES</div>
+      <div class="lt-opt" id="ltEN" onclick="setLang('en')">EN</div>
     </div>
   </div>
-  <div class="page" id="page"></div>
 </div>
-</div>
+
+<div class="page" id="page"></div>
 
 <nav class="mob-nav">
-  <div class="mob-item" onclick="go('dashboard.html')"><div class="mob-ico">📊</div><span data-es="Inicio" data-en="Home">Inicio</span></div>
-  <div class="mob-item" onclick="go('historial.html')"><div class="mob-ico">📅</div><span data-es="Historial" data-en="History">Historial</span></div>
-  <div class="mob-item" onclick="go('dashboard.html')"><div class="mob-ico">➕</div><span data-es="Agregar" data-en="Add">Agregar</span></div>
-  <div class="mob-item on" onclick="window.scrollTo(0,0)"><div class="mob-ico">🏠</div><span data-es="Hogar" data-en="Household">Hogar</span></div>
-  <div class="mob-item" onclick="go('perfil.html')"><div class="mob-ico">👤</div><span data-es="Perfil" data-en="Profile">Perfil</span></div>
+  <div class="mob-item" onclick="go('dashboard.html')"><div class="mob-ico">📊</div><span>Inicio</span></div>
+  <div class="mob-item" onclick="go('historial.html')"><div class="mob-ico">📅</div><span>Historial</span></div>
+  <div class="mob-item" onclick="go('dashboard.html')"><div class="mob-ico">➕</div><span>Agregar</span></div>
+  <div class="mob-item on"><div class="mob-ico">🏠</div><span>Hogar</span></div>
+  <div class="mob-item" onclick="go('perfil.html')"><div class="mob-ico">👤</div><span>Perfil</span></div>
 </nav>
 
+<div id="toast"></div>
+
 <script>
-let lang='es', user={};
-let activeSection = 'overview';
 const GAS_URL_HOGAR = 'https://script.google.com/macros/s/AKfycbx1wpmwx3aO3NqGKPp-e2X-ade2adjPx3ts9XeAU3zmoCMXgmUoG1i9qSTO9BiGP-V9/exec';
+let lang = 'es', user = {};
+let activeTab = 'resumen';
 
-function fmt(n){return '$'+Math.abs(n||0).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0});}
-function fmtD(n){return '$'+Math.abs(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
+/* ── UTILS ── */
+function go(url){ window.location.href = url; }
+function fmt(n){ return '$'+Math.abs(n||0).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0}); }
+function fmtD(n){ return '$'+Math.abs(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function showToast(msg,dur=3000){ const t=document.getElementById('toast'); t.textContent=msg; t.style.display='block'; setTimeout(()=>t.style.display='none',dur); }
+function logout(){ sessionStorage.clear(); localStorage.removeItem('ft_user'); localStorage.removeItem('ft_user_setup'); localStorage.removeItem('ft_premium'); window.location.replace('login.html'); }
 
+/* ── DATA ── */
 function loadHogar(){ try{return JSON.parse(localStorage.getItem('ft_hogar'))||{connected:false};}catch(e){return{connected:false};} }
+function saveHogar(h){ localStorage.setItem('ft_hogar',JSON.stringify(h)); }
+function loadMyData(){ try{return JSON.parse(localStorage.getItem('ft_data'))||{transactions:[],emergency:0,subscriptions:[]};}catch(e){return{transactions:[],emergency:0,subscriptions:[]};} }
+function loadDebts(){ try{return JSON.parse(localStorage.getItem('ft_debts'))||[];}catch(e){return[];} }
 
-function loadProfile(slot){
-  try { return JSON.parse(localStorage.getItem('ft_profile_'+slot)); }
-  catch(e) { return null; }
+function loadPartnerProfile(){
+  try {
+    const hogar = loadHogar();
+    if(!hogar.partnerEmail) return null;
+    const key = 'profile_'+hogar.partnerEmail.replace(/[^a-z0-9]/gi,'_');
+    const byKey = localStorage.getItem(key);
+    const bySlot = localStorage.getItem('ft_profile_B');
+    const fromKey = byKey ? JSON.parse(byKey) : null;
+    const fromSlot = bySlot ? JSON.parse(bySlot) : null;
+    if(fromKey && (fromKey.income||0) > 0) return fromKey;
+    if(fromSlot && (fromSlot.income||0) > 0) return fromSlot;
+    return fromKey || fromSlot;
+  } catch(e){ return null; }
 }
 
-// Check GAS for partner connection status
+/* ── GAS ── */
 async function checkPartnerFromGAS(){
   try {
     if(!user.email) return null;
-    const url = `${GAS_URL_HOGAR}?action=checkPartner&email=${encodeURIComponent(user.email)}`;
-    const res = await fetch(url);
-    const data = await res.json();
-    return data;
-  } catch(e) { return null; }
+    const res = await fetch(`${GAS_URL_HOGAR}?action=checkPartner&email=${encodeURIComponent(user.email)}`);
+    return await res.json();
+  } catch(e){ return null; }
 }
 
-// Load partner profile from GAS
 async function loadPartnerProfileFromGAS(partnerEmail){
   try {
     if(!partnerEmail) return null;
-    const url = `${GAS_URL_HOGAR}?action=getProfile&email=${encodeURIComponent(partnerEmail)}`;
-    const res = await fetch(url);
+    const res = await fetch(`${GAS_URL_HOGAR}?action=getProfile&email=${encodeURIComponent(partnerEmail)}`);
     const data = await res.json();
     if(!data.success) return null;
-
-    // Parse the dataJson
-    let parsedData = { transactions:[], emergency:0, subscriptions:[] };
-    try { parsedData = JSON.parse(data.dataJson||'{}'); } catch(e){}
-
-    return {
-      name: data.name || 'Tu pareja',
-      email: data.email || partnerEmail,
-      income: parseFloat(data.income)||0,
-      needs: parseFloat(data.needs)||0,
-      wants: parseFloat(data.wants)||0,
-      savings: parseFloat(data.savings)||0,
-      data: parsedData
-    };
-  } catch(e) { return null; }
+    let parsedData = {transactions:[],emergency:0,subscriptions:[]};
+    try{ parsedData = JSON.parse(data.dataJson||'{}'); }catch(e){}
+    return { name:data.name||'Tu pareja', email:data.email||partnerEmail, income:parseFloat(data.income)||0, needs:parseFloat(data.needs)||0, wants:parseFloat(data.wants)||0, savings:parseFloat(data.savings)||0, data:parsedData };
+  } catch(e){ return null; }
 }
 
-// Category classification, same map used across the app
-const CATEGORY_TYPE_MAP = {
-  '🛒 Supermercado':'needs','🏠 Renta / Hipoteca':'needs','⛽ Gasolina':'needs','💊 Salud':'needs',
-  '📱 Teléfono/Internet':'needs','📱 Teléfono / Internet':'needs','🔧 Mantenimiento':'needs',
-  '🍔 Restaurantes':'wants','🎬 Entretenimiento':'wants','👕 Ropa':'wants','✈️ Viajes':'wants',
-  '📈 Inversión':'wants','📦 Otros':'wants'
-};
-function getCategoryType(cat){
-  if(!cat) return 'wants';
-  if(CATEGORY_TYPE_MAP[cat]) return CATEGORY_TYPE_MAP[cat];
-  return 'wants';
+/* ── HOGAR CALCULATIONS ── */
+function calcHogar(myIncome, partnerIncome, mode, myExpenses, partnerExpenses, sharedExpenses){
+  const total = myIncome + partnerIncome;
+  let myPct, partnerPct;
+
+  if(mode === 'equal'){ myPct = 50; partnerPct = 50; }
+  else if(mode === 'proportional'){
+    myPct = total > 0 ? Math.round((myIncome/total)*100) : 50;
+    partnerPct = 100 - myPct;
+  } else {
+    // fondo común — split shared expenses
+    myPct = total > 0 ? Math.round((myIncome/total)*100) : 50;
+    partnerPct = 100 - myPct;
+  }
+
+  const sharedTotal = sharedExpenses.reduce((a,e)=>a+(e.amount||0),0);
+  const mySharedPart = sharedTotal * myPct/100;
+  const partnerSharedPart = sharedTotal * partnerPct/100;
+
+  const myTotalExpenses = myExpenses + mySharedPart;
+  const partnerTotalExpenses = partnerExpenses + partnerSharedPart;
+
+  const myLeftover = myIncome - myTotalExpenses;
+  const partnerLeftover = partnerIncome - partnerTotalExpenses;
+
+  return { total, myPct, partnerPct, sharedTotal, mySharedPart, partnerSharedPart, myTotalExpenses, partnerTotalExpenses, myLeftover, partnerLeftover };
 }
 
-function getMonthTotalsFor(profileData){
-  const now = new Date();
-  const txs = (profileData.transactions||[]).filter(t=>{
-    const d = new Date(t.date);
-    return d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear();
-  });
-  const totals = { gasto:0, ingreso:0, inversion:0, ahorro:0, suscripcion:0, hipoteca:0 };
-  txs.forEach(t=>{ totals[t.type]=(totals[t.type]||0)+parseFloat(t.amount); });
-  let needsSpent=0, wantsSpent=0;
-  txs.forEach(t=>{
-    if(['gasto','suscripcion','hipoteca'].includes(t.type)){
-      const amt = parseFloat(t.amount)||0;
-      if(t.type==='hipoteca'){ needsSpent+=amt; return; }
-      const kind = getCategoryType(t.cat);
-      if(kind==='needs') needsSpent+=amt; else wantsSpent+=amt;
-    }
-  });
-  totals.spent = totals.gasto+totals.suscripcion+totals.hipoteca;
-  totals.needsSpent = needsSpent;
-  totals.wantsSpent = wantsSpent;
-  return totals;
+function getSharedExpenses(){
+  const data = loadMyData();
+  const thisMonth = new Date().toISOString().slice(0,7);
+  return (data.transactions||[]).filter(t =>
+    t.date && t.date.startsWith(thisMonth) &&
+    t.type === 'gasto' &&
+    t.hogar === true
+  );
 }
 
-function setLang(l){
-  lang=l; sessionStorage.setItem('ft_lang',l);
-  document.getElementById('ltES').classList.toggle('on',l==='es');
-  document.getElementById('ltEN').classList.toggle('on',l==='en');
-  document.querySelectorAll('[data-es]').forEach(el=>{const v=el.getAttribute('data-'+l);if(v)el.textContent=v;});
-  render();
+function getPersonalExpenses(){
+  const data = loadMyData();
+  const thisMonth = new Date().toISOString().slice(0,7);
+  return (data.transactions||[]).filter(t =>
+    t.date && t.date.startsWith(thisMonth) &&
+    t.type === 'gasto' &&
+    t.hogar !== true
+  );
 }
 
+/* ── RENDER MAIN ── */
 function render(){
   const hogar = loadHogar();
   const page = document.getElementById('page');
 
-  if (!hogar.connected) {
-    const T = lang==='es' ? {
-      title:'Aún no tienes un Hogar conectado',
-      sub:'Invita a tu pareja desde tu Perfil para ver la salud financiera combinada del hogar, comparar escenarios de cuentas separadas vs. combinadas, y recibir consejos basados en los ingresos y gastos de ambos.',
-      btn:'Ir a mi Perfil →'
-    } : {
-      title:"You don't have a connected Household yet",
-      sub:"Invite your partner from your Profile to see your household's combined financial health, compare separate vs. combined account scenarios, and get advice based on both your incomes and expenses.",
-      btn:'Go to my Profile →'
-    };
-    page.innerHTML = `<div class="empty-state">
-      <div style="font-size:64px;margin-bottom:20px">🏠</div>
-      <div style="font-size:20px;font-weight:800;margin-bottom:10px">${T.title}</div>
-      <div style="font-size:14px;color:var(--text3);line-height:1.6;margin-bottom:26px">${T.sub}</div>
-      <button onclick="go('perfil.html')" style="background:linear-gradient(135deg,#3D1D8C,var(--purple));color:white;border:none;border-radius:20px;padding:13px 28px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">${T.btn}</button>
-    </div>`;
+  if(!hogar.connected && !hogar.pendingInvite){
+    renderNotConnected();
     return;
   }
-
-  // Load both profiles
-  const myEmail = user.email || 'user_a';
-  const myKey = 'profile_' + myEmail.replace(/[^a-z0-9]/gi,'_');
-
-  let profileMe = loadProfile(myKey);
-  let profilePartner = null;
-
-  const partnerEmail = hogar.partnerEmail || '';
-
-  if(partnerEmail){
-    // Try email-based key first, then legacy ft_profile_B
-    const partnerKey = 'profile_' + partnerEmail.replace(/[^a-z0-9]/gi,'_');
-    const byEmail = localStorage.getItem(partnerKey);
-    const bySlot  = localStorage.getItem('ft_profile_B');
-
-    // Use whichever has income data
-    const fromEmail = byEmail ? JSON.parse(byEmail) : null;
-    const fromSlot  = bySlot  ? JSON.parse(bySlot)  : null;
-
-    if(fromEmail && (fromEmail.income||0) > 0){
-      profilePartner = fromEmail;
-    } else if(fromSlot && (fromSlot.income||0) > 0){
-      profilePartner = fromSlot;
-    } else {
-      profilePartner = fromEmail || fromSlot;
-    }
+  if(hogar.pendingInvite){
+    renderPending(hogar);
+    return;
   }
-
-  // Fallback: build "me" profile from current session
-  if (!profileMe) {
-    const data = JSON.parse(localStorage.getItem('ft_data')||'{"transactions":[],"emergency":0,"subscriptions":[]}');
-    profileMe = { name:user.name||'Tú', email:user.email||'', income:user.income||0, needs:user.needs||0, wants:user.wants||0, savings:user.savings||0, data };
-    try { localStorage.setItem(myKey, JSON.stringify(profileMe)); } catch(e) {}
-  }
-
-  // Fallback: empty partner (replaced when async load completes)
-  if (!profilePartner) {
-    profilePartner = {
-      name: hogar.partnerName || (lang==='es'?'Tu pareja':'Your partner'),
-      email: partnerEmail,
-      income: 0, needs: 0, wants: 0, savings: 0,
-      data: { transactions:[], emergency:0, subscriptions:[] }
-    };
-  }
-
-  const T = lang==='es' ? {
-    tabOverview:'Resumen', tabScenarios:'Cuentas: ¿Separadas o juntas?',
-    combinedIncome:'Ingreso combinado', combinedSpent:'Gasto combinado', combinedSaved:'Ahorro combinado',
-    whoContributes:'¿Quién aporta qué?', income:'Ingreso', spent:'Gastado', saved:'Ahorrado',
-    combined503020:'50/30/20 del hogar', needs:'Necesidades', wants:'Gustos', savings:'Ahorro',
-    you:'Tú', partner:'Pareja', income2:'Ingreso mensual', spent2:'Gastado este mes', saved2:'Ahorro/Inversión',
-    recentTx:'Movimientos recientes', noTx:'Sin movimientos este mes',
-    scenarioTitle:'¿Cuentas separadas o combinadas?',
-    scenarioSub:'Comparación con tus números reales del hogar',
-    sepName:'Todo separado', sepDesc:'Cada quien paga sus propios gastos y dividen manualmente lo compartido (renta, comida).',
-    combName:'Todo combinado', combDesc:'Un solo bote de dinero — todos los gastos del hogar salen de ahí, sin distinción.',
-    propName:'Proporcional al ingreso', propDesc:'Cada quien aporta a los gastos compartidos según el % que gana del ingreso total.',
-    sharedExpenses:'Gastos compartidos est.', eachPays:'Cada quien paga', freeAfter:'Le queda libre',
-    recommended:'Recomendado', recTitle:'Nuestra recomendación', recIcon:'💡'
-  } : {
-    tabOverview:'Overview', tabScenarios:'Accounts: Separate or together?',
-    combinedIncome:'Combined income', combinedSpent:'Combined spending', combinedSaved:'Combined savings',
-    whoContributes:'Who contributes what?', income:'Income', spent:'Spent', saved:'Saved',
-    combined503020:'Household 50/30/20', needs:'Needs', wants:'Wants', savings:'Savings',
-    you:'You', partner:'Partner', income2:'Monthly income', spent2:'Spent this month', saved2:'Savings/Investment',
-    recentTx:'Recent transactions', noTx:'No transactions this month',
-    scenarioTitle:'Separate or combined accounts?',
-    scenarioSub:"Comparison using your household's real numbers",
-    sepName:'Fully separate', sepDesc:'Each person pays their own expenses and manually splits shared ones (rent, food).',
-    combName:'Fully combined', combDesc:'One shared pot of money — all household expenses come from there, no distinction.',
-    propName:'Proportional to income', propDesc:'Each person contributes to shared expenses based on the % they earn of total income.',
-    sharedExpenses:'Est. shared expenses', eachPays:'Each pays', freeAfter:'Left over',
-    recommended:'Recommended', recTitle:'Our recommendation', recIcon:'💡'
-  };
-
-  // ── Compute totals for both profiles ──
-  const totMe = getMonthTotalsFor(profileMe.data || {transactions:[]});
-  const totPartner = getMonthTotalsFor(profilePartner.data || {transactions:[]});
-
-  const incomeMe = profileMe.income||0, incomePartner = profilePartner.income||0;
-  const combinedIncome = incomeMe + incomePartner;
-  const combinedSpent = totMe.spent + totPartner.spent;
-  const combinedSaved = (totMe.ahorro+totMe.inversion) + (totPartner.ahorro+totPartner.inversion);
-  const combinedNeeds = (profileMe.needs||0) + (profilePartner.needs||0);
-  const combinedWants = (profileMe.wants||0) + (profilePartner.wants||0);
-  const combinedSavingsGoal = (profileMe.savings||0) + (profilePartner.savings||0);
-  const combinedNeedsSpent = totMe.needsSpent + totPartner.needsSpent;
-  const combinedWantsSpent = totMe.wantsSpent + totPartner.wantsSpent;
-
-  page.innerHTML = `
-  <div class="section-tabs">
-    <div class="sec-tab ${activeSection==='overview'?'on':''}" onclick="switchSection('overview')">📊 ${T.tabOverview}</div>
-    <div class="sec-tab ${activeSection==='scenarios'?'on':''}" onclick="switchSection('scenarios')">⚖️ ${T.tabScenarios}</div>
-  </div>
-
-  <div id="sectionContent"></div>
-  `;
-
-  if (activeSection === 'overview') {
-    renderOverview(T, profileMe, profilePartner, totMe, totPartner, combinedIncome, combinedSpent, combinedSaved, combinedNeeds, combinedWants, combinedSavingsGoal, combinedNeedsSpent, combinedWantsSpent);
-  } else {
-    renderScenarios(T, profileMe, profilePartner, incomeMe, incomePartner, totMe, totPartner);
-  }
+  renderDashboard(hogar);
 }
 
-function switchSection(s){ activeSection = s; render(); }
-
-function renderOverview(T, profileMe, profilePartner, totMe, totPartner, combinedIncome, combinedSpent, combinedSaved, combinedNeeds, combinedWants, combinedSavingsGoal, combinedNeedsSpent, combinedWantsSpent){
-  const nPct = combinedNeeds>0 ? Math.min((combinedNeedsSpent/combinedNeeds)*100,100) : 0;
-  const wPct = combinedWants>0 ? Math.min((combinedWantsSpent/combinedWants)*100,100) : 0;
-  const sPct = combinedSavingsGoal>0 ? Math.min((combinedSaved/combinedSavingsGoal)*100,100) : 0;
-
-  const incomeTotal = (profileMe.income||0)+(profilePartner.income||0);
-  const mePctIncome = incomeTotal>0 ? ((profileMe.income||0)/incomeTotal)*100 : 50;
-  const partnerPctIncome = 100-mePctIncome;
-
-  const spentTotal = totMe.spent+totPartner.spent;
-  const mePctSpent = spentTotal>0 ? (totMe.spent/spentTotal)*100 : 50;
-  const partnerPctSpent = 100-mePctSpent;
-
-  const savedTotal = (totMe.ahorro+totMe.inversion)+(totPartner.ahorro+totPartner.inversion);
-  const mePctSaved = savedTotal>0 ? ((totMe.ahorro+totMe.inversion)/savedTotal)*100 : 50;
-  const partnerPctSaved = 100-mePctSaved;
-
-  document.getElementById('sectionContent').innerHTML = `
-  <!-- COMBINED HERO -->
-  <div class="combined-hero">
-    <div class="ch-top">
-      <div>
-        <div class="ch-label">${T.combinedIncome}</div>
-        <div class="ch-amount">${fmt(combinedIncome)}</div>
-        <div class="ch-sub">${profileMe.name||'Tú'} + ${profilePartner.name||'Pareja'}</div>
-      </div>
-      <div class="ch-chips">
-        <div class="ch-chip"><div class="cc-lbl">${T.combinedSpent}</div><div class="cc-val">${fmt(combinedSpent)}</div></div>
-        <div class="ch-chip"><div class="cc-lbl">${T.combinedSaved}</div><div class="cc-val">${fmt(combinedSaved)}</div></div>
-      </div>
-    </div>
-  </div>
-
-  <div class="dual-grid">
-    <!-- WHO CONTRIBUTES -->
-    <div class="contrib-card">
-      <div class="card-hd">🤝 ${T.whoContributes}</div>
-
-      <div class="contrib-row">
-        <div class="contrib-name">💰 ${T.income}</div>
-        <div class="contrib-bar-wrap">
-          <div class="contrib-seg" style="width:${mePctIncome}%;background:var(--blue)">${Math.round(mePctIncome)}%</div>
-          <div class="contrib-seg" style="width:${partnerPctIncome}%;background:var(--purple)">${Math.round(partnerPctIncome)}%</div>
-        </div>
-        <div class="contrib-amt">${fmt(incomeTotal)}</div>
-      </div>
-
-      <div class="contrib-row">
-        <div class="contrib-name">💸 ${T.spent}</div>
-        <div class="contrib-bar-wrap">
-          <div class="contrib-seg" style="width:${mePctSpent}%;background:var(--blue)">${Math.round(mePctSpent)}%</div>
-          <div class="contrib-seg" style="width:${partnerPctSpent}%;background:var(--purple)">${Math.round(partnerPctSpent)}%</div>
-        </div>
-        <div class="contrib-amt">${fmt(spentTotal)}</div>
-      </div>
-
-      <div class="contrib-row">
-        <div class="contrib-name">🛡️ ${T.saved}</div>
-        <div class="contrib-bar-wrap">
-          <div class="contrib-seg" style="width:${mePctSaved}%;background:var(--blue)">${Math.round(mePctSaved)}%</div>
-          <div class="contrib-seg" style="width:${partnerPctSaved}%;background:var(--purple)">${Math.round(partnerPctSaved)}%</div>
-        </div>
-        <div class="contrib-amt">${fmt(savedTotal)}</div>
-      </div>
-
-      <div style="display:flex;gap:14px;margin-top:14px;font-size:11px">
-        <div style="display:flex;align-items:center;gap:5px"><div style="width:8px;height:8px;border-radius:50%;background:var(--blue)"></div>${T.you}</div>
-        <div style="display:flex;align-items:center;gap:5px"><div style="width:8px;height:8px;border-radius:50%;background:var(--purple)"></div>${T.partner}</div>
-      </div>
-    </div>
-
-    <!-- COMBINED 50/30/20 -->
-    <div class="card">
-      <div class="card-hd">📐 ${T.combined503020}</div>
-      <div class="rule-mini">
-        <div class="rmh"><span>${T.needs}</span><span style="color:${nPct>=90?'var(--red)':'var(--g-main)'}">${fmt(combinedNeedsSpent)} / ${fmt(combinedNeeds)}</span></div>
-        <div class="rmt"><div class="rmf" style="width:0%;background:${nPct>=90?'var(--red)':'var(--g-main)'}" data-w="${nPct}"></div></div>
-      </div>
-      <div class="rule-mini">
-        <div class="rmh"><span>${T.wants}</span><span style="color:var(--blue)">${fmt(combinedWantsSpent)} / ${fmt(combinedWants)}</span></div>
-        <div class="rmt"><div class="rmf" style="width:0%;background:var(--blue)" data-w="${wPct}"></div></div>
-      </div>
-      <div class="rule-mini">
-        <div class="rmh"><span>${T.savings}</span><span style="color:var(--amber)">${fmt(combinedSaved)} / ${fmt(combinedSavingsGoal)}</span></div>
-        <div class="rmt"><div class="rmf" style="width:0%;background:var(--amber)" data-w="${sPct}"></div></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- SIDE BY SIDE FULL DASHBOARDS -->
-  <div class="dual-grid">
-    ${buildProfileColumn(profileMe, totMe, 'a', T)}
-    ${buildProfileColumn(profilePartner, totPartner, 'b', T)}
-  </div>
-  `;
-
-  setTimeout(()=>{
-    document.querySelectorAll('.rmf, .mbf').forEach(el=>{
-      el.style.width = el.getAttribute('data-w')+'%';
-    });
-  },100);
+/* ── NOT CONNECTED ── */
+function renderNotConnected(){
+  const es = lang==='es';
+  document.getElementById('page').innerHTML = `
+  <div style="text-align:center;padding:60px 20px 0">
+    <div style="font-size:56px;margin-bottom:16px">👫</div>
+    <div style="font-size:20px;font-weight:800;margin-bottom:8px">${es?'Lleva el control en pareja':'Manage finances together'}</div>
+    <div style="font-size:13px;color:var(--text3);margin-bottom:28px;line-height:1.5">${es?'Combinen sus ingresos, vean sus gastos del hogar y sepan cuánto le queda a cada quien cada mes.':'Combine your income, see household expenses and know how much each person has left each month.'}</div>
+    <button class="btn-primary" style="margin-bottom:10px" onclick="startInvite()">+ ${es?'Invitar a mi hogar':'Invite to my home'}</button>
+    <button class="btn-secondary" onclick="showAcceptCode()">${es?'Ya tengo un código':'I have a code'}</button>
+  </div>`;
 }
 
-function buildProfileColumn(profile, tot, colClass, T){
-  const color = colClass==='a' ? 'var(--blue)' : 'var(--purple)';
-  const bg = colClass==='a' ? 'var(--blu-dim)' : 'var(--pur-dim)';
-  const income = profile.income||0;
-  const needs = profile.needs||0, wants = profile.wants||0, savings = profile.savings||0;
-  const nPct = needs>0 ? Math.min((tot.needsSpent/needs)*100,100) : 0;
-  const wPct = wants>0 ? Math.min((tot.wantsSpent/wants)*100,100) : 0;
-  const sPct = savings>0 ? Math.min(((tot.ahorro+tot.inversion)/savings)*100,100) : 0;
-
-  const recentTx = [...(profile.data?.transactions||[])].sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,4);
-  const icons={gasto:'💸',ingreso:'💰',inversion:'📈',ahorro:'🛡️',suscripcion:'🔄',hipoteca:'🏠'};
-
-  return `
-  <div class="profile-col col-${colClass}">
-    <div class="profile-hd">
-      <div class="profile-hd-avatar" style="background:${color}">${(profile.name||'?').charAt(0).toUpperCase()}</div>
-      <div>
-        <div class="profile-hd-name">${profile.name||(colClass==='a'?T.you:T.partner)}</div>
-        <div class="profile-hd-tag">${colClass==='a'?T.you:T.partner}</div>
-      </div>
+/* ── PENDING INVITE ── */
+function renderPending(hogar){
+  const es = lang==='es';
+  document.getElementById('page').innerHTML = `
+  <div class="card">
+    <div class="card-title">${es?'Invitación enviada':'Invitation sent'}</div>
+    <div class="card-sub">${es?'Comparte este código con tu pareja':'Share this code with your partner'}</div>
+    <div style="background:var(--off);border:2px dashed var(--border);border-radius:14px;padding:20px;text-align:center;margin-bottom:12px">
+      <div style="font-size:30px;font-weight:800;letter-spacing:3px;color:var(--g-main)">${hogar.inviteCode||'—'}</div>
     </div>
-    <div class="profile-body">
-      <div class="mini-kpi-row">
-        <div class="mini-kpi"><div class="mki-lbl">${T.income2}</div><div class="mki-val" style="color:var(--g-main)">${fmt(income)}</div></div>
-        <div class="mini-kpi"><div class="mki-lbl">${T.spent2}</div><div class="mki-val" style="color:var(--red)">${fmtD(tot.spent)}</div></div>
-      </div>
-
-      <div style="margin-bottom:14px">
-        <div class="mini-bar-item">
-          <div class="mbh"><span>${T.needs}</span><span>${Math.round(nPct)}%</span></div>
-          <div class="mbt"><div class="mbf" style="width:0%;background:var(--g-main)" data-w="${nPct}"></div></div>
-        </div>
-        <div class="mini-bar-item">
-          <div class="mbh"><span>${T.wants}</span><span>${Math.round(wPct)}%</span></div>
-          <div class="mbt"><div class="mbf" style="width:0%;background:var(--blue)" data-w="${wPct}"></div></div>
-        </div>
-        <div class="mini-bar-item">
-          <div class="mbh"><span>${T.savings}</span><span>${Math.round(sPct)}%</span></div>
-          <div class="mbt"><div class="mbf" style="width:0%;background:var(--amber)" data-w="${sPct}"></div></div>
-        </div>
-      </div>
-
-      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">${T.recentTx}</div>
-      ${recentTx.length ? recentTx.map(t=>`
-        <div class="mini-tx-row">
-          <div class="mtx-ico" style="background:${bg}">${icons[t.type]||'💳'}</div>
-          <div class="mtx-name">${t.desc||t.type}</div>
-          <div class="mtx-amt" style="color:${t.type==='ingreso'?'var(--g-main)':'var(--red)'}">${t.type==='ingreso'?'+':'-'}${fmtD(t.amount)}</div>
-        </div>`).join('') : `<div style="text-align:center;padding:14px;color:var(--text3);font-size:11px">${T.noTx}</div>`}
+    <div id="inviteStatus" style="text-align:center;margin-bottom:12px;font-size:11px;color:var(--text3)">⏳ ${es?'Esperando que tu pareja ingrese el código...':'Waiting for your partner to enter the code...'}</div>
+    <div style="display:flex;gap:8px">
+      <button class="btn-primary" style="flex:1" onclick="copyInviteCode('${hogar.inviteCode||''}')">📋 ${es?'Copiar código':'Copy code'}</button>
+      <button class="btn-danger" onclick="cancelInvite()">${es?'Cancelar':'Cancel'}</button>
     </div>
   </div>`;
 }
 
-function renderScenarios(T, profileMe, profilePartner, incomeMe, incomePartner, totMe, totPartner){
-  const totalIncome = incomeMe + incomePartner;
-  // Estimate shared expenses as the combined "needs" spending of both (rent, groceries, utilities, etc.)
-  const sharedExpenses = totMe.needsSpent + totPartner.needsSpent || (totMe.needsSpent || totPartner.needsSpent) || (profileMe.needs||0)*0.6 + (profilePartner.needs||0)*0.6;
+/* ── MAIN DASHBOARD ── */
+function renderDashboard(hogar){
+  const es = lang==='es';
+  const partnerProfile = loadPartnerProfile();
+  const myIncome = user.income || 0;
+  const partnerIncome = partnerProfile ? (partnerProfile.income||0) : 0;
+  const partnerName = hogar.partnerName || (es?'Tu pareja':'Your partner');
+  const mode = hogar.mode || null;
 
-  const pctMe = totalIncome>0 ? incomeMe/totalIncome : 0.5;
-  const pctPartner = totalIncome>0 ? incomePartner/totalIncome : 0.5;
-
-  // Scenario 1: Fully separate (assume 50/50 split manually for shared items)
-  const sep_me = sharedExpenses/2;
-  const sep_partner = sharedExpenses/2;
-  const sep_freeMe = incomeMe - sep_me - (totMe.spent - totMe.needsSpent);
-  const sep_freePartner = incomePartner - sep_partner - (totPartner.spent - totPartner.needsSpent);
-
-  // Scenario 2: Fully combined (pot covers everything, leftover split by income share — simplified illustrative model)
-  const totalSpent = totMe.spent + totPartner.spent;
-  const totalLeftover = totalIncome - totalSpent;
-  const comb_freeMe = totalLeftover * pctMe;
-  const comb_freePartner = totalLeftover * pctPartner;
-
-  // Scenario 3: Proportional to income
-  const prop_me = sharedExpenses * pctMe;
-  const prop_partner = sharedExpenses * pctPartner;
-  const prop_freeMe = incomeMe - prop_me - (totMe.spent - totMe.needsSpent);
-  const prop_freePartner = incomePartner - prop_partner - (totPartner.spent - totPartner.needsSpent);
-
-  // Determine recommendation: if income gap is significant (>15%), recommend proportional; else combined
-  const incomeGapPct = totalIncome>0 ? Math.abs(pctMe-pctPartner)*100 : 0;
-  let recommended = 'comb';
-  let recReason = '';
-  if (incomeGapPct > 15) {
-    recommended = 'prop';
-    recReason = lang==='es'
-      ? `Hay una diferencia de ingreso del <strong>${Math.round(incomeGapPct)}%</strong> entre ustedes. Repartir los gastos compartidos <strong>proporcional a lo que gana cada quien</strong> evita que la persona con menor ingreso quede con poco margen, manteniendo la división justa.`
-      : `There's a <strong>${Math.round(incomeGapPct)}%</strong> income gap between you two. Splitting shared expenses <strong>proportional to what each person earns</strong> avoids leaving the lower earner with little margin, while keeping the split fair.`;
-  } else {
-    recReason = lang==='es'
-      ? `Sus ingresos son similares (diferencia de solo <strong>${Math.round(incomeGapPct)}%</strong>), así que <strong>combinar las cuentas</strong> simplifica la administración sin desventaja para ninguno de los dos.`
-      : `Your incomes are similar (only <strong>${Math.round(incomeGapPct)}%</strong> difference), so <strong>combining accounts</strong> simplifies management without disadvantaging either of you.`;
+  // If no mode selected yet → show mode selector
+  if(!mode){
+    renderModeSelector(myIncome, partnerIncome, partnerName);
+    return;
   }
 
-  document.getElementById('sectionContent').innerHTML = `
-  <div style="text-align:center;margin-bottom:20px">
-    <div style="font-size:18px;font-weight:800">${T.scenarioTitle}</div>
-    <div style="font-size:13px;color:var(--text3);margin-top:4px">${T.scenarioSub}</div>
-  </div>
+  // Calculate shared expenses from my transactions tagged as hogar:true
+  const sharedTxs = getSharedExpenses();
+  const personalTxs = getPersonalExpenses();
+  const sharedTotal = sharedTxs.reduce((a,t)=>a+(t.amount||0),0);
+  const personalTotal = personalTxs.reduce((a,t)=>a+(t.amount||0),0);
 
-  <div class="scenario-grid">
-    <!-- SEPARATE -->
-    <div class="scenario-card">
-      <div class="sc-icon">↔️</div>
-      <div class="sc-name">${T.sepName}</div>
-      <div class="sc-desc">${T.sepDesc}</div>
-      <div class="sc-split">
-        <div class="sc-split-row"><span class="sc-split-name">${T.you}</span><span class="sc-split-amt" style="color:var(--blue)">${fmt(sep_me)}</span></div>
-        <div class="sc-split-row"><span class="sc-split-name">${T.partner}</span><span class="sc-split-amt" style="color:var(--purple)">${fmt(sep_partner)}</span></div>
-      </div>
-      <div class="sc-free"><span class="sc-free-lbl">${T.freeAfter} (${T.you})</span><span class="sc-free-val">${fmt(sep_freeMe)}</span></div>
-      <div class="sc-free"><span class="sc-free-lbl">${T.freeAfter} (${T.partner})</span><span class="sc-free-val">${fmt(sep_freePartner)}</span></div>
-    </div>
+  const partnerSharedTxs = partnerProfile && partnerProfile.data && partnerProfile.data.transactions
+    ? (partnerProfile.data.transactions||[]).filter(t=>t.hogar===true && t.type==='gasto')
+    : [];
+  const partnerPersonalTotal = partnerProfile && partnerProfile.data
+    ? (partnerProfile.data.transactions||[]).filter(t=>t.hogar!==true && t.type==='gasto').reduce((a,t)=>a+(t.amount||0),0)
+    : 0;
 
-    <!-- COMBINED -->
-    <div class="scenario-card ${recommended==='comb'?'recommended':''}">
-      ${recommended==='comb'?`<div class="rec-badge">⭐ ${T.recommended}</div>`:''}
-      <div class="sc-icon">🤝</div>
-      <div class="sc-name">${T.combName}</div>
-      <div class="sc-desc">${T.combDesc}</div>
-      <div class="sc-split">
-        <div class="sc-split-row"><span class="sc-split-name">${lang==='es'?'Bote común':'Shared pot'}</span><span class="sc-split-amt">${fmt(totalSpent)}</span></div>
-      </div>
-      <div class="sc-free"><span class="sc-free-lbl">${T.freeAfter} (${T.you})</span><span class="sc-free-val">${fmt(comb_freeMe)}</span></div>
-      <div class="sc-free"><span class="sc-free-lbl">${T.freeAfter} (${T.partner})</span><span class="sc-free-val">${fmt(comb_freePartner)}</span></div>
-    </div>
+  const calc = calcHogar(myIncome, partnerIncome, mode, personalTotal, partnerPersonalTotal, sharedTxs);
+  const totalIncome = myIncome + partnerIncome;
 
-    <!-- PROPORTIONAL -->
-    <div class="scenario-card ${recommended==='prop'?'recommended':''}">
-      ${recommended==='prop'?`<div class="rec-badge">⭐ ${T.recommended}</div>`:''}
-      <div class="sc-icon">⚖️</div>
-      <div class="sc-name">${T.propName}</div>
-      <div class="sc-desc">${T.propDesc} (${Math.round(pctMe*100)}% / ${Math.round(pctPartner*100)}%)</div>
-      <div class="sc-split">
-        <div class="sc-split-row"><span class="sc-split-name">${T.you} (${Math.round(pctMe*100)}%)</span><span class="sc-split-amt" style="color:var(--blue)">${fmt(prop_me)}</span></div>
-        <div class="sc-split-row"><span class="sc-split-name">${T.partner} (${Math.round(pctPartner*100)}%)</span><span class="sc-split-amt" style="color:var(--purple)">${fmt(prop_partner)}</span></div>
+  const modeLabels = {
+    equal: es?'⚖️ 50/50 Estricto':'⚖️ 50/50 Equal',
+    proportional: es?'📊 Proporcional':'📊 Proportional',
+    common: es?'🏦 Fondo común':'🏦 Common fund'
+  };
+
+  document.getElementById('page').innerHTML = `
+  <!-- HERO -->
+  <div class="hero-combined">
+    <div class="hc-label">${es?'Ingreso combinado del hogar':'Combined household income'}</div>
+    <div class="hc-amount">${fmt(totalIncome)}<span style="font-size:16px;opacity:.6">/mes</span></div>
+    <div class="hc-members">
+      <div class="hc-member">
+        <div class="hc-member-name">${user.name||'Tú'}</div>
+        <div class="hc-member-amt">${fmt(myIncome)}</div>
+        <div class="hc-member-pct">${calc.myPct}% ${es?'del total':'of total'}</div>
       </div>
-      <div class="sc-free"><span class="sc-free-lbl">${T.freeAfter} (${T.you})</span><span class="sc-free-val">${fmt(prop_freeMe)}</span></div>
-      <div class="sc-free"><span class="sc-free-lbl">${T.freeAfter} (${T.partner})</span><span class="sc-free-val">${fmt(prop_freePartner)}</span></div>
+      <div class="hc-member">
+        <div class="hc-member-name">${partnerName}</div>
+        <div class="hc-member-amt">${fmt(partnerIncome)}</div>
+        <div class="hc-member-pct">${calc.partnerPct}% ${es?'del total':'of total'}</div>
+      </div>
     </div>
   </div>
 
-  <div class="recommendation-box">
-    <div class="rec-header">
-      <div class="rec-icon">${T.recIcon}</div>
-      <div class="rec-title">${T.recTitle}</div>
-    </div>
-    <div class="rec-text">${recReason}</div>
+  <!-- MODE BADGE -->
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+    <span style="background:var(--g-light);color:var(--g-dark);font-size:11px;font-weight:700;padding:5px 12px;border-radius:20px">${modeLabels[mode]||mode}</span>
+    <button onclick="changeMode()" style="background:none;border:none;font-size:12px;font-weight:600;color:var(--blue);cursor:pointer">${es?'Cambiar modo':'Change mode'} →</button>
   </div>
-  `;
+
+  <!-- TABS -->
+  <div class="tab-row">
+    <button class="tab-btn ${activeTab==='resumen'?'on':''}" onclick="switchTab('resumen')">${es?'📊 Resumen':'📊 Summary'}</button>
+    <button class="tab-btn ${activeTab==='distribucion'?'on':''}" onclick="switchTab('distribucion')">${es?'💰 Distribución':'💰 Distribution'}</button>
+    <button class="tab-btn ${activeTab==='deudas'?'on':''}" onclick="switchTab('deudas')">${es?'💳 Deudas':'💳 Debts'}</button>
+    <button class="tab-btn ${activeTab==='guia'?'on':''}" onclick="switchTab('guia')">${es?'📋 Guía':'📋 Guide'}</button>
+  </div>
+
+  <div id="tabContent"></div>
+
+  <!-- LEAVE -->
+  <div style="margin-top:20px">
+    <button class="btn-secondary" onclick="leaveHousehold()" style="color:var(--red)">${es?'Salir del hogar':'Leave household'}</button>
+  </div>`;
+
+  renderTab(calc, sharedTxs, partnerName, partnerIncome, mode, totalIncome);
 }
 
-function go(url){window.location.href=url;}
-function logout(){sessionStorage.clear();localStorage.removeItem('ft_user');localStorage.removeItem('ft_user_setup');localStorage.removeItem('ft_premium');localStorage.removeItem('ft_lang');window.location.replace('login.html');}
-
-(function init(){
-  try{let s=sessionStorage.getItem('ft_user')||localStorage.getItem('ft_user');
-    if(!s){const setup=localStorage.getItem('ft_user_setup');if(setup){const fb={name:'Usuario',email:'',income:3000,currency:'USD',lang:localStorage.getItem('ft_lang')||'es',needs:1500,wants:900,savings:600,setupDone:true,createdAt:new Date().toISOString()};try{const gu=JSON.parse(sessionStorage.getItem('ft_google_user')||'{}');if(gu.name)fb.name=gu.name;if(gu.email)fb.email=gu.email;}catch(e){}s=JSON.stringify(fb);sessionStorage.setItem('ft_user',s);localStorage.setItem('ft_user',s);}else{window.location.replace('login.html');return;}}
-    user=JSON.parse(s);lang=user.lang||sessionStorage.getItem('ft_lang')||localStorage.getItem('ft_lang')||'es';if(!sessionStorage.getItem('ft_user'))sessionStorage.setItem('ft_user',s);}
-  catch(e){window.location.href='login.html';return;}
-  document.getElementById('sbName').textContent=user.name||'';
-  document.getElementById('sbEmail').textContent=user.email||'';
-  document.getElementById('sbAvatar').textContent=(user.name||'U').charAt(0).toUpperCase();
-  setLang(lang);
-
-  // Hogar requires Premium — gate at page load
-  if (typeof isPremium !== 'undefined' && !isPremium()) {
-    document.getElementById('page').innerHTML = `
-      <div style="text-align:center;padding:80px 20px;max-width:480px;margin:0 auto">
-        <div style="font-size:56px;margin-bottom:16px">🔒</div>
-        <div style="font-size:20px;font-weight:800;margin-bottom:10px">${lang==='es'?'Función Premium':'Premium Feature'}</div>
-        <div style="font-size:14px;color:var(--text3);line-height:1.6;margin-bottom:26px">${lang==='es'?'El control en pareja está incluido en FinTrack Pro Premium. Activa tu plan para compartir tu dashboard financiero con tu pareja.':'Couple finance control is included in FinTrack Pro Premium. Activate your plan to share your financial dashboard with your partner.'}</div>
-        <button onclick="showUpgradeModal()" style="background:linear-gradient(135deg,var(--g-dark),var(--g-main));color:white;border:none;border-radius:20px;padding:13px 28px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">${lang==='es'?'💎 Activar Premium':'💎 Activate Premium'}</button>
-      </div>`;
-    return;
-  }
-
-  // Load partner profile from GAS FIRST, then render
+function switchTab(tab){
+  activeTab = tab;
   const hogar = loadHogar();
+  const partnerProfile = loadPartnerProfile();
+  const myIncome = user.income||0;
+  const partnerIncome = partnerProfile ? (partnerProfile.income||0) : 0;
+  const partnerName = hogar.partnerName||(lang==='es'?'Tu pareja':'Your partner');
+  const mode = hogar.mode||'equal';
+  const sharedTxs = getSharedExpenses();
+  const personalTotal = getPersonalExpenses().reduce((a,t)=>a+(t.amount||0),0);
+  const partnerPersonalTotal = partnerProfile&&partnerProfile.data ? (partnerProfile.data.transactions||[]).filter(t=>t.hogar!==true&&t.type==='gasto').reduce((a,t)=>a+(t.amount||0),0) : 0;
+  const calc = calcHogar(myIncome, partnerIncome, mode, personalTotal, partnerPersonalTotal, sharedTxs);
+  const totalIncome = myIncome + partnerIncome;
 
-  if(hogar.manuallyLeft){
-    setLang(lang);
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>{
+    const tabs = ['resumen','distribucion','deudas','guia'];
+    b.classList.toggle('on', tabs[i]===tab);
+  });
+
+  renderTab(calc, sharedTxs, partnerName, partnerIncome, mode, totalIncome);
+}
+
+function renderTab(calc, sharedTxs, partnerName, partnerIncome, mode, totalIncome){
+  const es = lang==='es';
+  const container = document.getElementById('tabContent');
+  if(!container) return;
+
+  if(activeTab==='resumen') container.innerHTML = renderResumen(calc, sharedTxs, partnerName, partnerIncome, totalIncome, mode);
+  else if(activeTab==='distribucion') container.innerHTML = renderDistribucion(calc, partnerName, totalIncome, mode);
+  else if(activeTab==='deudas') container.innerHTML = renderDeudas(partnerName);
+  else if(activeTab==='guia') container.innerHTML = renderGuia(mode, calc, partnerName);
+}
+
+/* ── TAB: RESUMEN ── */
+function renderResumen(calc, sharedTxs, partnerName, partnerIncome, totalIncome, mode){
+  const es = lang==='es';
+  const sharedTotal = calc.sharedTotal;
+  const sharedPct = totalIncome>0 ? Math.round((sharedTotal/totalIncome)*100) : 0;
+
+  // Group shared expenses by category
+  const byCat = {};
+  sharedTxs.forEach(t=>{
+    const cat = t.cat||'📦 Otros';
+    byCat[cat] = (byCat[cat]||0) + (t.amount||0);
+  });
+
+  const catRows = Object.entries(byCat)
+    .sort((a,b)=>b[1]-a[1])
+    .map(([cat,amt])=>{
+      const pct = totalIncome>0?Math.round((amt/totalIncome)*100):0;
+      return `<div class="flow-row">
+        <div class="flow-ico">${cat.split(' ')[0]}</div>
+        <div class="flow-info">
+          <div class="flow-name">${cat.split(' ').slice(1).join(' ')||cat}</div>
+          <div class="flow-bar-wrap"><div class="flow-bar-fill" style="width:${Math.min(pct*3,100)}%;background:var(--red)"></div></div>
+        </div>
+        <div class="flow-pct">${pct}%</div>
+        <div class="flow-amt">${fmt(amt)}</div>
+      </div>`;
+    }).join('');
+
+  // Why tip
+  const biggestCat = Object.entries(byCat).sort((a,b)=>b[1]-a[1])[0];
+  const tip = biggestCat && totalIncome>0
+    ? `💡 ${biggestCat[0].split(' ').slice(1).join(' ')||biggestCat[0]} ${es?'representa el':'represents'} ${Math.round((biggestCat[1]/totalIncome)*100)}% ${es?'del ingreso combinado':'of combined income'}.`
+    : '';
+
+  return `
+  <!-- COMBINED FLOW -->
+  <div class="card">
+    <div class="card-title">💸 ${es?'Gastos del hogar este mes':'Household expenses this month'}</div>
+    <div class="card-sub">${es?'Solo gastos marcados como "del hogar"':'Only expenses tagged as household'}</div>
+
+    <div class="prog-wrap">
+      <div class="prog-label">
+        <span>${es?'Gastado':'Spent'}: ${fmt(sharedTotal)}</span>
+        <span style="color:var(--text3)">${sharedPct}% ${es?'del ingreso':'of income'}</span>
+      </div>
+      <div class="prog-bar">
+        <div class="prog-fill" style="width:${Math.min(sharedPct,100)}%;background:${sharedPct>50?'var(--red)':sharedPct>30?'var(--amber)':'var(--g-main)'}"></div>
+      </div>
+    </div>
+
+    ${catRows || `<div style="text-align:center;padding:20px;color:var(--text3);font-size:12px">${es?'Sin gastos del hogar este mes':'No household expenses this month'}<br><br><small>${es?'Al registrar un gasto, márcalo como "🏠 Del hogar"':'When adding an expense, mark it as "🏠 Household"'}</small></div>`}
+  </div>
+
+  ${tip?`<div class="tip-box"><strong>💡 ${es?'¿Por qué no sobró más?':'Why wasn\'t there more left?'}</strong>${tip}</div>`:''}
+
+  <!-- PERSON SUMMARY -->
+  <div class="person-grid">
+    <div class="person-card">
+      <div class="pc-avatar" style="background:var(--g-main)">${(user.name||'T').charAt(0).toUpperCase()}</div>
+      <div class="pc-name">${user.name||'Tú'}</div>
+      <div class="pc-income">${fmt(user.income||0)}/mes</div>
+      <div class="pc-stat"><span class="pc-stat-label">${es?'Aporte hogar':'Household share'}</span><span class="pc-stat-val">${fmt(calc.mySharedPart)}</span></div>
+      <div class="pc-stat"><span class="pc-stat-label">${es?'Gastos propios':'Personal expenses'}</span><span class="pc-stat-val">${fmt(calc.myTotalExpenses - calc.mySharedPart)}</span></div>
+      <div class="pc-leftover">
+        <div class="pc-leftover-amt">${fmt(Math.max(0,calc.myLeftover))}</div>
+        <div class="pc-leftover-lbl">${es?'te queda este mes':'left this month'}</div>
+      </div>
+    </div>
+    <div class="person-card">
+      <div class="pc-avatar" style="background:var(--blue)">${(partnerName||'P').charAt(0).toUpperCase()}</div>
+      <div class="pc-name">${partnerName}</div>
+      <div class="pc-income">${fmt(partnerIncome)}/mes</div>
+      <div class="pc-stat"><span class="pc-stat-label">${es?'Aporte hogar':'Household share'}</span><span class="pc-stat-val">${fmt(calc.partnerSharedPart)}</span></div>
+      <div class="pc-stat"><span class="pc-stat-label">${es?'Gastos propios':'Personal expenses'}</span><span class="pc-stat-val">${fmt(calc.partnerTotalExpenses - calc.partnerSharedPart)}</span></div>
+      <div class="pc-leftover">
+        <div class="pc-leftover-amt">${fmt(Math.max(0,calc.partnerLeftover))}</div>
+        <div class="pc-leftover-lbl">${es?'le queda este mes':'left this month'}</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ── TAB: DISTRIBUCION ── */
+function renderDistribucion(calc, partnerName, totalIncome, mode){
+  const es = lang==='es';
+  const rows = [
+    { label: es?'Ingreso combinado':'Combined income', val: fmt(totalIncome), color:'var(--g-main)', pct:100 },
+    { label: es?`Gastos del hogar (${calc.myPct}/${calc.partnerPct})`:`Household expenses (${calc.myPct}/${calc.partnerPct})`, val: '-'+fmt(calc.sharedTotal), color:'var(--red)', pct: totalIncome>0?Math.round((calc.sharedTotal/totalIncome)*100):0 },
+  ];
+  const leftover = totalIncome - calc.sharedTotal;
+  const myPart = mode==='common' ? leftover/2 : calc.myLeftover;
+  const partnerPart = mode==='common' ? leftover/2 : calc.partnerLeftover;
+
+  return `
+  <div class="card">
+    <div class="card-title">💰 ${es?'Cómo fluye el dinero':'How money flows'}</div>
+    <div class="card-sub">${es?'Basado en el modo actual y gastos de este mes':'Based on current mode and this month\'s expenses'}</div>
+
+    <!-- FLOW VISUAL -->
+    <div style="background:var(--off);border-radius:12px;padding:14px;margin-bottom:14px">
+      ${rows.map(r=>`
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:13px">
+        <span style="color:var(--text2)">${r.label}</span>
+        <span style="font-weight:800;color:${r.color}">${r.val}</span>
+      </div>
+      <div class="prog-bar" style="margin-bottom:10px">
+        <div class="prog-fill" style="width:${r.pct}%;background:${r.color}"></div>
+      </div>`).join('')}
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:14px;font-weight:800;border-top:1px solid var(--border);padding-top:10px">
+        <span>${es?'Lo que sobra para repartir':'Available to distribute'}</span>
+        <span style="color:var(--g-main)">${fmt(Math.max(0,leftover))}</span>
+      </div>
+    </div>
+
+    <!-- SPLIT -->
+    <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px">${es?'Le queda a cada quien':'Each person gets'}</div>
+    <div class="person-grid">
+      <div style="background:var(--g-light);border-radius:12px;padding:14px;text-align:center">
+        <div style="font-size:10px;color:var(--g-dark);margin-bottom:4px">${user.name||'Tú'} (${calc.myPct}%)</div>
+        <div style="font-size:22px;font-weight:800;color:var(--g-main)">${fmt(Math.max(0,myPart))}</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:2px">${es?'para gustos personales':'for personal spending'}</div>
+      </div>
+      <div style="background:var(--blu-dim);border-radius:12px;padding:14px;text-align:center">
+        <div style="font-size:10px;color:var(--blue);margin-bottom:4px">${partnerName} (${calc.partnerPct}%)</div>
+        <div style="font-size:22px;font-weight:800;color:var(--blue)">${fmt(Math.max(0,partnerPart))}</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:2px">${es?'para gustos personales':'for personal spending'}</div>
+      </div>
+    </div>
+
+    <div style="background:var(--amb-dim);border-radius:10px;padding:12px;margin-top:12px;font-size:12px;color:#7A3B0A">
+      🔒 ${es?'Los gastos personales de cada quien son privados y no se combinan aquí.':'Each person\'s personal expenses are private and not combined here.'}
+    </div>
+  </div>`;
+}
+
+/* ── TAB: DEUDAS ── */
+function renderDeudas(partnerName){
+  const es = lang==='es';
+  const debts = loadDebts();
+  const hogarDebts = debts.filter(d=>d.owner==='both'||d.owner==='partner');
+  const myDebts = debts.filter(d=>d.owner==='me');
+
+  const debtIco = {hipoteca:'🏠',auto:'🚗',tarjeta:'💳',personal:'📦'};
+
+  const debtRow = (d, showOwner=true) => {
+    const pct = d.original>0?Math.min(Math.round(((d.original-d.balance)/d.original)*100),100):0;
+    const myAmt = d.owner==='both' ? (d.payment||0)*(d.splitMe||50)/100 : (d.payment||0);
+    const partnerAmt = d.owner==='both' ? (d.payment||0)*(d.splitPartner||50)/100 : 0;
+    return `
+    <div class="debt-row">
+      <div class="dr-ico">${debtIco[d.type]||'📦'}</div>
+      <div class="dr-info">
+        <div class="dr-name">${d.name||'—'}
+          ${d.owner==='both'?`<span style="font-size:9px;font-weight:700;background:var(--blu-dim);color:var(--blue);padding:1px 6px;border-radius:20px;margin-left:4px">👥 ${es?'Compartida':'Shared'}</span>`:''}
+          ${d.owner==='partner'?`<span style="font-size:9px;font-weight:700;background:var(--pur-dim);color:var(--purple);padding:1px 6px;border-radius:20px;margin-left:4px">👤 ${partnerName}</span>`:''}
+        </div>
+        <div class="dr-meta">
+          ${es?'Saldo':'Balance'}: ${fmt(d.balance)} · ${pct}% ${es?'pagado':'paid'}
+          ${d.owner==='both'?`<br>${es?'Tu aporte':'Your share'}: ${fmt(myAmt)}/mes · ${partnerName}: ${fmt(partnerAmt)}/mes`:''}
+        </div>
+      </div>
+      <div class="dr-amt">
+        <div class="dr-balance">${fmt(d.balance)}</div>
+        <div class="dr-payment">${fmt(d.payment)}/mes</div>
+      </div>
+    </div>`;
+  };
+
+  const totalSharedBalance = hogarDebts.reduce((a,d)=>a+(d.balance||0),0);
+  const totalMyBalance = myDebts.reduce((a,d)=>a+(d.balance||0),0);
+
+  return `
+  ${hogarDebts.length ? `
+  <div class="card">
+    <div class="card-title">👥 ${es?'Deudas del hogar':'Household debts'}</div>
+    <div class="card-sub">${es?`Saldo total combinado: ${fmt(totalSharedBalance)}`:`Total combined balance: ${fmt(totalSharedBalance)}`}</div>
+    ${hogarDebts.map(d=>debtRow(d)).join('')}
+    <button class="btn-secondary" style="margin-top:12px" onclick="go('deudas.html')">+ ${es?'Gestionar deudas':'Manage debts'}</button>
+  </div>` : ''}
+
+  ${myDebts.length ? `
+  <div class="card">
+    <div class="card-title">👤 ${es?'Mis deudas personales':'My personal debts'}</div>
+    <div class="card-sub">${es?`Solo visibles para ti · ${fmt(totalMyBalance)} total`:`Only visible to you · ${fmt(totalMyBalance)} total`}</div>
+    ${myDebts.map(d=>debtRow(d,false)).join('')}
+  </div>` : ''}
+
+  ${!hogarDebts.length && !myDebts.length ? `
+  <div class="card" style="text-align:center;padding:40px 20px">
+    <div style="font-size:40px;margin-bottom:12px">💳</div>
+    <div style="font-size:14px;font-weight:700;margin-bottom:8px">${es?'Sin deudas registradas':'No debts recorded'}</div>
+    <button class="btn-primary" onclick="go('deudas.html')">+ ${es?'Agregar deuda':'Add debt'}</button>
+  </div>` : ''}`;
+}
+
+/* ── TAB: GUIA ── */
+function renderGuia(mode, calc, partnerName){
+  const es = lang==='es';
+  const modeGuides = {
+    equal: {
+      title: es?'⚖️ Modo 50/50 — Cómo hacerlo funcionar':'⚖️ 50/50 Mode — How to make it work',
+      options: [
+        { title: es?'Opción A — Cuenta conjunta (ideal)':'Option A — Joint account (ideal)', body: es?`Abran una cuenta de cheques conjunta en su banco. Depositen sus sueldos ahí. Paguen todos los gastos del hogar desde esa cuenta. Lo que sobra lo dividen a la mitad y cada quien lo mueve a su cuenta personal.`:`Open a joint checking account at your bank. Deposit your paychecks there. Pay all household expenses from that account. Split what's left and move it to personal accounts.` },
+        { title: es?'Opción B — Zelle mensual':'Option B — Monthly Zelle', body: es?`Decidan quién paga qué. Al final del mes calculen si alguien pagó de más. La app les dice cuánto se deben entre sí. Transfiéranse la diferencia por Zelle.`:`Decide who pays what. At month end, calculate if someone paid more. The app tells you how much you owe each other. Transfer the difference via Zelle.` },
+        { title: es?'⚠️ Considera esto':'⚠️ Consider this', body: es?`Si uno de los dos gana significativamente más que el otro, el modo Proporcional puede ser más justo. Con 50/50 ambos pagan igual aunque no ganen igual.`:`If one of you earns significantly more, Proportional mode may be fairer. With 50/50 both pay equally even if income differs.` }
+      ]
+    },
+    proportional: {
+      title: es?'📊 Modo Proporcional — Cómo hacerlo funcionar':'📊 Proportional Mode — How to make it work',
+      options: [
+        { title: es?'Opción A — Cuenta conjunta':'Option A — Joint account', body: es?`Igual que 50/50 pero cada quien deposita según su porcentaje. ${user.name||'Tú'} deposita ${calc.myPct}% de los gastos del hogar. ${partnerName} deposita ${calc.partnerPct}%.`:`Same as 50/50 but each deposits their percentage. ${user.name||'You'} deposits ${calc.myPct}% of household expenses. ${partnerName} deposits ${calc.partnerPct}%.` },
+        { title: es?'Opción B — Porcentaje de cada cheque':'Option B — Percentage of each paycheck', body: es?`Cuando reciban su cheque, aparten automáticamente el porcentaje que les corresponde para el hogar. El resto es personal.`:`When you receive your paycheck, automatically set aside your household percentage. The rest is personal.` },
+        { title: es?'✅ Por qué es justo':'✅ Why it\'s fair', body: es?`Quien gana más aporta más, pero ambos quedan con una proporción similar de ingreso personal. Es el modo más equitativo cuando hay diferencia de ingresos.`:`Whoever earns more contributes more, but both keep a similar proportion of personal income. It's the most equitable mode when there's an income difference.` }
+      ]
+    },
+    common: {
+      title: es?'🏦 Fondo común — Cómo hacerlo funcionar':'🏦 Common Fund — How to make it work',
+      options: [
+        { title: es?'Opción A — Cuenta conjunta (muy recomendado)':'Option A — Joint account (highly recommended)', body: es?`Ambos depositan su sueldo completo en una cuenta conjunta. Pagan TODOS los gastos del hogar desde ahí. Lo que sobra lo dividen según el acuerdo (50/50 o proporcional) y cada quien lo mueve a su cuenta personal.`:`Both deposit full paycheck into a joint account. Pay ALL household expenses from there. Split what's left per agreement and move to personal accounts.` },
+        { title: es?'Opción B — Uno administra, el otro transfiere':'Option B — One manages, other transfers', body: es?`Una persona administra los gastos del hogar. La otra transfiere su parte completa cada mes. Requiere mucha confianza y comunicación.`:`One person manages household expenses. The other transfers their full share monthly. Requires trust and communication.` },
+        { title: es?'💡 Ventaja principal':'💡 Main advantage', body: es?`Maximiza el ahorro del hogar porque todo está centralizado. Ideal si tienen metas grandes juntos (casa, viaje, fondo de emergencia).`:`Maximizes household savings because everything is centralized. Ideal for big goals together (house, travel, emergency fund).` }
+      ]
+    }
+  };
+
+  const guide = modeGuides[mode] || modeGuides.equal;
+
+  return `
+  <div class="card">
+    <div class="card-title">${guide.title}</div>
+    <div class="card-sub">${es?'Cómo implementarlo en la vida real':'How to implement it in real life'}</div>
+    ${guide.options.map(opt=>`
+    <div class="howto-option">
+      <div class="howto-opt-title">${opt.title}</div>
+      <div class="howto-opt-sub">${opt.body}</div>
+    </div>`).join('')}
+  </div>
+
+  <div class="card" style="background:var(--g-light);border:none">
+    <div class="card-title" style="color:var(--g-dark)">📌 ${es?'Reglas del hogar':'Household rules'}</div>
+    <div style="font-size:12px;color:var(--g-dark);line-height:1.6">
+      ✅ ${es?'Los gastos del hogar se marcan como "🏠 Del hogar" al registrarlos':'Household expenses are tagged as "🏠 Household" when adding them'}<br>
+      ✅ ${es?'Los gustos personales son privados — nadie los ve':'Personal spending is private — nobody sees it'}<br>
+      ✅ ${es?'Las deudas compartidas muestran el saldo completo a ambos':'Shared debts show the full balance to both'}<br>
+      ✅ ${es?'Las inversiones del hogar se pueden combinar':'Household investments can be combined'}<br>
+      🔒 ${es?'Tu ahorro personal nunca es visible para tu pareja':'Your personal savings are never visible to your partner'}
+    </div>
+  </div>
+
+  <button class="btn-secondary" onclick="changeMode()">${es?'🔄 Cambiar modo de finanzas':'🔄 Change finance mode'}</button>`;
+}
+
+/* ── MODE SELECTOR ── */
+function renderModeSelector(myIncome, partnerIncome, partnerName){
+  const es = lang==='es';
+  const total = myIncome + partnerIncome;
+  const myPct = total>0?Math.round((myIncome/total)*100):50;
+  const partnerPct = 100-myPct;
+
+  // Calculate examples for each mode
+  const ex = {
+    equal: {
+      myShare: total*0.5, partnerShare: total*0.5,
+      myLeft: myIncome - total*0.5*0.6, partnerLeft: partnerIncome - total*0.5*0.6
+    },
+    proportional: {
+      myShare: myIncome, partnerShare: partnerIncome,
+      myLeft: myIncome*0.4, partnerLeft: partnerIncome*0.4
+    },
+    common: {
+      myShare: total, partnerShare: total,
+      myLeft: (total*0.4)/2, partnerLeft: (total*0.4)/2
+    }
+  };
+
+  const recommended = myIncome !== partnerIncome ? 'proportional' : 'equal';
+
+  document.getElementById('page').innerHTML = `
+  <div class="card">
+    <div class="card-title">💡 ${es?'¿Cómo quieren manejar sus finanzas?':'How do you want to manage your finances?'}</div>
+    <div class="card-sub">${es?'Elige el modo que mejor se adapte a ustedes. Pueden cambiarlo en cualquier momento.':'Choose the mode that works best for you. You can change it anytime.'}</div>
+
+    <!-- 50/50 -->
+    <div class="mode-card ${recommended==='equal'?'recommended':''}" onclick="setMode('equal')">
+      <div class="mc-header">
+        <div class="mc-ico">⚖️</div>
+        <div><div class="mc-title">${es?'50 / 50 Estricto':'50 / 50 Equal'}</div>
+        <div class="mc-sub">${es?'Cada quien pone exactamente la mitad':'Each person contributes exactly half'}</div></div>
+      </div>
+      <div class="mc-example">
+        <div class="mc-example-row"><span>${user.name||es?'Tú':'You'} aporta:</span><span style="font-weight:700">${fmt(total*0.5)}/mes</span></div>
+        <div class="mc-example-row"><span>${partnerName} aporta:</span><span style="font-weight:700">${fmt(total*0.5)}/mes</span></div>
+        <div class="mc-example-row"><span>${es?'Le sobra a cada quien ~':'Each gets ~'}</span><span style="color:var(--g-main)">${fmt(total*0.5*0.4)}</span></div>
+      </div>
+      <div class="mc-pros-cons">
+        <div><div class="mc-pro">✅ ${es?'Simple y claro':'Simple and clear'}</div><div class="mc-pro">✅ ${es?'Fácil de calcular':'Easy to calculate'}</div></div>
+        <div><div class="mc-con">⚠️ ${es?'Ignora diferencia de ingresos':'Ignores income difference'}</div></div>
+      </div>
+    </div>
+
+    <!-- PROPORCIONAL -->
+    <div class="mode-card ${recommended==='proportional'?'recommended':''}" onclick="setMode('proportional')">
+      <div class="mc-header">
+        <div class="mc-ico">📊</div>
+        <div><div class="mc-title">${es?'Proporcional al ingreso':'Proportional to income'}</div>
+        <div class="mc-sub">${es?'Cada quien aporta según lo que gana':'Each contributes based on income'}</div></div>
+      </div>
+      <div class="mc-example">
+        <div class="mc-example-row"><span>${user.name||es?'Tú':'You'} (${myPct}%):</span><span style="font-weight:700">${fmt(myIncome)}/mes</span></div>
+        <div class="mc-example-row"><span>${partnerName} (${partnerPct}%):</span><span style="font-weight:700">${fmt(partnerIncome)}/mes</span></div>
+        <div class="mc-example-row"><span>${es?'Pagan según lo que ganan':'Pay based on what they earn'}</span><span style="color:var(--g-main)">✅</span></div>
+      </div>
+      <div class="mc-pros-cons">
+        <div><div class="mc-pro">✅ ${es?'Más justo':'Fairer'}</div><div class="mc-pro">✅ ${es?'Se recalcula solo':'Auto-recalculates'}</div></div>
+        <div><div class="mc-con">⚠️ ${es?'Más complejo de rastrear':'More complex to track'}</div></div>
+      </div>
+    </div>
+
+    <!-- FONDO COMÚN -->
+    <div class="mode-card" onclick="setMode('common')">
+      <div class="mc-header">
+        <div class="mc-ico">🏦</div>
+        <div><div class="mc-title">${es?'Fondo común total':'Common fund'}</div>
+        <div class="mc-sub">${es?'Todo entra al hogar, se reparte lo que sobre':'All income goes to household, split what\'s left'}</div></div>
+      </div>
+      <div class="mc-example">
+        <div class="mc-example-row"><span>${es?'Ingreso total del hogar:':'Total household income:'}</span><span style="font-weight:700">${fmt(total)}</span></div>
+        <div class="mc-example-row"><span>${es?'Pagan necesidades primero':'Pay needs first'}</span><span>~60%</span></div>
+        <div class="mc-example-row"><span>${es?'Se reparte lo que sobre':'Split what\'s left'}</span><span style="color:var(--g-main)">${fmt(total*0.4/2)} ${es?'c/u':'each'}</span></div>
+      </div>
+      <div class="mc-pros-cons">
+        <div><div class="mc-pro">✅ ${es?'Maximiza ahorro':'Maximizes savings'}</div><div class="mc-pro">✅ ${es?'Ideal para metas grandes':'Ideal for big goals'}</div></div>
+        <div><div class="mc-con">⚠️ ${es?'Requiere más confianza':'Requires more trust'}</div></div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function setMode(mode){
+  const hogar = loadHogar();
+  hogar.mode = mode;
+  hogar.modeSetAt = new Date().toISOString();
+  saveHogar(hogar);
+  showToast(lang==='es'?'✅ Modo guardado':'✅ Mode saved');
+  render();
+}
+
+function changeMode(){
+  const hogar = loadHogar();
+  const partnerProfile = loadPartnerProfile();
+  const partnerName = hogar.partnerName||(lang==='es'?'Tu pareja':'Your partner');
+  renderModeSelector(user.income||0, partnerProfile?(partnerProfile.income||0):0, partnerName);
+}
+
+/* ── INVITE FLOW ── */
+function startInvite(){
+  const code = 'FT-'+Math.random().toString(36).substring(2,6).toUpperCase();
+  const hogar = { connected:false, pendingInvite:true, inviteCode:code, myEmail:user.email, myName:user.name };
+  saveHogar(hogar);
+
+  fetch(`${GAS_URL_HOGAR}?action=createInvite&email=${encodeURIComponent(user.email)}&name=${encodeURIComponent(user.name||'')}&code=${code}`)
+    .then(r=>r.json())
+    .then(d=>{
+      const statusEl = document.getElementById('inviteStatus');
+      if(statusEl) statusEl.innerHTML = d.success
+        ? `<span style="color:var(--g-main);font-weight:700">✅ ${lang==='es'?'Código registrado — compártelo':'Code registered — share it'}</span>`
+        : `<span style="color:var(--amber);font-weight:700">⚠️ ${lang==='es'?'Solo funciona en este dispositivo':'Only works on this device'}</span>`;
+    }).catch(()=>{});
+
+  render();
+  startPartnerPolling();
+}
+
+function showAcceptCode(){
+  const es = lang==='es';
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);display:grid;place-items:center;z-index:100;backdrop-filter:blur(4px)';
+  overlay.innerHTML = `
+  <div style="background:white;border-radius:18px;padding:24px;width:340px;max-width:calc(100vw-32px)">
+    <div style="font-size:16px;font-weight:800;margin-bottom:6px">${es?'Ingresar código':'Enter code'}</div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:16px">${es?'Pide el código a quien te invitó':'Ask the person who invited you for their code'}</div>
+    <input id="codeInput" style="width:100%;background:var(--off);border:2px solid var(--border);border-radius:10px;padding:14px;font-size:20px;font-weight:800;letter-spacing:3px;text-align:center;font-family:inherit;outline:none;margin-bottom:12px" placeholder="FT-XXXX" oninput="this.value=this.value.toUpperCase()">
+    <button onclick="acceptCode()" style="width:100%;background:linear-gradient(135deg,var(--g-dark),var(--g-main));color:white;border:none;border-radius:12px;padding:14px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:8px">${es?'Unirme al hogar':'Join household'}</button>
+    <button onclick="this.closest('[style]').remove()" style="width:100%;background:var(--off);border:1.5px solid var(--border);color:var(--text2);border-radius:12px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">${es?'Cancelar':'Cancel'}</button>
+  </div>`;
+  document.body.appendChild(overlay);
+}
+
+async function acceptCode(){
+  const code = (document.getElementById('codeInput')?.value||'').trim().toUpperCase();
+  if(!code){ showToast(lang==='es'?'⚠️ Ingresa el código':'⚠️ Enter the code'); return; }
+
+  showToast(lang==='es'?'⏳ Verificando...':'⏳ Verifying...');
+
+  try {
+    const url = `${GAS_URL_HOGAR}?action=acceptInvite&code=${encodeURIComponent(code)}&email=${encodeURIComponent(user.email)}&name=${encodeURIComponent(user.name||'')}`;
+    const res = await fetch(url);
+    const data = await res.json();
+
+    if(data.error){
+      const msgs = { code_not_found: lang==='es'?'❌ Código no encontrado. Pide uno nuevo.':'❌ Code not found. Ask for a new one.', code_already_used: lang==='es'?'❌ Código ya usado':'❌ Code already used' };
+      showToast(msgs[data.error]||'❌ '+data.error, 4000);
+      return;
+    }
+
+    const hogar = { connected:true, pendingInvite:false, inviteCode:code, myEmail:user.email, myName:user.name, partnerName:data.partnerName||'Tu pareja', partnerEmail:data.partnerEmail||'', connectedAt:new Date().toISOString() };
+    saveHogar(hogar);
+    document.querySelector('[style*="position:fixed"]')?.remove();
+
+    // Load partner profile from GAS
+    const partnerProfile = await loadPartnerProfileFromGAS(data.partnerEmail||'');
+    if(partnerProfile){
+      const key = 'profile_'+(data.partnerEmail||'').replace(/[^a-z0-9]/gi,'_');
+      localStorage.setItem(key, JSON.stringify(partnerProfile));
+      localStorage.setItem('ft_profile_B', JSON.stringify(partnerProfile));
+    }
+
+    showToast(`🏠 ${lang==='es'?'¡Conectado!':'Connected!'} ${data.partnerName||''}`, 4000);
     render();
-    return;
+  } catch(e){
+    showToast(lang==='es'?'❌ Error de conexión':'❌ Connection error', 4000);
   }
+}
+
+function copyInviteCode(code){
+  navigator.clipboard?.writeText(code).catch(()=>{});
+  showToast(lang==='es'?'📋 Código copiado':'📋 Code copied');
+}
+
+function cancelInvite(){
+  localStorage.setItem('ft_hogar', JSON.stringify({connected:false, pendingInvite:false, manuallyLeft:false}));
+  render();
+}
+
+/* ── POLLING ── */
+let pollingInterval = null;
+function startPartnerPolling(){
+  if(pollingInterval) clearInterval(pollingInterval);
+  pollingInterval = setInterval(async()=>{
+    const hogar = loadHogar();
+    if(!hogar.pendingInvite){ clearInterval(pollingInterval); return; }
+    try {
+      const res = await fetch(`${GAS_URL_HOGAR}?action=checkPartner&email=${encodeURIComponent(user.email)}`);
+      const data = await res.json();
+      if(data.connected && data.partnerEmail){
+        clearInterval(pollingInterval);
+        const h = loadHogar();
+        h.connected = true; h.pendingInvite = false;
+        h.partnerEmail = data.partnerEmail;
+        h.partnerName = data.partnerName||'Tu pareja';
+        h.connectedAt = new Date().toISOString();
+        saveHogar(h);
+        showToast(`🏠 ${data.partnerName||'Tu pareja'} ${lang==='es'?'se unió al hogar':'joined the household'}`, 4000);
+        const pp = await loadPartnerProfileFromGAS(data.partnerEmail);
+        if(pp){ const k='profile_'+data.partnerEmail.replace(/[^a-z0-9]/gi,'_'); localStorage.setItem(k,JSON.stringify(pp)); localStorage.setItem('ft_profile_B',JSON.stringify(pp)); }
+        render();
+      }
+    } catch(e){}
+  }, 5000);
+}
+
+/* ── LEAVE ── */
+function leaveHousehold(){
+  const es = lang==='es';
+  if(!confirm(es?'¿Salir del hogar? Dejarás de ver el dashboard combinado.':'Leave household? You will stop seeing the combined dashboard.')) return;
+  if(pollingInterval){ clearInterval(pollingInterval); pollingInterval=null; }
+  const hogar = loadHogar();
+  if(hogar.partnerEmail){ localStorage.removeItem('profile_'+hogar.partnerEmail.replace(/[^a-z0-9]/gi,'_')); }
+  localStorage.removeItem('ft_profile_B');
+  localStorage.setItem('ft_hogar', JSON.stringify({connected:false, pendingInvite:false, manuallyLeft:true}));
+  render();
+  showToast(es?'Saliste del hogar':'You left the household');
+}
+
+/* ── LANG ── */
+function setLang(l){
+  lang=l;
+  localStorage.setItem('ft_lang',l);
+  document.getElementById('ltES').classList.toggle('on',l==='es');
+  document.getElementById('ltEN').classList.toggle('on',l==='en');
+  render();
+}
+
+/* ── INIT ── */
+(function init(){
+  let s = sessionStorage.getItem('ft_user')||localStorage.getItem('ft_user');
+  if(!s){ window.location.replace('login.html'); return; }
+  user = JSON.parse(s);
+  lang = user.lang||localStorage.getItem('ft_lang')||'es';
+  if(!sessionStorage.getItem('ft_user')) sessionStorage.setItem('ft_user',s);
+
+  const hogar = loadHogar();
+  if(hogar.manuallyLeft){ render(); return; }
 
   if(hogar.connected && hogar.partnerEmail){
-    // Load partner data from GAS before first render
-    loadPartnerProfileFromGAS(hogar.partnerEmail).then(partnerProfile => {
-      if(partnerProfile){
-        const partnerKey = 'profile_' + hogar.partnerEmail.replace(/[^a-z0-9]/gi,'_');
-        localStorage.setItem(partnerKey, JSON.stringify(partnerProfile));
-        localStorage.setItem('ft_profile_B', JSON.stringify(partnerProfile));
+    loadPartnerProfileFromGAS(hogar.partnerEmail).then(pp=>{
+      if(pp){
+        const k='profile_'+hogar.partnerEmail.replace(/[^a-z0-9]/gi,'_');
+        localStorage.setItem(k,JSON.stringify(pp));
+        localStorage.setItem('ft_profile_B',JSON.stringify(pp));
       }
-      setLang(lang);
       render();
-    }).catch(()=>{ setLang(lang); render(); });
+    }).catch(()=>render());
+  } else if(hogar.pendingInvite){
+    render();
+    startPartnerPolling();
   } else {
-    setLang(lang);
     render();
   }
 
-  // Also check GAS for updated partner connection status
-  checkPartnerFromGAS().then(async gasData => {
-    if(!gasData || !gasData.connected) return;
-    const hogar2 = loadHogar();
-    if(hogar2.manuallyLeft) return;
-
-    let needsRender = false;
-
-    // Update partner email/name if changed
-    if(gasData.partnerEmail && gasData.partnerEmail !== hogar2.partnerEmail){
-      hogar2.connected = true;
-      hogar2.pendingInvite = false;
-      hogar2.partnerEmail = gasData.partnerEmail;
-      hogar2.partnerName = gasData.partnerName || hogar2.partnerName || (lang==='es'?'Tu pareja':'Your partner');
-      localStorage.setItem('ft_hogar', JSON.stringify(hogar2));
-      needsRender = true;
+  // Check GAS for updates
+  checkPartnerFromGAS().then(async gasData=>{
+    if(!gasData||!gasData.connected) return;
+    const h2 = loadHogar();
+    if(h2.manuallyLeft) return;
+    if(gasData.partnerEmail && gasData.partnerEmail !== h2.partnerEmail){
+      h2.connected=true; h2.pendingInvite=false;
+      h2.partnerEmail=gasData.partnerEmail;
+      h2.partnerName=gasData.partnerName||h2.partnerName||(lang==='es'?'Tu pareja':'Your partner');
+      saveHogar(h2);
     }
-
-    // Always try to load partner profile from GAS
     if(gasData.partnerEmail){
-      const partnerProfile = await loadPartnerProfileFromGAS(gasData.partnerEmail);
-      if(partnerProfile){
-        const partnerKey = 'profile_' + gasData.partnerEmail.replace(/[^a-z0-9]/gi,'_');
-        localStorage.setItem(partnerKey, JSON.stringify(partnerProfile));
-        localStorage.setItem('ft_profile_B', JSON.stringify(partnerProfile));
-        needsRender = true;
-      }
+      const pp = await loadPartnerProfileFromGAS(gasData.partnerEmail);
+      if(pp){ const k='profile_'+gasData.partnerEmail.replace(/[^a-z0-9]/gi,'_'); localStorage.setItem(k,JSON.stringify(pp)); localStorage.setItem('ft_profile_B',JSON.stringify(pp)); render(); }
     }
-
-    if(needsRender) render();
   });
 })();
 </script>
