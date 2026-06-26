@@ -506,6 +506,9 @@ body {
   <!-- PAGE -->
   <div class="page">
 
+    <!-- DEBT BANNERS -->
+    <div id="debtBanners"></div>
+
     <!-- HERO -->
     <div class="hero" id="heroCard">
       <div class="hero-left">
@@ -661,9 +664,13 @@ body {
           <button class="tx-pill"    onclick="filterTx('gasto',this)" data-es="Gastos" data-en="Expenses">Gastos</button>
           <button class="tx-pill"    onclick="filterTx('ingreso',this)" data-es="Ingresos" data-en="Income">Ingresos</button>
           <button class="tx-pill"    onclick="filterTx('inversion',this)" data-es="Inversiones" data-en="Investments">Inversiones</button>
+          <button class="tx-pill"    onclick="filterTx('hogar',this)" data-es="🏠 Hogar" data-en="🏠 Household">🏠 Hogar</button>
         </div>
         <div id="txList"></div>
       </div>
+
+      <!-- MI DINERO TAB CONTENT -->
+      <div id="miDineroContent" style="display:none"></div>
 
     </div>
 
@@ -740,6 +747,7 @@ body {
   <div class="mob-item" onclick="go('historial.html')"><div class="mob-ico">📅</div><span data-es="Historial" data-en="History">Historial</span></div>
   <div class="mob-item"><div class="mob-add" onclick="openModal()">＋</div></div>
   <div class="mob-item" onclick="go('analisis.html')"><div class="mob-ico">📈</div><span data-es="Análisis" data-en="Analysis">Análisis</span></div>
+  <div class="mob-item" id="mobMiDinero" onclick="toggleMiDinero()"><div class="mob-ico">💰</div><span data-es="Mi dinero" data-en="My money">Mi dinero</span></div>
   <div class="mob-item" onclick="openMoreMenu()"><div class="mob-ico">☰</div><span data-es="Más" data-en="More">Más</span></div>
 </nav>
 
@@ -1137,6 +1145,9 @@ function renderDashboard() {
   const spent    = totals.spent;
   const spentPct = income > 0 ? Math.min((spent/income)*100, 100) : 0;
 
+  // Render debt payment banners
+  renderDebtBanners();
+
   // ── MONTH LABEL ──
   document.getElementById('monthPill').innerHTML = '◀ &nbsp;' + getMonthLabel() + '&nbsp; ▶';
 
@@ -1321,7 +1332,8 @@ function renderTx(filter) {
     })
     .sort((a,b) => new Date(b.date)-new Date(a.date));
 
-  if (filter !== 'all') txs = txs.filter(t => t.type === filter);
+  if (filter === 'hogar') txs = txs.filter(t => t.hogar === true);
+  else if (filter !== 'all') txs = txs.filter(t => t.type === filter);
 
   const el = document.getElementById('txList');
 
@@ -1490,6 +1502,25 @@ let isHogarTx = false; // true = del hogar, false = personal
 // Categories that auto-detect as hogar
 const AUTO_HOGAR_CATS = ['🏠 Renta / Hipoteca','🛒 Supermercado','⛽ Gasolina','💊 Salud','📱 Teléfono/Internet','🔧 Mantenimiento'];
 const AUTO_PERSONAL_CATS = ['🍔 Restaurantes','🎬 Entretenimiento','👕 Ropa','✈️ Viajes'];
+
+let miDineroVisible = false;
+
+function toggleMiDinero(){
+  miDineroVisible = !miDineroVisible;
+  const content = document.getElementById('miDineroContent');
+  const txCard = document.getElementById('txList')?.closest('.card');
+  const btn = document.getElementById('mobMiDinero');
+  if(miDineroVisible){
+    if(content) content.style.display='block';
+    if(txCard) txCard.style.display='none';
+    if(btn) btn.classList.add('on');
+    renderMiDineroTab();
+  } else {
+    if(content) content.style.display='none';
+    if(txCard) txCard.style.display='block';
+    if(btn) btn.classList.remove('on');
+  }
+}
 
 function isHogarConnected(){
   try { const h=JSON.parse(localStorage.getItem('ft_hogar')||'{}'); return h.connected===true && !h.manuallyLeft; }
@@ -2209,6 +2240,184 @@ updateBadges();
   } catch(e){}
 })();
 
+/* ══════════════════════════════════════
+   DEBT BANNERS
+══════════════════════════════════════ */
+function renderDebtBanners(){
+  const container = document.getElementById('debtBanners');
+  if(!container) return;
+  const debts = JSON.parse(localStorage.getItem('ft_debts')||'[]');
+  if(!debts.length){ container.innerHTML=''; return; }
+  const today = new Date();
+  const alerts = debts.filter(d=>{
+    const payDay = d.payDay||1;
+    const dueDate = new Date(today.getFullYear(), today.getMonth(), payDay);
+    const diff = Math.ceil((dueDate-today)/(1000*60*60*24));
+    const monthKey = today.toISOString().slice(0,7);
+    const paid = !!(d.paidMonths&&d.paidMonths[monthKey]);
+    const dismissed = localStorage.getItem('ft_debt_dismiss_'+d.id)===today.toDateString();
+    return !paid && !dismissed && diff<=5;
+  });
+  if(!alerts.length){ container.innerHTML=''; return; }
+  const es=lang==='es';
+  container.innerHTML = alerts.map(d=>{
+    const payDay=d.payDay||1;
+    const dueDate=new Date(today.getFullYear(),today.getMonth(),payDay);
+    const diff=Math.ceil((dueDate-today)/(1000*60*60*24));
+    const overdue=diff<0;
+    const bg=overdue?'var(--red-dim)':'var(--amb-dim)';
+    const col=overdue?'var(--red)':'#7A3B0A';
+    const msg=overdue?(es?`Pago vencido hace ${Math.abs(diff)} día(s)`:`Payment overdue by ${Math.abs(diff)} day(s)`):diff===0?(es?'Pago vence hoy':'Payment due today'):(es?`Vence en ${diff} día(s)`:`Due in ${diff} day(s)`);
+    return `<div style="background:${bg};border-radius:14px;padding:14px;margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:20px">${overdue?'🔴':'⏰'}</span>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:800;color:${col}">${d.name}</div>
+          <div style="font-size:11px;color:${col};opacity:.8">${msg} · ${fmtD(d.payment||0)}/mes</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button onclick="openDebtAbonar('${d.id}')" style="flex:2;background:${overdue?'var(--red)':'var(--amber)'};color:white;border:none;border-radius:10px;padding:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">💳 ${es?'Pagar':'Pay'} — ${fmtD(d.payment||0)}</button>
+        <button onclick="dismissDebtAlert('${d.id}')" style="flex:1;background:white;border:1.5px solid var(--border);border-radius:10px;padding:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;color:var(--text3)">${es?'Después':'Later'}</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openDebtAbonar(id){
+  localStorage.setItem('ft_open_abonar',id);
+  window.location.href='deudas.html';
+}
+
+function dismissDebtAlert(id){
+  localStorage.setItem('ft_debt_dismiss_'+id, new Date().toDateString());
+  renderDebtBanners();
+}
+
+function isHogarConnected(){
+  try{const h=JSON.parse(localStorage.getItem('ft_hogar')||'{}');return h.connected===true&&!h.manuallyLeft;}catch(e){return false;}
+}
+
+/* ══════════════════════════════════════
+   MI DINERO TAB
+══════════════════════════════════════ */
+function renderMiDineroTab(){
+  const es=lang==='es';
+  const income=user.income||0;
+  const totals=getMonthTotals();
+  const extraIncome=totals.ingreso||0;
+  const efData=JSON.parse(localStorage.getItem('ft_data')||'{}');
+  const emergencyFund=efData.emergency||0;
+  const availSavings=parseFloat(localStorage.getItem('ft_available_savings')||'0');
+  const investments=JSON.parse(localStorage.getItem('ft_investments')||'[]');
+  const totalInvested=investments.reduce((a,i)=>a+(parseFloat(i.amount)||0),0);
+  const hogarConnected=isHogarConnected();
+  const sharedSpent=hogarConnected?(totals.hogarSpent||0):0;
+  const personalSpent=(totals.personalNeedsSpent||0)+(totals.wantsSpent||0);
+  const leftover=income+extraIncome-sharedSpent-personalSpent;
+  const totalPatrimony=availSavings+emergencyFund+totalInvested;
+
+  const container=document.getElementById('miDineroContent');
+  if(!container) return;
+
+  const debts=JSON.parse(localStorage.getItem('ft_debts')||'[]');
+  const today=new Date();
+  const monthKey=today.toISOString().slice(0,7);
+  const debtRows=debts.map(d=>{
+    const paid=!!(d.paidMonths&&d.paidMonths[monthKey]);
+    const payDay=d.payDay||1;
+    const dueDate=new Date(today.getFullYear(),today.getMonth(),payDay);
+    const diff=Math.ceil((dueDate-today)/(1000*60*60*24));
+    const ico={hipoteca:'🏠',auto:'🚗',tarjeta:'💳',personal:'📦'}[d.type]||'💳';
+    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--off)">
+      <span style="font-size:18px">${ico}</span>
+      <div style="flex:1"><div style="font-size:12px;font-weight:700">${d.name}</div>
+      <div style="font-size:10px;color:var(--text3)">${es?'Día':'Day'} ${payDay} · ${fmtD(d.payment||0)}/mes</div></div>
+      ${paid
+        ?`<span style="background:var(--g-light);color:var(--g-dark);font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px">✅ ${es?'Pagado':'Paid'}</span>`
+        :`<button onclick="openDebtAbonar('${d.id}')" style="background:${diff<=0?'var(--red)':'var(--g-main)'};color:white;border:none;border-radius:20px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">${es?diff<=0?'Pagar':'Pagar':'Pay'} ${diff>0?`(${diff}d)`:''}</button>`}
+    </div>`;
+  }).join('');
+
+  container.innerHTML=`
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-hd">💰 ${es?'Este mes':'This month'}</div>
+    <div style="background:var(--off);border-radius:12px;padding:14px;margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:13px"><span style="color:var(--text2)">${es?'Ingreso principal':'Main income'}</span><span style="font-weight:700;color:var(--g-main)">+${fmt(income)}</span></div>
+      ${extraIncome>0?`<div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:13px"><span style="color:var(--text2)">${es?'Ingresos extra':'Extra income'}</span><span style="font-weight:700;color:var(--g-main)">+${fmt(extraIncome)}</span></div>`:''}
+      ${hogarConnected&&sharedSpent>0?`<div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:13px"><span style="color:var(--text2)">🏠 ${es?'Mi aporte al hogar':'Household share'}</span><span style="font-weight:700;color:var(--red)">-${fmt(sharedSpent)}</span></div>`:''}
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:13px"><span style="color:var(--text2)">👤 ${es?'Gastos personales':'Personal expenses'}</span><span style="font-weight:700;color:var(--red)">-${fmt(personalSpent)}</span></div>
+      <div style="display:flex;justify-content:space-between;border-top:1px solid var(--border);padding-top:8px;font-size:15px;font-weight:800"><span>${es?'Me sobró':'Left over'}</span><span style="color:${leftover>=0?'var(--g-main)':'var(--red)'}">${leftover>=0?'+':''}${fmt(leftover)}</span></div>
+    </div>
+    ${leftover>0?`<div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">${es?'¿Qué hago con lo que sobró?':'What to do with leftovers?'}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <button onclick="addToAvailSavings(${Math.max(0,leftover)})" style="background:var(--g-light);color:var(--g-dark);border:none;border-radius:10px;padding:10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">💰 ${es?'Al ahorro':'To savings'}</button>
+      <button onclick="go('emergencia.html')" style="background:var(--blu-dim);color:var(--blue);border:none;border-radius:10px;padding:10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">🏦 ${es?'A emergencia':'Emergency fund'}</button>
+    </div>`:''}
+  </div>
+
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-hd">🏦 ${es?'Mi patrimonio personal':'My personal assets'}</div>
+    <div style="font-size:11px;color:var(--text3);margin-top:-10px;margin-bottom:12px">🔒 ${es?'Privado — nadie más lo ve':'Private — nobody else sees this'}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+      <div style="background:var(--g-light);border-radius:12px;padding:14px">
+        <div style="font-size:10px;color:var(--g-dark);font-weight:600;margin-bottom:4px">💰 ${es?'Ahorro disponible':'Available savings'}</div>
+        <div style="font-size:20px;font-weight:800;color:var(--g-main)">${fmt(availSavings)}</div>
+        <div style="display:flex;gap:5px;margin-top:8px">
+          <button onclick="showSavingsModal()" style="flex:1;background:var(--g-main);color:white;border:none;border-radius:8px;padding:6px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit">+</button>
+          <button onclick="showWithdrawModal()" style="flex:1;background:white;border:1.5px solid var(--g-main);color:var(--g-main);border-radius:8px;padding:6px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit">-</button>
+        </div>
+      </div>
+      <div style="background:var(--blu-dim);border-radius:12px;padding:14px">
+        <div style="font-size:10px;color:var(--blue);font-weight:600;margin-bottom:4px">🏦 ${es?'Fondo emergencia':'Emergency fund'}</div>
+        <div style="font-size:20px;font-weight:800;color:var(--blue)">${fmt(emergencyFund)}</div>
+        <button onclick="go('emergencia.html')" style="margin-top:8px;width:100%;background:white;border:1.5px solid var(--blue);color:var(--blue);border-radius:8px;padding:5px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit">→ ${es?'Ver':'View'}</button>
+      </div>
+    </div>
+    <div style="background:var(--amb-dim);border-radius:12px;padding:14px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">
+      <div><div style="font-size:10px;color:#7A3B0A;font-weight:600;margin-bottom:4px">📈 ${es?'Inversiones':'Investments'}</div>
+      <div style="font-size:20px;font-weight:800;color:#7A3B0A">${fmt(totalInvested)}</div></div>
+      <button onclick="go('inversiones.html')" style="background:var(--amber);color:white;border:none;border-radius:10px;padding:8px 14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">→</button>
+    </div>
+    <div style="background:var(--text);border-radius:12px;padding:14px;color:white">
+      <div style="font-size:11px;opacity:.6;margin-bottom:4px">${es?'Total patrimonio personal':'Total personal assets'}</div>
+      <div style="font-size:26px;font-weight:800">${fmt(totalPatrimony)}</div>
+    </div>
+  </div>
+
+  ${debts.length?`<div class="card"><div class="card-hd">📅 ${es?'Pagos del mes':'Monthly payments'}</div>${debtRows}</div>`:''}`;
+}
+
+function addToAvailSavings(amt){
+  const cur=parseFloat(localStorage.getItem('ft_available_savings')||'0');
+  localStorage.setItem('ft_available_savings',(cur+amt).toFixed(2));
+  showToast(lang==='es'?`✅ +${fmt(amt)} al ahorro`:`✅ +${fmt(amt)} to savings`);
+  renderMiDineroTab();
+}
+
+function showSavingsModal(){
+  const es=lang==='es';
+  const amt=prompt(es?'¿Cuánto depositar? ($)':'How much to deposit? ($)');
+  if(!amt||isNaN(parseFloat(amt))) return;
+  const cur=parseFloat(localStorage.getItem('ft_available_savings')||'0');
+  localStorage.setItem('ft_available_savings',(cur+parseFloat(amt)).toFixed(2));
+  showToast(es?`✅ +${fmt(parseFloat(amt))} depositado`:`✅ +${fmt(parseFloat(amt))} deposited`);
+  renderMiDineroTab();
+}
+
+function showWithdrawModal(){
+  const es=lang==='es';
+  const cur=parseFloat(localStorage.getItem('ft_available_savings')||'0');
+  const amt=prompt(es?`Disponible: ${fmt(cur)}\n¿Cuánto retirar? ($)`:`Available: ${fmt(cur)}\nHow much to withdraw? ($)`);
+  if(!amt||isNaN(parseFloat(amt))) return;
+  const n=Math.min(parseFloat(amt),cur);
+  localStorage.setItem('ft_available_savings',Math.max(0,cur-n).toFixed(2));
+  showToast(es?`✅ -${fmt(n)} retirado`:`✅ -${fmt(n)} withdrawn`);
+  renderMiDineroTab();
+}
+
+/* ══════════════════════════════════════════
+   HOGAR TX SYNC — syncs hogar transactions
 /* ══════════════════════════════════════════
    HOGAR TX SYNC — syncs hogar transactions
    to GAS so partner can see them
