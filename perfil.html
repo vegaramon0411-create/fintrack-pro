@@ -227,7 +227,7 @@ const STORE_KEY='ft_data';
 const AVATAR_KEY='ft_avatar';
 const AVATAR_OPTIONS=['😀','😎','🤓','🥳','😊','🦸','🧑‍💼','👩‍💼','🧑‍🚀','🐱','🐶','🦊','🐼','🦁','🐨','🌟','💎','🔥','🚀','⭐'];
 // GAS URL for Hogar invite system — must match deployed Code.gs
-const GAS_URL_HOGAR = 'https://script.google.com/macros/s/AKfycbx1wpmwx3aO3NqGKPp-e2X-ade2adjPx3ts9XeAU3zmoCMXgmUoG1i9qSTO9BiGP-V9/exec';
+const GAS_URL_HOGAR = 'https://script.google.com/macros/s/AKfycbwITyU4qld-IOEVKyLU9XHI46T8g_LjJaNp3nlQgler8-nMeIlztMmG_lZMVMm9cBkP/exec';
 let lang='es', user={}, selectedAvatar='';
 
 function loadData(){try{return JSON.parse(localStorage.getItem(STORE_KEY))||{transactions:[],emergency:0,subscriptions:[]};}catch(e){return{transactions:[],emergency:0,subscriptions:[]};}}

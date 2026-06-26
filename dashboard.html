@@ -597,9 +597,8 @@ body {
             <span id="needsLeft"></span>
           </div>
           <div class="rule-track"><div class="rule-fill" id="needsFill" style="width:0%;background:var(--g-main)"></div></div>
+          <div id="hogarNeedsInfo" style="display:none;margin-top:4px"></div>
         </div>
-
-        <!-- WANTS -->
         <div class="rule-item" onclick="go('analisis.html?bucket=wants')" style="cursor:pointer">
           <div class="rule-header">
             <div class="rule-name-wrap">
@@ -887,7 +886,7 @@ function closeMoreOutside(e){ if(e.target===document.getElementById('moreOverlay
     </div>
     <div class="field" id="catField">
       <label data-es="Categoría" data-en="Category">Categoría</label>
-      <select id="mCat">
+      <select id="mCat" onchange="autoDetectHogar(this.value)">
         <option data-es="🛒 Supermercado" data-en="🛒 Grocery">🛒 Supermercado</option>
         <option data-es="🏠 Renta / Hipoteca" data-en="🏠 Rent / Mortgage">🏠 Renta / Hipoteca</option>
         <option data-es="⛽ Gasolina" data-en="⛽ Gas">⛽ Gasolina</option>
@@ -906,6 +905,23 @@ function closeMoreOutside(e){ if(e.target===document.getElementById('moreOverlay
       <label data-es="Nota (opcional)" data-en="Note (optional)">Nota (opcional)</label>
       <input type="text" id="mNote" placeholder="">
     </div>
+
+    <!-- HOGAR / PERSONAL toggle — solo visible si hay hogar conectado -->
+    <div id="hogarToggleField" style="display:none;margin-bottom:14px">
+      <label style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:8px" data-es="¿Este gasto es del hogar o personal?" data-en="Is this a household or personal expense?">¿Este gasto es del hogar o personal?</label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <button id="btnHogar" onclick="setHogarFlag(true)" type="button"
+          style="padding:11px;border-radius:10px;border:2px solid var(--border);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--off);transition:all .15s">
+          🏠 <span data-es="Del hogar" data-en="Household">Del hogar</span>
+        </button>
+        <button id="btnPersonal" onclick="setHogarFlag(false)" type="button"
+          style="padding:11px;border-radius:10px;border:2px solid var(--border);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--off);transition:all .15s">
+          👤 <span data-es="Personal" data-en="Personal">Personal</span>
+        </button>
+      </div>
+      <div id="hogarToggleHint" style="font-size:10px;color:var(--text3);margin-top:5px;text-align:center"></div>
+    </div>
+
     <button class="btn-save" id="btnSaveEntry" onclick="saveEntry()" data-es="Guardar registro" data-en="Save entry">Guardar registro</button>
     <button id="btnDeleteEntry" onclick="deleteEntry()" style="display:none;width:100%;background:var(--red-dim);color:var(--red);border:none;border-radius:var(--r);padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:8px;" data-es="🗑️ Eliminar registro" data-en="🗑️ Delete entry">🗑️ Eliminar registro</button>
     </div><!-- /tabManual -->
@@ -1072,19 +1088,27 @@ function getMonthTotals() {
 
   const spent = totals.gasto + totals.suscripcion + totals.hipoteca;
 
-  // ── Classify spending-type transactions (gasto, suscripcion, hipoteca) by CATEGORY ──
+  // ── Classify spending by CATEGORY, separating hogar vs personal ──
   let needsSpent = 0, wantsSpent = 0;
+  let hogarSpent = 0, personalNeedsSpent = 0, personalWantsSpent = 0;
+  const hogarConnected = (() => { try{ const h=JSON.parse(localStorage.getItem('ft_hogar')||'{}'); return h.connected===true && !h.manuallyLeft; }catch(e){return false;} })();
+
   txs.forEach(t => {
     if (t.type === 'gasto' || t.type === 'suscripcion' || t.type === 'hipoteca') {
       const amt = parseFloat(t.amount) || 0;
-      // Renta/Hipoteca type always counts as Needs regardless of category field
-      if (t.type === 'hipoteca') { needsSpent += amt; return; }
-      const kind = getCategoryType(t.cat);
-      if (kind === 'needs') needsSpent += amt; else wantsSpent += amt;
+      const kind = t.type === 'hipoteca' ? 'needs' : getCategoryType(t.cat);
+
+      if(hogarConnected && t.hogar === true){
+        hogarSpent += amt;
+        if(kind === 'needs') needsSpent += amt; else wantsSpent += amt;
+      } else {
+        if(kind === 'needs'){ needsSpent += amt; personalNeedsSpent += amt; }
+        else { wantsSpent += amt; personalWantsSpent += amt; }
+      }
     }
   });
 
-  return { ...totals, spent, needsSpent, wantsSpent, txs };
+  return { ...totals, spent, needsSpent, wantsSpent, hogarSpent, personalNeedsSpent, personalWantsSpent, hogarConnected, txs };
 }
 
 /* ══════════════════════════════════════════
@@ -1152,6 +1176,17 @@ function renderDashboard() {
   document.getElementById('needsFill').style.width   = nPct+'%';
   document.getElementById('needsFill').style.background = nPct >= 90 ? 'var(--red)' : 'var(--g-main)';
   document.getElementById('needsPct').textContent    = Math.round(nPct)+'%';
+
+  // Show hogar breakdown if connected
+  const hogarInfoEl = document.getElementById('hogarNeedsInfo');
+  if(hogarInfoEl){
+    if(totals.hogarConnected && totals.hogarSpent > 0){
+      hogarInfoEl.style.display='block';
+      hogarInfoEl.innerHTML = `<span style="color:var(--g-main);font-size:10px">🏠 ${fmt(totals.hogarSpent)} ${lang==='es'?'del hogar':'household'} · 👤 ${fmt(totals.personalNeedsSpent)} ${lang==='es'?'personal':'personal'}</span>`;
+    } else {
+      hogarInfoEl.style.display='none';
+    }
+  }
 
   // Wants
   document.getElementById('wantsLimit').textContent  = lang==='es' ? 'Límite: '+fmt(wants) : 'Limit: '+fmt(wants);
@@ -1302,7 +1337,7 @@ function renderTx(filter) {
         <div class="tx-ico" style="background:${c.bg}">${c.icon}</div>
         <div class="tx-info">
           <div class="tx-nm">${t.desc || tn}</div>
-          <div class="tx-meta">${dateStr}<span class="tx-cat" style="background:${c.bg};color:${c.color}">${tn}</span></div>
+          <div class="tx-meta">${dateStr}<span class="tx-cat" style="background:${c.bg};color:${c.color}">${tn}</span>${t.hogar===true?`<span style="background:var(--g-light);color:var(--g-dark);font-size:9px;font-weight:700;padding:2px 6px;border-radius:20px;margin-left:4px">🏠</span>`:''}</div>
         </div>
         <div class="tx-amt" style="color:${isPositive?'var(--g-main)':'var(--red)'}">${sign}${fmtD(t.amount)}</div>
       </div>`;
@@ -1437,6 +1472,52 @@ function renderGoalsPreview() {
    MODAL — NEW ENTRY
 ══════════════════════════════════════════ */
 let currentType = 'gasto';
+let isHogarTx = false; // true = del hogar, false = personal
+
+// Categories that auto-detect as hogar
+const AUTO_HOGAR_CATS = ['🏠 Renta / Hipoteca','🛒 Supermercado','⛽ Gasolina','💊 Salud','📱 Teléfono/Internet','🔧 Mantenimiento'];
+const AUTO_PERSONAL_CATS = ['🍔 Restaurantes','🎬 Entretenimiento','👕 Ropa','✈️ Viajes'];
+
+function isHogarConnected(){
+  try { const h=JSON.parse(localStorage.getItem('ft_hogar')||'{}'); return h.connected===true && !h.manuallyLeft; }
+  catch(e){ return false; }
+}
+
+function setHogarFlag(val, silent=false){
+  isHogarTx = val;
+  const btnH = document.getElementById('btnHogar');
+  const btnP = document.getElementById('btnPersonal');
+  const hint = document.getElementById('hogarToggleHint');
+  if(!btnH||!btnP) return;
+
+  btnH.style.background = val ? 'var(--g-light)' : 'var(--off)';
+  btnH.style.borderColor = val ? 'var(--g-main)' : 'var(--border)';
+  btnH.style.color = val ? 'var(--g-dark)' : '';
+  btnP.style.background = !val ? 'var(--blu-dim)' : 'var(--off)';
+  btnP.style.borderColor = !val ? 'var(--blue)' : 'var(--border)';
+  btnP.style.color = !val ? 'var(--blue)' : '';
+
+  if(hint){
+    hint.textContent = val
+      ? (lang==='es'?'Sale del fondo del hogar · visible para tu pareja':'Comes from household fund · visible to partner')
+      : (lang==='es'?'Solo tuyo · privado · no afecta el hogar':'Only yours · private · doesn\'t affect household');
+  }
+}
+
+function autoDetectHogar(cat){
+  if(!isHogarConnected()) return;
+  if(AUTO_HOGAR_CATS.includes(cat)) setHogarFlag(true);
+  else if(AUTO_PERSONAL_CATS.includes(cat)) setHogarFlag(false);
+  // If ambiguous, keep current selection
+}
+
+function showHogarToggle(type){
+  const field = document.getElementById('hogarToggleField');
+  if(!field) return;
+  // Only show for gastos when hogar is connected
+  const show = isHogarConnected() && ['gasto','suscripcion','hipoteca'].includes(type);
+  field.style.display = show ? '' : 'none';
+}
 
 function openModal() {
   editingEntryId = null;
@@ -1452,6 +1533,10 @@ function openModal() {
   cancelQuickForm();
   switchInputTab('manual', document.getElementById('tabBtnManual'));
   setType('gasto');
+  // Init hogar toggle
+  isHogarTx = false;
+  setHogarFlag(false, true);
+  showHogarToggle('gasto');
 }
 
 function closeModal() { document.getElementById('overlay').classList.remove('open'); }
@@ -1490,7 +1575,7 @@ function saveEntry() {
       // Reverse old investment sync if it was an investment
       if (old.type === 'inversion') removeInvestmentSyncEntry(old.id);
       // Apply new values
-      data.transactions[idx] = { ...old, type:currentType, desc, amount, date, note, cat };
+      data.transactions[idx] = { ...old, type:currentType, desc, amount, date, note, cat, hogar: isHogarConnected() ? isHogarTx : undefined };
       if (currentType === 'ahorro') {
         data.emergency = (data.emergency||0) + amount;
         addEmergencyHistoryEntry({ id: old.id, amount, date, type:'deposito', note: desc });
@@ -1503,7 +1588,7 @@ function saveEntry() {
     document.getElementById('btnSaveEntry').textContent = lang==='es' ? 'Guardar registro' : 'Save entry';
   } else {
     // CREATE new entry
-    const entry = { id: Date.now(), type:currentType, desc, amount, date, note, cat };
+    const entry = { id: Date.now(), type:currentType, desc, amount, date, note, cat, hogar: isHogarConnected() ? isHogarTx : undefined };
     if (currentType === 'ahorro') {
       data.emergency = (data.emergency||0) + amount;
       addEmergencyHistoryEntry({ id: entry.id, amount, date, type:'deposito', note: desc });
@@ -1519,6 +1604,14 @@ function saveEntry() {
   renderDashboard();
 
   showToast('✅', lang==='es'?'Registro guardado':'Entry saved', desc+' — '+fmtD(amount), 'var(--g-main)');
+
+  // Sync to GAS if it's a hogar transaction
+  if(isHogarConnected() && isHogarTx && ['gasto','suscripcion','hipoteca'].includes(currentType)){
+    const tx = editingEntryId
+      ? data.transactions.find(t=>t.id===editingEntryId)
+      : data.transactions[data.transactions.length-1];
+    if(tx) syncHogarTxToGAS(tx);
+  }
 }
 
 /* ══════════════════════════════════════════
@@ -1660,8 +1753,11 @@ function setType(type) {
 
   // Auto-set the matching category so a type like "hipoteca" never gets silently
   // miscounted under whatever the <select> defaulted to (e.g. Supermercado).
-  if (type === 'hipoteca') setCategory('🏠 Renta / Hipoteca');
-  else if (type === 'suscripcion') setCategory('🎬 Entretenimiento');
+  if (type === 'hipoteca') { setCategory('🏠 Renta / Hipoteca'); autoDetectHogar('🏠 Renta / Hipoteca'); }
+  else if (type === 'suscripcion') { setCategory('🎬 Entretenimiento'); autoDetectHogar('🎬 Entretenimiento'); }
+
+  // Show/hide hogar toggle
+  showHogarToggle(type);
 }
 
 function setCategory(catValue) {
@@ -2077,7 +2173,7 @@ updateBadges();
     const hogar = JSON.parse(localStorage.getItem('ft_hogar')||'{}');
     if(!hogar.connected || !user.email || hogar.manuallyLeft) return;
 
-    const GAS = 'https://script.google.com/macros/s/AKfycbx1wpmwx3aO3NqGKPp-e2X-ade2adjPx3ts9XeAU3zmoCMXgmUoG1i9qSTO9BiGP-V9/exec';
+    const GAS = 'https://script.google.com/macros/s/AKfycbwITyU4qld-IOEVKyLU9XHI46T8g_LjJaNp3nlQgler8-nMeIlztMmG_lZMVMm9cBkP/exec';
     const data = JSON.parse(localStorage.getItem('ft_data')||'{"transactions":[],"emergency":0,"subscriptions":[]}');
     const limited = {
       transactions: (data.transactions||[]).slice(-30),
@@ -2097,6 +2193,57 @@ updateBadges();
       dataJson: JSON.stringify(limited)
     });
     fetch(`${GAS}?${params.toString()}`).catch(()=>{});
+  } catch(e){}
+})();
+
+/* ══════════════════════════════════════════
+   HOGAR TX SYNC — syncs hogar transactions
+   to GAS so partner can see them
+══════════════════════════════════════════ */
+const HOGAR_GAS = 'https://script.google.com/macros/s/AKfycbwITyU4qld-IOEVKyLU9XHI46T8g_LjJaNp3nlQgler8-nMeIlztMmG_lZMVMm9cBkP/exec';
+
+function syncHogarTxToGAS(tx){
+  try {
+    const hogar = JSON.parse(localStorage.getItem('ft_hogar')||'{}');
+    if(!hogar.connected || !user.email) return;
+    const params = new URLSearchParams({
+      action: 'saveHogarTx',
+      email: user.email,
+      txJson: JSON.stringify({ id:tx.id, date:tx.date, desc:tx.desc, amount:tx.amount, cat:tx.cat, type:tx.type, note:tx.note||'' })
+    });
+    fetch(`${HOGAR_GAS}?${params.toString()}`).catch(()=>{});
+  } catch(e){}
+}
+
+function deleteHogarTxFromGAS(txId){
+  try {
+    const hogar = JSON.parse(localStorage.getItem('ft_hogar')||'{}');
+    if(!hogar.connected || !user.email) return;
+    const params = new URLSearchParams({ action:'deleteHogarTx', email:user.email, txId:String(txId) });
+    fetch(`${HOGAR_GAS}?${params.toString()}`).catch(()=>{});
+  } catch(e){}
+}
+
+async function loadPartnerHogarTxs(){
+  try {
+    const hogar = JSON.parse(localStorage.getItem('ft_hogar')||'{}');
+    if(!hogar.connected || !user.email) return [];
+    const res = await fetch(`${HOGAR_GAS}?action=getHogarTxs&email=${encodeURIComponent(user.email)}`);
+    const data = await res.json();
+    if(!data.success) return [];
+    return data.txs || [];
+  } catch(e){ return []; }
+}
+
+// Load partner hogar txs on init and cache locally
+(async function initPartnerHogarTxs(){
+  try {
+    const hogar = JSON.parse(localStorage.getItem('ft_hogar')||'{}');
+    if(!hogar.connected) return;
+    const txs = await loadPartnerHogarTxs();
+    if(txs.length > 0){
+      localStorage.setItem('ft_partner_hogar_txs', JSON.stringify(txs));
+    }
   } catch(e){}
 })();
 </script>

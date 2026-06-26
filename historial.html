@@ -193,7 +193,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
 <!-- MOBILE NAV -->
 <nav class="mob-nav">
   <div class="mob-item" onclick="go('dashboard.html')"><div class="mob-ico">📊</div><span data-es="Inicio" data-en="Home">Inicio</span></div>
-  <div class="mob-item on"><div class="mob-ico">📅</div><span data-es="Historial" data-en="History">Historial</span></div>
+  <div class="mob-item on" onclick="window.scrollTo(0,0)"><div class="mob-ico">📅</div><span data-es="Historial" data-en="History">Historial</span></div>
   <div class="mob-item"><div class="mob-add" onclick="go('dashboard.html')">＋</div></div>
   <div class="mob-item" onclick="go('analisis.html')"><div class="mob-ico">📈</div><span data-es="Análisis" data-en="Analysis">Análisis</span></div>
   <div class="mob-item" onclick="openMoreMenu()"><div class="mob-ico">☰</div><span data-es="Más" data-en="More">Más</span></div>
@@ -494,7 +494,7 @@ function renderTxList(m) {
       <div class="tx-ico" style="background:${bg}">${icon}</div>
       <div class="tx-info">
         <div class="tx-nm">${t.desc||tn}</div>
-        <div class="tx-meta">${ds}<span class="tx-cat" style="background:${bg};color:${color}">${tn}</span></div>
+        <div class="tx-meta">${ds}<span class="tx-cat" style="background:${bg};color:${color}">${tn}</span>${t.hogar===true?`<span style="background:var(--g-light);color:var(--g-dark);font-size:9px;font-weight:700;padding:2px 6px;border-radius:20px;margin-left:4px">🏠 ${lang==='es'?'Hogar':'Household'}</span>`:''}${t.fromPartner===true?`<span style="background:var(--blu-dim);color:var(--blue);font-size:9px;font-weight:700;padding:2px 6px;border-radius:20px;margin-left:4px">👥 ${lang==='es'?'Pareja':'Partner'}</span>`:''}</div>
       </div>
       <div class="tx-amt" style="color:${isPos?'var(--g-main)':'var(--red)'}">${isPos?'+':'-'}${fmtD(t.amount)}</div>
       <div style="position:relative;flex-shrink:0">
