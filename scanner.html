@@ -342,6 +342,24 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
           <input type="text" id="cfNote" placeholder="">
         </div>
 
+        <!-- HOGAR TOGGLE — solo si hay hogar conectado -->
+        <div id="scannerHogarField" style="display:none;margin-bottom:14px">
+          <label style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:8px">
+            <span data-es="¿Este gasto es del hogar o personal?" data-en="Household or personal expense?">¿Este gasto es del hogar o personal?</span>
+          </label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <button id="scanBtnHogar" onclick="setScanHogar(true)" type="button"
+              style="padding:11px;border-radius:10px;border:2px solid var(--border);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--off);transition:all .15s">
+              🏠 <span data-es="Del hogar" data-en="Household">Del hogar</span>
+            </button>
+            <button id="scanBtnPersonal" onclick="setScanHogar(false)" type="button"
+              style="padding:11px;border-radius:10px;border:2px solid var(--border);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--off);transition:all .15s">
+              👤 <span data-es="Personal" data-en="Personal">Personal</span>
+            </button>
+          </div>
+          <div id="scanHogarHint" style="font-size:10px;color:var(--text3);margin-top:5px;text-align:center"></div>
+        </div>
+
         <button class="btn-primary" onclick="saveEntry()" id="btnSave">
           ✓ <span data-es="Confirmar y guardar" data-en="Confirm and save">Confirmar y guardar</span>
         </button>
@@ -646,6 +664,9 @@ function goToConfirm(data) {
   if (data.error) showToast('⚠️ '+data.error);
 
   showStep('confirm');
+  // Init hogar toggle after populating the cat field
+  const catVal = document.getElementById('cfCat')?.value || '';
+  initScanHogarToggle(catVal);
 }
 
 /* ── PICK TYPE ── */
@@ -653,6 +674,42 @@ function pickType(btn, type) {
   currentType = type;
   document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('on'));
   btn.classList.add('on');
+}
+
+/* ── HOGAR TOGGLE ── */
+let scanIsHogar = false;
+const SCAN_AUTO_HOGAR = ['🏠 Renta / Hipoteca','🛒 Supermercado','⛽ Gasolina','💊 Salud','📱 Teléfono/Internet','🔧 Mantenimiento'];
+
+function isScanHogarConnected(){
+  try{ const h=JSON.parse(localStorage.getItem('ft_hogar')||'{}'); return h.connected===true && !h.manuallyLeft; }
+  catch(e){ return false; }
+}
+
+function initScanHogarToggle(cat){
+  const field = document.getElementById('scannerHogarField');
+  if(!field) return;
+  if(!isScanHogarConnected()){ field.style.display='none'; return; }
+  field.style.display = '';
+  // Auto-detect based on category
+  scanIsHogar = SCAN_AUTO_HOGAR.includes(cat);
+  setScanHogar(scanIsHogar, true);
+}
+
+function setScanHogar(val, silent=false){
+  scanIsHogar = val;
+  const bH = document.getElementById('scanBtnHogar');
+  const bP = document.getElementById('scanBtnPersonal');
+  const hint = document.getElementById('scanHogarHint');
+  if(!bH||!bP) return;
+  bH.style.background = val?'var(--g-light)':'var(--off)';
+  bH.style.borderColor = val?'var(--g-main)':'var(--border)';
+  bH.style.color = val?'var(--g-dark)':'';
+  bP.style.background = !val?'var(--blu-dim)':'var(--off)';
+  bP.style.borderColor = !val?'var(--blue)':'var(--border)';
+  bP.style.color = !val?'var(--blue)':'';
+  if(hint) hint.textContent = val
+    ? (lang==='es'?'Sale del fondo del hogar · visible para tu pareja':'From household fund · visible to partner')
+    : (lang==='es'?'Solo tuyo · privado':'Only yours · private');
 }
 
 /* ── SAVE ENTRY ── */
@@ -671,7 +728,7 @@ function saveEntry() {
   }
 
   const data  = loadData();
-  const entry = { id:Date.now(), type:currentType, desc, amount, date, note, cat, source:'scanner' };
+  const entry = { id:Date.now(), type:currentType, desc, amount, date, note, cat, source:'scanner', hogar: isScanHogarConnected() ? scanIsHogar : undefined };
 
   if (currentType === 'ahorro') data.emergency = (data.emergency||0) + amount;
   data.transactions.push(entry);
