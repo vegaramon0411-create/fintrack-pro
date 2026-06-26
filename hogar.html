@@ -569,60 +569,85 @@ function renderDistribucion(calc, partnerName, totalIncome, mode){
 function renderDeudas(partnerName){
   const es = lang==='es';
   const debts = loadDebts();
-  const hogarDebts = debts.filter(d=>d.owner==='both'||d.owner==='partner');
-  const myDebts = debts.filter(d=>d.owner==='me');
-
+  const sharedDebts = debts.filter(d=>d.owner==='both');
+  const myDebts = debts.filter(d=>!d.owner||d.owner==='me');
   const debtIco = {hipoteca:'🏠',auto:'🚗',tarjeta:'💳',personal:'📦'};
+  const debtColor = {hipoteca:'var(--red)',auto:'var(--blue)',tarjeta:'var(--amber)',personal:'var(--purple)'};
 
-  const debtRow = (d, showOwner=true) => {
+  const debtCard = (d, shared) => {
+    const ico = debtIco[d.type]||'📦';
+    const color = debtColor[d.type]||'var(--text)';
     const pct = d.original>0?Math.min(Math.round(((d.original-d.balance)/d.original)*100),100):0;
-    const myAmt = d.owner==='both' ? (d.payment||0)*(d.splitMe||50)/100 : (d.payment||0);
-    const partnerAmt = d.owner==='both' ? (d.payment||0)*(d.splitPartner||50)/100 : 0;
-    return `
-    <div class="debt-row">
-      <div class="dr-ico">${debtIco[d.type]||'📦'}</div>
-      <div class="dr-info">
-        <div class="dr-name">${d.name||'—'}
-          ${d.owner==='both'?`<span style="font-size:9px;font-weight:700;background:var(--blu-dim);color:var(--blue);padding:1px 6px;border-radius:20px;margin-left:4px">👥 ${es?'Compartida':'Shared'}</span>`:''}
-          ${d.owner==='partner'?`<span style="font-size:9px;font-weight:700;background:var(--pur-dim);color:var(--purple);padding:1px 6px;border-radius:20px;margin-left:4px">👤 ${partnerName}</span>`:''}
+    const myAmt = shared?(d.payment||0)*(d.splitMe||50)/100:(d.payment||0);
+    const partnerAmt = shared?(d.payment||0)*(d.splitPartner||50)/100:0;
+    return `<div style="background:var(--white);border-radius:14px;padding:14px;margin-bottom:10px;box-shadow:var(--shadow)">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <div style="width:36px;height:36px;border-radius:10px;background:${color}22;display:grid;place-items:center;font-size:18px;flex-shrink:0">${ico}</div>
+        <div style="flex:1"><div style="font-size:13px;font-weight:800">${d.name||'—'}</div>
+        <div style="font-size:10px;color:var(--text3)">${es?'Saldo':'Balance'}: ${fmt(d.balance)} · APR ${d.apr||0}%</div></div>
+        <div style="font-size:15px;font-weight:800;color:${color}">${fmt(d.balance)}</div>
+      </div>
+      <div style="height:5px;background:var(--border);border-radius:100px;overflow:hidden;margin-bottom:10px">
+        <div style="height:100%;border-radius:100px;background:${color};width:${pct}%"></div>
+      </div>
+      ${shared?`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        <div style="background:var(--g-light);border-radius:10px;padding:8px;text-align:center">
+          <div style="font-size:10px;color:var(--g-dark)">${user.name||'Tú'} (${d.splitMe||50}%)</div>
+          <div style="font-size:13px;font-weight:800;color:var(--g-main)">${fmt(myAmt)}/mes</div>
         </div>
-        <div class="dr-meta">
-          ${es?'Saldo':'Balance'}: ${fmt(d.balance)} · ${pct}% ${es?'pagado':'paid'}
-          ${d.owner==='both'?`<br>${es?'Tu aporte':'Your share'}: ${fmt(myAmt)}/mes · ${partnerName}: ${fmt(partnerAmt)}/mes`:''}
+        <div style="background:var(--blu-dim);border-radius:10px;padding:8px;text-align:center">
+          <div style="font-size:10px;color:var(--blue)">${partnerName} (${d.splitPartner||50}%)</div>
+          <div style="font-size:13px;font-weight:800;color:var(--blue)">${fmt(partnerAmt)}/mes</div>
         </div>
       </div>
-      <div class="dr-amt">
-        <div class="dr-balance">${fmt(d.balance)}</div>
-        <div class="dr-payment">${fmt(d.payment)}/mes</div>
-      </div>
+      <button onclick="makeDebtPersonal('${d.id}')" style="width:100%;background:var(--off);border:1.5px solid var(--border);border-radius:10px;padding:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;color:var(--text3)">👤 ${es?'Cambiar a solo mía':'Change to personal'}</button>`
+      :`<div style="display:flex;align-items:center;gap:8px">
+        <div style="flex:1;font-size:11px;color:var(--text3)">${fmt(d.payment||0)}/mes · ${es?'Solo tuya':'Yours only'}</div>
+        <button onclick="makeDebtShared('${d.id}')" style="background:linear-gradient(135deg,var(--g-dark),var(--g-main));color:white;border:none;border-radius:10px;padding:8px 14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">👥 ${es?'Compartir':'Share'}</button>
+      </div>`}
     </div>`;
   };
 
-  const totalSharedBalance = hogarDebts.reduce((a,d)=>a+(d.balance||0),0);
-  const totalMyBalance = myDebts.reduce((a,d)=>a+(d.balance||0),0);
-
+  const totalShared = sharedDebts.reduce((a,d)=>a+(d.balance||0),0);
   return `
-  ${hogarDebts.length ? `
-  <div class="card">
-    <div class="card-title">👥 ${es?'Deudas del hogar':'Household debts'}</div>
-    <div class="card-sub">${es?`Saldo total combinado: ${fmt(totalSharedBalance)}`:`Total combined balance: ${fmt(totalSharedBalance)}`}</div>
-    ${hogarDebts.map(d=>debtRow(d)).join('')}
-    <button class="btn-secondary" style="margin-top:12px" onclick="go('deudas.html')">+ ${es?'Gestionar deudas':'Manage debts'}</button>
-  </div>` : ''}
-
-  ${myDebts.length ? `
-  <div class="card">
-    <div class="card-title">👤 ${es?'Mis deudas personales':'My personal debts'}</div>
-    <div class="card-sub">${es?`Solo visibles para ti · ${fmt(totalMyBalance)} total`:`Only visible to you · ${fmt(totalMyBalance)} total`}</div>
-    ${myDebts.map(d=>debtRow(d,false)).join('')}
-  </div>` : ''}
-
-  ${!hogarDebts.length && !myDebts.length ? `
-  <div class="card" style="text-align:center;padding:40px 20px">
+  ${sharedDebts.length?`<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div class="card-title">👥 ${es?'Deudas compartidas':'Shared debts'}</div>
+      <span style="font-size:11px;font-weight:700;color:var(--red)">${fmt(totalShared)}</span>
+    </div>${sharedDebts.map(d=>debtCard(d,true)).join('')}</div>`:''}
+  ${myDebts.length?`<div class="card">
+    <div class="card-title" style="margin-bottom:4px">👤 ${es?'Mis deudas':'My debts'}</div>
+    <div class="card-sub">${es?'Toca "Compartir" para incluirla en el hogar':'Tap "Share" to include it in household'}</div>
+    ${myDebts.map(d=>debtCard(d,false)).join('')}
+  </div>`:''}
+  ${!debts.length?`<div class="card" style="text-align:center;padding:40px 20px">
     <div style="font-size:40px;margin-bottom:12px">💳</div>
     <div style="font-size:14px;font-weight:700;margin-bottom:8px">${es?'Sin deudas registradas':'No debts recorded'}</div>
-    <button class="btn-primary" onclick="go('deudas.html')">+ ${es?'Agregar deuda':'Add debt'}</button>
-  </div>` : ''}`;
+    <button class="btn-primary" onclick="go('deudas.html')">${es?'+ Agregar deuda':'+ Add debt'}</button>
+  </div>`:''}
+  <button class="btn-secondary" style="margin-top:4px" onclick="go('deudas.html')">${es?'Gestionar todas las deudas →':'Manage all debts →'}</button>`;
+}
+
+function makeDebtShared(id){
+  const es=lang==='es';
+  const debts=loadDebts();
+  const idx=debts.findIndex(d=>String(d.id)===String(id));
+  if(idx<0) return;
+  debts[idx].owner='both'; debts[idx].splitMe=50; debts[idx].splitPartner=50; debts[idx].splitMode='equal';
+  localStorage.setItem('ft_debts',JSON.stringify(debts));
+  showToast(es?'👥 Deuda compartida con el hogar':'👥 Debt shared with household');
+  render();
+}
+
+function makeDebtPersonal(id){
+  const es=lang==='es';
+  const debts=loadDebts();
+  const idx=debts.findIndex(d=>String(d.id)===String(id));
+  if(idx<0) return;
+  debts[idx].owner='me'; debts[idx].splitMode='none';
+  localStorage.setItem('ft_debts',JSON.stringify(debts));
+  showToast(es?'👤 Deuda cambiada a personal':'👤 Debt changed to personal');
+  render();
 }
 
 /* ── TAB: GUIA ── */
