@@ -316,13 +316,26 @@ body {
 .overlay {
   position:fixed;inset:0;background:rgba(0,0,0,0.45);
   display:none;place-items:center;z-index:200;backdrop-filter:blur(5px);
+  padding:16px;padding-bottom:calc(16px + env(safe-area-inset-bottom));
+  align-items:flex-end;
 }
-.overlay.open { display:grid; }
+.overlay.open { display:flex;flex-direction:column;justify-content:flex-end; }
+
+@media(min-width:500px){
+  .overlay{align-items:center;justify-content:center;padding:16px;}
+  .overlay.open{display:grid;}
+}
 
 .modal {
-  background:var(--white);border-radius:24px;padding:28px;
-  width:440px;max-width:calc(100vw - 32px);box-shadow:var(--shadow-md);
+  background:var(--white);border-radius:24px;padding:24px;
+  width:100%;max-width:440px;
+  max-height:calc(100vh - 80px);
+  max-height:calc(100dvh - 80px);
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  box-shadow:var(--shadow-md);
   animation:modalPop .25s cubic-bezier(0.34,1.56,0.64,1);
+  padding-bottom:calc(24px + env(safe-area-inset-bottom));
 }
 @keyframes modalPop { from{opacity:0;transform:scale(.92) translateY(10px)} to{opacity:1;transform:scale(1) translateY(0)} }
 
