@@ -947,22 +947,23 @@ function setLang(l){
   if(!sessionStorage.getItem('ft_user')) sessionStorage.setItem('ft_user',s);
 
   const hogar = loadHogar();
-  if(hogar.manuallyLeft){ render(); return; }
+  if(hogar.manuallyLeft){ setLang(lang); return; }
 
+  // Render immediately with cached data — don't wait for GAS
+  setLang(lang);
+
+  // Then update in background with fresh GAS data
   if(hogar.connected && hogar.partnerEmail){
     loadPartnerProfileFromGAS(hogar.partnerEmail).then(pp=>{
       if(pp){
         const k='profile_'+hogar.partnerEmail.replace(/[^a-z0-9]/gi,'_');
         localStorage.setItem(k,JSON.stringify(pp));
         localStorage.setItem('ft_profile_B',JSON.stringify(pp));
+        render(); // re-render with fresh data
       }
-      render();
-    }).catch(()=>render());
+    }).catch(()=>{});
   } else if(hogar.pendingInvite){
-    render();
     startPartnerPolling();
-  } else {
-    render();
   }
 
   // Check GAS for updates
