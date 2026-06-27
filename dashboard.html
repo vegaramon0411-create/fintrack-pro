@@ -800,6 +800,86 @@ body {
 .more-item span{font-size:11px;font-weight:600;color:var(--text2);text-align:center;}
 </style>
 
+<!-- MODAL NUEVO REGISTRO -->
+<div class="overlay" id="overlay" onclick="closeOutside(event)">
+  <div class="modal">
+    <!-- HEADER -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div style="font-size:17px;font-weight:800" id="modalTitleText">Nuevo registro</div>
+      <div onclick="closeModal()" style="width:32px;height:32px;background:var(--off);border-radius:50%;display:grid;place-items:center;cursor:pointer;font-size:18px;color:var(--text3)">✕</div>
+    </div>
+
+    <!-- INPUT TABS -->
+    <div style="display:flex;gap:6px;margin-bottom:14px;overflow-x:auto">
+      <button class="tab-btn on" id="tabBtnManual" onclick="switchInputTab('manual',this)" data-es="✏️ Manual" data-en="✏️ Manual">✏️ Manual</button>
+      <button class="tab-btn" id="tabBtnVoice" onclick="switchInputTab('voice',this)" data-es="🎙️ Voz" data-en="🎙️ Voice">🎙️ Voz</button>
+      <button class="tab-btn" id="tabBtnQuick" onclick="switchInputTab('quick',this)" data-es="⚡ Rápido" data-en="⚡ Quick">⚡ Rápido</button>
+      <button class="tab-btn" id="tabBtnCsv" onclick="go('importar.html')" data-es="📄 CSV" data-en="📄 CSV">📄 CSV</button>
+    </div>
+
+    <!-- MANUAL TAB -->
+    <div id="tabManual">
+      <!-- TYPE BUTTONS -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:14px">
+        <button class="type-btn on" onclick="setType('gasto')" data-es="💸 Gasto" data-en="💸 Expense">💸 Gasto</button>
+        <button class="type-btn" onclick="setType('ingreso')" data-es="💰 Ingreso" data-en="💰 Income">💰 Ingreso</button>
+        <button class="type-btn" onclick="setType('inversion')" data-es="📈 Inversión" data-en="📈 Investment">📈 Inversión</button>
+        <button class="type-btn" onclick="setType('ahorro')" data-es="🛡️ Ahorro" data-en="🛡️ Savings">🛡️ Ahorro</button>
+        <button class="type-btn" onclick="setType('suscripcion')" data-es="🔄 Suscripción" data-en="🔄 Subscription">🔄 Suscripción</button>
+        <button class="type-btn" onclick="setType('hipoteca')" data-es="🏠 Renta/Hipoteca" data-en="🏠 Rent/Mortgage">🏠 Renta/Hipoteca</button>
+      </div>
+
+      <div class="field">
+        <label data-es="Descripción" data-en="Description">Descripción</label>
+        <input type="text" id="mDesc" placeholder="">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="field">
+          <label data-es="Monto ($)" data-en="Amount ($)">Monto ($)</label>
+          <input type="number" id="mAmount" placeholder="0.00" min="0" step="0.01">
+        </div>
+        <div class="field">
+          <label data-es="Fecha" data-en="Date">Fecha</label>
+          <input type="date" id="mDate">
+        </div>
+      </div>
+      <div class="field" id="catField">
+        <label data-es="Categoría" data-en="Category">Categoría</label>
+        <select id="mCat" onchange="autoDetectHogar(this.value)"></select>
+      </div>
+      <div class="field">
+        <label data-es="Nota (opcional)" data-en="Note (optional)">Nota (opcional)</label>
+        <input type="text" id="mNote" placeholder="">
+      </div>
+
+      <!-- HOGAR TOGGLE -->
+      <div id="hogarToggleField" style="display:none;margin-bottom:14px">
+        <label style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:8px" data-es="¿Este gasto es del hogar o personal?" data-en="Household or personal?">¿Este gasto es del hogar o personal?</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <button id="btnHogar" onclick="setHogarFlag(true)" type="button" style="padding:11px;border-radius:10px;border:2px solid var(--border);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--off)">🏠 Del hogar</button>
+          <button id="btnPersonal" onclick="setHogarFlag(false)" type="button" style="padding:11px;border-radius:10px;border:2px solid var(--border);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--off)">👤 Personal</button>
+        </div>
+        <div id="hogarToggleHint" style="font-size:10px;color:var(--text3);margin-top:5px;text-align:center"></div>
+      </div>
+
+      <button class="btn-save" id="btnSaveEntry" onclick="saveEntry()" data-es="Guardar registro" data-en="Save entry">Guardar registro</button>
+      <button id="btnDeleteEntry" onclick="deleteEntry()" style="display:none;width:100%;background:var(--red-dim);color:var(--red);border:none;border-radius:var(--r);padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:8px">🗑️ Eliminar registro</button>
+    </div><!-- /tabManual -->
+
+    <!-- VOICE TAB -->
+    <div id="tabVoice" style="display:none;text-align:center;padding:20px 0">
+      <div id="voiceResult" style="display:none;background:var(--off);border-radius:12px;padding:14px;margin-bottom:14px;font-size:13px;text-align:left"></div>
+      <button id="voiceBtn" onclick="toggleVoice()" style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,var(--g-dark),var(--g-main));border:none;color:white;font-size:32px;cursor:pointer;margin-bottom:12px">🎙️</button>
+      <div id="voiceStatus" style="font-size:12px;color:var(--text3)" data-es="Toca para hablar" data-en="Tap to speak">Toca para hablar</div>
+    </div>
+
+    <!-- QUICK TAB -->
+    <div id="tabQuick" style="display:none">
+      <div id="quickForm"></div>
+    </div>
+  </div>
+</div>
+
 <script>
 /* ─── openMoreMenu universal ─── */
 function openMoreMenu(){

@@ -59,6 +59,10 @@ function loadSession() {
 body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(--text);min-height:100vh;overflow-x:hidden;}
 .app{display:flex;min-height:100vh;}
 
+/* ── HISTORIAL STATE ── */
+let selectedMonth = null;
+
+
 /* SIDEBAR */
 .sidebar{width:var(--sidebar);background:var(--white);border-right:1px solid var(--border);position:fixed;top:0;left:0;bottom:0;display:flex;flex-direction:column;z-index:50;overflow-y:auto;}
 .sb-logo{display:flex;align-items:center;gap:10px;padding:22px 18px 18px;border-bottom:1px solid var(--border);}

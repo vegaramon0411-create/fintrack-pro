@@ -79,6 +79,15 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
 .btn-new:hover{opacity:.88;}
 .page{padding:24px 28px;max-width:1200px;}
 
+/* ── METAS HELPERS ── */
+function checkHogar(){
+  try{
+    const h=JSON.parse(localStorage.getItem('ft_hogar')||'{}');
+    return h.connected===true && !h.manuallyLeft;
+  }catch(e){return false;}
+}
+
+
 /* SUMMARY */
 .summary-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px;}
 .ss-card{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;box-shadow:var(--shadow);}

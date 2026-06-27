@@ -80,6 +80,11 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
 .btn-new:hover{opacity:.88;}
 .page{padding:24px 28px;max-width:900px;}
 
+/* ── EMERGENCIA STATE ── */
+function loadHist(){ try{return JSON.parse(localStorage.getItem('ft_emerg_hist'))||[];}catch(e){return[];} }
+function saveHist(d){ localStorage.setItem('ft_emerg_hist',JSON.stringify(d)); }
+
+
 /* HERO */
 .hero{background:linear-gradient(135deg,#7B5A00 0%,var(--amber) 60%,#FFB347 100%);border-radius:22px;padding:26px 30px;color:white;margin-bottom:20px;position:relative;overflow:hidden;}
 .hero::before{content:'';position:absolute;top:-50px;right:-50px;width:180px;height:180px;border-radius:50%;background:rgba(255,255,255,.08);}
