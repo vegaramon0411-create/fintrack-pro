@@ -6,28 +6,31 @@
 <title>FinTrack Pro · Importar</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="premium.js">
+/* ─── openMoreMenu universal ─── */
 function openMoreMenu(){
-  const links = [
-    {ico:'📊',label:'Dashboard',url:'dashboard.html'},
-    {ico:'📈',label:'Análisis',url:'analisis.html'},
-    {ico:'🎯',label:'Metas',url:'metas.html'},
-    {ico:'💳',label:'Deudas',url:'deudas.html'},
-    {ico:'🏦',label:'Inversiones',url:'inversiones.html'},
-    {ico:'📷',label:'Escanear',url:'scanner.html'},
-    {ico:'📥',label:'Importar CSV',url:'importar.html'},
-    {ico:'🛡️',label:'Emergencia',url:'emergencia.html'},
-    {ico:'🔄',label:'Suscripciones',url:'suscripciones.html'},
-    {ico:'👤',label:'Perfil',url:'perfil.html'},
+  if(document.getElementById('_moreOv')) return;
+  const links=[
+    {ico:'📈',l:'Análisis',    u:'analisis.html'},
+    {ico:'🎯',l:'Metas',       u:'metas.html'},
+    {ico:'💳',l:'Deudas',      u:'deudas.html'},
+    {ico:'🏦',l:'Inversiones', u:'inversiones.html'},
+    {ico:'📷',l:'Escanear',    u:'scanner.html'},
+    {ico:'📥',l:'Importar CSV',u:'importar.html'},
+    {ico:'🛡️',l:'Emergencia',  u:'emergencia.html'},
+    {ico:'🔄',l:'Suscripciones',u:'suscripciones.html'},
+    {ico:'⚙️',l:'Config',      u:'config.html'},
+    {ico:'👤',l:'Perfil',      u:'perfil.html'},
   ];
-  const ov = document.createElement('div');
-  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:flex-end;backdrop-filter:blur(4px)';
-  ov.onclick=e=>{if(e.target===ov)ov.remove();};
-  ov.innerHTML=`<div style="background:white;border-radius:20px 20px 0 0;padding:20px;width:100%;max-height:70vh;overflow-y:auto">
-    <div style="width:36px;height:4px;background:#ddd;border-radius:100px;margin:0 auto 16px"></div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
-      ${links.map(l=>`<div onclick="window.location.href='${l.url}'" style="display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer">
-        <div style="width:50px;height:50px;background:#f5f5f5;border-radius:14px;display:grid;place-items:center;font-size:22px">${l.ico}</div>
-        <span style="font-size:10px;font-weight:600;color:#4A4E69;text-align:center">${l.label}</span>
+  const ov=document.createElement('div');
+  ov.id='_moreOv';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:300;display:flex;align-items:flex-end;backdrop-filter:blur(3px);';
+  ov.addEventListener('click',e=>{if(e.target===ov)ov.remove();});
+  ov.innerHTML=`<div style="background:white;border-radius:24px 24px 0 0;padding:16px 20px calc(20px + env(safe-area-inset-bottom));width:100%;">
+    <div style="width:36px;height:4px;background:#ddd;border-radius:100px;margin:0 auto 16px;"></div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px 8px;">
+      ${links.map(k=>`<div onclick="window.location.href='${k.u}'" style="display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;">
+        <div style="width:52px;height:52px;background:#f5f5f7;border-radius:14px;display:grid;place-items:center;font-size:24px;">${k.ico}</div>
+        <span style="font-size:10px;font-weight:600;color:#4A4E69;text-align:center;">${k.l}</span>
       </div>`).join('')}
     </div>
   </div>`;
@@ -136,11 +139,14 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
 #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--text);color:white;padding:12px 20px;border-radius:20px;font-size:13px;font-weight:600;display:none;z-index:200;white-space:nowrap;}
 
 /* MOBILE NAV */
-.mob-nav{display:flex;position:fixed;bottom:0;left:0;right:0;background:var(--white);border-top:1px solid var(--border);padding:10px 4px calc(10px + env(safe-area-inset-bottom));z-index:50;}
-.mob-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:9px;font-weight:600;color:var(--text3);cursor:pointer;}
+/* ─── MOBILE NAV ─── */
+.mob-nav{display:flex;position:fixed;bottom:0;left:0;right:0;background:var(--white);border-top:1px solid var(--border);padding:8px 0 calc(8px + env(safe-area-inset-bottom));z-index:100;align-items:center;}
+.mob-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:9px;font-weight:600;color:var(--text3);cursor:pointer;-webkit-tap-highlight-color:transparent;}
 .mob-item.on{color:var(--g-main);}
-.mob-ico{font-size:20px;line-height:1;}
-.mob-add{width:44px;height:44px;background:linear-gradient(135deg,var(--g-dark),var(--g-main));border-radius:50%;display:grid;place-items:center;color:white;font-size:22px;cursor:pointer;margin-top:-10px;}
+.mob-item.mob-center{flex:1.2;}
+.mob-ico{font-size:21px;line-height:1;}
+.mob-add{width:48px;height:48px;background:linear-gradient(135deg,var(--g-dark),var(--g-main));border-radius:50%;border:none;display:grid;place-items:center;color:white;font-size:26px;cursor:pointer;margin-top:-16px;box-shadow:0 4px 16px rgba(15,81,50,.35);-webkit-tap-highlight-color:transparent;}
+@media(min-width:700px){.mob-nav{display:none!important;}}
 </style>
 </head>
 <body>
@@ -168,11 +174,11 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
 
 <div class="page" id="page"></div>
 <nav class="mob-nav">
-  <div class="mob-item" onclick="go('dashboard.html')"><div class="mob-ico">📊</div><span>Inicio</span></div>
-  <div class="mob-item" onclick="go('historial.html')"><div class="mob-ico">📅</div><span>Historial</span></div>
-  <div class="mob-item"><div class="mob-add" onclick="go('dashboard.html?open=1')">＋</div></div>
-  <div class="mob-item" onclick="go('hogar.html')"><div class="mob-ico">🏠</div><span>Hogar</span></div>
-  <div class="mob-item on"><div class="mob-ico">☰</div><span>Más</span></div>
+  <div class="mob-item " onclick="go('dashboard.html')"><div class="mob-ico">📊</div><span>Inicio</span></div>
+  <div class="mob-item " onclick="go('historial.html')"><div class="mob-ico">📅</div><span>Historial</span></div>
+  <div class="mob-item mob-center"><button class="mob-add" onclick="go('dashboard.html')" onclick="openModal()">＋</button></div>
+  <div class="mob-item " onclick="go('hogar.html')"><div class="mob-ico">🏠</div><span>Hogar</span></div>
+  <div class="mob-item on" onclick="openMoreMenu()"><div class="mob-ico">☰</div><span>Más</span></div>
 </nav>
 
 <div id="toast"></div>

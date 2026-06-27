@@ -398,28 +398,14 @@ body {
   .hero { grid-template-columns:1fr; }
   .hero-chips { flex-direction:row; flex-wrap:wrap; }
   .hero-amount { font-size:36px; }
-  .mob-nav { display:flex !important; }
-  .btn-new span { display:none; }
-}
-
-.mob-nav {
-  display:none;
-  position:fixed;bottom:0;left:0;right:0;
-  background:var(--white);border-top:1px solid var(--border);
-  padding:10px 4px 16px;
-  padding-bottom:calc(10px + env(safe-area-inset-bottom));
-  z-index:50;gap:0;box-shadow:0 -4px 20px rgba(0,0,0,0.06);
-}
-.mob-item { flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:9px;font-weight:600;color:var(--text3); }
-.mob-item.on { color:var(--g-main); }
-.mob-ico { font-size:20px;line-height:1; }
-.mob-add {
-  width:44px;height:44px;border-radius:50%;
-  background:linear-gradient(135deg,var(--g-dark),var(--g-main));
-  display:flex;align-items:center;justify-content:center;
-  color:white;font-size:22px;margin-top:-16px;
-  box-shadow:0 4px 16px rgba(15,81,50,0.35);flex-shrink:0;
-}
+  /* ─── MOBILE NAV ─── */
+.mob-nav{display:flex;position:fixed;bottom:0;left:0;right:0;background:var(--white);border-top:1px solid var(--border);padding:8px 0 calc(8px + env(safe-area-inset-bottom));z-index:100;align-items:center;}
+.mob-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:9px;font-weight:600;color:var(--text3);cursor:pointer;-webkit-tap-highlight-color:transparent;}
+.mob-item.on{color:var(--g-main);}
+.mob-item.mob-center{flex:1.2;}
+.mob-ico{font-size:21px;line-height:1;}
+.mob-add{width:48px;height:48px;background:linear-gradient(135deg,var(--g-dark),var(--g-main));border-radius:50%;border:none;display:grid;place-items:center;color:white;font-size:26px;cursor:pointer;margin-top:-16px;box-shadow:0 4px 16px rgba(15,81,50,.35);-webkit-tap-highlight-color:transparent;}
+@media(min-width:700px){.mob-nav{display:none!important;}}
 
 ::-webkit-scrollbar { width:5px; }
 ::-webkit-scrollbar-track { background:transparent; }
@@ -559,12 +545,8 @@ body {
           </div>
         </div>
         <div style="margin-top:10px;background:rgba(255,255,255,.12);border-radius:12px;padding:10px">
-          <div style="font-size:11px;opacity:.7;margin-bottom:6px" id="heroSobro"></div>
-          <div style="display:flex;gap:8px">
-            <button id="heroBtnAhorro" onclick="event.stopPropagation();heroAddToSavings()" style="flex:1;background:rgba(255,255,255,.2);color:white;border:none;border-radius:8px;padding:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">💰 Al ahorro</button>
-            <button onclick="event.stopPropagation();go('emergencia.html')" style="flex:1;background:rgba(255,255,255,.15);color:white;border:none;border-radius:8px;padding:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">🏦 Emergencia</button>
-            <button onclick="event.stopPropagation();go('inversiones.html')" style="flex:1;background:rgba(255,255,255,.1);color:white;border:none;border-radius:8px;padding:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">📈 Invertir</button>
-          </div>
+          <div style="font-size:11px;opacity:.75;margin-bottom:8px" id="heroSobro"></div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap" id="heroDistBtns"></div>
         </div>
       </div>
 
@@ -777,11 +759,11 @@ body {
 .goal-prev-empty-btn{display:inline-block;margin-top:10px;background:var(--g-dim);color:var(--g-main);font-size:12px;font-weight:700;padding:7px 16px;border-radius:20px;cursor:pointer;border:none;font-family:inherit;}
 </style>
 <nav class="mob-nav">
-  <div class="mob-item on" onclick="go('dashboard.html')"><div class="mob-ico">📊</div><span>Inicio</span></div>
-  <div class="mob-item " onclick="go('historial.html')"><div class="mob-ico">📅</div><span>Historial</span></div>
-  <div class="mob-item"><div class="mob-add" onclick="openModal()">＋</div></div>
-  <div class="mob-item " onclick="go('hogar.html')"><div class="mob-ico">🏠</div><span>Hogar</span></div>
-  <div class="mob-item " onclick="openMoreMenu()"><div class="mob-ico">☰</div><span>Más</span></div>
+  <div class="mob-item on" onclick="window.scrollTo(0,0)"><div class="mob-ico">📊</div><span>Inicio</span></div>
+  <div class="mob-item" onclick="go('historial.html')"><div class="mob-ico">📅</div><span>Historial</span></div>
+  <div class="mob-item mob-center"><button class="mob-add" onclick="openModal()">＋</button></div>
+  <div class="mob-item" onclick="go('hogar.html')"><div class="mob-ico">🏠</div><span>Hogar</span></div>
+  <div class="mob-item" onclick="openMoreMenu()"><div class="mob-ico">☰</div><span>Más</span></div>
 </nav>
 
 <!-- MORE MENU PANEL (mobile) -->
@@ -819,179 +801,35 @@ body {
 </style>
 
 <script>
-function openMoreMenu(){ document.getElementById('moreOverlay').classList.add('open'); }
-function closeMoreMenu(){ document.getElementById('moreOverlay').classList.remove('open'); }
-function closeMoreOutside(e){ if(e.target===document.getElementById('moreOverlay')) closeMoreMenu(); }
-</script>
-
-<!-- MODAL: NEW ENTRY -->
-<div class="overlay" id="overlay" onclick="closeOutside(event)">
-  <div class="modal">
-    <div class="modal-hd">
-      <div class="modal-title" id="modalTitleText" data-es="Nuevo registro" data-en="New entry">Nuevo registro</div>
-      <div class="modal-close" onclick="closeModal()">✕</div>
+/* ─── openMoreMenu universal ─── */
+function openMoreMenu(){
+  if(document.getElementById('_moreOv')) return;
+  const links=[
+    {ico:'📈',l:'Análisis',    u:'analisis.html'},
+    {ico:'🎯',l:'Metas',       u:'metas.html'},
+    {ico:'💳',l:'Deudas',      u:'deudas.html'},
+    {ico:'🏦',l:'Inversiones', u:'inversiones.html'},
+    {ico:'📷',l:'Escanear',    u:'scanner.html'},
+    {ico:'📥',l:'Importar CSV',u:'importar.html'},
+    {ico:'🛡️',l:'Emergencia',  u:'emergencia.html'},
+    {ico:'🔄',l:'Suscripciones',u:'suscripciones.html'},
+    {ico:'⚙️',l:'Config',      u:'config.html'},
+    {ico:'👤',l:'Perfil',      u:'perfil.html'},
+  ];
+  const ov=document.createElement('div');
+  ov.id='_moreOv';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:300;display:flex;align-items:flex-end;backdrop-filter:blur(3px);';
+  ov.addEventListener('click',e=>{if(e.target===ov)ov.remove();});
+  ov.innerHTML=`<div style="background:white;border-radius:24px 24px 0 0;padding:16px 20px calc(20px + env(safe-area-inset-bottom));width:100%;">
+    <div style="width:36px;height:4px;background:#ddd;border-radius:100px;margin:0 auto 16px;"></div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px 8px;">
+      ${links.map(k=>`<div onclick="window.location.href='${k.u}'" style="display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;">
+        <div style="width:52px;height:52px;background:#f5f5f7;border-radius:14px;display:grid;place-items:center;font-size:24px;">${k.ico}</div>
+        <span style="font-size:10px;font-weight:600;color:#4A4E69;text-align:center;">${k.l}</span>
+      </div>`).join('')}
     </div>
-
-    <!-- INPUT METHOD TABS -->
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:5px;margin-bottom:16px;background:var(--off);border-radius:10px;padding:3px;">
-      <button class="input-tab on" id="tabBtnManual" onclick="switchInputTab('manual',this)" style="padding:7px 4px;border-radius:8px;font-size:11px;font-weight:700;border:none;cursor:pointer;font-family:inherit;background:var(--white);color:var(--g-main);box-shadow:0 1px 4px rgba(0,0,0,0.08);" data-es="✏️ Manual" data-en="✏️ Manual">✏️ Manual</button>
-      <button class="input-tab" id="tabBtnVoice" onclick="switchInputTab('voice',this)" style="padding:7px 4px;border-radius:8px;font-size:11px;font-weight:700;border:none;cursor:pointer;font-family:inherit;background:transparent;color:var(--text3);" data-es="🎤 Voz" data-en="🎤 Voice">🎤 Voz</button>
-      <button class="input-tab" id="tabBtnQuick" onclick="switchInputTab('quick',this)" style="padding:7px 4px;border-radius:8px;font-size:11px;font-weight:700;border:none;cursor:pointer;font-family:inherit;background:transparent;color:var(--text3);" data-es="⚡ Rápido" data-en="⚡ Quick">⚡ Rápido</button>
-      <button class="input-tab" id="tabBtnCsv" onclick="switchInputTab('csv',this)" style="padding:7px 4px;border-radius:8px;font-size:11px;font-weight:700;border:none;cursor:pointer;font-family:inherit;background:transparent;color:var(--text3);" data-es="📄 CSV" data-en="📄 CSV">📄 CSV</button>
-    </div>
-
-    <!-- VOICE INPUT -->
-    <div id="tabVoice" style="display:none;margin-bottom:16px">
-      <div style="text-align:center;padding:20px;background:var(--off);border-radius:var(--r);margin-bottom:12px">
-        <div id="voiceBtn" onclick="toggleVoice()" style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,var(--g-dark),var(--g-main));display:grid;place-items:center;font-size:28px;margin:0 auto 10px;cursor:pointer;box-shadow:0 4px 16px rgba(15,81,50,0.3);transition:transform .1s;">🎤</div>
-        <div id="voiceStatus" style="font-size:13px;font-weight:600;color:var(--text2)" data-es="Toca el micrófono y habla" data-en="Tap the mic and speak">Toca el micrófono y habla</div>
-        <div style="font-size:11px;color:var(--text3);margin-top:6px" data-es='Ejemplo: "Gasté $45 en Portillo\'s"' data-en='Example: "I spent $45 at Portillo\'s"'>Ejemplo: "Gasté $45 en Portillo's"</div>
-      </div>
-      <div id="voiceResult" style="display:none;background:var(--g-light);border:1px solid rgba(26,122,74,0.2);border-radius:var(--r);padding:12px;margin-bottom:10px">
-        <div style="font-size:11px;font-weight:700;color:var(--g-dark);margin-bottom:4px" data-es="Detectado:" data-en="Detected:">Detectado:</div>
-        <div id="voiceText" style="font-size:13px;color:var(--text2)"></div>
-      </div>
-    </div>
-
-    <!-- QUICK SHORTCUTS -->
-    <div id="tabQuick" style="display:none;margin-bottom:16px">
-      <div id="quickList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px"></div>
-
-      <!-- Inline new-shortcut form (hidden by default) -->
-      <div id="quickForm" style="display:none;background:var(--off);border-radius:var(--r);padding:14px;margin-bottom:8px;">
-        <div class="field" style="margin-bottom:10px">
-          <label data-es="Nombre" data-en="Name">Nombre</label>
-          <input type="text" id="qsDesc" placeholder="Gasolina Shell">
-        </div>
-        <div class="field-row" style="margin-bottom:10px">
-          <div class="field" style="margin-bottom:0">
-            <label data-es="Monto ($)" data-en="Amount ($)">Monto ($)</label>
-            <input type="number" id="qsAmount" placeholder="0.00" min="0" step="0.01">
-          </div>
-          <div class="field" style="margin-bottom:0">
-            <label data-es="Tipo" data-en="Type">Tipo</label>
-            <select id="qsType">
-              <option value="gasto" data-es="💸 Gasto" data-en="💸 Expense">💸 Gasto</option>
-              <option value="ingreso" data-es="💰 Ingreso" data-en="💰 Income">💰 Ingreso</option>
-              <option value="inversion" data-es="📈 Inversión" data-en="📈 Investment">📈 Inversión</option>
-              <option value="ahorro" data-es="🛡️ Ahorro" data-en="🛡️ Savings">🛡️ Ahorro</option>
-            </select>
-          </div>
-        </div>
-        <div class="field" style="margin-bottom:10px">
-          <label data-es="Categoría" data-en="Category">Categoría</label>
-          <select id="qsCat">
-            <option value="🛒 Supermercado" data-es="🛒 Supermercado" data-en="🛒 Grocery">🛒 Supermercado</option>
-            <option value="🏠 Renta / Hipoteca" data-es="🏠 Renta / Hipoteca" data-en="🏠 Rent / Mortgage">🏠 Renta / Hipoteca</option>
-            <option value="⛽ Gasolina" data-es="⛽ Gasolina" data-en="⛽ Gas">⛽ Gasolina</option>
-            <option value="🍔 Restaurantes" data-es="🍔 Restaurantes" data-en="🍔 Restaurants">🍔 Restaurantes</option>
-            <option value="💊 Salud" data-es="💊 Salud" data-en="💊 Health">💊 Salud</option>
-            <option value="🎬 Entretenimiento" data-es="🎬 Entretenimiento" data-en="🎬 Entertainment">🎬 Entretenimiento</option>
-            <option value="👕 Ropa" data-es="👕 Ropa" data-en="👕 Clothing">👕 Ropa</option>
-            <option value="📱 Teléfono/Internet" data-es="📱 Teléfono/Internet" data-en="📱 Phone/Internet">📱 Teléfono/Internet</option>
-            <option value="✈️ Viajes" data-es="✈️ Viajes" data-en="✈️ Travel">✈️ Viajes</option>
-            <option value="🔧 Mantenimiento" data-es="🔧 Mantenimiento" data-en="🔧 Maintenance">🔧 Mantenimiento</option>
-            <option value="📈 Inversión" data-es="📈 Inversión" data-en="📈 Investment">📈 Inversión</option>
-            <option value="📦 Otros" data-es="📦 Otros" data-en="📦 Other">📦 Otros</option>
-          </select>
-        </div>
-        <div style="display:flex;gap:8px">
-          <button onclick="cancelQuickForm()" style="flex:1;background:var(--white);border:1.5px solid var(--border);border-radius:10px;padding:9px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;font-family:inherit;" data-es="Cancelar" data-en="Cancel">Cancelar</button>
-          <button onclick="confirmAddShortcut()" style="flex:1;background:var(--g-main);border:none;border-radius:10px;padding:9px;font-size:12px;font-weight:700;color:white;cursor:pointer;font-family:inherit;" data-es="Crear atajo" data-en="Create shortcut">Crear atajo</button>
-        </div>
-      </div>
-
-      <button id="addShortcutBtn" onclick="showQuickForm()" style="width:100%;border:1.5px dashed var(--border);background:transparent;border-radius:var(--r);padding:10px;font-size:12px;font-weight:600;color:var(--text3);cursor:pointer;font-family:inherit;transition:all .15s;" data-es="+ Agregar atajo rápido" data-en="+ Add quick shortcut">+ Agregar atajo rápido</button>
-    </div>
-
-    <!-- CSV IMPORT -->
-    <div id="tabCsv" style="display:none;margin-bottom:16px">
-      <div style="border:2px dashed var(--border);border-radius:var(--r);padding:24px;text-align:center;cursor:pointer;transition:all .2s;position:relative" id="csvZone">
-        <input type="file" accept=".csv" id="csvFile" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;" onchange="handleCSV(this)">
-        <div style="font-size:32px;margin-bottom:8px">📄</div>
-        <div style="font-size:14px;font-weight:700;margin-bottom:4px" data-es="Subir estado de cuenta CSV" data-en="Upload bank statement CSV">Subir estado de cuenta CSV</div>
-        <div style="font-size:12px;color:var(--text3)" data-es="Chase, SoFi, Bank of America, y más" data-en="Chase, SoFi, Bank of America, and more">Chase, SoFi, Bank of America, y más</div>
-      </div>
-      <div id="csvPreview" style="display:none;margin-top:10px"></div>
-    </div>
-
-    <!-- MANUAL (default) -->
-    <div id="tabManual">
-    <div class="type-grid">
-      <button class="type-btn on" onclick="pickType(this,'gasto')">💸 <span data-es="Gasto" data-en="Expense">Gasto</span></button>
-      <button class="type-btn" onclick="pickType(this,'ingreso')">💰 <span data-es="Ingreso" data-en="Income">Ingreso</span></button>
-      <button class="type-btn" onclick="pickType(this,'inversion')">📈 <span data-es="Inversión" data-en="Investment">Inversión</span></button>
-      <button class="type-btn" onclick="pickType(this,'ahorro')">🛡️ <span data-es="Ahorro" data-en="Savings">Ahorro</span></button>
-      <button class="type-btn" onclick="pickType(this,'suscripcion')">🔄 <span data-es="Suscripción" data-en="Subscription">Suscripción</span></button>
-      <button class="type-btn" onclick="pickType(this,'hipoteca')">🏠 <span data-es="Renta/Hipoteca" data-en="Rent/Mortgage">Renta/Hipoteca</span></button>
-    </div>
-    <div class="field">
-      <label data-es="Descripción" data-en="Description">Descripción</label>
-      <input type="text" id="mDesc" placeholder="">
-    </div>
-    <div class="field-row">
-      <div class="field">
-        <label data-es="Monto ($)" data-en="Amount ($)">Monto ($)</label>
-        <input type="number" id="mAmount" placeholder="0.00" min="0" step="0.01">
-      </div>
-      <div class="field">
-        <label data-es="Fecha" data-en="Date">Fecha</label>
-        <input type="date" id="mDate">
-      </div>
-    </div>
-    <div class="field" id="catField">
-      <label data-es="Categoría" data-en="Category">Categoría</label>
-      <select id="mCat" onchange="autoDetectHogar(this.value)">
-        <option data-es="🛒 Supermercado" data-en="🛒 Grocery">🛒 Supermercado</option>
-        <option data-es="🏠 Renta / Hipoteca" data-en="🏠 Rent / Mortgage">🏠 Renta / Hipoteca</option>
-        <option data-es="⛽ Gasolina" data-en="⛽ Gas">⛽ Gasolina</option>
-        <option data-es="🍔 Restaurantes" data-en="🍔 Restaurants">🍔 Restaurantes</option>
-        <option data-es="💊 Salud" data-en="💊 Health">💊 Salud</option>
-        <option data-es="🎬 Entretenimiento" data-en="🎬 Entertainment">🎬 Entretenimiento</option>
-        <option data-es="👕 Ropa" data-en="👕 Clothing">👕 Ropa</option>
-        <option data-es="📱 Teléfono/Internet" data-en="📱 Phone/Internet">📱 Teléfono/Internet</option>
-        <option data-es="✈️ Viajes" data-en="✈️ Travel">✈️ Viajes</option>
-        <option data-es="🔧 Mantenimiento" data-en="🔧 Maintenance">🔧 Mantenimiento</option>
-        <option data-es="📈 Inversión" data-en="📈 Investment">📈 Inversión</option>
-        <option data-es="📦 Otros" data-en="📦 Other">📦 Otros</option>
-      </select>
-    </div>
-    <div class="field">
-      <label data-es="Nota (opcional)" data-en="Note (optional)">Nota (opcional)</label>
-      <input type="text" id="mNote" placeholder="">
-    </div>
-
-    <!-- HOGAR / PERSONAL toggle — solo visible si hay hogar conectado -->
-    <div id="hogarToggleField" style="display:none;margin-bottom:14px">
-      <label style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:8px" data-es="¿Este gasto es del hogar o personal?" data-en="Is this a household or personal expense?">¿Este gasto es del hogar o personal?</label>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <button id="btnHogar" onclick="setHogarFlag(true)" type="button"
-          style="padding:11px;border-radius:10px;border:2px solid var(--border);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--off);transition:all .15s">
-          🏠 <span data-es="Del hogar" data-en="Household">Del hogar</span>
-        </button>
-        <button id="btnPersonal" onclick="setHogarFlag(false)" type="button"
-          style="padding:11px;border-radius:10px;border:2px solid var(--border);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--off);transition:all .15s">
-          👤 <span data-es="Personal" data-en="Personal">Personal</span>
-        </button>
-      </div>
-      <div id="hogarToggleHint" style="font-size:10px;color:var(--text3);margin-top:5px;text-align:center"></div>
-    </div>
-
-    <button class="btn-save" id="btnSaveEntry" onclick="saveEntry()" data-es="Guardar registro" data-en="Save entry">Guardar registro</button>
-    <button id="btnDeleteEntry" onclick="deleteEntry()" style="display:none;width:100%;background:var(--red-dim);color:var(--red);border:none;border-radius:var(--r);padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:8px;" data-es="🗑️ Eliminar registro" data-en="🗑️ Delete entry">🗑️ Eliminar registro</button>
-    </div><!-- /tabManual -->
-  </div>
-</div>
-
-<script>
-/* ══════════════════════════════════════════
-   DATA — localStorage (persiste entre sesiones)
-══════════════════════════════════════════ */
-const STORE_KEY = 'ft_data';
-
-function loadData() {
-  try { return JSON.parse(localStorage.getItem(STORE_KEY)) || { transactions:[], emergency:0, subscriptions:[] }; }
-  catch(e) { return { transactions:[], emergency:0, subscriptions:[] }; }
+  </div>`;
+  document.body.appendChild(ov);
 }
 
 function saveData(d) { localStorage.setItem(STORE_KEY, JSON.stringify(d)); }
@@ -1566,31 +1404,107 @@ function updateHeroDinero(){
   const es = lang==='es';
 
   const el = id => document.getElementById(id);
-  if(el('heroPatrimony'))   el('heroPatrimony').textContent   = fmt(patrimony);
-  if(el('chipAvailSavings'))el('chipAvailSavings').textContent = fmt(availSavings);
-  if(el('chipEmergency'))   el('chipEmergency').textContent    = fmt(emergency);
-  if(el('heroSobro'))       el('heroSobro').textContent        = leftover > 0
-    ? (es ? `Este mes te sobró: +${fmt(leftover)} ¿Qué hacemos?` : `This month you saved: +${fmt(leftover)} What to do?`)
-    : (es ? 'Este mes no sobró nada — sigue así 💪' : 'Nothing left this month — keep it up 💪');
+  if(el('heroPatrimony'))    el('heroPatrimony').textContent    = fmt(patrimony);
+  if(el('chipAvailSavings')) el('chipAvailSavings').textContent = fmt(availSavings);
+  if(el('chipEmergency'))    el('chipEmergency').textContent    = fmt(emergency);
 
-  const btnAhorro = el('heroBtnAhorro');
-  if(btnAhorro){
-    btnAhorro.textContent = es ? `💰 Al ahorro (+${fmt(leftover)})` : `💰 To savings (+${fmt(leftover)})`;
-    btnAhorro.style.display = leftover > 0 ? '' : 'none';
+  const sobroEl = el('heroSobro');
+  const btnsEl  = el('heroDistBtns');
+  if(!sobroEl || !btnsEl) return;
+
+  if(leftover <= 0){
+    sobroEl.textContent = es ? 'Este mes no sobró — sigue así 💪' : 'Nothing left this month 💪';
+    btnsEl.innerHTML = '';
+    return;
   }
+
+  sobroEl.textContent = es
+    ? `Este mes sobró +${fmt(leftover)} — ¿cómo lo distribuyes?`
+    : `+${fmt(leftover)} left this month — how to distribute?`;
+
+  // Distribution options — compact chips
+  const opts = [
+    { key:'ahorro',    ico:'💰', label: es?'Ahorro':'Savings',   pct:50 },
+    { key:'emergencia',ico:'🏦', label: es?'Emergencia':'Emergency', pct:25 },
+    { key:'inversion', ico:'📈', label: es?'Inversión':'Invest',  pct:25 },
+  ];
+
+  // Read saved distribution %
+  let dist = JSON.parse(localStorage.getItem('ft_dist_pcts')||'null') || { ahorro:50, emergencia:25, inversion:25 };
+
+  btnsEl.innerHTML = `
+  <div style="width:100%">
+    ${opts.map(o=>{
+      const amt = Math.round(leftover * dist[o.key]/100);
+      return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+        <span style="font-size:13px;width:20px">${o.ico}</span>
+        <span style="font-size:11px;font-weight:600;flex:1;opacity:.9">${o.label}</span>
+        <div style="display:flex;align-items:center;gap:4px">
+          <button onclick="event.stopPropagation();adjDist('${o.key}',-5,${leftover})" style="background:rgba(255,255,255,.15);color:white;border:none;border-radius:6px;width:22px;height:22px;font-size:13px;cursor:pointer;font-family:inherit;display:grid;place-items:center">−</button>
+          <span style="font-size:11px;font-weight:800;min-width:28px;text-align:center">${dist[o.key]}%</span>
+          <button onclick="event.stopPropagation();adjDist('${o.key}',+5,${leftover})" style="background:rgba(255,255,255,.15);color:white;border:none;border-radius:6px;width:22px;height:22px;font-size:13px;cursor:pointer;font-family:inherit;display:grid;place-items:center">+</button>
+        </div>
+        <span style="font-size:11px;font-weight:700;min-width:52px;text-align:right;opacity:.9">${fmt(amt)}</span>
+      </div>`;
+    }).join('')}
+    <button onclick="event.stopPropagation();applyDist(${leftover})"
+      style="width:100%;margin-top:4px;background:rgba(255,255,255,.25);color:white;border:none;border-radius:8px;padding:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">
+      ✅ ${es?'Aplicar distribución':'Apply distribution'}
+    </button>
+  </div>`;
 }
 
-function heroAddToSavings(){
-  const totals = getMonthTotals();
-  const income = user.income||0;
-  const sharedSpent = isHogarConnected() ? (totals.hogarSpent||0) : 0;
-  const personalSpent = (totals.personalNeedsSpent||0) + (totals.wantsSpent||0);
-  const leftover = Math.max(0, income + (totals.ingreso||0) - sharedSpent - personalSpent);
-  if(!leftover){ showToast(lang==='es'?'Sin sobrante este mes':'Nothing to save this month'); return; }
-  const cur = parseFloat(localStorage.getItem('ft_available_savings')||'0');
-  localStorage.setItem('ft_available_savings', (cur+leftover).toFixed(2));
-  showToast(lang==='es'?`✅ +${fmt(leftover)} al ahorro disponible`:`✅ +${fmt(leftover)} added to savings`,'','',3000);
+function adjDist(key, delta, leftover){
+  let dist = JSON.parse(localStorage.getItem('ft_dist_pcts')||'null') || { ahorro:50, emergencia:25, inversion:25 };
+  const keys = ['ahorro','emergencia','inversion'];
+  const newVal = Math.max(0, Math.min(100, dist[key]+delta));
+  const diff = newVal - dist[key];
+  if(!diff) return;
+  dist[key] = newVal;
+  // Adjust other keys proportionally
+  const others = keys.filter(k=>k!==key);
+  const otherSum = others.reduce((a,k)=>a+dist[k],0);
+  if(otherSum > 0){
+    others.forEach(k=>{ dist[k] = Math.max(0, dist[k] - Math.round(diff * dist[k]/otherSum)); });
+  }
+  // Fix rounding so total = 100
+  const total = keys.reduce((a,k)=>a+dist[k],0);
+  if(total !== 100){ dist[keys[0]] += 100-total; }
+  localStorage.setItem('ft_dist_pcts', JSON.stringify(dist));
   updateHeroDinero();
+}
+
+function applyDist(leftover){
+  const dist = JSON.parse(localStorage.getItem('ft_dist_pcts')||'null') || { ahorro:50, emergencia:25, inversion:25 };
+  const es = lang==='es';
+
+  // Ahorro disponible
+  const ahorroAmt = Math.round(leftover * dist.ahorro/100);
+  if(ahorroAmt > 0){
+    const cur = parseFloat(localStorage.getItem('ft_available_savings')||'0');
+    localStorage.setItem('ft_available_savings', (cur+ahorroAmt).toFixed(2));
+  }
+
+  // Emergencia
+  const emergAmt = Math.round(leftover * dist.emergencia/100);
+  if(emergAmt > 0){
+    const data = JSON.parse(localStorage.getItem('ft_data')||'{"transactions":[],"emergency":0}');
+    data.emergency = (data.emergency||0) + emergAmt;
+    data.transactions.push({ id:Date.now(), type:'ahorro', desc:es?'Depósito fondo emergencia':'Emergency fund deposit', amount:emergAmt, date:new Date().toISOString().split('T')[0], cat:'🛡️ Emergencia' });
+    localStorage.setItem('ft_data', JSON.stringify(data));
+  }
+
+  // Inversión → redirige a inversiones para que lo agreguen
+  const invAmt = Math.round(leftover * dist.inversion/100);
+
+  showToast(es
+    ? `✅ Distribuido: ${fmt(ahorroAmt)} ahorro · ${fmt(emergAmt)} emergencia${invAmt>0?' · '+fmt(invAmt)+' para invertir':''}`
+    : `✅ Distributed: ${fmt(ahorroAmt)} savings · ${fmt(emergAmt)} emergency${invAmt>0?' · '+fmt(invAmt)+' to invest':''}`,
+    '', '', 4000);
+
+  if(invAmt > 0) localStorage.setItem('ft_invest_suggest', invAmt);
+  updateHeroDinero();
+  renderDashboard();
 }
 
 let miDineroVisible = false;

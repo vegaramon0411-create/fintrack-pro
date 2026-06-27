@@ -250,26 +250,14 @@ body {
   .donut-wrap { flex-direction:column; }
   .donut-canvas-wrap { width:140px;height:140px; }
   .insights-grid { grid-template-columns:1fr; }
-  .mob-nav { display:flex !important; }
-}
-
-.mob-nav {
-  display:none;position:fixed;bottom:0;left:0;right:0;
-  background:var(--white);border-top:1px solid var(--border);
-  padding:10px 4px 16px;
-  padding-bottom:calc(10px + env(safe-area-inset-bottom));
-  z-index:50;gap:0;box-shadow:0 -4px 20px rgba(0,0,0,0.06);
-}
-.mob-item { flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:9px;font-weight:600;color:var(--text3); }
-.mob-item.on { color:var(--g-main); }
-.mob-ico { font-size:20px;line-height:1; }
-.mob-add {
-  width:44px;height:44px;border-radius:50%;
-  background:linear-gradient(135deg,var(--g-dark),var(--g-main));
-  display:flex;align-items:center;justify-content:center;
-  color:white;font-size:22px;margin-top:-16px;
-  box-shadow:0 4px 16px rgba(15,81,50,0.35);flex-shrink:0;
-}
+  /* ─── MOBILE NAV ─── */
+.mob-nav{display:flex;position:fixed;bottom:0;left:0;right:0;background:var(--white);border-top:1px solid var(--border);padding:8px 0 calc(8px + env(safe-area-inset-bottom));z-index:100;align-items:center;}
+.mob-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:9px;font-weight:600;color:var(--text3);cursor:pointer;-webkit-tap-highlight-color:transparent;}
+.mob-item.on{color:var(--g-main);}
+.mob-item.mob-center{flex:1.2;}
+.mob-ico{font-size:21px;line-height:1;}
+.mob-add{width:48px;height:48px;background:linear-gradient(135deg,var(--g-dark),var(--g-main));border-radius:50%;border:none;display:grid;place-items:center;color:white;font-size:26px;cursor:pointer;margin-top:-16px;box-shadow:0 4px 16px rgba(15,81,50,.35);-webkit-tap-highlight-color:transparent;}
+@media(min-width:700px){.mob-nav{display:none!important;}}
 ::-webkit-scrollbar { width:5px; }
 ::-webkit-scrollbar-track { background:transparent; }
 ::-webkit-scrollbar-thumb { background:var(--border);border-radius:3px; }
@@ -345,9 +333,9 @@ body {
 <nav class="mob-nav">
   <div class="mob-item " onclick="go('dashboard.html')"><div class="mob-ico">📊</div><span>Inicio</span></div>
   <div class="mob-item " onclick="go('historial.html')"><div class="mob-ico">📅</div><span>Historial</span></div>
-  <div class="mob-item"><div class="mob-add" onclick="go('dashboard.html?open=1')">＋</div></div>
+  <div class="mob-item mob-center"><button class="mob-add" onclick="go('dashboard.html')" onclick="openModal()">＋</button></div>
   <div class="mob-item " onclick="go('hogar.html')"><div class="mob-ico">🏠</div><span>Hogar</span></div>
-  <div class="mob-item on" onclick="go('dashboard.html#mas')"><div class="mob-ico">☰</div><span>Más</span></div>
+  <div class="mob-item on" onclick="openMoreMenu()"><div class="mob-ico">☰</div><span>Más</span></div>
 </nav><!-- MORE MENU PANEL (mobile) -->
 <div class="more-overlay" id="moreOverlay" onclick="closeMoreOutside(event)">
   <div class="more-panel">
@@ -381,73 +369,35 @@ body {
 </style>
 
 <script>
-function openMoreMenu(){ document.getElementById('moreOverlay').classList.add('open'); }
-function closeMoreMenu(){ document.getElementById('moreOverlay').classList.remove('open'); }
-function closeMoreOutside(e){ if(e.target===document.getElementById('moreOverlay')) closeMoreMenu(); }
-</script>
-
-<!-- CATEGORY DETAIL MODAL -->
-<div class="detail-overlay" id="detailOverlay" onclick="closeDetailOutside(event)">
-  <div class="detail-modal">
-    <div class="detail-hd">
-      <div>
-        <div class="detail-title" id="detailTitle">Categoría</div>
-        <div class="detail-sub" id="detailSub"></div>
-      </div>
-      <div class="detail-close" onclick="closeDetailModal()">✕</div>
+/* ─── openMoreMenu universal ─── */
+function openMoreMenu(){
+  if(document.getElementById('_moreOv')) return;
+  const links=[
+    {ico:'📈',l:'Análisis',    u:'analisis.html'},
+    {ico:'🎯',l:'Metas',       u:'metas.html'},
+    {ico:'💳',l:'Deudas',      u:'deudas.html'},
+    {ico:'🏦',l:'Inversiones', u:'inversiones.html'},
+    {ico:'📷',l:'Escanear',    u:'scanner.html'},
+    {ico:'📥',l:'Importar CSV',u:'importar.html'},
+    {ico:'🛡️',l:'Emergencia',  u:'emergencia.html'},
+    {ico:'🔄',l:'Suscripciones',u:'suscripciones.html'},
+    {ico:'⚙️',l:'Config',      u:'config.html'},
+    {ico:'👤',l:'Perfil',      u:'perfil.html'},
+  ];
+  const ov=document.createElement('div');
+  ov.id='_moreOv';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:300;display:flex;align-items:flex-end;backdrop-filter:blur(3px);';
+  ov.addEventListener('click',e=>{if(e.target===ov)ov.remove();});
+  ov.innerHTML=`<div style="background:white;border-radius:24px 24px 0 0;padding:16px 20px calc(20px + env(safe-area-inset-bottom));width:100%;">
+    <div style="width:36px;height:4px;background:#ddd;border-radius:100px;margin:0 auto 16px;"></div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px 8px;">
+      ${links.map(k=>`<div onclick="window.location.href='${k.u}'" style="display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;">
+        <div style="width:52px;height:52px;background:#f5f5f7;border-radius:14px;display:grid;place-items:center;font-size:24px;">${k.ico}</div>
+        <span style="font-size:10px;font-weight:600;color:#4A4E69;text-align:center;">${k.l}</span>
+      </div>`).join('')}
     </div>
-    <div class="detail-total" id="detailTotal"></div>
-    <div class="detail-list" id="detailList"></div>
-  </div>
-</div>
-
-<style>
-.detail-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:none;place-items:center;z-index:260;backdrop-filter:blur(5px);}
-.detail-overlay.open{display:grid;}
-.detail-modal{background:var(--white,#fff);border-radius:24px;padding:24px;width:460px;max-width:calc(100vw - 32px);max-height:80vh;display:flex;flex-direction:column;box-shadow:0 16px 56px rgba(0,0,0,.18);}
-.detail-hd{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;}
-.detail-title{font-size:17px;font-weight:800;}
-.detail-sub{font-size:12px;color:var(--text3,#9395A5);margin-top:2px;}
-.detail-close{color:var(--text3,#9395A5);cursor:pointer;font-size:22px;line-height:1;flex-shrink:0;}
-.detail-total{background:var(--off,#F7F8FC);border-radius:12px;padding:12px 16px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;}
-.detail-total-lbl{font-size:11px;color:var(--text3,#9395A5);font-weight:600;}
-.detail-total-val{font-size:20px;font-weight:800;}
-.detail-list{overflow-y:auto;flex:1;}
-.detail-row{display:flex;align-items:center;gap:11px;padding:10px 4px;border-bottom:1px solid var(--border,#E4E6F0);}
-.detail-row:last-child{border-bottom:none;}
-.detail-ico{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;font-size:16px;flex-shrink:0;}
-.detail-info{flex:1;min-width:0;}
-.detail-name{font-size:13px;font-weight:600;}
-.detail-date{font-size:11px;color:var(--text3,#9395A5);margin-top:1px;}
-.detail-amt{font-size:14px;font-weight:800;flex-shrink:0;}
-.detail-empty{text-align:center;padding:24px;color:var(--text3,#9395A5);font-size:13px;}
-</style>
-
-<script>
-/* ══════════════════════════════════
-   CATEGORY DETAIL MODAL
-   Shows every transaction that makes up a category total
-   or a 50/30/20 bucket (needs/wants/savings), so the user
-   can see exactly what's being summed without cross-checking
-   History manually.
-══════════════════════════════════ */
-function openCategoryDetail(catName){
-  const txs = getFilteredTx()
-    .filter(t => ['gasto','hipoteca','suscripcion'].includes(t.type) && (t.cat||'📦 Otros') === catName)
-    .sort((a,b)=>new Date(b.date)-new Date(a.date));
-
-  const total = txs.reduce((s,t)=>s+parseFloat(t.amount),0);
-
-  document.getElementById('detailTitle').textContent = catName;
-  document.getElementById('detailSub').textContent = lang==='es'
-    ? `${txs.length} ${txs.length===1?'compra':'compras'} en este período`
-    : `${txs.length} ${txs.length===1?'purchase':'purchases'} in this period`;
-  document.getElementById('detailTotal').innerHTML = `
-    <span class="detail-total-lbl">${lang==='es'?'Total de esta categoría':'Total for this category'}</span>
-    <span class="detail-total-val">${fmtD(total)}</span>`;
-
-  renderDetailList(txs);
-  document.getElementById('detailOverlay').classList.add('open');
+  </div>`;
+  document.body.appendChild(ov);
 }
 
 function openBucketDetail(bucket){

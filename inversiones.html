@@ -105,12 +105,14 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
 .tb-right{width:100%;justify-content:space-between;gap:8px;flex-wrap:wrap;}
 .btn-new{flex-shrink:0;padding:8px 14px;font-size:12px;}
 .btn-new span{display:inline;}
-.page{padding:16px;}.grid-2,.grid-4{grid-template-columns:1fr 1fr;}.mob-nav{display:flex !important;}}
-.mob-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--white);border-top:1px solid var(--border);padding:10px 4px 16px;padding-bottom:calc(10px + env(safe-area-inset-bottom));z-index:50;gap:0;box-shadow:0 -4px 20px rgba(0,0,0,0.06);}
-.mob-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:9px;font-weight:600;color:var(--text3);}
+.page{padding:16px;}.grid-2,.grid-4{grid-template-columns:1fr 1fr;}/* ─── MOBILE NAV ─── */
+.mob-nav{display:flex;position:fixed;bottom:0;left:0;right:0;background:var(--white);border-top:1px solid var(--border);padding:8px 0 calc(8px + env(safe-area-inset-bottom));z-index:100;align-items:center;}
+.mob-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:9px;font-weight:600;color:var(--text3);cursor:pointer;-webkit-tap-highlight-color:transparent;}
 .mob-item.on{color:var(--g-main);}
-.mob-ico{font-size:20px;line-height:1;}
-.mob-add{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--g-dark),var(--g-main));display:flex;align-items:center;justify-content:center;color:white;font-size:22px;margin-top:-16px;box-shadow:0 4px 16px rgba(15,81,50,0.35);flex-shrink:0;}
+.mob-item.mob-center{flex:1.2;}
+.mob-ico{font-size:21px;line-height:1;}
+.mob-add{width:48px;height:48px;background:linear-gradient(135deg,var(--g-dark),var(--g-main));border-radius:50%;border:none;display:grid;place-items:center;color:white;font-size:26px;cursor:pointer;margin-top:-16px;box-shadow:0 4px 16px rgba(15,81,50,.35);-webkit-tap-highlight-color:transparent;}
+@media(min-width:700px){.mob-nav{display:none!important;}}
 ::-webkit-scrollbar{width:5px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
 </style>
 </head>
@@ -160,9 +162,9 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
 <nav class="mob-nav">
   <div class="mob-item " onclick="go('dashboard.html')"><div class="mob-ico">📊</div><span>Inicio</span></div>
   <div class="mob-item " onclick="go('historial.html')"><div class="mob-ico">📅</div><span>Historial</span></div>
-  <div class="mob-item"><div class="mob-add" onclick="go('dashboard.html?open=1')">＋</div></div>
+  <div class="mob-item mob-center"><button class="mob-add" onclick="go('dashboard.html')" onclick="openModal()">＋</button></div>
   <div class="mob-item " onclick="go('hogar.html')"><div class="mob-ico">🏠</div><span>Hogar</span></div>
-  <div class="mob-item on" onclick="go('dashboard.html#mas')"><div class="mob-ico">☰</div><span>Más</span></div>
+  <div class="mob-item on" onclick="openMoreMenu()"><div class="mob-ico">☰</div><span>Más</span></div>
 </nav><!-- MORE MENU PANEL (mobile) -->
 <div class="more-overlay" id="moreOverlay" onclick="closeMoreOutside(event)">
   <div class="more-panel">
@@ -196,166 +198,35 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
 </style>
 
 <script>
-function openMoreMenu(){ document.getElementById('moreOverlay').classList.add('open'); }
-function closeMoreMenu(){ document.getElementById('moreOverlay').classList.remove('open'); }
-function closeMoreOutside(e){ if(e.target===document.getElementById('moreOverlay')) closeMoreMenu(); }
-</script>
-
-
-<!-- MODAL -->
-<div class="overlay" id="overlay" onclick="closeOutside(event)">
-  <div class="modal">
-    <div class="modal-hd">
-      <div class="modal-title" data-es="Nueva inversión" data-en="New investment">Nueva inversión</div>
-      <div class="modal-close" onclick="closeModal()">✕</div>
+/* ─── openMoreMenu universal ─── */
+function openMoreMenu(){
+  if(document.getElementById('_moreOv')) return;
+  const links=[
+    {ico:'📈',l:'Análisis',    u:'analisis.html'},
+    {ico:'🎯',l:'Metas',       u:'metas.html'},
+    {ico:'💳',l:'Deudas',      u:'deudas.html'},
+    {ico:'🏦',l:'Inversiones', u:'inversiones.html'},
+    {ico:'📷',l:'Escanear',    u:'scanner.html'},
+    {ico:'📥',l:'Importar CSV',u:'importar.html'},
+    {ico:'🛡️',l:'Emergencia',  u:'emergencia.html'},
+    {ico:'🔄',l:'Suscripciones',u:'suscripciones.html'},
+    {ico:'⚙️',l:'Config',      u:'config.html'},
+    {ico:'👤',l:'Perfil',      u:'perfil.html'},
+  ];
+  const ov=document.createElement('div');
+  ov.id='_moreOv';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:300;display:flex;align-items:flex-end;backdrop-filter:blur(3px);';
+  ov.addEventListener('click',e=>{if(e.target===ov)ov.remove();});
+  ov.innerHTML=`<div style="background:white;border-radius:24px 24px 0 0;padding:16px 20px calc(20px + env(safe-area-inset-bottom));width:100%;">
+    <div style="width:36px;height:4px;background:#ddd;border-radius:100px;margin:0 auto 16px;"></div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px 8px;">
+      ${links.map(k=>`<div onclick="window.location.href='${k.u}'" style="display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;">
+        <div style="width:52px;height:52px;background:#f5f5f7;border-radius:14px;display:grid;place-items:center;font-size:24px;">${k.ico}</div>
+        <span style="font-size:10px;font-weight:600;color:#4A4E69;text-align:center;">${k.l}</span>
+      </div>`).join('')}
     </div>
-
-    <!-- INPUT METHOD TABS -->
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:5px;margin-bottom:16px;background:var(--off);border-radius:10px;padding:3px;">
-      <button class="inv-input-tab" id="invTabBtnManual" onclick="switchInvTab('manual',this)" style="padding:7px 4px;border-radius:8px;font-size:11px;font-weight:700;border:none;cursor:pointer;font-family:inherit;background:var(--white);color:var(--g-main);box-shadow:0 1px 4px rgba(0,0,0,0.08);" data-es="✏️ Manual" data-en="✏️ Manual">✏️ Manual</button>
-      <button class="inv-input-tab" id="invTabBtnVoice" onclick="switchInvTab('voice',this)" style="padding:7px 4px;border-radius:8px;font-size:11px;font-weight:700;border:none;cursor:pointer;font-family:inherit;background:transparent;color:var(--text3);" data-es="🎤 Voz" data-en="🎤 Voice">🎤 Voz</button>
-      <button class="inv-input-tab" id="invTabBtnScan" onclick="switchInvTab('scan',this)" style="padding:7px 4px;border-radius:8px;font-size:11px;font-weight:700;border:none;cursor:pointer;font-family:inherit;background:transparent;color:var(--text3);" data-es="📷 Escanear" data-en="📷 Scan">📷 Escanear</button>
-      <button class="inv-input-tab" id="invTabBtnCsv" onclick="switchInvTab('csv',this)" style="padding:7px 4px;border-radius:8px;font-size:11px;font-weight:700;border:none;cursor:pointer;font-family:inherit;background:transparent;color:var(--text3);" data-es="📄 CSV" data-en="📄 CSV">📄 CSV</button>
-    </div>
-
-    <!-- VOICE TAB -->
-    <div id="invTabVoice" style="display:none;margin-bottom:16px">
-      <div style="text-align:center;padding:20px;background:var(--off);border-radius:14px;margin-bottom:12px">
-        <div id="invVoiceBtn" onclick="toggleInvVoice()" style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,var(--g-dark),var(--g-main));display:grid;place-items:center;font-size:28px;margin:0 auto 10px;cursor:pointer;box-shadow:0 4px 16px rgba(15,81,50,0.3);transition:transform .1s;">🎤</div>
-        <div id="invVoiceStatus" style="font-size:13px;font-weight:600;color:var(--text2)" data-es="Toca el micrófono y habla" data-en="Tap the mic and speak">Toca el micrófono y habla</div>
-        <div style="font-size:11px;color:var(--text3);margin-top:6px" data-es='Ejemplo: "Compré 500 dólares de NVDA en Fidelity"' data-en='Example: "I bought $500 of NVDA on Fidelity"'>Ejemplo: "Compré 500 dólares de NVDA en Fidelity"</div>
-      </div>
-      <div id="invVoiceResult" style="display:none;background:var(--g-light);border:1px solid rgba(26,122,74,0.2);border-radius:10px;padding:12px;margin-bottom:10px">
-        <div style="font-size:11px;font-weight:700;color:var(--g-dark);margin-bottom:4px" data-es="Detectado:" data-en="Detected:">Detectado:</div>
-        <div id="invVoiceText" style="font-size:13px;color:var(--text2)"></div>
-      </div>
-    </div>
-
-    <!-- SCAN TAB -->
-    <div id="invTabScan" style="display:none;margin-bottom:16px">
-      <div id="invScanUpload" style="border:2px dashed var(--border);border-radius:14px;padding:28px 20px;text-align:center;cursor:pointer;transition:all .2s;position:relative">
-        <input type="file" accept="image/*" id="invScanFile" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%" onchange="handleInvScan(this)">
-        <div style="font-size:32px;margin-bottom:8px">📸</div>
-        <div style="font-size:14px;font-weight:700;margin-bottom:4px" data-es="Sube screenshot de tu orden" data-en="Upload your order screenshot">Sube screenshot de tu orden</div>
-        <div style="font-size:11px;color:var(--text3)" data-es="Confirmación de Fidelity, Robinhood, Coinbase, etc." data-en="Fidelity, Robinhood, Coinbase confirmation, etc.">Confirmación de Fidelity, Robinhood, Coinbase, etc.</div>
-      </div>
-      <div id="invScanPreview" style="display:none;margin-top:12px;border-radius:14px;overflow:hidden;position:relative;max-height:220px">
-        <img id="invScanImg" src="" style="width:100%;object-fit:cover;display:block">
-        <div id="invScanOverlay" style="position:absolute;inset:0;background:rgba(15,81,50,0.5);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:white">
-          <div style="width:32px;height:32px;border:3px solid rgba(255,255,255,0.3);border-top-color:white;border-radius:50%;animation:invSpin .7s linear infinite"></div>
-          <div style="font-size:12px;font-weight:600" id="invScanMsg" data-es="Analizando con IA..." data-en="Analyzing with AI...">Analizando con IA...</div>
-        </div>
-      </div>
-      <style>@keyframes invSpin{to{transform:rotate(360deg)}}</style>
-    </div>
-
-    <!-- CSV TAB -->
-    <div id="invTabCsv" style="display:none;margin-bottom:16px">
-      <div style="border:2px dashed var(--border);border-radius:14px;padding:24px;text-align:center;cursor:pointer;position:relative">
-        <input type="file" accept=".csv" id="invCsvFile" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%" onchange="handleInvCSV(this)">
-        <div style="font-size:32px;margin-bottom:8px">📄</div>
-        <div style="font-size:14px;font-weight:700;margin-bottom:4px" data-es="Subir historial del broker" data-en="Upload broker history">Subir historial del broker</div>
-        <div style="font-size:12px;color:var(--text3)" data-es="Fidelity, Robinhood, SoFi y más" data-en="Fidelity, Robinhood, SoFi and more">Fidelity, Robinhood, SoFi y más</div>
-      </div>
-      <div id="invCsvPreview" style="display:none;margin-top:10px"></div>
-    </div>
-
-    <!-- MANUAL TAB (default) -->
-    <div id="invTabManual">
-      <div class="field">
-        <label data-es="Nombre / Ticker" data-en="Name / Ticker">Nombre / Ticker</label>
-        <input type="text" id="mName" placeholder="NVDA, QQQM, Bitcoin...">
-      </div>
-      <div class="field-row">
-        <div class="field">
-          <label data-es="Monto invertido ($)" data-en="Amount invested ($)">Monto invertido ($)</label>
-          <input type="number" id="mAmount" placeholder="0.00" min="0" step="0.01">
-        </div>
-        <div class="field">
-          <label data-es="Fecha" data-en="Date">Fecha</label>
-          <input type="date" id="mDate">
-        </div>
-      </div>
-      <div class="field-row">
-        <div class="field">
-          <label data-es="Plataforma" data-en="Platform">Plataforma</label>
-          <select id="mPlatform">
-            <option value="Fidelity">Fidelity</option>
-            <option value="Roth IRA">Roth IRA (SoFi)</option>
-            <option value="401k">401k</option>
-            <option value="Robinhood">Robinhood</option>
-            <option value="Coinbase">Coinbase</option>
-            <option value="Otro">Otro</option>
-          </select>
-        </div>
-        <div class="field">
-          <label data-es="Tipo" data-en="Type">Tipo</label>
-          <select id="mType">
-            <option value="stock" data-es="📈 Acción" data-en="📈 Stock">📈 Acción</option>
-            <option value="etf" data-es="📊 ETF" data-en="📊 ETF">📊 ETF</option>
-            <option value="crypto" data-es="₿ Cripto" data-en="₿ Crypto">₿ Cripto</option>
-            <option value="bond" data-es="📋 Bono" data-en="📋 Bond">📋 Bono</option>
-            <option value="realestate" data-es="🏠 Inmueble" data-en="🏠 Real estate">🏠 Inmueble</option>
-            <option value="other" data-es="📦 Otro" data-en="📦 Other">📦 Otro</option>
-          </select>
-        </div>
-      </div>
-      <div class="field">
-        <label data-es="Nota (opcional)" data-en="Note (optional)">Nota (opcional)</label>
-        <input type="text" id="mNote" placeholder="DCA, compra en baja...">
-      </div>
-      <input type="hidden" id="editId">
-      <button class="btn-save" onclick="saveInvestment()" data-es="Guardar inversión" data-en="Save investment">Guardar inversión</button>
-    </div>
-  </div>
-</div>
-
-<!-- BREAKDOWN MODAL -->
-<div class="overlay" id="breakdownOverlay" onclick="closeBreakdownOutside(event)">
-  <div class="modal" style="width:460px">
-    <div class="modal-hd">
-      <div class="modal-title" data-es="Desglosar inversión" data-en="Break down investment">Desglosar inversión</div>
-      <div class="modal-close" onclick="closeBreakdownModal()">✕</div>
-    </div>
-    <div style="background:var(--off);border-radius:10px;padding:12px 14px;margin-bottom:16px">
-      <div style="font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.4px" data-es="Monto total a dividir" data-en="Total amount to split">Monto total a dividir</div>
-      <div style="font-size:22px;font-weight:800;color:var(--text)" id="bdTotalAmount">$0.00</div>
-    </div>
-
-    <div id="bdRows" style="display:flex;flex-direction:column;gap:10px;margin-bottom:12px"></div>
-
-    <button onclick="addBreakdownRow()" style="width:100%;border:1.5px dashed var(--border);background:transparent;border-radius:10px;padding:9px;font-size:12px;font-weight:600;color:var(--text3);cursor:pointer;font-family:inherit;margin-bottom:14px" data-es="+ Agregar posición" data-en="+ Add position">+ Agregar posición</button>
-
-    <div id="bdRemainingBox" style="border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:13px;font-weight:700;text-align:center"></div>
-
-    <input type="hidden" id="bdInvId">
-    <button class="btn-save" onclick="saveBreakdown()" data-es="Guardar desglose" data-en="Save breakdown">Guardar desglose</button>
-  </div>
-</div>
-
-<div class="toast" id="toast"></div>
-
-<script>
-const STORE_KEY = 'ft_data';
-const INV_KEY   = 'ft_investments';
-let lang = 'es', user = {};
-let donutChart = null, lineChart = null;
-
-const TYPE_COLORS = { stock:'var(--blue)', etf:'var(--g-main)', crypto:'var(--amber)', bond:'var(--purple)', realestate:'var(--red)', other:'var(--text3)', varias:'var(--text3)' };
-const TYPE_ICONS  = { stock:'📈', etf:'📊', crypto:'₿', bond:'📋', realestate:'🏠', other:'📦', varias:'🔀' };
-const PLATFORM_COLORS = { Fidelity:'rgba(0,80,168,0.12)', 'Roth IRA':'rgba(26,122,74,0.12)', '401k':'rgba(123,94,167,0.12)', Robinhood:'rgba(0,192,105,0.12)', Coinbase:'rgba(22,82,240,0.12)', Otro:'var(--off)' };
-
-function loadInv() { try{return JSON.parse(localStorage.getItem(INV_KEY))||[];}catch(e){return[];} }
-function saveInv(d){ localStorage.setItem(INV_KEY,JSON.stringify(d)); }
-function fmt(n)  { return '$'+Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0}); }
-function fmtD(n) { return '$'+Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
-
-function setLang(l){
-  lang=l; sessionStorage.setItem('ft_lang',l);
-  document.getElementById('ltES').classList.toggle('on',l==='es');
-  document.getElementById('ltEN').classList.toggle('on',l==='en');
-  document.querySelectorAll('[data-es]').forEach(el=>{const v=el.getAttribute('data-'+l);if(v)el.textContent=v;});
-  render();
+  </div>`;
+  document.body.appendChild(ov);
 }
 
 function render(){
