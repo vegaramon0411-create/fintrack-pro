@@ -6,7 +6,9 @@
 <title>FinTrack Pro · Metas</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<script src="premium.js">function loadSession() {
+<script src="premium.js"></script>
+<script>
+function loadSession() {
   try {
     let s = localStorage.getItem('ft_user') || sessionStorage.getItem('ft_user');
     if (!s) {
@@ -678,13 +680,32 @@ function go(url){window.location.href=url;}
 function logout(){sessionStorage.clear();localStorage.removeItem('ft_user');localStorage.removeItem('ft_user_setup');localStorage.removeItem('ft_premium');localStorage.removeItem('ft_lang');window.location.replace('login.html');}
 
 (function init(){
-  try{let s=sessionStorage.getItem('ft_user')||localStorage.getItem('ft_user');
-    if(!s){const setup=localStorage.getItem('ft_user_setup');if(setup){const fb={name:'Usuario',email:'',income:3000,currency:'USD',lang:localStorage.getItem('ft_lang')||'es',needs:1500,wants:900,savings:600,setupDone:true,createdAt:new Date().toISOString()};try{const gu=JSON.parse(sessionStorage.getItem('ft_google_user')||'{}');if(gu.name)fb.name=gu.name;if(gu.email)fb.email=gu.email;}catch(e){}s=JSON.stringify(fb);sessionStorage.setItem('ft_user',s);localStorage.setItem('ft_user',s);}else{window.location.replace('login.html');return;}}
-    user=JSON.parse(s);lang=user.lang||sessionStorage.getItem('ft_lang')||localStorage.getItem('ft_lang')||'es';if(!sessionStorage.getItem('ft_user'))sessionStorage.setItem('ft_user',s);}
-  catch(e){window.location.href='login.html';return;}
-  document.getElementById('sbName').textContent=user.name||'';
-  document.getElementById('sbEmail').textContent=user.email||'';
-  document.getElementById('sbAvatar').textContent=(user.name||'U').charAt(0).toUpperCase();
+  try {
+    let s = localStorage.getItem('ft_user') || sessionStorage.getItem('ft_user');
+    if (!s) {
+      const setup = localStorage.getItem('ft_user_setup');
+      if (setup) {
+        const fb = {name:'Usuario',email:'',income:3000,currency:'USD',lang:localStorage.getItem('ft_lang')||'es',needs:1500,wants:900,savings:600,setupDone:true,createdAt:new Date().toISOString()};
+        try{const gu=JSON.parse(sessionStorage.getItem('ft_google_user')||'{}');if(gu.name)fb.name=gu.name;if(gu.email)fb.email=gu.email;}catch(e){}
+        s=JSON.stringify(fb);
+        localStorage.setItem('ft_user',s);
+        sessionStorage.setItem('ft_user',s);
+      } else { window.location.replace('login.html'); return; }
+    }
+    user = JSON.parse(s);
+    lang = user.lang || localStorage.getItem('ft_lang') || 'es';
+    localStorage.setItem('ft_user', s);
+    sessionStorage.setItem('ft_user', s);
+  } catch(e) {
+    try {
+      const s = localStorage.getItem('ft_user');
+      if(s){ user=JSON.parse(s); lang=user.lang||'es'; }
+      else { window.location.replace('login.html'); return; }
+    } catch(e2) { window.location.replace('login.html'); return; }
+  }
+  if(document.getElementById('sbName')) document.getElementById('sbName').textContent = user.name||'';
+  if(document.getElementById('sbEmail')) document.getElementById('sbEmail').textContent = user.email||'';
+  if(document.getElementById('sbAvatar')) document.getElementById('sbAvatar').textContent = (user.name||'U').charAt(0).toUpperCase();
   setLang(lang);
   render();
 })();
