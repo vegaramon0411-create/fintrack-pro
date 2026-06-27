@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Debug</title>
+<style>body{font-family:monospace;padding:16px;font-size:12px;background:#111;color:#0f0;word-break:break-all;}</style>
+</head>
+<body>
+<h2 style="color:white">FinTrack Debug</h2>
+<div id="out"></div>
+<button onclick="fixUser()" style="margin-top:16px;padding:12px 20px;background:#1A7A4A;color:white;border:none;border-radius:10px;font-size:14px;cursor:pointer">🔧 Fix user income = $3000</button>
+<br><br>
+<button onclick="window.location='dashboard.html'" style="padding:12px 20px;background:#333;color:white;border:none;border-radius:10px;font-size:14px;cursor:pointer">← Dashboard</button>
+<script>
+const keys = ['ft_user','ft_user_setup','ft_lang','ft_premium','ft_data','ft_hogar','ft_investments','ft_debts'];
+let html = '';
+keys.forEach(k => {
+  const val = localStorage.getItem(k);
+  const sess = sessionStorage.getItem(k);
+  html += `<p><strong style="color:yellow">${k}:</strong><br>`;
+  html += `LS: ${val ? val.slice(0,200) : '<null>'}<br>`;
+  if(sess) html += `SS: ${sess.slice(0,100)}<br>`;
+  html += '</p>';
+});
+document.getElementById('out').innerHTML = html;
+
+function fixUser(){
+  let u = JSON.parse(localStorage.getItem('ft_user')||'{}');
+  u.income = 3000;
+  u.needs = 1500;
+  u.wants = 900;
+  u.savings = 600;
+  u.lang = u.lang||'es';
+  if(!u.name) u.name = 'Ramon';
+  localStorage.setItem('ft_user', JSON.stringify(u));
+  sessionStorage.setItem('ft_user', JSON.stringify(u));
+  localStorage.setItem('ft_user_setup','1');
+  alert('✅ Fixed! income=3000. Go to Dashboard.');
+}
+</script>
+</body>
+</html>
