@@ -8,6 +8,12 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="premium.js"></script>
 <script>
+
+/* ── RESTORED UTILS ── */
+function loadData(){ try{return JSON.parse(localStorage.getItem('ft_data'))||{transactions:[],emergency:0,subscriptions:[]};}catch(e){return{transactions:[],emergency:0,subscriptions:[]};} }
+function loadDebts(){ try{return JSON.parse(localStorage.getItem('ft_debts'))||[];}catch(e){return[];} }
+function saveDebts(d){ localStorage.setItem('ft_debts',JSON.stringify(d)); }
+function loadInvestments(){ try{return JSON.parse(localStorage.getItem('ft_investments'))||[];}catch(e){return[];} }
 function loadSession() {
   try {
     let s = localStorage.getItem('ft_user') || sessionStorage.getItem('ft_user');
