@@ -153,10 +153,19 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
   .field-row{grid-template-columns:1fr;}
   .mob-nav{display:flex!important;}
 }
-.mob-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--white);border-top:1px solid var(--border);padding:10px 4px 16px;padding-bottom:calc(10px + env(safe-area-inset-bottom));z-index:50;gap:0;}
-.mob-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:9px;font-weight:600;color:var(--text3);}
-.mob-item.on{color:var(--red);}
-.mob-ico{font-size:20px;line-height:1;}
+.mob-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--white);border-top:1px solid var(--border);padding:8px 0 calc(8px + env(safe-area-inset-bottom));z-index:100;gap:0;}
+.mob-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:9px;font-weight:700;color:var(--text3);cursor:pointer;padding:4px 0;}
+.mob-item.on{color:var(--g-main);}
+.mob-ico{font-size:22px;line-height:1.2;}
+.mob-plus{width:52px;height:52px;border-radius:50%;background:var(--g-main);display:flex;align-items:center;justify-content:center;font-size:26px;color:white;margin-top:-18px;box-shadow:0 4px 14px rgba(26,122,74,.4);}
+.more-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;align-items:flex-end;z-index:200;}
+.more-overlay.open{display:flex;}
+.more-panel{background:var(--white);width:100%;border-radius:24px 24px 0 0;padding:12px 20px calc(28px + env(safe-area-inset-bottom));}
+.more-handle{width:36px;height:4px;background:var(--border);border-radius:100px;margin:0 auto 16px;}
+.more-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+.more-item{display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;}
+.more-ico{width:52px;height:52px;border-radius:16px;display:grid;place-items:center;font-size:24px;}
+.more-item span{font-size:11px;font-weight:600;color:var(--text2);text-align:center;}
 </style>
 </head>
 <body>
@@ -206,13 +215,32 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
 </div>
 </div>
 
+<!-- MORE MENU -->
+<div class="more-overlay" id="moreOverlay" onclick="if(event.target===this)closeMoreMenu()">
+  <div class="more-panel">
+    <div class="more-handle"></div>
+    <div class="more-grid">
+      <div class="more-item" onclick="go('analisis.html')"><div class="more-ico" style="background:var(--g-light)">📈</div><span>Análisis</span></div>
+      <div class="more-item" onclick="go('metas.html')"><div class="more-ico" style="background:var(--amb-dim)">🎯</div><span>Metas</span></div>
+      <div class="more-item" onclick="go('deudas.html')"><div class="more-ico" style="background:var(--red-dim)">💳</div><span>Deudas</span></div>
+      <div class="more-item" onclick="go('inversiones.html')"><div class="more-ico" style="background:var(--blu-dim)">🏦</div><span>Inversiones</span></div>
+      <div class="more-item" onclick="go('scanner.html')"><div class="more-ico" style="background:rgba(123,94,167,.1)">📷</div><span>Escanear</span></div>
+      <div class="more-item" onclick="go('importar.html')"><div class="more-ico" style="background:var(--blu-dim)">📥</div><span>Importar CSV</span></div>
+      <div class="more-item" onclick="go('emergencia.html')"><div class="more-ico" style="background:var(--amb-dim)">🛡️</div><span>Emergencia</span></div>
+      <div class="more-item" onclick="go('suscripciones.html')"><div class="more-ico" style="background:rgba(123,94,167,.1)">🔄</div><span>Suscripciones</span></div>
+      <div class="more-item" onclick="go('config.html')"><div class="more-ico" style="background:var(--off)">⚙️</div><span>Config</span></div>
+      <div class="more-item" onclick="go('perfil.html')"><div class="more-ico" style="background:var(--blu-dim)">👤</div><span>Perfil</span></div>
+    </div>
+  </div>
+</div>
+
 <!-- MOBILE NAV -->
 <nav class="mob-nav">
-  <div class="mob-item" onclick="go('dashboard.html')"><div class="mob-ico">\ud83d\udcca</div><span>Inicio</span></div>
-  <div class="mob-item" onclick="go('historial.html')"><div class="mob-ico">\ud83d\udcc5</div><span>Historial</span></div>
-  <div class="mob-item" onclick="go('dashboard.html')"><div class="mob-ico">\u2795</div><span>Agregar</span></div>
-  <div class="mob-item on"><div class="mob-ico">\ud83d\udcb3</div><span>Deudas</span></div>
-  <div class="mob-item" onclick="go('perfil.html')"><div class="mob-ico">\ud83d\udc64</div><span>Perfil</span></div>
+  <div class="mob-item" onclick="go('dashboard.html')"><div class="mob-ico">📊</div><span>Inicio</span></div>
+  <div class="mob-item" onclick="go('historial.html')"><div class="mob-ico">📅</div><span>Historial</span></div>
+  <div class="mob-item" onclick="go('dashboard.html')"><div class="mob-plus">＋</div></div>
+  <div class="mob-item on"><div class="mob-ico">🏠</div><span>Hogar</span></div>
+  <div class="mob-item" onclick="openMoreMenu()"><div class="mob-ico">☰</div><span>Más</span></div>
 </nav>
 
 <!-- ADD/EDIT MODAL -->
@@ -934,6 +962,8 @@ function setLang(l){
 }
 function go(url){window.location.href=url;}
 function logout(){sessionStorage.clear();localStorage.removeItem('ft_user');localStorage.removeItem('ft_user_setup');localStorage.removeItem('ft_premium');localStorage.removeItem('ft_lang');window.location.replace('login.html');}
+function openMoreMenu(){document.getElementById('moreOverlay').classList.add('open');}
+function closeMoreMenu(){document.getElementById('moreOverlay').classList.remove('open');}
 
 /* \u2500\u2500 INIT \u2500\u2500 */
 (function init(){
