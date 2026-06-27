@@ -5,7 +5,35 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>FinTrack Pro · Deudas</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<script src="premium.js"></script>
+<script src="premium.js">
+function openMoreMenu(){
+  const links = [
+    {ico:'📊',label:'Dashboard',url:'dashboard.html'},
+    {ico:'📈',label:'Análisis',url:'analisis.html'},
+    {ico:'🎯',label:'Metas',url:'metas.html'},
+    {ico:'💳',label:'Deudas',url:'deudas.html'},
+    {ico:'🏦',label:'Inversiones',url:'inversiones.html'},
+    {ico:'📷',label:'Escanear',url:'scanner.html'},
+    {ico:'📥',label:'Importar CSV',url:'importar.html'},
+    {ico:'🛡️',label:'Emergencia',url:'emergencia.html'},
+    {ico:'🔄',label:'Suscripciones',url:'suscripciones.html'},
+    {ico:'👤',label:'Perfil',url:'perfil.html'},
+  ];
+  const ov = document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:flex-end;backdrop-filter:blur(4px)';
+  ov.onclick=e=>{if(e.target===ov)ov.remove();};
+  ov.innerHTML=`<div style="background:white;border-radius:20px 20px 0 0;padding:20px;width:100%;max-height:70vh;overflow-y:auto">
+    <div style="width:36px;height:4px;background:#ddd;border-radius:100px;margin:0 auto 16px"></div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
+      ${links.map(l=>`<div onclick="window.location.href='${l.url}'" style="display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer">
+        <div style="width:50px;height:50px;background:#f5f5f5;border-radius:14px;display:grid;place-items:center;font-size:22px">${l.ico}</div>
+        <span style="font-size:10px;font-weight:600;color:#4A4E69;text-align:center">${l.label}</span>
+      </div>`).join('')}
+    </div>
+  </div>`;
+  document.body.appendChild(ov);
+}
+</script>
 <style>
 :root{
   --g-dark:#0F5132;--g-main:#1A7A4A;--g-light:#E8F7EF;
@@ -208,11 +236,11 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
 
 <!-- MOBILE NAV -->
 <nav class="mob-nav">
-  <div class="mob-item" onclick="go('dashboard.html')"><div class="mob-ico">📊</div><span>Inicio</span></div>
-  <div class="mob-item" onclick="go('historial.html')"><div class="mob-ico">📅</div><span>Historial</span></div>
-  <div class="mob-item" onclick="go('dashboard.html')"><div class="mob-ico">➕</div><span>Agregar</span></div>
-  <div class="mob-item on"><div class="mob-ico">💳</div><span>Deudas</span></div>
-  <div class="mob-item" onclick="go('perfil.html')"><div class="mob-ico">👤</div><span>Perfil</span></div>
+  <div class="mob-item " onclick="go('dashboard.html')"><div class="mob-ico">📊</div><span>Inicio</span></div>
+  <div class="mob-item " onclick="go('historial.html')"><div class="mob-ico">📅</div><span>Historial</span></div>
+  <div class="mob-item"><div class="mob-add" onclick="go('dashboard.html?open=1')">＋</div></div>
+  <div class="mob-item " onclick="go('hogar.html')"><div class="mob-ico">🏠</div><span>Hogar</span></div>
+  <div class="mob-item on" onclick="go('dashboard.html#mas')"><div class="mob-ico">☰</div><span>Más</span></div>
 </nav>
 
 <!-- ADD/EDIT MODAL -->

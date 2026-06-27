@@ -199,11 +199,11 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
 </div>
 
 <nav class="mob-nav">
-  <div class="mob-item" onclick="go('dashboard.html')"><div class="mob-ico">📊</div><span data-es="Inicio" data-en="Home">Inicio</span></div>
-  <div class="mob-item" onclick="go('historial.html')"><div class="mob-ico">📅</div><span data-es="Historial" data-en="History">Historial</span></div>
-  <div class="mob-item"><div class="mob-add" onclick="openModal()">＋</div></div>
-  <div class="mob-item on"><div class="mob-ico">🎯</div><span data-es="Metas" data-en="Goals">Metas</span></div>
-  <div class="mob-item" onclick="openMoreMenu()"><div class="mob-ico">☰</div><span data-es="Más" data-en="More">Más</span></div>
+  <div class="mob-item " onclick="go('dashboard.html')"><div class="mob-ico">📊</div><span>Inicio</span></div>
+  <div class="mob-item " onclick="go('historial.html')"><div class="mob-ico">📅</div><span>Historial</span></div>
+  <div class="mob-item"><div class="mob-add" onclick="go('dashboard.html?open=1')">＋</div></div>
+  <div class="mob-item " onclick="go('hogar.html')"><div class="mob-ico">🏠</div><span>Hogar</span></div>
+  <div class="mob-item on" onclick="go('dashboard.html#mas')"><div class="mob-ico">☰</div><span>Más</span></div>
 </nav><!-- MORE MENU PANEL (mobile) -->
 <div class="more-overlay" id="moreOverlay" onclick="closeMoreOutside(event)">
   <div class="more-panel">

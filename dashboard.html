@@ -510,9 +510,14 @@ body {
     <div id="debtBanners"></div>
 
     <!-- HERO -->
-    <div class="hero" id="heroCard">
-      <div class="hero-left">
-        <div class="hero-greeting" id="heroGreeting">Buenos días, Ramon 👋</div>
+    <div class="hero" id="heroCard" onclick="toggleHeroView()" style="cursor:pointer;user-select:none">
+
+      <!-- VIEW 1: Gastos (default) -->
+      <div id="heroViewGastos">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div class="hero-greeting" id="heroGreeting">Buenos días, Ramon 👋</div>
+          <div style="background:rgba(255,255,255,.15);border-radius:20px;padding:4px 10px;font-size:10px;font-weight:700;opacity:.8">💰 →</div>
+        </div>
         <div class="hero-amount" id="heroAmount">$0</div>
         <div class="hero-note" id="heroNote" data-es="gastados este mes" data-en="spent this month">gastados este mes</div>
         <div class="hero-bar-wrap">
@@ -523,17 +528,46 @@ body {
           <div class="hero-track"><div class="hero-fill" id="heroFill" style="width:0%"></div></div>
           <div class="hero-days" id="heroDays"></div>
         </div>
-      </div>
-      <div class="hero-chips">
-        <div class="hero-chip">
-          <div id="chipIncomeLabel" data-es="Ingreso mensual" data-en="Monthly income">Ingreso mensual</div>
-          <div class="hc-val" id="chipIncome">$0</div>
+        <div class="hero-chips">
+          <div class="hero-chip">
+            <div id="chipIncomeLabel" data-es="Ingreso mensual" data-en="Monthly income">Ingreso mensual</div>
+            <div class="hc-val" id="chipIncome">$0</div>
+          </div>
+          <div class="hero-chip">
+            <div id="chipSavingsLabel" data-es="Disponible para ahorro" data-en="Available for savings">Disponible para ahorro</div>
+            <div class="hc-val" id="chipSavings">$0</div>
+          </div>
         </div>
-        <div class="hero-chip">
-          <div id="chipSavingsLabel" data-es="Disponible para ahorro" data-en="Available for savings">Disponible para ahorro</div>
-          <div class="hc-val" id="chipSavings">$0</div>
+      </div>
+
+      <!-- VIEW 2: Mi dinero -->
+      <div id="heroViewDinero" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div style="font-size:12px;opacity:.7;margin-bottom:4px" data-es="💰 Mi patrimonio personal" data-en="💰 My personal assets">💰 Mi patrimonio personal</div>
+          <div style="background:rgba(255,255,255,.15);border-radius:20px;padding:4px 10px;font-size:10px;font-weight:700;opacity:.8">← 📊</div>
+        </div>
+        <div class="hero-amount" id="heroPatrimony">$0</div>
+        <div style="font-size:12px;opacity:.7;margin-bottom:14px" data-es="total acumulado · privado" data-en="total accumulated · private">total acumulado · privado</div>
+        <div class="hero-chips" id="heroChipsDinero">
+          <div class="hero-chip">
+            <div data-es="💰 Ahorro disponible" data-en="💰 Available savings">💰 Ahorro disponible</div>
+            <div class="hc-val" id="chipAvailSavings">$0</div>
+          </div>
+          <div class="hero-chip">
+            <div data-es="🏦 Fondo emergencia" data-en="🏦 Emergency fund">🏦 Fondo emergencia</div>
+            <div class="hc-val" id="chipEmergency">$0</div>
+          </div>
+        </div>
+        <div style="margin-top:10px;background:rgba(255,255,255,.12);border-radius:12px;padding:10px">
+          <div style="font-size:11px;opacity:.7;margin-bottom:6px" id="heroSobro"></div>
+          <div style="display:flex;gap:8px">
+            <button id="heroBtnAhorro" onclick="event.stopPropagation();heroAddToSavings()" style="flex:1;background:rgba(255,255,255,.2);color:white;border:none;border-radius:8px;padding:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">💰 Al ahorro</button>
+            <button onclick="event.stopPropagation();go('emergencia.html')" style="flex:1;background:rgba(255,255,255,.15);color:white;border:none;border-radius:8px;padding:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">🏦 Emergencia</button>
+            <button onclick="event.stopPropagation();go('inversiones.html')" style="flex:1;background:rgba(255,255,255,.1);color:white;border:none;border-radius:8px;padding:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">📈 Invertir</button>
+          </div>
         </div>
       </div>
+
     </div>
 
     <!-- KPI ROW -->
@@ -743,11 +777,11 @@ body {
 .goal-prev-empty-btn{display:inline-block;margin-top:10px;background:var(--g-dim);color:var(--g-main);font-size:12px;font-weight:700;padding:7px 16px;border-radius:20px;cursor:pointer;border:none;font-family:inherit;}
 </style>
 <nav class="mob-nav">
-  <div class="mob-item on" onclick="window.scrollTo(0,0)"><div class="mob-ico">📊</div><span data-es="Inicio" data-en="Home">Inicio</span></div>
-  <div class="mob-item" onclick="go('historial.html')"><div class="mob-ico">📅</div><span data-es="Historial" data-en="History">Historial</span></div>
+  <div class="mob-item on" onclick="go('dashboard.html')"><div class="mob-ico">📊</div><span>Inicio</span></div>
+  <div class="mob-item " onclick="go('historial.html')"><div class="mob-ico">📅</div><span>Historial</span></div>
   <div class="mob-item"><div class="mob-add" onclick="openModal()">＋</div></div>
-  <div class="mob-item" id="mobMiDinero" onclick="toggleMiDinero()"><div class="mob-ico">💰</div><span data-es="Mi dinero" data-en="My money">Mi dinero</span></div>
-  <div class="mob-item" onclick="openMoreMenu()"><div class="mob-ico">☰</div><span data-es="Más" data-en="More">Más</span></div>
+  <div class="mob-item " onclick="go('hogar.html')"><div class="mob-ico">🏠</div><span>Hogar</span></div>
+  <div class="mob-item " onclick="openMoreMenu()"><div class="mob-ico">☰</div><span>Más</span></div>
 </nav>
 
 <!-- MORE MENU PANEL (mobile) -->
@@ -1148,6 +1182,9 @@ function renderDashboard() {
   // Render debt payment banners
   renderDebtBanners();
 
+  // Update Mi Dinero hero values
+  updateHeroDinero();
+
   // ── MONTH LABEL ──
   document.getElementById('monthPill').innerHTML = '◀ &nbsp;' + getMonthLabel() + '&nbsp; ▶';
 
@@ -1502,6 +1539,59 @@ let isHogarTx = false; // true = del hogar, false = personal
 // Categories that auto-detect as hogar
 const AUTO_HOGAR_CATS = ['🏠 Renta / Hipoteca','🛒 Supermercado','⛽ Gasolina','💊 Salud','📱 Teléfono/Internet','🔧 Mantenimiento'];
 const AUTO_PERSONAL_CATS = ['🍔 Restaurantes','🎬 Entretenimiento','👕 Ropa','✈️ Viajes'];
+
+let heroView = 'gastos'; // 'gastos' | 'dinero'
+
+function toggleHeroView(){
+  heroView = heroView === 'gastos' ? 'dinero' : 'gastos';
+  document.getElementById('heroViewGastos').style.display = heroView==='gastos' ? '' : 'none';
+  document.getElementById('heroViewDinero').style.display  = heroView==='dinero' ? '' : 'none';
+  if(heroView === 'dinero') updateHeroDinero();
+}
+
+function updateHeroDinero(){
+  const availSavings = parseFloat(localStorage.getItem('ft_available_savings')||'0');
+  const efData = JSON.parse(localStorage.getItem('ft_data')||'{}');
+  const emergency = efData.emergency||0;
+  const investments = JSON.parse(localStorage.getItem('ft_investments')||'[]');
+  const totalInvested = investments.reduce((a,i)=>a+(parseFloat(i.amount)||0),0);
+  const patrimony = availSavings + emergency + totalInvested;
+
+  const totals = getMonthTotals();
+  const income = user.income||0;
+  const extraIncome = totals.ingreso||0;
+  const sharedSpent = isHogarConnected() ? (totals.hogarSpent||0) : 0;
+  const personalSpent = (totals.personalNeedsSpent||0) + (totals.wantsSpent||0);
+  const leftover = Math.max(0, income + extraIncome - sharedSpent - personalSpent);
+  const es = lang==='es';
+
+  const el = id => document.getElementById(id);
+  if(el('heroPatrimony'))   el('heroPatrimony').textContent   = fmt(patrimony);
+  if(el('chipAvailSavings'))el('chipAvailSavings').textContent = fmt(availSavings);
+  if(el('chipEmergency'))   el('chipEmergency').textContent    = fmt(emergency);
+  if(el('heroSobro'))       el('heroSobro').textContent        = leftover > 0
+    ? (es ? `Este mes te sobró: +${fmt(leftover)} ¿Qué hacemos?` : `This month you saved: +${fmt(leftover)} What to do?`)
+    : (es ? 'Este mes no sobró nada — sigue así 💪' : 'Nothing left this month — keep it up 💪');
+
+  const btnAhorro = el('heroBtnAhorro');
+  if(btnAhorro){
+    btnAhorro.textContent = es ? `💰 Al ahorro (+${fmt(leftover)})` : `💰 To savings (+${fmt(leftover)})`;
+    btnAhorro.style.display = leftover > 0 ? '' : 'none';
+  }
+}
+
+function heroAddToSavings(){
+  const totals = getMonthTotals();
+  const income = user.income||0;
+  const sharedSpent = isHogarConnected() ? (totals.hogarSpent||0) : 0;
+  const personalSpent = (totals.personalNeedsSpent||0) + (totals.wantsSpent||0);
+  const leftover = Math.max(0, income + (totals.ingreso||0) - sharedSpent - personalSpent);
+  if(!leftover){ showToast(lang==='es'?'Sin sobrante este mes':'Nothing to save this month'); return; }
+  const cur = parseFloat(localStorage.getItem('ft_available_savings')||'0');
+  localStorage.setItem('ft_available_savings', (cur+leftover).toFixed(2));
+  showToast(lang==='es'?`✅ +${fmt(leftover)} al ahorro disponible`:`✅ +${fmt(leftover)} added to savings`,'','',3000);
+  updateHeroDinero();
+}
 
 let miDineroVisible = false;
 
