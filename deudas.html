@@ -3,67 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FinTrack Pro · Deudas</title>
+<title>FinTrack Pro \u00b7 Deudas</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<script src="premium.js">
-/* ─── openMoreMenu universal ─── */
-function openMoreMenu(){
-  if(document.getElementById('_moreOv')) return;
-  const links=[
-    {ico:'📈',l:'Análisis',    u:'analisis.html'},
-    {ico:'🎯',l:'Metas',       u:'metas.html'},
-    {ico:'💳',l:'Deudas',      u:'deudas.html'},
-    {ico:'🏦',l:'Inversiones', u:'inversiones.html'},
-    {ico:'📷',l:'Escanear',    u:'scanner.html'},
-    {ico:'📥',l:'Importar CSV',u:'importar.html'},
-    {ico:'🛡️',l:'Emergencia',  u:'emergencia.html'},
-    {ico:'🔄',l:'Suscripciones',u:'suscripciones.html'},
-    {ico:'⚙️',l:'Config',      u:'config.html'},
-    {ico:'👤',l:'Perfil',      u:'perfil.html'},
-  ];
-  const ov=document.createElement('div');
-  ov.id='_moreOv';
-  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:300;display:flex;align-items:flex-end;backdrop-filter:blur(3px);';
-  ov.addEventListener('click',e=>{if(e.target===ov)ov.remove();});
-  ov.innerHTML=`<div style="background:white;border-radius:24px 24px 0 0;padding:16px 20px calc(20px + env(safe-area-inset-bottom));width:100%;">
-    <div style="width:36px;height:4px;background:#ddd;border-radius:100px;margin:0 auto 16px;"></div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px 8px;">
-      ${links.map(k=>`<div onclick="window.location.href='${k.u}'" style="display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;">
-        <div style="width:52px;height:52px;background:#f5f5f7;border-radius:14px;display:grid;place-items:center;font-size:24px;">${k.ico}</div>
-        <span style="font-size:10px;font-weight:600;color:#4A4E69;text-align:center;">${k.l}</span>
-      </div>`).join('')}
-    </div>
-  </div>`;
-  document.body.appendChild(ov);
-}
-function loadSession() {
-  try {
-    let s = localStorage.getItem('ft_user') || sessionStorage.getItem('ft_user');
-    if (!s) {
-      const setup = localStorage.getItem('ft_user_setup');
-      if (setup) {
-        const fb = {name:'Usuario',email:'',income:3000,currency:'USD',lang:localStorage.getItem('ft_lang')||'es',needs:1500,wants:900,savings:600,setupDone:true,createdAt:new Date().toISOString()};
-        try{const gu=JSON.parse(sessionStorage.getItem('ft_google_user')||'{}');if(gu.name)fb.name=gu.name;if(gu.email)fb.email=gu.email;}catch(e){}
-        s = JSON.stringify(fb);
-        localStorage.setItem('ft_user', s);
-        sessionStorage.setItem('ft_user', s);
-      } else {
-        window.location.replace('login.html'); return;
-      }
-    }
-    user = JSON.parse(s);
-    lang = user.lang || localStorage.getItem('ft_lang') || 'es';
-    localStorage.setItem('ft_user', s);
-    sessionStorage.setItem('ft_user', s);
-  } catch(e) {
-    try {
-      const s = localStorage.getItem('ft_user');
-      if (s) { user = JSON.parse(s); lang = user.lang||'es'; return; }
-    } catch(e2) {}
-    window.location.replace('login.html');
-  }
-}
-</script>
+<script src="premium.js"></script>
 <style>
 :root{
   --g-dark:#0F5132;--g-main:#1A7A4A;--g-light:#E8F7EF;
@@ -215,14 +157,6 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
 .mob-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:9px;font-weight:600;color:var(--text3);}
 .mob-item.on{color:var(--red);}
 .mob-ico{font-size:20px;line-height:1;}
-/* ─── MOBILE NAV ─── */
-.mob-nav{display:flex;position:fixed;bottom:0;left:0;right:0;background:var(--white);border-top:1px solid var(--border);padding:8px 0 calc(8px + env(safe-area-inset-bottom));z-index:100;align-items:center;}
-.mob-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:9px;font-weight:600;color:var(--text3);cursor:pointer;-webkit-tap-highlight-color:transparent;}
-.mob-item.on{color:var(--g-main);}
-.mob-item.mob-center{flex:1.2;}
-.mob-ico{font-size:21px;line-height:1;}
-.mob-add{width:48px;height:48px;background:linear-gradient(135deg,var(--g-dark),var(--g-main));border-radius:50%;border:none;display:grid;place-items:center;color:white;font-size:26px;cursor:pointer;margin-top:-16px;box-shadow:0 4px 16px rgba(15,81,50,.35);-webkit-tap-highlight-color:transparent;}
-@media(min-width:700px){.mob-nav{display:none!important;}}
 </style>
 </head>
 <body>
@@ -230,30 +164,30 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
 
 <!-- SIDEBAR -->
 <aside class="sidebar">
-  <div class="sb-logo"><div class="sb-mark">💎</div><div><div class="sb-name">FinTrack Pro</div><div class="sb-tag">Panel financiero</div></div></div>
+  <div class="sb-logo"><div class="sb-mark">\ud83d\udc8e</div><div><div class="sb-name">FinTrack Pro</div><div class="sb-tag">Panel financiero</div></div></div>
   <nav class="sb-nav">
     <div class="sb-section">Principal</div>
-    <div class="sb-link" onclick="go('dashboard.html')"><span class="sb-ico">📊</span>Dashboard</div>
-    <div class="sb-link" onclick="go('dashboard.html')"><span class="sb-ico">➕</span>Nuevo registro</div>
-    <div class="sb-link" onclick="go('suscripciones.html')"><span class="sb-ico">🔄</span>Suscripciones</div>
-    <div class="sb-link" onclick="go('metas.html')"><span class="sb-ico">🎯</span>Metas</div>
-    <div class="sb-link on"><span class="sb-ico">💳</span>Deudas</div>
-    <div class="sb-section">Análisis</div>
-    <div class="sb-link" onclick="go('analisis.html')"><span class="sb-ico">📈</span>Por categoría</div>
-    <div class="sb-link" onclick="go('historial.html')"><span class="sb-ico">📅</span>Historial</div>
-    <div class="sb-link" onclick="go('inversiones.html')"><span class="sb-ico">🏦</span>Inversiones</div>
-    <div class="sb-link" onclick="go('reporte.html')"><span class="sb-ico">📄</span>Reporte mensual</div>
+    <div class="sb-link" onclick="go('dashboard.html')"><span class="sb-ico">\ud83d\udcca</span>Dashboard</div>
+    <div class="sb-link" onclick="go('dashboard.html')"><span class="sb-ico">\u2795</span>Nuevo registro</div>
+    <div class="sb-link" onclick="go('suscripciones.html')"><span class="sb-ico">\ud83d\udd04</span>Suscripciones</div>
+    <div class="sb-link" onclick="go('metas.html')"><span class="sb-ico">\ud83c\udfaf</span>Metas</div>
+    <div class="sb-link on"><span class="sb-ico">\ud83d\udcb3</span>Deudas</div>
+    <div class="sb-section">An\u00e1lisis</div>
+    <div class="sb-link" onclick="go('analisis.html')"><span class="sb-ico">\ud83d\udcc8</span>Por categor\u00eda</div>
+    <div class="sb-link" onclick="go('historial.html')"><span class="sb-ico">\ud83d\udcc5</span>Historial</div>
+    <div class="sb-link" onclick="go('inversiones.html')"><span class="sb-ico">\ud83c\udfe6</span>Inversiones</div>
+    <div class="sb-link" onclick="go('reporte.html')"><span class="sb-ico">\ud83d\udcc4</span>Reporte mensual</div>
     <div class="sb-section">Herramientas</div>
-    <div class="sb-link" onclick="go('scanner.html')"><span class="sb-ico">📷</span>Escanear recibo</div>
-    <div class="sb-link" onclick="go('importar.html')"><span class="sb-ico">📥</span>Importar CSV</div>
-    <div class="sb-link" onclick="go('emergencia.html')"><span class="sb-ico">🛡️</span>Fondo emergencia</div>
-    <div class="sb-link" onclick="go('hogar.html')"><span class="sb-ico">🏠</span>Hogar</div>
+    <div class="sb-link" onclick="go('scanner.html')"><span class="sb-ico">\ud83d\udcf7</span>Escanear recibo</div>
+    <div class="sb-link" onclick="go('importar.html')"><span class="sb-ico">\ud83d\udce5</span>Importar CSV</div>
+    <div class="sb-link" onclick="go('emergencia.html')"><span class="sb-ico">\ud83d\udee1\ufe0f</span>Fondo emergencia</div>
+    <div class="sb-link" onclick="go('hogar.html')"><span class="sb-ico">\ud83c\udfe0</span>Hogar</div>
     <div class="sb-section">Cuenta</div>
-    <div class="sb-link" onclick="go('perfil.html')"><span class="sb-ico">👤</span>Mi perfil</div>
-    <div class="sb-link" onclick="go('config.html')"><span class="sb-ico">⚙️</span>Configuración</div>
-    <div class="sb-link" onclick="logout()"><span class="sb-ico">🚪</span>Cerrar sesión</div>
+    <div class="sb-link" onclick="go('perfil.html')"><span class="sb-ico">\ud83d\udc64</span>Mi perfil</div>
+    <div class="sb-link" onclick="go('config.html')"><span class="sb-ico">\u2699\ufe0f</span>Configuraci\u00f3n</div>
+    <div class="sb-link" onclick="logout()"><span class="sb-ico">\ud83d\udeaa</span>Cerrar sesi\u00f3n</div>
   </nav>
-  <div class="sb-footer"><div class="sb-user" onclick="go('perfil.html')"><div class="sb-avatar" id="sbAvatar">R</div><div><div class="sb-uname" id="sbName">—</div><div class="sb-umail" id="sbEmail">—</div></div></div></div>
+  <div class="sb-footer"><div class="sb-user" onclick="go('perfil.html')"><div class="sb-avatar" id="sbAvatar">R</div><div><div class="sb-uname" id="sbName">\u2014</div><div class="sb-umail" id="sbEmail">\u2014</div></div></div></div>
 </aside>
 
 <!-- MAIN -->
@@ -274,11 +208,11 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
 
 <!-- MOBILE NAV -->
 <nav class="mob-nav">
-  <div class="mob-item " onclick="go('dashboard.html')"><div class="mob-ico">📊</div><span>Inicio</span></div>
-  <div class="mob-item " onclick="go('historial.html')"><div class="mob-ico">📅</div><span>Historial</span></div>
-  <div class="mob-item mob-center"><button class="mob-add" onclick="go('dashboard.html')" onclick="openModal()">＋</button></div>
-  <div class="mob-item " onclick="go('hogar.html')"><div class="mob-ico">🏠</div><span>Hogar</span></div>
-  <div class="mob-item on" onclick="openMoreMenu()"><div class="mob-ico">☰</div><span>Más</span></div>
+  <div class="mob-item" onclick="go('dashboard.html')"><div class="mob-ico">\ud83d\udcca</div><span>Inicio</span></div>
+  <div class="mob-item" onclick="go('historial.html')"><div class="mob-ico">\ud83d\udcc5</div><span>Historial</span></div>
+  <div class="mob-item" onclick="go('dashboard.html')"><div class="mob-ico">\u2795</div><span>Agregar</span></div>
+  <div class="mob-item on"><div class="mob-ico">\ud83d\udcb3</div><span>Deudas</span></div>
+  <div class="mob-item" onclick="go('perfil.html')"><div class="mob-ico">\ud83d\udc64</div><span>Perfil</span></div>
 </nav>
 
 <!-- ADD/EDIT MODAL -->
@@ -286,7 +220,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
   <div class="modal">
     <div class="modal-header">
       <div class="modal-title" id="modalTitle">Nueva deuda</div>
-      <div class="modal-close" onclick="closeModal()">✕</div>
+      <div class="modal-close" onclick="closeModal()">\u2715</div>
     </div>
     <div class="modal-body" id="modalBody"></div>
   </div>
@@ -300,19 +234,11 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
 <div id="toast"></div>
 
 <script>
-
-/* ── RESTORED UTILS ── */
-function loadData(){ try{return JSON.parse(localStorage.getItem('ft_data'))||{transactions:[],emergency:0,subscriptions:[]};}catch(e){return{transactions:[],emergency:0,subscriptions:[]};} }
-function saveData(d){ localStorage.setItem('ft_data',JSON.stringify(d)); }
-function saveInvestments(d){ localStorage.setItem('ft_investments',JSON.stringify(d)); }
-function loadInvestments(){ try{return JSON.parse(localStorage.getItem('ft_investments'))||[];}catch(e){return[];} }
-
-
-/* ══════════════════════════════════════
-   FinTrack Pro — Deudas v2
+/* \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+   FinTrack Pro \u2014 Deudas v2
    Tipos: hipoteca, auto, tarjeta, personal
-   Con amortización real y seguimiento
-══════════════════════════════════════ */
+   Con amortizaci\u00f3n real y seguimiento
+\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550 */
 const DEBT_KEY = 'ft_debts';
 let lang = 'es', user = {};
 let editingId = null;
@@ -320,32 +246,32 @@ let currentType = null;
 
 const TYPE_CONFIG = {
   hipoteca: {
-    es: { name:'Hipoteca', sub:'Casa · Condo · Propiedad', ico:'🏠', color:'#E63946', bg:'rgba(230,57,70,.1)' },
-    en: { name:'Mortgage', sub:'House · Condo · Property',  ico:'🏠', color:'#E63946', bg:'rgba(230,57,70,.1)' },
+    es: { name:'Hipoteca', sub:'Casa \u00b7 Condo \u00b7 Propiedad', ico:'\ud83c\udfe0', color:'#E63946', bg:'rgba(230,57,70,.1)' },
+    en: { name:'Mortgage', sub:'House \u00b7 Condo \u00b7 Property',  ico:'\ud83c\udfe0', color:'#E63946', bg:'rgba(230,57,70,.1)' },
     hasInterest: true, hasOriginal: true, hasLimit: false, fixedTerm: true,
     defaultAPR: 6.8, exampleTerm: 360, kind:'needs'
   },
   auto: {
-    es: { name:'Auto / Vehículo', sub:'Auto · Moto · Camión', ico:'🚗', color:'#4A6CF7', bg:'rgba(74,108,247,.1)' },
-    en: { name:'Auto / Vehicle',  sub:'Car · Motorcycle · Truck', ico:'🚗', color:'#4A6CF7', bg:'rgba(74,108,247,.1)' },
+    es: { name:'Auto / Veh\u00edculo', sub:'Auto \u00b7 Moto \u00b7 Cami\u00f3n', ico:'\ud83d\ude97', color:'#4A6CF7', bg:'rgba(74,108,247,.1)' },
+    en: { name:'Auto / Vehicle',  sub:'Car \u00b7 Motorcycle \u00b7 Truck', ico:'\ud83d\ude97', color:'#4A6CF7', bg:'rgba(74,108,247,.1)' },
     hasInterest: true, hasOriginal: false, hasLimit: false, fixedTerm: true,
     defaultAPR: 6.9, exampleTerm: 60, kind:'needs'
   },
   tarjeta: {
-    es: { name:'Tarjeta de crédito', sub:'Visa · MC · Amex · Discover', ico:'💳', color:'#F4A261', bg:'rgba(244,162,97,.12)' },
-    en: { name:'Credit card',       sub:'Visa · MC · Amex · Discover', ico:'💳', color:'#F4A261', bg:'rgba(244,162,97,.12)' },
+    es: { name:'Tarjeta de cr\u00e9dito', sub:'Visa \u00b7 MC \u00b7 Amex \u00b7 Discover', ico:'\ud83d\udcb3', color:'#F4A261', bg:'rgba(244,162,97,.12)' },
+    en: { name:'Credit card',       sub:'Visa \u00b7 MC \u00b7 Amex \u00b7 Discover', ico:'\ud83d\udcb3', color:'#F4A261', bg:'rgba(244,162,97,.12)' },
     hasInterest: true, hasOriginal: false, hasLimit: true, fixedTerm: false,
     defaultAPR: 24.99, exampleTerm: null, kind:'wants'
   },
   personal: {
-    es: { name:'Préstamo personal', sub:'Familiar · Banco · Sin interés', ico:'📦', color:'#7B5EA7', bg:'rgba(123,94,167,.1)' },
-    en: { name:'Personal loan',     sub:'Family · Bank · 0% interest',  ico:'📦', color:'#7B5EA7', bg:'rgba(123,94,167,.1)' },
+    es: { name:'Pr\u00e9stamo personal', sub:'Familiar \u00b7 Banco \u00b7 Sin inter\u00e9s', ico:'\ud83d\udce6', color:'#7B5EA7', bg:'rgba(123,94,167,.1)' },
+    en: { name:'Personal loan',     sub:'Family \u00b7 Bank \u00b7 0% interest',  ico:'\ud83d\udce6', color:'#7B5EA7', bg:'rgba(123,94,167,.1)' },
     hasInterest: false, hasOriginal: false, hasLimit: false, fixedTerm: true,
     defaultAPR: 0, exampleTerm: 24, kind:'needs'
   }
 };
 
-/* ── DATA ── */
+/* \u2500\u2500 DATA \u2500\u2500 */
 function loadDebts(){ try{return JSON.parse(localStorage.getItem(DEBT_KEY))||[];}catch(e){return[];} }
 function saveDebts(d){ localStorage.setItem(DEBT_KEY,JSON.stringify(d)); }
 function fmt(n){ return '$'+Math.abs(n||0).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0}); }
@@ -353,7 +279,7 @@ function fmtD(n){ return '$'+Math.abs(n||0).toLocaleString('en-US',{minimumFract
 function uid(){ return Date.now()+Math.floor(Math.random()*1000); }
 function showToast(msg,dur=3000){const t=document.getElementById('toast');t.textContent=msg;t.style.display='block';setTimeout(()=>t.style.display='none',dur);}
 
-/* ── AMORTIZATION MATH ── */
+/* \u2500\u2500 AMORTIZATION MATH \u2500\u2500 */
 function calcAmort(balance, payment, aprPct, termMonths){
   const apr = parseFloat(aprPct)||0;
   const r = (apr/100)/12;
@@ -393,7 +319,7 @@ function calcRequiredPayment(balance, aprPct, termMonths){
   return balance * r / (1 - Math.pow(1+r,-termMonths));
 }
 
-/* ── RENDER LIST ── */
+/* \u2500\u2500 RENDER LIST \u2500\u2500 */
 function render(){
   const debts = loadDebts();
   const page = document.getElementById('page');
@@ -408,7 +334,7 @@ function render(){
   if(!debts.length){
     page.innerHTML = `
     <div class="empty-state">
-      <div style="font-size:56px;margin-bottom:16px">💳</div>
+      <div style="font-size:56px;margin-bottom:16px">\ud83d\udcb3</div>
       <div style="font-size:18px;font-weight:800;margin-bottom:8px">${T.empty}</div>
       <div style="font-size:13px;color:var(--text3);margin-bottom:24px">${T.emptySub}</div>
       <button class="btn-add" style="width:auto;margin:0 auto" onclick="openAddModal()">+ ${lang==='es'?'Nueva deuda':'New debt'}</button>
@@ -454,35 +380,23 @@ function renderDebtCard(d){
   const balance = parseFloat(d.balance)||0;
   const original = parseFloat(d.original||d.balance)||0;
   const payment = parseFloat(d.payment)||0;
-  const paid = isDebtPaidThisMonth(d);
-  const due = isDebtDueSoon(d);
   const paidPct = original>0 ? Math.min(Math.round(((original-balance)/original)*100),100) : 0;
+
+  // Quick amort calc
+  const amort = calcAmort(balance, payment, d.apr||0, d.term||0);
 
   const payoffDate = amort.payoffPossible && amort.months < 600 ? (() => {
     const d2 = new Date(); d2.setMonth(d2.getMonth()+amort.months);
     return d2.toLocaleDateString(lang==='es'?'es-MX':'en-US',{month:'short',year:'numeric'});
-  })() : (lang==='es'?'—':'—');
-
-  // Payment status badge
-  const statusBadge = paid
-    ? `<span style="background:var(--g-light);color:var(--g-dark);font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px">✅ ${lang==='es'?'Pagado':'Paid'}</span>`
-    : due.overdue
-      ? `<span style="background:var(--red-dim);color:var(--red);font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px">⚠️ ${lang==='es'?'Vencido':'Overdue'}</span>`
-      : due.dueSoon
-        ? `<span style="background:var(--amb-dim);color:#7A3B0A;font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px">⏰ ${lang==='es'?`Vence en ${due.diff}d`:`Due in ${due.diff}d`}</span>`
-        : `<span style="background:var(--off);color:var(--text3);font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px">${lang==='es'?`Día ${d.payDay||1}`:`Day ${d.payDay||1}`}</span>`;
+  })() : (lang==='es'?'\u2014':'\u2014');
 
   return `
   <div class="debt-card" onclick="openDetail('${d.id}')">
     <div class="dc-header">
       <div class="dc-ico" style="background:${info.bg}">${info.ico}</div>
       <div class="dc-info">
-        <div class="dc-name">${d.name||info.name} ${statusBadge}</div>
-        <div class="dc-meta">
-          ${info.name} · APR ${d.apr||0}%
-          ${d.owner==='both'?`· <span style="color:var(--blue);font-weight:700">👥 ${lang==='es'?'Compartida':'Shared'} (${d.splitMe||50}%/${d.splitPartner||50}%)</span>`:''}
-          ${d.owner==='partner'?`· <span style="color:var(--purple);font-weight:700">👤 ${lang==='es'?'De tu pareja':'Partner\'s'}</span>`:''}
-        </div>
+        <div class="dc-name">${d.name||info.name}</div>
+        <div class="dc-meta">${info.name} \u00b7 APR ${d.apr||0}%</div>
       </div>
       <div class="dc-amount">
         <div class="dc-balance" style="color:${info.color}">${fmt(balance)}</div>
@@ -502,25 +416,18 @@ function renderDebtCard(d){
         <div class="dc-stat-lbl">${lang==='es'?'pago/mes':'payment/mo'}</div>
       </div>
       <div class="dc-stat">
-        <div class="dc-stat-val" style="color:var(--red)">${amort.payoffPossible?fmt(amort.totalInterest):'∞'}</div>
+        <div class="dc-stat-val" style="color:var(--red)">${amort.payoffPossible?fmt(amort.totalInterest):'\u221e'}</div>
         <div class="dc-stat-lbl">${lang==='es'?'intereses':'interest'}</div>
       </div>
       <div class="dc-stat">
-        <div class="dc-stat-val">${amort.payoffPossible&&amort.months<600?amort.months+'m':'—'}</div>
+        <div class="dc-stat-val">${amort.payoffPossible&&amort.months<600?amort.months+'m':'\u2014'}</div>
         <div class="dc-stat-lbl">${lang==='es'?'meses rest.':'months left'}</div>
       </div>
-    </div>
-    <!-- ABONAR BUTTON -->
-    <div style="padding:10px 14px;border-top:1px solid var(--off)">
-      <button onclick="event.stopPropagation();openAbonarModal('${d.id}')"
-        style="width:100%;background:${paid?'var(--off)':'linear-gradient(135deg,var(--g-dark),var(--g-main))'};color:${paid?'var(--text3)':'white'};border:${paid?'1.5px solid var(--border)':'none'};border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">
-        ${paid?`✅ ${lang==='es'?'Pagado este mes — abonar de nuevo':'Paid this month — pay again'}`:`💳 ${lang==='es'?'Abonar':'Make payment'} ${fmt(payment)}`}
-      </button>
     </div>
   </div>`;
 }
 
-/* ── ADD MODAL ── */
+/* \u2500\u2500 ADD MODAL \u2500\u2500 */
 function openAddModal(id=null){
   editingId = id;
   currentType = null;
@@ -541,7 +448,7 @@ function openAddModal(id=null){
 }
 
 function renderTypeSelector(){
-  const T = { title: lang==='es'?'¿Qué tipo de deuda es?':'What type of debt?' };
+  const T = { title: lang==='es'?'\u00bfQu\u00e9 tipo de deuda es?':'What type of debt?' };
   document.getElementById('modalBody').innerHTML = `
   <div style="font-size:13px;color:var(--text3);margin-bottom:16px">${T.title}</div>
   <div class="type-grid">
@@ -573,7 +480,7 @@ function renderForm(debt=null){
     if(base.payoffPossible && extra.payoffPossible && base.months - extra.months > 1){
       const saved = base.totalInterest - extra.totalInterest;
       const monthsSaved = base.months - extra.months;
-      return `💡 ${es?'Si pagas $100 extra/mes':'If you pay $100 extra/month'}: ${es?'terminas':'you finish'} ${monthsSaved} ${es?'meses antes y ahorras':'months earlier and save'} ${fmt(saved)} ${es?'en intereses':'in interest'}.`;
+      return `\ud83d\udca1 ${es?'Si pagas $100 extra/mes':'If you pay $100 extra/month'}: ${es?'terminas':'you finish'} ${monthsSaved} ${es?'meses antes y ahorras':'months earlier and save'} ${fmt(saved)} ${es?'en intereses':'in interest'}.`;
     }
     return '';
   })() : '';
@@ -593,7 +500,7 @@ function renderForm(debt=null){
 
   <!-- Name -->
   <div class="field-group">
-    <div class="field-label">${es?'Nombre / Descripción':'Name / Description'}</div>
+    <div class="field-label">${es?'Nombre / Descripci\u00f3n':'Name / Description'}</div>
     <input class="field-input" id="fName" placeholder="${es?'ej. Hipoteca Chase, Capital One Visa...':'e.g. Chase Mortgage, Capital One Visa...'}" value="${debt?debt.name:''}">
   </div>
 
@@ -606,23 +513,23 @@ function renderForm(debt=null){
   ${cfg.hasOriginal?`
   <!-- Original amount -->
   <div class="field-group">
-    <div class="field-label">${es?'Monto original del préstamo ($)':'Original loan amount ($)'}</div>
+    <div class="field-label">${es?'Monto original del pr\u00e9stamo ($)':'Original loan amount ($)'}</div>
     <input class="field-input" id="fOriginal" type="number" min="0" step="0.01" placeholder="0.00" value="${debt&&debt.original?debt.original:''}">
-    <div class="field-hint">${es?'Para calcular cuánto has pagado':'To calculate how much you have paid'}</div>
+    <div class="field-hint">${es?'Para calcular cu\u00e1nto has pagado':'To calculate how much you have paid'}</div>
   </div>`:''}
 
   ${cfg.hasLimit?`
   <!-- Credit limit -->
   <div class="field-group">
-    <div class="field-label">${es?'Límite de crédito ($)':'Credit limit ($)'}</div>
+    <div class="field-label">${es?'L\u00edmite de cr\u00e9dito ($)':'Credit limit ($)'}</div>
     <input class="field-input" id="fLimit" type="number" min="0" placeholder="0.00" value="${debt&&debt.limit?debt.limit:''}">
   </div>`:''}
 
   <!-- Interest toggle -->
   <div class="field-group">
-    <div class="field-label">${es?'¿Tiene interés?':'Has interest?'}</div>
+    <div class="field-label">${es?'\u00bfTiene inter\u00e9s?':'Has interest?'}</div>
     <div style="display:flex;gap:8px">
-      <button onclick="toggleInterest(true)" id="btnYesInt" style="flex:1;padding:10px;border-radius:10px;border:2px solid var(--border);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--off);transition:all .15s">${es?'Sí':'Yes'}</button>
+      <button onclick="toggleInterest(true)" id="btnYesInt" style="flex:1;padding:10px;border-radius:10px;border:2px solid var(--border);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--off);transition:all .15s">${es?'S\u00ed':'Yes'}</button>
       <button onclick="toggleInterest(false)" id="btnNoInt" style="flex:1;padding:10px;border-radius:10px;border:2px solid var(--border);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--off);transition:all .15s">${es?'No (0%)':'No (0%)'}</button>
     </div>
   </div>
@@ -632,7 +539,7 @@ function renderForm(debt=null){
     <div class="field-group">
       <div class="field-label">APR (%)</div>
       <input class="field-input" id="fAPR" type="number" min="0" step="0.01" placeholder="${cfg.defaultAPR}" value="${debt&&debt.apr?debt.apr:''}" oninput="updatePreview()">
-      <div class="field-hint">${currentType==='tarjeta'?'Típico: 20–29% · Revisa tu estado de cuenta':'Está en tu contrato o estado de cuenta'}</div>
+      <div class="field-hint">${currentType==='tarjeta'?'T\u00edpico: 20\u201329% \u00b7 Revisa tu estado de cuenta':'Est\u00e1 en tu contrato o estado de cuenta'}</div>
     </div>
   </div>
 
@@ -642,81 +549,43 @@ function renderForm(debt=null){
     <div class="field-label">${es?'Plazo restante (meses)':'Remaining term (months)'}</div>
     <input class="field-input" id="fTerm" type="number" min="1" step="1" placeholder="${cfg.exampleTerm||''}" value="${debt&&debt.term?debt.term:''}" oninput="updatePreview()">
     <div class="field-hint">
-      ${currentType==='hipoteca'?'30 años = 360 meses · 15 años = 180 meses':
-        currentType==='auto'?'48, 60 o 72 meses son los más comunes':''}
+      ${currentType==='hipoteca'?'30 a\u00f1os = 360 meses \u00b7 15 a\u00f1os = 180 meses':
+        currentType==='auto'?'48, 60 o 72 meses son los m\u00e1s comunes':''}
     </div>
   </div>`:`
-  <!-- No term for credit card — payment drives it -->
+  <!-- No term for credit card \u2014 payment drives it -->
   <div style="display:none"><input id="fTerm" value=""></div>`}
 
   <!-- Payment -->
   <div class="field-group">
     <div class="field-label">${es?'Pago mensual actual ($)':'Current monthly payment ($)'}</div>
     <input class="field-input" id="fPayment" type="number" min="0" step="0.01" placeholder="0.00" value="${debt?debt.payment:''}" oninput="updatePreview()">
-    ${currentType==='tarjeta'?`<div class="field-hint">${es?'Pon cuánto estás pagando actualmente, no el mínimo':'Enter how much you actually pay, not the minimum'}</div>`:''}
+    ${currentType==='tarjeta'?`<div class="field-hint">${es?'Pon cu\u00e1nto est\u00e1s pagando actualmente, no el m\u00ednimo':'Enter how much you actually pay, not the minimum'}</div>`:''}
   </div>
 
   ${currentType==='tarjeta'?`
   <!-- Minimum payment -->
   <div class="field-group">
-    <div class="field-label">${es?'Pago mínimo ($)':'Minimum payment ($)'}</div>
+    <div class="field-label">${es?'Pago m\u00ednimo ($)':'Minimum payment ($)'}</div>
     <input class="field-input" id="fMinPayment" type="number" min="0" step="0.01" placeholder="0.00" value="${debt&&debt.minPayment?debt.minPayment:''}" oninput="updatePreview()">
   </div>`:`<div style="display:none"><input id="fMinPayment" value=""></div>`}
 
   <!-- 50/30/20 classification -->
   <div class="field-group">
-    <div class="field-label">${es?'¿Cómo cuenta en tu 50/30/20?':'How does it count in your 50/30/20?'}</div>
+    <div class="field-label">${es?'\u00bfC\u00f3mo cuenta en tu 50/30/20?':'How does it count in your 50/30/20?'}</div>
     <div style="display:flex;gap:8px">
-      <button onclick="setKind('needs')" id="btnNeeds" style="flex:1;padding:10px;border-radius:10px;border:2px solid var(--border);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--off)">🏠 ${es?'Necesidad':'Need'}</button>
-      <button onclick="setKind('wants')" id="btnWants" style="flex:1;padding:10px;border-radius:10px;border:2px solid var(--border);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--off)">🎬 ${es?'Gusto':'Want'}</button>
-    </div>
-  </div>
-
-  <!-- WHO PAYS -->
-  <div class="field-group">
-    <div class="field-label">${es?'¿Quién paga esta deuda?':'Who pays this debt?'}</div>
-    <div style="display:flex;gap:8px;margin-bottom:10px">
-      <button onclick="setOwner('me')" id="btnMe" style="flex:1;padding:10px;border-radius:10px;border:2px solid var(--border);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--off)">👤 ${es?'Solo yo':'Just me'}</button>
-      <button onclick="setOwner('both')" id="btnBoth" style="flex:1;padding:10px;border-radius:10px;border:2px solid var(--border);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--off)">👥 ${es?'Los dos':'Both'}</button>
-      <button onclick="setOwner('partner')" id="btnPartner" style="flex:1;padding:10px;border-radius:10px;border:2px solid var(--border);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--off)">👤 ${es?'Mi pareja':'My partner'}</button>
-    </div>
-
-    <!-- Split options (only shown when "both") -->
-    <div id="splitSection" style="display:none;background:var(--off);border-radius:12px;padding:14px">
-      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px">${es?'¿Cómo se divide?':'How is it split?'}</div>
-      <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
-        <button onclick="setSplit('equal')" id="splitEqual" style="padding:7px 12px;border-radius:20px;border:1.5px solid var(--border);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--white)">50% / 50%</button>
-        <button onclick="setSplit('proportional')" id="splitProp" style="padding:7px 12px;border-radius:20px;border:1.5px solid var(--border);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--white)">${es?'Proporcional al ingreso':'Proportional to income'}</button>
-        <button onclick="setSplit('custom')" id="splitCustom" style="padding:7px 12px;border-radius:20px;border:1.5px solid var(--border);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--white)">${es?'Personalizado':'Custom'}</button>
-      </div>
-      <div id="splitCustomFields" style="display:none;display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <div>
-          <div style="font-size:10px;font-weight:700;color:var(--text3);margin-bottom:4px">${es?'Yo pago (%)':'I pay (%)'}</div>
-          <input class="field-input" id="fSplitMe" type="number" min="0" max="100" placeholder="50" oninput="syncSplit()" value="${debt&&debt.splitMe!=null?debt.splitMe:50}">
-        </div>
-        <div>
-          <div style="font-size:10px;font-weight:700;color:var(--text3);margin-bottom:4px">${es?'Mi pareja (%)':'My partner (%)'}</div>
-          <input class="field-input" id="fSplitPartner" type="number" min="0" max="100" placeholder="50" oninput="syncSplitPartner()" value="${debt&&debt.splitPartner!=null?debt.splitPartner:50}">
-        </div>
-      </div>
-      <div id="splitPreview" style="font-size:11px;color:var(--text2);margin-top:8px"></div>
+      <button onclick="setKind('needs')" id="btnNeeds" style="flex:1;padding:10px;border-radius:10px;border:2px solid var(--border);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--off)">\ud83c\udfe0 ${es?'Necesidad':'Need'}</button>
+      <button onclick="setKind('wants')" id="btnWants" style="flex:1;padding:10px;border-radius:10px;border:2px solid var(--border);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--off)">\ud83c\udfac ${es?'Gusto':'Want'}</button>
     </div>
   </div>
 
   <!-- Amort preview -->
   <div id="amortPreview" style="display:none;margin-bottom:14px"></div>
 
-  <!-- Day of payment -->
-  <div class="field-group">
-    <div class="field-label">${es?'Día de pago cada mes':'Payment day each month'}</div>
-    <input class="field-input" id="fPayDay" type="number" min="1" max="28" placeholder="1" value="${debt&&debt.payDay?debt.payDay:1}">
-    <div class="field-hint">${es?'Ej: 1 = el primer día de cada mes · 15 = el día 15':'e.g. 1 = 1st of each month · 15 = the 15th'}</div>
-  </div>
-
   <!-- Actions -->
   <div style="display:flex;gap:8px;margin-top:4px">
     <button class="btn-primary" onclick="saveDebt()">${es?'Guardar deuda':'Save debt'}</button>
-    ${debt?`<button class="btn-danger" onclick="deleteDebt('${debt.id}')">🗑️</button>`:''}
+    ${debt?`<button class="btn-danger" onclick="deleteDebt('${debt.id}')">\ud83d\uddd1\ufe0f</button>`:''}
   </div>
   <div style="height:4px"></div>
   <button class="btn-secondary" onclick="closeModal()">${es?'Cancelar':'Cancel'}</button>`;
@@ -729,99 +598,11 @@ function renderForm(debt=null){
   const kind = debt ? (debt.kind||cfg.kind) : cfg.kind;
   setKind(kind, true);
 
-  // Set owner and split
-  debtOwner = debt ? (debt.owner||'me') : 'me';
-  splitMode = debt ? (debt.splitMode||'equal') : 'equal';
-  setOwner(debtOwner, true);
-  if(debtOwner==='both') setSplit(splitMode, true);
-
   updatePreview();
 }
 
 let hasInterest = true;
 let debtKind = 'needs';
-let debtOwner = 'me';
-let splitMode = 'equal';
-
-function setOwner(o, silent=false){
-  debtOwner = o;
-  ['Me','Both','Partner'].forEach(k=>{
-    const btn = document.getElementById('btn'+k);
-    if(!btn) return;
-    const active = k.toLowerCase()===o;
-    btn.style.background = active?'var(--blu-dim)':'var(--off)';
-    btn.style.borderColor = active?'var(--blue)':'var(--border)';
-    btn.style.color = active?'var(--blue)':'';
-  });
-  const splitSec = document.getElementById('splitSection');
-  if(splitSec) splitSec.style.display = o==='both'?'':'none';
-  if(o==='both'&&!silent) setSplit(splitMode, true);
-}
-
-function setSplit(mode, silent=false){
-  splitMode = mode;
-  const map = {equal:'Equal', proportional:'Prop', custom:'Custom'};
-  Object.entries(map).forEach(([k,id])=>{
-    const btn = document.getElementById('split'+id);
-    if(!btn) return;
-    const active = k===mode;
-    btn.style.background = active?'var(--g-light)':'var(--white)';
-    btn.style.borderColor = active?'var(--g-main)':'var(--border)';
-    btn.style.color = active?'var(--g-main)':'';
-  });
-  const cf = document.getElementById('splitCustomFields');
-  if(cf) cf.style.display = mode==='custom'?'grid':'none';
-  if(!silent) updateSplitPreview();
-}
-
-function syncSplit(){
-  const me = parseFloat(document.getElementById('fSplitMe')?.value)||0;
-  const pEl = document.getElementById('fSplitPartner');
-  if(pEl) pEl.value = Math.max(0,100-me);
-  updateSplitPreview();
-}
-
-function syncSplitPartner(){
-  const partner = parseFloat(document.getElementById('fSplitPartner')?.value)||0;
-  const mEl = document.getElementById('fSplitMe');
-  if(mEl) mEl.value = Math.max(0,100-partner);
-  updateSplitPreview();
-}
-
-function getSplitPcts(){
-  if(splitMode==='equal') return {me:50, partner:50};
-  if(splitMode==='proportional'){
-    const myIncome = user.income||3000;
-    const partnerIncome = (() => {
-      try {
-        const h = JSON.parse(localStorage.getItem('ft_hogar')||'{}');
-        if(h.partnerEmail){
-          const key = 'profile_'+h.partnerEmail.replace(/[^a-z0-9]/gi,'_');
-          const p = JSON.parse(localStorage.getItem(key)||localStorage.getItem('ft_profile_B')||'{}');
-          return parseFloat(p.income)||3000;
-        }
-      } catch(e){}
-      return 3000;
-    })();
-    const total = myIncome+partnerIncome;
-    const mePct = total>0?Math.round((myIncome/total)*100):50;
-    return {me:mePct, partner:100-mePct};
-  }
-  const me = parseFloat(document.getElementById('fSplitMe')?.value)||50;
-  return {me, partner:100-me};
-}
-
-function updateSplitPreview(){
-  const preview = document.getElementById('splitPreview');
-  if(!preview) return;
-  const payment = parseFloat(document.getElementById('fPayment')?.value)||0;
-  const pcts = getSplitPcts();
-  const hogar = JSON.parse(localStorage.getItem('ft_hogar')||'{}');
-  const partnerName = hogar.partnerName||(lang==='es'?'Tu pareja':'Your partner');
-  preview.innerHTML = payment>0
-    ? `<span style="color:var(--g-main);font-weight:700">${lang==='es'?'Tú':'You'}: ${pcts.me}% (${fmtD(payment*pcts.me/100)}/mes)</span> · <span style="color:var(--blue);font-weight:700">${partnerName}: ${pcts.partner}% (${fmtD(payment*pcts.partner/100)}/mes)</span>`
-    : `${pcts.me}% ${lang==='es'?'tú':'you'} · ${pcts.partner}% ${partnerName}`;
-}
 
 function toggleInterest(val, silent=false){
   hasInterest = val;
@@ -867,7 +648,7 @@ function updatePreview(){
 
   if(!amort.payoffPossible){
     preview.style.display='block';
-    preview.innerHTML = `<div class="amort-preview"><div class="ap-title">⚠️ ${es?'Pago insuficiente':'Payment too low'}</div>
+    preview.innerHTML = `<div class="amort-preview"><div class="ap-title">\u26a0\ufe0f ${es?'Pago insuficiente':'Payment too low'}</div>
       <div style="font-size:12px;color:var(--red)">${es?'Tu pago no cubre los intereses. Aumenta el pago mensual.':'Your payment doesn\'t cover interest. Increase monthly payment.'}</div>
     </div>`;
     return;
@@ -895,27 +676,27 @@ function updatePreview(){
     const withCurr = calcAmort(balance, payment, apr, 0);
     if(withMin.payoffPossible && withCurr.payoffPossible){
       const savedVsMin = withMin.totalInterest - withCurr.totalInterest;
-      ccCompare = `<div class="ap-extra">💳 ${es?'Pagando el mínimo':'Paying the minimum'} (${fmtD(minPay)}): ${withMin.months} ${es?'meses y':'months and'} ${fmt(withMin.totalInterest)} ${es?'en intereses':'in interest'}. ${es?'¡Estás ahorrando':'You\'re saving'} ${fmt(savedVsMin)}!</div>`;
+      ccCompare = `<div class="ap-extra">\ud83d\udcb3 ${es?'Pagando el m\u00ednimo':'Paying the minimum'} (${fmtD(minPay)}): ${withMin.months} ${es?'meses y':'months and'} ${fmt(withMin.totalInterest)} ${es?'en intereses':'in interest'}. ${es?'\u00a1Est\u00e1s ahorrando':'You\'re saving'} ${fmt(savedVsMin)}!</div>`;
     }
   }
 
   preview.style.display='block';
   preview.innerHTML = `<div class="amort-preview">
-    <div class="ap-title">📊 ${es?'Análisis de tu deuda':'Debt analysis'}</div>
+    <div class="ap-title">\ud83d\udcca ${es?'An\u00e1lisis de tu deuda':'Debt analysis'}</div>
     <div class="ap-row"><span class="ap-label">${es?'Terminas de pagar':'Payoff date'}</span><span class="ap-value">${payoffDate}</span></div>
     <div class="ap-row"><span class="ap-label">${es?'Meses restantes':'Months left'}</span><span class="ap-value">${amort.months} ${es?'meses':'months'}</span></div>
     <div class="ap-row"><span class="ap-label">${es?'Total de intereses':'Total interest'}</span><span class="ap-value">${fmtD(amort.totalInterest)}</span></div>
-    <div class="ap-row"><span class="ap-label">${es?'Total que pagarás':'Total you\'ll pay'}</span><span class="ap-value">${fmtD(amort.totalPaid)}</span></div>
+    <div class="ap-row"><span class="ap-label">${es?'Total que pagar\u00e1s':'Total you\'ll pay'}</span><span class="ap-value">${fmtD(amort.totalPaid)}</span></div>
     ${apr>0?`<div class="ap-row" style="border-top:1px solid rgba(230,57,70,.2);padding-top:8px;margin-top:4px">
-      <span class="ap-label">${es?'Pago: capital / interés':'Payment: principal / interest'}</span>
+      <span class="ap-label">${es?'Pago: capital / inter\u00e9s':'Payment: principal / interest'}</span>
       <span class="ap-value">${fmt(firstPrincipal)} / ${fmt(firstInterest)}</span>
     </div>`:''}
-    ${savedExtra>0?`<div class="ap-extra">💡 ${es?'Si pagas $100 extra/mes':'If you pay $100 extra/month'}: ${es?'terminas':'finish'} ${monthsSaved} ${es?'meses antes y ahorras':'months earlier and save'} ${fmt(savedExtra)} ${es?'en intereses':'in interest'}.</div>`:''}
+    ${savedExtra>0?`<div class="ap-extra">\ud83d\udca1 ${es?'Si pagas $100 extra/mes':'If you pay $100 extra/month'}: ${es?'terminas':'finish'} ${monthsSaved} ${es?'meses antes y ahorras':'months earlier and save'} ${fmt(savedExtra)} ${es?'en intereses':'in interest'}.</div>`:''}
     ${ccCompare}
   </div>`;
 }
 
-/* ── SAVE ── */
+/* \u2500\u2500 SAVE \u2500\u2500 */
 function saveDebt(){
   const name    = document.getElementById('fName')?.value?.trim()||'';
   const balance = parseFloat(document.getElementById('fBalance')?.value)||0;
@@ -927,15 +708,11 @@ function saveDebt(){
   const minPay  = parseFloat(document.getElementById('fMinPayment')?.value)||0;
   const es = lang==='es';
 
-  if(!balance){ showToast(es?'⚠️ Ingresa el saldo actual':'⚠️ Enter the current balance'); return; }
-  if(!name){ showToast(es?'⚠️ Ingresa un nombre':'⚠️ Enter a name'); return; }
+  if(!balance){ showToast(es?'\u26a0\ufe0f Ingresa el saldo actual':'\u26a0\ufe0f Enter the current balance'); return; }
+  if(!name){ showToast(es?'\u26a0\ufe0f Ingresa un nombre':'\u26a0\ufe0f Enter a name'); return; }
 
   const cfg = TYPE_CONFIG[currentType]||TYPE_CONFIG.personal;
   const info = cfg[lang]||cfg.es;
-
-  const pcts = debtOwner==='both' ? getSplitPcts() : {me:100, partner:0};
-
-  const payDay = parseInt(document.getElementById('fPayDay')?.value)||1;
 
   const debt = {
     id: editingId || uid(),
@@ -949,12 +726,6 @@ function saveDebt(){
     limit,
     minPayment: minPay,
     kind: debtKind,
-    owner: debtOwner,
-    splitMode: debtOwner==='both' ? splitMode : 'none',
-    splitMe: pcts.me,
-    splitPartner: pcts.partner,
-    payDay,
-    paymentHistory: editingId ? (loadDebts().find(d=>d.id===editingId)?.paymentHistory||[]) : [],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -969,10 +740,10 @@ function saveDebt(){
   saveDebts(debts);
   closeModal();
   render();
-  showToast(es?'✅ Deuda guardada':'✅ Debt saved');
+  showToast(es?'\u2705 Deuda guardada':'\u2705 Debt saved');
 }
 
-/* ── DETAIL VIEW ── */
+/* \u2500\u2500 DETAIL VIEW \u2500\u2500 */
 function openDetail(id){
   const debt = loadDebts().find(d=>d.id===id);
   if(!debt) return;
@@ -1015,8 +786,8 @@ function openDetail(id){
       <div class="modal-title" style="color:white">${debt.name}</div>
     </div>
     <div style="display:flex;gap:8px;align-items:center">
-      <button onclick="openAddModal('${id}')" style="background:rgba(255,255,255,.2);color:white;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">✏️</button>
-      <div class="modal-close" style="color:white" onclick="closeDetail()">✕</div>
+      <button onclick="openAddModal('${id}')" style="background:rgba(255,255,255,.2);color:white;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">\u270f\ufe0f</button>
+      <div class="modal-close" style="color:white" onclick="closeDetail()">\u2715</div>
     </div>
   </div>
   <div class="modal-body">
@@ -1047,13 +818,13 @@ function openDetail(id){
     <!-- Utilization -->
     <div class="progress-wrap" style="margin-bottom:14px">
       <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;margin-bottom:6px">
-        <span>${es?'Utilización':'Utilization'}: ${utilPct}% ${utilPct>=30?'⚠️':utilPct<10?'✅':''}</span>
+        <span>${es?'Utilizaci\u00f3n':'Utilization'}: ${utilPct}% ${utilPct>=30?'\u26a0\ufe0f':utilPct<10?'\u2705':''}</span>
         <span style="color:var(--text3)">${fmt(balance)} ${es?'de':'of'} ${fmt(limit)}</span>
       </div>
       <div class="progress-bar">
         <div class="progress-fill" style="width:${utilPct}%;background:${utilPct>=30?'var(--red)':'var(--g-main)'}"></div>
       </div>
-      <div style="font-size:10px;color:var(--text3);margin-top:4px">${utilPct>=30?(es?'⚠️ Utilización alta afecta tu crédito':'⚠️ High utilization affects your credit'):(es?'✅ Buena utilización':'✅ Good utilization')}</div>
+      <div style="font-size:10px;color:var(--text3);margin-top:4px">${utilPct>=30?(es?'\u26a0\ufe0f Utilizaci\u00f3n alta afecta tu cr\u00e9dito':'\u26a0\ufe0f High utilization affects your credit'):(es?'\u2705 Buena utilizaci\u00f3n':'\u2705 Good utilization')}</div>
     </div>`:''}
 
     <!-- Stats -->
@@ -1063,7 +834,7 @@ function openDetail(id){
         <div class="stat-lbl">${es?'pago/mes':'payment/mo'}</div>
       </div>
       <div class="stat-card">
-        <div class="stat-val" style="color:var(--red)">${amort.payoffPossible?fmt(amort.totalInterest):'∞'}</div>
+        <div class="stat-val" style="color:var(--red)">${amort.payoffPossible?fmt(amort.totalInterest):'\u221e'}</div>
         <div class="stat-lbl">${es?'intereses totales':'total interest'}</div>
       </div>
       <div class="stat-card">
@@ -1075,7 +846,7 @@ function openDetail(id){
     ${apr>0?`
     <!-- Monthly breakdown -->
     <div style="background:var(--off);border-radius:12px;padding:14px;margin-bottom:14px">
-      <div class="section-title">💸 ${es?'Desglose de tu pago mensual':'Monthly payment breakdown'}</div>
+      <div class="section-title">\ud83d\udcb8 ${es?'Desglose de tu pago mensual':'Monthly payment breakdown'}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div style="background:var(--white);border-radius:10px;padding:12px;text-align:center">
           <div style="font-size:16px;font-weight:800;color:var(--g-main)">${fmtD(firstPrincipal)}</div>
@@ -1083,45 +854,15 @@ function openDetail(id){
         </div>
         <div style="background:var(--white);border-radius:10px;padding:12px;text-align:center">
           <div style="font-size:16px;font-weight:800;color:var(--red)">${fmtD(firstInt)}</div>
-          <div style="font-size:10px;color:var(--text3);margin-top:2px">${es?'va al interés':'goes to interest'}</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:2px">${es?'va al inter\u00e9s':'goes to interest'}</div>
         </div>
       </div>
     </div>`:''}
 
-    <!-- RESPONSIBILITY -->
-    ${(()=>{
-      const hogar2 = JSON.parse(localStorage.getItem('ft_hogar')||'{}');
-      const partnerName2 = hogar2.partnerName||(es?'Tu pareja':'Your partner');
-      const owner2 = debt.owner||'me';
-      const myPct2 = parseFloat(debt.splitMe)||50;
-      const partnerPct2 = parseFloat(debt.splitPartner)||50;
-      const myAmt2 = payment * myPct2/100;
-      const partnerAmt2 = payment * partnerPct2/100;
-      const ownerLabel = owner2==='both'?`👥 ${es?'Compartida':'Shared'}`:owner2==='partner'?`👤 ${partnerName2}`:`👤 ${es?'Solo tú':'Just you'}`;
-      return `<div style="background:var(--blu-dim);border-radius:12px;padding:14px;margin-bottom:14px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:${owner2==='both'?'12px':'0'}">
-          <div class="section-title" style="margin-bottom:0">🤝 ${es?'Responsabilidad':'Responsibility'}</div>
-          <span style="background:var(--blue);color:white;font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px">${ownerLabel}</span>
-        </div>
-        ${owner2==='both'?`
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-          <div style="background:var(--white);border-radius:10px;padding:12px;text-align:center">
-            <div style="font-size:10px;color:var(--text3);margin-bottom:4px">${es?'Tú':'You'} (${myPct2}%)</div>
-            <div style="font-size:16px;font-weight:800;color:var(--g-main)">${fmtD(myAmt2)}/mes</div>
-          </div>
-          <div style="background:var(--white);border-radius:10px;padding:12px;text-align:center">
-            <div style="font-size:10px;color:var(--text3);margin-bottom:4px">${partnerName2} (${partnerPct2}%)</div>
-            <div style="font-size:16px;font-weight:800;color:var(--blue)">${fmtD(partnerAmt2)}/mes</div>
-          </div>
-        </div>
-        <div style="font-size:10px;color:var(--text3);text-align:center;margin-top:8px">${es?'Puedes cambiar esto editando la deuda':'You can change this by editing the debt'}</div>`:''}
-      </div>`;
-    })()}
-
     ${savedExtra>100?`
     <!-- Extra payment tip -->
     <div style="background:var(--g-light);border-radius:12px;padding:14px;margin-bottom:14px">
-      <div class="section-title" style="color:var(--g-dark)">💡 ${es?'Si pagas $100 extra al mes':'If you pay $100 extra/month'}</div>
+      <div class="section-title" style="color:var(--g-dark)">\ud83d\udca1 ${es?'Si pagas $100 extra al mes':'If you pay $100 extra/month'}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
         <div style="text-align:center">
           <div style="font-size:16px;font-weight:800;color:var(--g-main)">-${monthsSaved} ${es?'meses':'months'}</div>
@@ -1136,13 +877,13 @@ function openDetail(id){
 
     <!-- Amortization table -->
     ${amort.schedule&&amort.schedule.length?`
-    <div class="section-title">📊 ${es?'Tabla de amortización':'Amortization table'}</div>
+    <div class="section-title">\ud83d\udcca ${es?'Tabla de amortizaci\u00f3n':'Amortization table'}</div>
     <div style="overflow-x:auto;border-radius:10px;border:1px solid var(--border)">
       <table class="amort-table">
         <thead><tr>
           <th>${es?'Mes':'Month'}</th>
           <th>${es?'Capital':'Principal'}</th>
-          <th>${es?'Interés':'Interest'}</th>
+          <th>${es?'Inter\u00e9s':'Interest'}</th>
           <th>${es?'Saldo':'Balance'}</th>
         </tr></thead>
         <tbody>
@@ -1159,218 +900,29 @@ function openDetail(id){
     <div style="height:16px"></div>
     <div style="display:flex;gap:8px">
       <button class="btn-primary" onclick="openAddModal('${id}');closeDetail()">${es?'Actualizar saldo':'Update balance'}</button>
-      <button class="btn-danger" onclick="deleteDebt('${id}');closeDetail()">🗑️</button>
+      <button class="btn-danger" onclick="deleteDebt('${id}');closeDetail()">\ud83d\uddd1\ufe0f</button>
     </div>
   </div>`;
 
   document.getElementById('detailOverlay').classList.add('open');
 }
 
-/* ── ABONAR A DEUDA ── */
-function openAbonarModal(id){
-  const debts = loadDebts();
-  const debt = debts.find(d=>String(d.id)===String(id));
-  if(!debt) return;
-  const es = lang==='es';
-  const cfg = TYPE_CONFIG[debt.type]||TYPE_CONFIG.personal;
-  const info = cfg[lang]||cfg.es;
-
-  const overlay = document.createElement('div');
-  overlay.id = 'abonarOverlay';
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);display:grid;place-items:center;z-index:300;backdrop-filter:blur(4px);padding:16px';
-  overlay.onclick = e => { if(e.target===overlay) overlay.remove(); };
-
-  const isShared = debt.owner==='both';
-  const myPct = debt.splitMe||50;
-  const partnerPct = debt.splitPartner||50;
-  const suggestedAmt = debt.payment||0;
-
-  overlay.innerHTML = `
-  <div style="background:white;border-radius:18px;padding:22px;width:100%;max-width:420px;max-height:90vh;overflow-y:auto">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-      <div>
-        <div style="font-size:16px;font-weight:800">${es?'Abonar a deuda':'Make a payment'}</div>
-        <div style="font-size:12px;color:var(--text3)">${info.ico} ${debt.name}</div>
-      </div>
-      <div onclick="document.getElementById('abonarOverlay').remove()" style="color:var(--text3);cursor:pointer;font-size:22px">✕</div>
-    </div>
-
-    <div style="background:var(--red-dim);border-radius:12px;padding:12px;margin-bottom:16px;display:flex;justify-content:space-between">
-      <div>
-        <div style="font-size:11px;color:var(--red);font-weight:600">${es?'Saldo actual':'Current balance'}</div>
-        <div style="font-size:20px;font-weight:800;color:var(--red)">${fmtD(debt.balance)}</div>
-      </div>
-      <div style="text-align:right">
-        <div style="font-size:11px;color:var(--text3)">${es?'Pago mensual':'Monthly payment'}</div>
-        <div style="font-size:16px;font-weight:700">${fmtD(suggestedAmt)}</div>
-      </div>
-    </div>
-
-    <div style="margin-bottom:12px">
-      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">${es?'Monto a abonar':'Amount to pay'}</div>
-      <input id="abonarAmt" type="number" min="0" step="0.01" value="${suggestedAmt}"
-        style="width:100%;background:var(--off);border:2px solid var(--border);border-radius:10px;padding:12px;font-size:18px;font-weight:800;font-family:inherit;outline:none"
-        oninput="updateAbonarPreview()">
-      <div style="display:flex;gap:6px;margin-top:6px">
-        <button onclick="document.getElementById('abonarAmt').value=${suggestedAmt};updateAbonarPreview()" style="flex:1;background:var(--off);border:1.5px solid var(--border);border-radius:8px;padding:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">${es?'Pago normal':'Normal'} ${fmtD(suggestedAmt)}</button>
-        <button onclick="document.getElementById('abonarAmt').value=${suggestedAmt+100};updateAbonarPreview()" style="flex:1;background:var(--g-light);border:1.5px solid var(--g-main);color:var(--g-dark);border-radius:8px;padding:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">+$100 extra</button>
-      </div>
-    </div>
-
-    <div id="abonarPreview" style="background:var(--off);border-radius:10px;padding:10px;margin-bottom:14px;font-size:12px"></div>
-
-    ${isShared?`
-    <div style="background:var(--blu-dim);border-radius:10px;padding:10px;margin-bottom:14px;font-size:11px;color:var(--text2)">
-      👥 ${es?'Deuda compartida — este abono actualiza el saldo para ambos.':'Shared debt — this payment updates the balance for both of you.'}
-    </div>`:''}
-
-    <div style="margin-bottom:10px">
-      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">${es?'Fecha de pago':'Payment date'}</div>
-      <input id="abonarDate" type="date" value="${new Date().toISOString().split('T')[0]}"
-        style="width:100%;background:var(--off);border:1.5px solid var(--border);border-radius:10px;padding:11px;font-size:14px;font-family:inherit;outline:none">
-    </div>
-
-    <button onclick="confirmAbonar('${debt.id}')" style="width:100%;background:linear-gradient(135deg,var(--g-dark),var(--g-main));color:white;border:none;border-radius:12px;padding:14px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:8px">
-      ✅ ${es?'Confirmar pago':'Confirm payment'}
-    </button>
-    <button onclick="document.getElementById('abonarOverlay').remove()" style="width:100%;background:var(--off);border:1.5px solid var(--border);color:var(--text2);border-radius:12px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">
-      ${es?'Cancelar':'Cancel'}
-    </button>
-  </div>`;
-
-  document.body.appendChild(overlay);
-  updateAbonarPreview();
-}
-
-function updateAbonarPreview(){
-  const preview = document.getElementById('abonarPreview');
-  if(!preview) return;
-  const debts = loadDebts();
-  // Find the debt being paid — use current editingId context or last opened
-  const overlay = document.getElementById('abonarOverlay');
-  if(!overlay) return;
-
-  const btn = overlay.querySelector('button[onclick*="confirmAbonar"]');
-  if(!btn) return;
-  const idMatch = btn.getAttribute('onclick').match(/'([^']+)'/);
-  if(!idMatch) return;
-
-  const debt = debts.find(d=>String(d.id)===idMatch[1]);
-  if(!debt) return;
-
-  const amt = parseFloat(document.getElementById('abonarAmt')?.value)||0;
-  const newBalance = Math.max(0, (debt.balance||0) - amt);
-  const es = lang==='es';
-
-  preview.innerHTML = `
-  <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-    <span style="color:var(--text3)">${es?'Saldo actual':'Current balance'}</span>
-    <span style="font-weight:700">${fmtD(debt.balance)}</span>
-  </div>
-  <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-    <span style="color:var(--text3)">${es?'Tu abono':'Your payment'}</span>
-    <span style="font-weight:700;color:var(--g-main)">-${fmtD(amt)}</span>
-  </div>
-  <div style="display:flex;justify-content:space-between;border-top:1px solid var(--border);padding-top:6px;margin-top:4px">
-    <span style="font-weight:700">${es?'Nuevo saldo':'New balance'}</span>
-    <span style="font-weight:800;color:${newBalance===0?'var(--g-main)':'var(--red)'}">${fmtD(newBalance)}</span>
-  </div>
-  ${newBalance===0?`<div style="text-align:center;margin-top:6px;color:var(--g-main);font-weight:700">🎉 ${es?'¡Deuda saldada!':'Debt paid off!'}</div>`:''}`;
-}
-
-function confirmAbonar(id){
-  const debts = loadDebts();
-  const idx = debts.findIndex(d=>String(d.id)===String(id));
-  if(idx<0) return;
-
-  const amt = parseFloat(document.getElementById('abonarAmt')?.value)||0;
-  const date = document.getElementById('abonarDate')?.value || new Date().toISOString().split('T')[0];
-  const es = lang==='es';
-
-  if(!amt){ showToast(es?'⚠️ Ingresa un monto':'⚠️ Enter an amount'); return; }
-
-  const debt = debts[idx];
-  const newBalance = Math.max(0, (debt.balance||0) - amt);
-
-  // Update balance
-  debts[idx].balance = newBalance;
-  debts[idx].updatedAt = new Date().toISOString();
-
-  // Add to payment history
-  if(!debts[idx].paymentHistory) debts[idx].paymentHistory = [];
-  debts[idx].paymentHistory.push({ date, amount:amt, balance:newBalance });
-
-  // Mark this month as paid
-  const monthKey = date.slice(0,7);
-  if(!debts[idx].paidMonths) debts[idx].paidMonths = {};
-  debts[idx].paidMonths[monthKey] = true;
-
-  saveDebts(debts);
-
-  // Also register as a transaction in ft_data
-  const ftData = JSON.parse(localStorage.getItem('ft_data')||'{"transactions":[],"emergency":0,"subscriptions":[]}');
-  ftData.transactions.push({
-    id: Date.now(),
-    type: 'hipoteca',
-    desc: `${es?'Abono':'Payment'}: ${debt.name}`,
-    amount: amt,
-    date,
-    cat: '🏠 Renta / Hipoteca',
-    debtId: String(id),
-    hogar: debt.owner==='both' ? true : undefined,
-  });
-  localStorage.setItem('ft_data', JSON.stringify(ftData));
-
-  document.getElementById('abonarOverlay')?.remove();
-  document.getElementById('detailOverlay')?.classList.remove('open');
-  render();
-  showToast(newBalance===0
-    ? (es?'🎉 ¡Deuda saldada!':'🎉 Debt paid off!')
-    : (es?`✅ Abono de ${fmtD(amt)} registrado`:`✅ Payment of ${fmtD(amt)} recorded`));
-}
-
-/* ── PAYMENT STATUS HELPERS ── */
-function isDebtDueSoon(debt){
-  const today = new Date();
-  const payDay = debt.payDay || 1;
-  const dueDate = new Date(today.getFullYear(), today.getMonth(), payDay);
-  const diff = Math.ceil((dueDate - today) / (1000*60*60*24));
-  return { diff, dueDate, overdue: diff < 0, dueSoon: diff >= 0 && diff <= 5 };
-}
-
-function isDebtPaidThisMonth(debt){
-  const monthKey = new Date().toISOString().slice(0,7);
-  return !!(debt.paidMonths && debt.paidMonths[monthKey]);
-}
-
-function markDebtPaid(id){
-  const debts = loadDebts();
-  const idx = debts.findIndex(d=>String(d.id)===String(id));
-  if(idx<0) return;
-  const monthKey = new Date().toISOString().slice(0,7);
-  if(!debts[idx].paidMonths) debts[idx].paidMonths = {};
-  debts[idx].paidMonths[monthKey] = true;
-  saveDebts(debts);
-  render();
-  showToast(lang==='es'?'✅ Marcado como pagado':'✅ Marked as paid');
-}
-
-/* ── DELETE ── */
+/* \u2500\u2500 DELETE \u2500\u2500 */
 function deleteDebt(id){
-  if(!confirm(lang==='es'?'¿Eliminar esta deuda?':'Delete this debt?')) return;
+  if(!confirm(lang==='es'?'\u00bfEliminar esta deuda?':'Delete this debt?')) return;
   const debts = loadDebts().filter(d=>d.id!==id);
   saveDebts(debts);
   render();
-  showToast(lang==='es'?'🗑️ Eliminado':'🗑️ Deleted');
+  showToast(lang==='es'?'\ud83d\uddd1\ufe0f Eliminado':'\ud83d\uddd1\ufe0f Deleted');
 }
 
-/* ── MODAL HELPERS ── */
+/* \u2500\u2500 MODAL HELPERS \u2500\u2500 */
 function closeModal(){ document.getElementById('modalOverlay').classList.remove('open'); editingId=null; currentType=null; }
 function closeModalOutside(e){ if(e.target===document.getElementById('modalOverlay')) closeModal(); }
 function closeDetail(){ document.getElementById('detailOverlay').classList.remove('open'); }
 function closeDetailOutside(e){ if(e.target===document.getElementById('detailOverlay')) closeDetail(); }
 
-/* ── LANG + NAV ── */
+/* \u2500\u2500 LANG + NAV \u2500\u2500 */
 function setLang(l){
   lang=l;
   sessionStorage.setItem('ft_lang',l);
@@ -1383,34 +935,16 @@ function setLang(l){
 function go(url){window.location.href=url;}
 function logout(){sessionStorage.clear();localStorage.removeItem('ft_user');localStorage.removeItem('ft_user_setup');localStorage.removeItem('ft_premium');localStorage.removeItem('ft_lang');window.location.replace('login.html');}
 
-/* ── INIT ── */
+/* \u2500\u2500 INIT \u2500\u2500 */
 (function init(){
-  try {
-    let s = localStorage.getItem('ft_user') || sessionStorage.getItem('ft_user');
-    if (!s) {
-      const setup = localStorage.getItem('ft_user_setup');
-      if (setup) {
-        const fb = {name:'Usuario',email:'',income:3000,currency:'USD',lang:localStorage.getItem('ft_lang')||'es',needs:1500,wants:900,savings:600,setupDone:true,createdAt:new Date().toISOString()};
-        try{const gu=JSON.parse(sessionStorage.getItem('ft_google_user')||'{}');if(gu.name)fb.name=gu.name;if(gu.email)fb.email=gu.email;}catch(e){}
-        s=JSON.stringify(fb);
-        localStorage.setItem('ft_user',s);
-        sessionStorage.setItem('ft_user',s);
-      } else { window.location.replace('login.html'); return; }
-    }
-    user = JSON.parse(s);
-    lang = user.lang || localStorage.getItem('ft_lang') || 'es';
-    localStorage.setItem('ft_user', s);
-    sessionStorage.setItem('ft_user', s);
-  } catch(e) {
-    try {
-      const s = localStorage.getItem('ft_user');
-      if(s){ user=JSON.parse(s); lang=user.lang||'es'; }
-      else { window.location.replace('login.html'); return; }
-    } catch(e2) { window.location.replace('login.html'); return; }
-  }
-  if(document.getElementById('sbName')) document.getElementById('sbName').textContent = user.name||'';
-  if(document.getElementById('sbEmail')) document.getElementById('sbEmail').textContent = user.email||'';
-  if(document.getElementById('sbAvatar')) document.getElementById('sbAvatar').textContent = (user.name||'U').charAt(0).toUpperCase();
+  let s=sessionStorage.getItem('ft_user')||localStorage.getItem('ft_user');
+  if(!s){const setup=localStorage.getItem('ft_user_setup');if(setup){const fb={name:'Usuario',email:'',income:3000,currency:'USD',lang:localStorage.getItem('ft_lang')||'es',needs:1500,wants:900,savings:600,setupDone:true,createdAt:new Date().toISOString()};try{const gu=JSON.parse(sessionStorage.getItem('ft_google_user')||'{}');if(gu.name)fb.name=gu.name;if(gu.email)fb.email=gu.email;}catch(e){}s=JSON.stringify(fb);sessionStorage.setItem('ft_user',s);localStorage.setItem('ft_user',s);}else{window.location.replace('login.html');return;}}
+  user=JSON.parse(s);
+  lang=user.lang||sessionStorage.getItem('ft_lang')||localStorage.getItem('ft_lang')||'es';
+  if(!sessionStorage.getItem('ft_user'))sessionStorage.setItem('ft_user',s);
+  document.getElementById('sbName').textContent=user.name||'';
+  document.getElementById('sbEmail').textContent=user.email||'';
+  document.getElementById('sbAvatar').textContent=(user.name||'U').charAt(0).toUpperCase();
   setLang(lang);
 })();
 </script>

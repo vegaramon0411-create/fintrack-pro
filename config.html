@@ -2,738 +2,182 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>FinTrack Pro · Configuración</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="premium.js"></script>
-<script>
-
-/* ── RESTORED UTILS ── */
-let user = {};
-let lang = 'es';
-function loadData(){ try{return JSON.parse(localStorage.getItem('ft_data'))||{transactions:[],emergency:0,subscriptions:[]};}catch(e){return{transactions:[],emergency:0,subscriptions:[]};} }
-function loadDebts(){ try{return JSON.parse(localStorage.getItem('ft_debts'))||[];}catch(e){return[];} }
-function saveDebts(d){ localStorage.setItem('ft_debts',JSON.stringify(d)); }
-function saveInvestments(d){ localStorage.setItem('ft_investments',JSON.stringify(d)); }
-function loadInvestments(){ try{return JSON.parse(localStorage.getItem('ft_investments'))||[];}catch(e){return[];} }
-function fmtD(n){ return '$'+Math.abs(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
-function loadSession() {
-  try {
-    let s = localStorage.getItem('ft_user') || sessionStorage.getItem('ft_user');
-    if (!s) {
-      const setup = localStorage.getItem('ft_user_setup');
-      if (setup) {
-        const fb = {name:'Usuario',email:'',income:3000,currency:'USD',lang:localStorage.getItem('ft_lang')||'es',needs:1500,wants:900,savings:600,setupDone:true,createdAt:new Date().toISOString()};
-        try{const gu=JSON.parse(sessionStorage.getItem('ft_google_user')||'{}');if(gu.name)fb.name=gu.name;if(gu.email)fb.email=gu.email;}catch(e){}
-        s = JSON.stringify(fb);
-        localStorage.setItem('ft_user', s);
-        sessionStorage.setItem('ft_user', s);
-      } else {
-        window.location.replace('login.html'); return;
-      }
-    }
-    user = JSON.parse(s);
-    lang = user.lang || localStorage.getItem('ft_lang') || 'es';
-    localStorage.setItem('ft_user', s);
-    sessionStorage.setItem('ft_user', s);
-  } catch(e) {
-    try {
-      const s = localStorage.getItem('ft_user');
-      if (s) { user = JSON.parse(s); lang = user.lang||'es'; return; }
-    } catch(e2) {}
-    window.location.replace('login.html');
-  }
-}
-</script>
 <style>
-:root {
-  --g-dark:#0F5132;--g-main:#1A7A4A;--g-mid:#22A362;--g-light:#E8F7EF;--g-dim:rgba(26,122,74,0.10);
-  --white:#FFFFFF;--off:#F7F8FC;--border:#E4E6F0;--text:#1A1D2E;--text2:#4A4E69;--text3:#9395A5;
-  --red:#E63946;--red-dim:rgba(230,57,70,0.10);--amber:#F4A261;--amb-dim:rgba(244,162,97,0.12);
-  --blue:#4A6CF7;--blu-dim:rgba(74,108,247,0.10);
-  --r:14px;--sidebar:240px;--topbar:58px;
-  --shadow:0 2px 12px rgba(0,0,0,0.06);--shadow-md:0 4px 24px rgba(0,0,0,0.09);
-}
+:root{--g-dark:#0F5132;--g-main:#1A7A4A;--g-light:#E8F7EF;--white:#fff;--off:#F7F8FC;--border:#E4E6F0;--text:#1A1D2E;--text2:#4A4E69;--text3:#9395A5;--red:#E63946;--red-dim:rgba(230,57,70,.1);--shadow:0 2px 12px rgba(0,0,0,.06);}
 *{margin:0;padding:0;box-sizing:border-box;}
-body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(--text);min-height:100vh;overflow-x:hidden;}
-.app{display:flex;min-height:100vh;}
-
-/* SIDEBAR */
-.sidebar{width:var(--sidebar);background:var(--white);border-right:1px solid var(--border);position:fixed;top:0;left:0;bottom:0;display:flex;flex-direction:column;z-index:50;overflow-y:auto;}
-.sb-logo{display:flex;align-items:center;gap:10px;padding:22px 18px 18px;border-bottom:1px solid var(--border);}
-.sb-mark{width:36px;height:36px;background:linear-gradient(135deg,var(--g-dark),var(--g-main));border-radius:11px;display:grid;place-items:center;color:white;font-size:17px;flex-shrink:0;}
-.sb-name{font-size:15px;font-weight:800;letter-spacing:-.3px;}
-.sb-tag{font-size:10px;color:var(--text3);font-weight:500;}
-.sb-nav{padding:14px 10px;flex:1;}
-.sb-section{font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);padding:10px 8px 5px;}
-.sb-link{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:10px;font-size:13px;font-weight:600;color:var(--text2);cursor:pointer;margin-bottom:2px;transition:all .15s;}
-.sb-link:hover{background:var(--off);color:var(--text);}
-.sb-link.on{background:var(--g-dim);color:var(--g-main);}
-.sb-ico{font-size:15px;width:20px;text-align:center;flex-shrink:0;}
-.sb-footer{border-top:1px solid var(--border);padding:12px 10px;}
-.sb-user{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:10px;cursor:pointer;}
-.sb-user:hover{background:var(--off);}
-.sb-avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--g-dark),var(--g-main));display:grid;place-items:center;color:white;font-size:13px;font-weight:700;flex-shrink:0;}
-.sb-uname{font-size:13px;font-weight:700;}
-.sb-umail{font-size:10px;color:var(--text3);}
-
-/* MAIN */
-.main{margin-left:var(--sidebar);flex:1;display:flex;flex-direction:column;}
-.topbar{background:var(--white);border-bottom:1px solid var(--border);height:var(--topbar);padding:0 28px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:40;}
-.tb-title{font-size:17px;font-weight:800;letter-spacing:-.3px;}
-.tb-right{display:flex;align-items:center;gap:10px;}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(--text);min-height:100vh;padding-bottom:90px;}
+.topbar{background:var(--white);border-bottom:1px solid var(--border);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
+.topbar-title{font-size:17px;font-weight:800;}
+.page{padding:16px;}
+.section{margin-bottom:20px;}
+.section-title{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;padding:0 4px;}
+.card{background:var(--white);border-radius:16px;overflow:hidden;box-shadow:var(--shadow);}
+.setting-row{display:flex;align-items:center;padding:14px 16px;border-bottom:1px solid var(--off);}
+.setting-row:last-child{border-bottom:none;}
+.setting-ico{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;font-size:18px;flex-shrink:0;margin-right:12px;}
+.setting-info{flex:1;}
+.setting-label{font-size:13px;font-weight:700;}
+.setting-sub{font-size:11px;color:var(--text3);}
+.setting-ctrl{flex-shrink:0;}
 .lang-toggle{display:flex;background:var(--off);border:1px solid var(--border);border-radius:20px;overflow:hidden;font-size:11px;font-weight:700;}
-.lt-opt{padding:5px 11px;cursor:pointer;color:var(--text3);border-radius:20px;transition:all .15s;}
+.lt-opt{padding:5px 12px;cursor:pointer;color:var(--text3);}
 .lt-opt.on{background:var(--g-main);color:white;}
-
-.page{padding:24px 28px;max-width:900px;}
-
-/* SECTION HEADER */
-.sec-hd{font-size:13px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin:24px 0 10px;display:flex;align-items:center;gap:8px;}
-.sec-hd:first-child{margin-top:0;}
-
-/* CARD */
-.card{background:var(--white);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden;margin-bottom:4px;}
-
-/* SETTING ROW */
-.set-row{display:flex;align-items:center;gap:14px;padding:16px 20px;border-bottom:1px solid var(--border);transition:background .1s;}
-.set-row:last-child{border-bottom:none;}
-.set-row:hover{background:var(--off);}
-.set-icon{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;font-size:18px;flex-shrink:0;}
-.set-info{flex:1;min-width:0;}
-.set-label{font-size:14px;font-weight:600;}
-.set-desc{font-size:12px;color:var(--text3);margin-top:2px;line-height:1.45;}
-.set-control{flex-shrink:0;}
-
-/* TOGGLE SWITCH */
-.toggle{position:relative;width:44px;height:24px;cursor:pointer;}
-.toggle input{opacity:0;width:0;height:0;position:absolute;}
-.toggle-track{position:absolute;inset:0;background:var(--border);border-radius:100px;transition:background .2s;}
-.toggle input:checked + .toggle-track{background:var(--g-main);}
-.toggle-thumb{position:absolute;top:3px;left:3px;width:18px;height:18px;background:white;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,0.2);transition:transform .2s;}
-.toggle input:checked ~ .toggle-thumb{transform:translateX(20px);}
-
-/* SELECT / INPUT */
-.set-select,.set-input{
-  background:var(--off);border:1.5px solid var(--border);border-radius:10px;
-  padding:8px 12px;font-size:13px;font-weight:500;color:var(--text);
-  font-family:inherit;outline:none;transition:border-color .15s;cursor:pointer;
-  min-width:160px;
-}
-.set-select:focus,.set-input:focus{border-color:var(--g-main);}
-
-/* SLIDER */
-.set-slider-wrap{display:flex;align-items:center;gap:12px;}
-.set-slider-val{font-size:16px;font-weight:800;color:var(--g-main);min-width:60px;text-align:right;}
-.range-slider{width:160px;-webkit-appearance:none;height:5px;border-radius:100px;outline:none;cursor:pointer;}
-.range-slider::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--g-main);border:2px solid white;box-shadow:0 1px 6px rgba(15,81,50,0.3);cursor:pointer;}
-
-/* PROFILE CARD */
-.profile-card{background:linear-gradient(135deg,var(--g-dark),var(--g-main));border-radius:var(--r);padding:22px 24px;color:white;margin-bottom:20px;display:flex;align-items:center;gap:16px;box-shadow:var(--shadow-md);}
-.profile-avatar-big{width:60px;height:60px;border-radius:50%;background:rgba(255,255,255,0.2);border:2px solid rgba(255,255,255,0.4);display:grid;place-items:center;font-size:24px;font-weight:800;flex-shrink:0;}
-.profile-name{font-size:20px;font-weight:800;letter-spacing:-.3px;}
-.profile-email{font-size:13px;opacity:.7;margin-top:2px;}
-.profile-since{font-size:11px;opacity:.5;margin-top:4px;}
-
-/* BUDGET PREVIEW */
-.budget-preview{background:var(--off);border-radius:var(--r-sm,10px);padding:14px 16px;margin:12px 20px;}
-.bp-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
-.bp-row:last-child{margin-bottom:0;}
-.bp-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
-.bp-label{font-size:12px;font-weight:600;flex:1;}
-.bp-track{flex:2;background:var(--border);border-radius:100px;height:6px;overflow:hidden;}
-.bp-fill{height:100%;border-radius:100px;}
-.bp-amt{font-size:12px;font-weight:700;min-width:60px;text-align:right;}
-
-/* DANGER ZONE */
-.danger-row{display:flex;align-items:center;gap:14px;padding:16px 20px;border-bottom:1px solid var(--border);transition:background .1s;cursor:pointer;}
-.danger-row:last-child{border-bottom:none;}
-.danger-row:hover{background:var(--red-dim);}
-
-/* SAVE BUTTON */
-.save-btn{
-  width:100%;background:linear-gradient(135deg,var(--g-dark),var(--g-main));
-  color:white;border:none;border-radius:var(--r);padding:14px;
-  font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;
-  box-shadow:0 4px 16px rgba(15,81,50,0.22);transition:opacity .15s;
-  display:flex;align-items:center;justify-content:center;gap:8px;
-}
-.save-btn:hover{opacity:.88;}
-.save-btn:active{transform:scale(.99);}
-
-/* TOAST */
-.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--text);color:white;padding:12px 20px;border-radius:20px;font-size:13px;font-weight:600;display:none;align-items:center;gap:8px;box-shadow:var(--shadow-md);z-index:200;animation:toastUp .3s ease;}
-@keyframes toastUp{from{opacity:0;transform:translateX(-50%) translateY(10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
-
-/* MOBILE */
-@media(max-width:860px){
-  .sidebar{display:none;}
-  .main{margin-left:0;padding-bottom:72px;}
-  .topbar{height:auto;min-height:var(--topbar);padding:12px 16px;flex-direction:column;align-items:stretch;gap:10px;}
-  .tb-title{font-size:16px;white-space:normal;}
-  .tb-right{width:100%;justify-content:space-between;gap:8px;flex-wrap:wrap;}
-  .page{padding:16px;max-width:100%;}
-  .set-slider-wrap{flex-wrap:wrap;}
-  .range-slider{width:100%;}
-  /* ─── MOBILE NAV ─── */
-.mob-nav{display:flex;position:fixed;bottom:0;left:0;right:0;background:var(--white);border-top:1px solid var(--border);padding:8px 0 calc(8px + env(safe-area-inset-bottom));z-index:100;align-items:center;}
-.mob-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:9px;font-weight:600;color:var(--text3);cursor:pointer;-webkit-tap-highlight-color:transparent;}
+.btn{border:none;border-radius:12px;padding:11px 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;}
+select.field-input{background:var(--off);border:1.5px solid var(--border);border-radius:10px;padding:6px 10px;font-size:13px;font-family:inherit;outline:none;}
+.mob-nav{display:flex;position:fixed;bottom:0;left:0;right:0;background:var(--white);border-top:1px solid var(--border);padding:8px 0 calc(8px + env(safe-area-inset-bottom));z-index:100;gap:0;}
+.mob-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:9px;font-weight:700;color:var(--text3);cursor:pointer;padding:4px 0;}
 .mob-item.on{color:var(--g-main);}
-.mob-item.mob-center{flex:1.2;}
-.mob-ico{font-size:21px;line-height:1;}
-.mob-add{width:48px;height:48px;background:linear-gradient(135deg,var(--g-dark),var(--g-main));border-radius:50%;border:none;display:grid;place-items:center;color:white;font-size:26px;cursor:pointer;margin-top:-16px;box-shadow:0 4px 16px rgba(15,81,50,.35);-webkit-tap-highlight-color:transparent;}
-@media(min-width:700px){.mob-nav{display:none!important;}}
-::-webkit-scrollbar{width:5px;}
-::-webkit-scrollbar-track{background:transparent;}
-::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+.mob-ico{font-size:22px;line-height:1.2;}
+.mob-plus{width:52px;height:52px;border-radius:50%;background:var(--g-main);display:flex;align-items:center;justify-content:center;font-size:26px;color:white;margin-top:-18px;box-shadow:0 4px 14px rgba(26,122,74,.4);}
+.more-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;align-items:flex-end;z-index:200;}
+.more-overlay.open{display:flex;}
+.more-panel{background:var(--white);width:100%;border-radius:24px 24px 0 0;padding:12px 20px calc(28px + env(safe-area-inset-bottom));}
+.more-handle{width:36px;height:4px;background:var(--border);border-radius:100px;margin:0 auto 16px;}
+.more-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+.more-item{display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;}
+.more-ico{width:52px;height:52px;border-radius:16px;display:grid;place-items:center;font-size:24px;}
+.more-item span{font-size:11px;font-weight:600;color:var(--text2);text-align:center;}
+#toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#1A1D2E;color:white;padding:12px 20px;border-radius:20px;font-size:13px;font-weight:600;display:none;z-index:300;}
 </style>
 </head>
 <body>
-<div class="app">
-
-<!-- SIDEBAR -->
-<aside class="sidebar">
-  <div class="sb-logo">
-    <div class="sb-mark">💎</div>
-    <div><div class="sb-name">FinTrack Pro</div><div class="sb-tag" data-es="Panel financiero" data-en="Financial dashboard">Panel financiero</div></div>
+<div class="topbar">
+  <div class="topbar-title">⚙️ <span data-es="Configuración" data-en="Settings">Configuración</span></div>
+  <div class="lang-toggle">
+    <div class="lt-opt on" id="ltES" onclick="setLang('es')">ES</div>
+    <div class="lt-opt" id="ltEN" onclick="setLang('en')">EN</div>
   </div>
-  <nav class="sb-nav">
-    <div class="sb-section" data-es="Principal" data-en="Main">Principal</div>
-    <div class="sb-link" onclick="go('dashboard.html')"><span class="sb-ico">📊</span><span data-es="Dashboard" data-en="Dashboard">Dashboard</span></div>
-    <div class="sb-link" onclick="go('dashboard.html')"><span class="sb-ico">➕</span><span data-es="Nuevo registro" data-en="New entry">Nuevo registro</span></div>
-    <div class="sb-link" onclick="go('suscripciones.html')"><span class="sb-ico">🔄</span><span data-es="Suscripciones" data-en="Subscriptions">Suscripciones</span></div>
-    <div class="sb-link" onclick="go('metas.html')"><span class="sb-ico">🎯</span><span data-es="Metas" data-en="Goals">Metas</span></div>
-    <div class="sb-link" onclick="go('deudas.html')"><span class="sb-ico">💳</span><span data-es="Deudas" data-en="Debts">Deudas</span></div>
-    <div class="sb-section" data-es="Análisis" data-en="Analysis">Análisis</div>
-    <div class="sb-link" onclick="go('analisis.html')"><span class="sb-ico">📈</span><span data-es="Por categoría" data-en="By category">Por categoría</span></div>
-    <div class="sb-link" onclick="go('historial.html')"><span class="sb-ico">📅</span><span data-es="Historial" data-en="History">Historial</span></div>
-    <div class="sb-link" onclick="go('inversiones.html')"><span class="sb-ico">🏦</span><span data-es="Inversiones" data-en="Investments">Inversiones</span></div>
-    <div class="sb-link" onclick="go('reporte.html')"><span class="sb-ico">📄</span><span data-es="Reporte mensual" data-en="Monthly report">Reporte mensual</span></div>
-    <div class="sb-section" data-es="Herramientas" data-en="Tools">Herramientas</div>
-    <div class="sb-link" onclick="go('scanner.html')"><span class="sb-ico">📷</span><span data-es="Escanear recibo" data-en="Scan receipt">Escanear recibo</span></div>
-    <div class="sb-link" onclick="go('emergencia.html')"><span class="sb-ico">🛡️</span><span data-es="Fondo emergencia" data-en="Emergency fund">Fondo emergencia</span></div>
-    <div class="sb-link" onclick="go('hogar.html')"><span class="sb-ico">🏠</span><span data-es="Hogar" data-en="Household">Hogar</span></div>
-    <div class="sb-section" data-es="Cuenta" data-en="Account">Cuenta</div>
-    <div class="sb-link" onclick="go('perfil.html')"><span class="sb-ico">👤</span><span data-es="Mi perfil" data-en="My profile">Mi perfil</span></div>
-    <div class="sb-link on"><span class="sb-ico">⚙️</span><span data-es="Configuración" data-en="Settings">Configuración</span></div>
-    <div class="sb-link" onclick="logout()"><span class="sb-ico">🚪</span><span data-es="Cerrar sesión" data-en="Sign out">Cerrar sesión</span></div>
-  </nav>
-  <div class="sb-footer">
-    <div class="sb-user" onclick="go('perfil.html')">
-      <div class="sb-avatar" id="sbAvatar">R</div>
-      <div><div class="sb-uname" id="sbName">—</div><div class="sb-umail" id="sbEmail">—</div></div>
-    </div>
-  </div>
-</aside>
+</div>
 
-<!-- MAIN -->
-<div class="main">
-  <div class="topbar">
-    <div class="tb-title" data-es="Configuración" data-en="Settings">Configuración</div>
-    <div class="tb-right">
-      <div class="lang-toggle">
-        <div class="lt-opt on" id="ltES" onclick="setLang('es')">ES</div>
-        <div class="lt-opt"    id="ltEN" onclick="setLang('en')">EN</div>
-      </div>
-    </div>
-  </div>
-
-  <div class="page">
-
-    <!-- PROFILE CARD -->
-    <div class="profile-card">
-      <div class="profile-avatar-big" id="profAvatar">R</div>
-      <div>
-        <div class="profile-name" id="profName">Ramon Vega</div>
-        <div class="profile-email" id="profEmail">ramon@gmail.com</div>
-        <div class="profile-since" id="profSince"></div>
-      </div>
-    </div>
-
-    <!-- PERFIL -->
-    <div class="sec-hd">👤 <span data-es="Información personal" data-en="Personal info">Información personal</span></div>
+<div class="page">
+  <div class="section">
+    <div class="section-title" data-es="CUENTA" data-en="ACCOUNT">CUENTA</div>
     <div class="card">
-      <div class="set-row">
-        <div class="set-icon" style="background:var(--g-light)">👤</div>
-        <div class="set-info">
-          <div class="set-label" data-es="Nombre" data-en="Name">Nombre</div>
-          <div class="set-desc" data-es="Tu nombre en la app" data-en="Your name in the app">Tu nombre en la app</div>
-        </div>
-        <div class="set-control">
-          <input class="set-input" type="text" id="cfgName" placeholder="Tu nombre">
-        </div>
+      <div class="setting-row" onclick="go('perfil.html')" style="cursor:pointer">
+        <div class="setting-ico" style="background:rgba(74,108,247,.1)">👤</div>
+        <div class="setting-info"><div class="setting-label" data-es="Mi Perfil" data-en="My Profile">Mi Perfil</div><div class="setting-sub" data-es="Nombre, ingreso, metas" data-en="Name, income, goals">Nombre, ingreso, metas</div></div>
+        <div class="setting-ctrl">›</div>
       </div>
-      <div class="set-row">
-        <div class="set-icon" style="background:var(--g-light)">💰</div>
-        <div class="set-info">
-          <div class="set-label" data-es="Ingreso mensual neto" data-en="Monthly net income">Ingreso mensual neto</div>
-          <div class="set-desc" data-es="Base para calcular tu 50/30/20" data-en="Base for calculating your 50/30/20">Base para calcular tu 50/30/20</div>
-        </div>
-        <div class="set-control">
-          <div class="set-slider-wrap">
-            <input type="range" class="range-slider" id="incomeSlider" min="500" max="15000" step="100" value="3000" oninput="onSlider(this)">
-            <div class="set-slider-val" id="sliderVal">$3,000</div>
+      <div class="setting-row">
+        <div class="setting-ico" style="background:var(--g-light)">🌐</div>
+        <div class="setting-info"><div class="setting-label" data-es="Idioma" data-en="Language">Idioma</div></div>
+        <div class="setting-ctrl">
+          <div class="lang-toggle">
+            <div class="lt-opt" id="ltES2" onclick="setLang('es')">ES</div>
+            <div class="lt-opt" id="ltEN2" onclick="setLang('en')">EN</div>
           </div>
         </div>
       </div>
-    </div>
-
-    <!-- BUDGET PREVIEW -->
-    <div class="card" style="margin-bottom:4px">
-      <div style="padding:14px 20px 4px;font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px" data-es="Vista previa 50/30/20" data-en="50/30/20 preview">Vista previa 50/30/20</div>
-      <div class="budget-preview">
-        <div class="bp-row">
-          <div class="bp-dot" style="background:var(--g-main)"></div>
-          <div class="bp-label" data-es="Necesidades (50%)" data-en="Needs (50%)">Necesidades (50%)</div>
-          <div class="bp-track"><div class="bp-fill" style="background:var(--g-main);width:100%"></div></div>
-          <div class="bp-amt" id="bpNeeds" style="color:var(--g-main)">$1,500</div>
-        </div>
-        <div class="bp-row">
-          <div class="bp-dot" style="background:var(--blue)"></div>
-          <div class="bp-label" data-es="Gustos (30%)" data-en="Wants (30%)">Gustos (30%)</div>
-          <div class="bp-track"><div class="bp-fill" style="background:var(--blue);width:60%"></div></div>
-          <div class="bp-amt" id="bpWants" style="color:var(--blue)">$900</div>
-        </div>
-        <div class="bp-row">
-          <div class="bp-dot" style="background:var(--amber)"></div>
-          <div class="bp-label" data-es="Ahorro (20%)" data-en="Savings (20%)">Ahorro (20%)</div>
-          <div class="bp-track"><div class="bp-fill" style="background:var(--amber);width:40%"></div></div>
-          <div class="bp-amt" id="bpSavings" style="color:var(--amber)">$600</div>
-        </div>
+      <div class="setting-row">
+        <div class="setting-ico" style="background:rgba(244,162,97,.12)">💰</div>
+        <div class="setting-info"><div class="setting-label" data-es="Moneda" data-en="Currency">Moneda</div></div>
+        <div class="setting-ctrl"><select class="field-input" id="currencySelect" onchange="saveCurrency()"><option value="USD">USD ($)</option><option value="MXN">MXN ($)</option><option value="EUR">EUR (€)</option></select></div>
       </div>
     </div>
+  </div>
 
-    <!-- PREFERENCIAS -->
-    <div class="sec-hd">🌐 <span data-es="Preferencias" data-en="Preferences">Preferencias</span></div>
+  <div class="section">
+    <div class="section-title" data-es="DATOS" data-en="DATA">DATOS</div>
     <div class="card">
-      <div class="set-row">
-        <div class="set-icon" style="background:var(--blu-dim)">🌐</div>
-        <div class="set-info">
-          <div class="set-label" data-es="Idioma" data-en="Language">Idioma</div>
-          <div class="set-desc" data-es="Idioma de toda la app" data-en="App language">Idioma de toda la app</div>
-        </div>
-        <div class="set-control">
-          <select class="set-select" id="cfgLang">
-            <option value="es">🇲🇽 Español</option>
-            <option value="en">🇺🇸 English</option>
-          </select>
-        </div>
+      <div class="setting-row" onclick="exportData()" style="cursor:pointer">
+        <div class="setting-ico" style="background:var(--g-light)">📤</div>
+        <div class="setting-info"><div class="setting-label" data-es="Exportar datos" data-en="Export data">Exportar datos</div><div class="setting-sub">JSON</div></div>
+        <div class="setting-ctrl">›</div>
       </div>
-      <div class="set-row">
-        <div class="set-icon" style="background:var(--amb-dim)">💱</div>
-        <div class="set-info">
-          <div class="set-label" data-es="Moneda" data-en="Currency">Moneda</div>
-          <div class="set-desc" data-es="Moneda para mostrar tus cifras" data-en="Currency to display your amounts">Moneda para mostrar tus cifras</div>
-        </div>
-        <div class="set-control">
-          <select class="set-select" id="cfgCurrency">
-            <option value="USD">🇺🇸 USD</option>
-            <option value="MXN">🇲🇽 MXN</option>
-            <option value="EUR">🇪🇺 EUR</option>
-            <option value="CAD">🇨🇦 CAD</option>
-          </select>
-        </div>
+      <div class="setting-row" onclick="clearData()" style="cursor:pointer">
+        <div class="setting-ico" style="background:var(--red-dim)">🗑️</div>
+        <div class="setting-info"><div class="setting-label" style="color:var(--red)" data-es="Borrar todos mis datos" data-en="Clear all my data">Borrar todos mis datos</div><div class="setting-sub" data-es="Esto no se puede deshacer" data-en="This cannot be undone">Esto no se puede deshacer</div></div>
+        <div class="setting-ctrl" style="color:var(--red)">›</div>
       </div>
     </div>
+  </div>
 
-    <!-- NOTIFICACIONES -->
-    <div class="sec-hd">🔔 <span data-es="Notificaciones" data-en="Notifications">Notificaciones</span></div>
+  <div class="section">
+    <div class="section-title" data-es="SESIÓN" data-en="SESSION">SESIÓN</div>
     <div class="card">
-
-      <div class="set-row">
-        <div class="set-icon" style="background:#FEE8EB">📧</div>
-        <div class="set-info">
-          <div class="set-label" data-es="Reporte mensual por email" data-en="Monthly email report">Reporte mensual por email <span id="reportPremiumBadge"></span></div>
-          <div class="set-desc" data-es="El día 1 de cada mes: 50/30/20, categorías y comparativa vs. mes anterior. Se envía a tu Gmail." data-en="On the 1st of each month: 50/30/20, categories and comparison vs. previous month. Sent to your Gmail.">El día 1 de cada mes: 50/30/20, categorías y comparativa vs. mes anterior. Se envía a tu Gmail.</div>
-        </div>
-        <div class="set-control">
-          <label class="toggle" onclick="if(typeof isPremium!=='undefined'&&!isPremium()){event.preventDefault();if(typeof showUpgradeModal!=='undefined')showUpgradeModal();}">
-            <input type="checkbox" id="cfgReport">
-            <div class="toggle-track"></div>
-            <div class="toggle-thumb"></div>
-          </label>
-        </div>
-      </div>
-
-      <div class="set-row">
-        <div class="set-icon" style="background:var(--red-dim)">🚨</div>
-        <div class="set-info">
-          <div class="set-label" data-es="Alerta de presupuesto" data-en="Budget alert">Alerta de presupuesto</div>
-          <div class="set-desc" data-es="Aviso cuando superas el 80% de cualquier categoría del 50/30/20" data-en="Alert when you exceed 80% of any 50/30/20 category">Aviso cuando superas el 80% de cualquier categoría del 50/30/20</div>
-        </div>
-        <div class="set-control">
-          <label class="toggle">
-            <input type="checkbox" id="cfgBudgetAlert" checked>
-            <div class="toggle-track"></div>
-            <div class="toggle-thumb"></div>
-          </label>
-        </div>
-      </div>
-
-      <div class="set-row">
-        <div class="set-icon" style="background:var(--amb-dim)">🔄</div>
-        <div class="set-info">
-          <div class="set-label" data-es="Recordatorio de suscripciones" data-en="Subscription reminder">Recordatorio de suscripciones</div>
-          <div class="set-desc" data-es="Aviso 3 días antes de que se cobre una suscripción" data-en="Alert 3 days before a subscription charge">Aviso 3 días antes de que se cobre una suscripción</div>
-        </div>
-        <div class="set-control">
-          <label class="toggle">
-            <input type="checkbox" id="cfgSubAlert" checked>
-            <div class="toggle-track"></div>
-            <div class="toggle-thumb"></div>
-          </label>
-        </div>
-      </div>
-
-    </div>
-
-    <!-- DATOS -->
-    <div class="sec-hd">💾 <span data-es="Tus datos" data-en="Your data">Tus datos</span></div>
-    <div class="card">
-
-      <div class="set-row" onclick="exportData()" style="cursor:pointer">
-        <div class="set-icon" style="background:var(--g-light)">📥</div>
-        <div class="set-info">
-          <div class="set-label" data-es="Exportar datos (JSON)" data-en="Export data (JSON)">Exportar datos (JSON)</div>
-          <div class="set-desc" data-es="Descarga todos tus registros como archivo de respaldo" data-en="Download all your records as a backup file">Descarga todos tus registros como archivo de respaldo</div>
-        </div>
-        <div class="set-control" style="color:var(--g-main);font-size:18px">→</div>
-      </div>
-
-      <div class="set-row" onclick="importData()" style="cursor:pointer">
-        <div class="set-icon" style="background:var(--blu-dim)">📤</div>
-        <div class="set-info">
-          <div class="set-label" data-es="Importar datos" data-en="Import data">Importar datos</div>
-          <div class="set-desc" data-es="Restaura un respaldo anterior" data-en="Restore a previous backup">Restaura un respaldo anterior</div>
-        </div>
-        <div class="set-control" style="color:var(--blue);font-size:18px">→</div>
-      </div>
-
-      <input type="file" id="importFile" accept=".json" style="display:none" onchange="handleImport(this)">
-
-    </div>
-
-    <!-- PREMIUM STATUS -->
-    <div class="sec-hd">💎 <span data-es="Plan y activación" data-en="Plan & activation">Plan y activación</span></div>
-    <div class="card" id="premiumCard">
-      <!-- Rendered by JS after premium.js loads -->
-    </div>
-
-    <!-- SAVE BUTTON -->
-    <div style="margin:20px 0">
-      <button class="save-btn" onclick="saveConfig()" id="saveBtn">
-        ✓ <span data-es="Guardar cambios" data-en="Save changes">Guardar cambios</span>
-      </button>
-    </div>
-
-    <!-- DANGER ZONE -->
-    <div class="sec-hd" style="color:var(--red)">⚠️ <span data-es="Zona de peligro" data-en="Danger zone">Zona de peligro</span></div>
-    <div class="card">
-      <div class="danger-row" onclick="confirmReset()">
-        <div class="set-icon" style="background:var(--red-dim)">🗑️</div>
-        <div class="set-info">
-          <div class="set-label" style="color:var(--red)" data-es="Borrar todos los datos" data-en="Delete all data">Borrar todos los datos</div>
-          <div class="set-desc" data-es="Elimina todos tus registros de este dispositivo. No se puede deshacer." data-en="Deletes all your records from this device. Cannot be undone.">Elimina todos tus registros de este dispositivo. No se puede deshacer.</div>
-        </div>
-        <div class="set-control" style="color:var(--red);font-size:18px">→</div>
-      </div>
-      <div class="danger-row" onclick="logout()">
-        <div class="set-icon" style="background:var(--red-dim)">🚪</div>
-        <div class="set-info">
-          <div class="set-label" style="color:var(--red)" data-es="Cerrar sesión" data-en="Sign out">Cerrar sesión</div>
-          <div class="set-desc" data-es="Sal de tu cuenta en este dispositivo" data-en="Sign out from this device">Sal de tu cuenta en este dispositivo</div>
-        </div>
-        <div class="set-control" style="color:var(--red);font-size:18px">→</div>
+      <div class="setting-row" onclick="logout()" style="cursor:pointer">
+        <div class="setting-ico" style="background:var(--red-dim)">🚪</div>
+        <div class="setting-info"><div class="setting-label" style="color:var(--red)" data-es="Cerrar sesión" data-en="Sign out">Cerrar sesión</div></div>
+        <div class="setting-ctrl" style="color:var(--red)">›</div>
       </div>
     </div>
+  </div>
 
-    <div style="height:32px"></div>
+  <div style="text-align:center;padding:20px 0;color:var(--text3);font-size:11px">FinTrack Pro · Versión 2.0</div>
+</div>
 
-  </div><!-- /page -->
-</div><!-- /main -->
-</div><!-- /app -->
+<div id="toast"></div>
 
-<!-- MOBILE NAV -->
-<nav class="mob-nav">
-  <div class="mob-item " onclick="go('dashboard.html')"><div class="mob-ico">📊</div><span>Inicio</span></div>
-  <div class="mob-item " onclick="go('historial.html')"><div class="mob-ico">📅</div><span>Historial</span></div>
-  <div class="mob-item mob-center"><button class="mob-add" onclick="go('dashboard.html')" onclick="openModal()">＋</button></div>
-  <div class="mob-item " onclick="go('hogar.html')"><div class="mob-ico">🏠</div><span>Hogar</span></div>
-  <div class="mob-item on" onclick="openMoreMenu()"><div class="mob-ico">☰</div><span>Más</span></div>
-</nav><!-- MORE MENU PANEL (mobile) -->
-<div class="more-overlay" id="moreOverlay" onclick="closeMoreOutside(event)">
+<div class="more-overlay" id="moreOverlay" onclick="if(event.target===this)closeMoreMenu()">
   <div class="more-panel">
     <div class="more-handle"></div>
-    <div class="more-title" data-es="Más opciones" data-en="More options">Más opciones</div>
     <div class="more-grid">
-      <div class="more-item" onclick="go('dashboard.html')"><div class="more-ico" style="background:var(--g-light,#E8F7EF)">📊</div><span data-es="Dashboard" data-en="Dashboard">Dashboard</span></div>
-      <div class="more-item" onclick="go('metas.html')"><div class="more-ico" style="background:var(--g-light,#E8F7EF)">🎯</div><span data-es="Metas" data-en="Goals">Metas</span></div>
-      <div class="more-item" onclick="go('suscripciones.html')"><div class="more-ico" style="background:var(--pur-dim,rgba(123,94,167,.1))">🔄</div><span data-es="Suscripciones" data-en="Subscriptions">Suscripciones</span></div>
-      <div class="more-item" onclick="go('inversiones.html')"><div class="more-ico" style="background:var(--blu-dim,rgba(74,108,247,.1))">🏦</div><span data-es="Inversiones" data-en="Investments">Inversiones</span></div>
-      <div class="more-item" onclick="go('scanner.html')"><div class="more-ico" style="background:var(--g-light,#E8F7EF)">📷</div><span data-es="Escanear" data-en="Scan">Escanear</span></div>
-      <div class="more-item" onclick="go('emergencia.html')"><div class="more-ico" style="background:var(--amb-dim,rgba(244,162,97,.12))">🛡️</div><span data-es="Emergencia" data-en="Emergency">Emergencia</span></div>
-      <div class="more-item" onclick="go('hogar.html')"><div class="more-ico" style="background:var(--pur-dim,rgba(123,94,167,.1))">🏠</div><span data-es="Hogar" data-en="Household">Hogar</span></div>
-      <div class="more-item" onclick="go('deudas.html')"><div class="more-ico" style="background:var(--red-dim,rgba(230,57,70,.1))">💳</div><span data-es="Deudas" data-en="Debts">Deudas</span></div>
-      <div class="more-item" onclick="go('config.html')"><div class="more-ico" style="background:var(--off,#F7F8FC)">⚙️</div><span data-es="Configuración" data-en="Settings">Configuración</span></div>
+      <div class="more-item" onclick="go('deudas.html')"><div class="more-ico" style="background:var(--red-dim)">💳</div><span>Deudas</span></div>
+      <div class="more-item" onclick="go('inversiones.html')"><div class="more-ico" style="background:var(--g-light)">📈</div><span>Inversiones</span></div>
+      <div class="more-item" onclick="go('metas.html')"><div class="more-ico" style="background:rgba(244,162,97,.12)">🎯</div><span>Metas</span></div>
+      <div class="more-item" onclick="go('emergencia.html')"><div class="more-ico" style="background:rgba(244,162,97,.12)">🛡️</div><span>Emergencia</span></div>
+      <div class="more-item" onclick="go('analisis.html')"><div class="more-ico" style="background:var(--g-light)">📊</div><span>Análisis</span></div>
+      <div class="more-item" onclick="go('perfil.html')"><div class="more-ico" style="background:rgba(74,108,247,.1)">👤</div><span>Perfil</span></div>
+      <div class="more-item" onclick="logout()"><div class="more-ico" style="background:var(--red-dim)">🚪</div><span>Salir</span></div>
     </div>
   </div>
 </div>
 
-<style>
-.more-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.4);display:none;align-items:flex-end;z-index:250;backdrop-filter:blur(3px);}
-.more-overlay.open{display:flex;}
-.more-panel{background:var(--white,#fff);width:100%;border-radius:24px 24px 0 0;padding:10px 20px 28px;box-shadow:0 -8px 32px rgba(0,0,0,.15);animation:moreSlideUp .25s cubic-bezier(0.34,1.56,0.64,1);}
-@keyframes moreSlideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
-.more-handle{width:36px;height:4px;background:var(--border,#E4E6F0);border-radius:100px;margin:0 auto 14px;}
-.more-title{font-size:15px;font-weight:800;margin-bottom:16px;}
-.more-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
-.more-item{display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;}
-.more-ico{width:52px;height:52px;border-radius:16px;display:grid;place-items:center;font-size:24px;}
-.more-item span{font-size:11px;font-weight:600;color:var(--text2,#4A4E69);text-align:center;}
-</style>
+<nav class="mob-nav">
+  <div class="mob-item" onclick="go('dashboard.html')"><div class="mob-ico">📊</div><span>Inicio</span></div>
+  <div class="mob-item" onclick="go('historial.html')"><div class="mob-ico">📅</div><span>Historial</span></div>
+  <div class="mob-item" onclick="go('dashboard.html')"><div class="mob-plus">＋</div></div>
+  <div class="mob-item" onclick="go('hogar.html')"><div class="mob-ico">🏠</div><span>Hogar</span></div>
+  <div class="mob-item" onclick="openMoreMenu()"><div class="mob-ico">☰</div><span>Más</span></div>
+</nav>
 
 <script>
+let user={},lang='es';
+function go(url){ window.location.href=url; }
+function logout(){sessionStorage.clear();['ft_user','ft_user_setup','ft_premium','ft_lang'].forEach(k=>localStorage.removeItem(k));window.location.replace('login.html');}
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.style.display='block';setTimeout(()=>t.style.display='none',3000);}
+function openMoreMenu(){document.getElementById('moreOverlay').classList.add('open');}
+function closeMoreMenu(){document.getElementById('moreOverlay').classList.remove('open');}
 
-
-/* ─── openMoreMenu universal ─── */
-function openMoreMenu(){
-  if(document.getElementById('_moreOv')) return;
-  const links=[
-    {ico:'📈',l:'Análisis',    u:'analisis.html'},
-    {ico:'🎯',l:'Metas',       u:'metas.html'},
-    {ico:'💳',l:'Deudas',      u:'deudas.html'},
-    {ico:'🏦',l:'Inversiones', u:'inversiones.html'},
-    {ico:'📷',l:'Escanear',    u:'scanner.html'},
-    {ico:'📥',l:'Importar CSV',u:'importar.html'},
-    {ico:'🛡️',l:'Emergencia',  u:'emergencia.html'},
-    {ico:'🔄',l:'Suscripciones',u:'suscripciones.html'},
-    {ico:'⚙️',l:'Config',      u:'config.html'},
-    {ico:'👤',l:'Perfil',      u:'perfil.html'},
-  ];
-  const ov=document.createElement('div');
-  ov.id='_moreOv';
-  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:300;display:flex;align-items:flex-end;backdrop-filter:blur(3px);';
-  ov.addEventListener('click',e=>{if(e.target===ov)ov.remove();});
-  ov.innerHTML=`<div style="background:white;border-radius:24px 24px 0 0;padding:16px 20px calc(20px + env(safe-area-inset-bottom));width:100%;">
-    <div style="width:36px;height:4px;background:#ddd;border-radius:100px;margin:0 auto 16px;"></div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px 8px;">
-      ${links.map(k=>`<div onclick="window.location.href='${k.u}'" style="display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;">
-        <div style="width:52px;height:52px;background:#f5f5f7;border-radius:14px;display:grid;place-items:center;font-size:24px;">${k.ico}</div>
-        <span style="font-size:10px;font-weight:600;color:#4A4E69;text-align:center;">${k.l}</span>
-      </div>`).join('')}
-    </div>
-  </div>`;
-  document.body.appendChild(ov);
-}
-function saveData(d) { localStorage.setItem(STORE_KEY, JSON.stringify(d)); }
-
-function fmt(n) { return '$'+Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0}); }
-
-/* ── LANG ── */
-function setLang(l) {
-  lang = l;
-  sessionStorage.setItem('ft_lang', l);
-  document.getElementById('ltES').classList.toggle('on', l==='es');
-  document.getElementById('ltEN').classList.toggle('on', l==='en');
-  document.querySelectorAll('[data-es]').forEach(el => {
-    const v = el.getAttribute('data-'+l);
-    if (v) el.textContent = v;
-  });
-  document.getElementById('cfgLang').value = l;
+function setLang(l){
+  lang=l;localStorage.setItem('ft_lang',l);
+  if(user.lang!==l){ user.lang=l; const s=JSON.stringify(user); localStorage.setItem('ft_user',s); sessionStorage.setItem('ft_user',s); }
+  ['ltES','ltEN'].forEach(id=>document.getElementById(id)?.classList.toggle('on',id===('lt'+l.toUpperCase())));
+  ['ltES2','ltEN2'].forEach(id=>document.getElementById(id)?.classList.toggle('on',id===('lt'+l.toUpperCase()+'2')));
+  document.querySelectorAll('[data-es]').forEach(el=>{const v=el.getAttribute('data-'+l);if(v)el.textContent=v;});
 }
 
-/* ── SLIDER ── */
-function onSlider(el) {
-  const v = parseInt(el.value);
-  document.getElementById('sliderVal').textContent = '$'+v.toLocaleString('en-US')+(v>=15000?'+':'');
-  const pct = ((v-500)/(15000-500))*100;
-  el.style.background = `linear-gradient(90deg,var(--g-main) ${pct}%,var(--border) ${pct}%)`;
-  // Update budget preview
-  document.getElementById('bpNeeds').textContent   = fmt(Math.round(v*.50));
-  document.getElementById('bpWants').textContent   = fmt(Math.round(v*.30));
-  document.getElementById('bpSavings').textContent = fmt(Math.round(v*.20));
+function saveCurrency(){
+  const cur=document.getElementById('currencySelect').value;
+  user.currency=cur; const s=JSON.stringify(user); localStorage.setItem('ft_user',s); sessionStorage.setItem('ft_user',s);
+  showToast('✅ Moneda actualizada');
 }
 
-/* ── LOAD CONFIG INTO FORM ── */
-function loadConfig() {
-  document.getElementById('cfgName').value     = user.name     || '';
-  document.getElementById('cfgLang').value     = user.lang     || 'es';
-  document.getElementById('cfgCurrency').value = user.currency || 'USD';
-  document.getElementById('cfgReport').checked     = user.report      || false;
-  document.getElementById('cfgBudgetAlert').checked = user.budgetAlert !== false;
-  document.getElementById('cfgSubAlert').checked    = user.subAlert    !== false;
-
-  const income = user.income || 3000;
-  const slider = document.getElementById('incomeSlider');
-  slider.value = income;
-  onSlider(slider);
-
-  // Profile card
-  document.getElementById('profAvatar').textContent = (user.name||'U').charAt(0).toUpperCase();
-  document.getElementById('profName').textContent   = user.name  || '';
-  document.getElementById('profEmail').textContent  = user.email || '';
-
-  const since = user.createdAt ? new Date(user.createdAt).toLocaleDateString(lang==='es'?'es-MX':'en-US',{year:'numeric',month:'long',day:'numeric'}) : '';
-  document.getElementById('profSince').textContent = since ? (lang==='es'?'Miembro desde ':'Member since ')+since : '';
-
-  // Sidebar
-  document.getElementById('sbName').textContent   = user.name  || '';
-  document.getElementById('sbEmail').textContent  = user.email || '';
-  document.getElementById('sbAvatar').textContent = (user.name||'U').charAt(0).toUpperCase();
+function exportData(){
+  const data={user,transactions:JSON.parse(localStorage.getItem('ft_data')||'{}'),debts:JSON.parse(localStorage.getItem('ft_debts')||'[]'),investments:JSON.parse(localStorage.getItem('ft_investments')||'[]'),goals:JSON.parse(localStorage.getItem('ft_goals')||'[]')};
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='fintrack-backup.json'; a.click();
 }
 
-/* ── SAVE CONFIG ── */
-function saveConfig() {
-  const name     = document.getElementById('cfgName').value.trim();
-  const income   = parseInt(document.getElementById('incomeSlider').value);
-  const langPref = document.getElementById('cfgLang').value;
-  const currency = document.getElementById('cfgCurrency').value;
-  const report   = document.getElementById('cfgReport').checked;
-  const budgetAlert = document.getElementById('cfgBudgetAlert').checked;
-  const subAlert    = document.getElementById('cfgSubAlert').checked;
-
-  if (!name) {
-    document.getElementById('cfgName').style.borderColor = 'var(--red)';
-    setTimeout(() => document.getElementById('cfgName').style.borderColor = '', 1500);
-    return;
-  }
-
-  // Update user session
-  user = {
-    ...user, name, income, lang: langPref, currency, report, budgetAlert, subAlert,
-    needs:   Math.round(income*.50),
-    wants:   Math.round(income*.30),
-    savings: Math.round(income*.20),
-  };
-
-  sessionStorage.setItem('ft_user', JSON.stringify(user));
-  localStorage.setItem('ft_user', JSON.stringify(user));  // persist across reloads
-  localStorage.setItem('ft_user_setup', '1');
-  sessionStorage.setItem('ft_lang', langPref);
-  localStorage.setItem('ft_lang', langPref);
-
-  // Apply lang if changed
-  if (langPref !== lang) setLang(langPref);
-
-  loadConfig();
-  showToast(lang==='es' ? '✅ Cambios guardados' : '✅ Changes saved');
+function clearData(){
+  if(!confirm(lang==='es'?'¿Borrar TODOS tus datos? Esto no se puede deshacer.':'Delete ALL your data? This cannot be undone.')) return;
+  ['ft_data','ft_debts','ft_investments','ft_goals','ft_subs','ft_emerg_hist','ft_hogar','ft_premium'].forEach(k=>localStorage.removeItem(k));
+  showToast(lang==='es'?'🗑️ Datos eliminados':'🗑️ Data cleared');
+  setTimeout(()=>go('dashboard.html'),1500);
 }
 
-/* ── EXPORT ── */
-function exportData() {
-  if (typeof isPremium !== 'undefined' && !isPremium()) {
-    if (typeof showUpgradeModal !== 'undefined') showUpgradeModal();
-    return;
-  }
-  const data = loadData();
-  const blob = new Blob([JSON.stringify({user, data}, null, 2)], {type:'application/json'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'fintrack_backup_'+new Date().toISOString().split('T')[0]+'.json';
-  a.click();
-  showToast(lang==='es' ? '📥 Datos exportados' : '📥 Data exported');
-}
-
-/* ── IMPORT ── */
-function importData() { document.getElementById('importFile').click(); }
-
-function handleImport(input) {
-  const file = input.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    try {
-      const parsed = JSON.parse(e.target.result);
-      if (parsed.data) {
-        saveData(parsed.data);
-        if (parsed.user) {
-          user = {...user, ...parsed.user};
-          sessionStorage.setItem('ft_user', JSON.stringify(user));
-        }
-        loadConfig();
-        showToast(lang==='es' ? '✅ Datos importados correctamente' : '✅ Data imported successfully');
-      } else {
-        showToast(lang==='es' ? '❌ Archivo inválido' : '❌ Invalid file');
-      }
-    } catch(e) {
-      showToast(lang==='es' ? '❌ Error al leer el archivo' : '❌ Error reading file');
-    }
-  };
-  reader.readAsText(file);
-}
-
-/* ── RESET ── */
-function confirmReset() {
-  const msg = lang==='es'
-    ? '¿Seguro? Esto borrará TODOS tus registros. Esta acción no se puede deshacer.'
-    : 'Are you sure? This will delete ALL your records. This cannot be undone.';
-  if (confirm(msg)) {
-    localStorage.removeItem(STORE_KEY);
-    showToast(lang==='es' ? '🗑️ Datos borrados' : '🗑️ Data deleted');
-  }
-}
-
-/* ── TOAST ── */
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.style.display = 'flex';
-  setTimeout(() => { t.style.display = 'none'; }, 3000);
-}
-
-/* ── NAV ── */
-function go(url) { window.location.href = url; }
-
-function renderPremiumCard() {
-  const card = document.getElementById('premiumCard');
-  if (!card || typeof isPremium === 'undefined') return;
-
-  const premium = isPremium();
-  const info = getPremiumInfo ? getPremiumInfo() : null;
-
-  if (premium) {
-    const since = info?.activatedAt ? new Date(info.activatedAt).toLocaleDateString(lang==='es'?'es-MX':'en-US',{year:'numeric',month:'long',day:'numeric'}) : '—';
-    card.innerHTML = `
-      <div class="set-row">
-        <div class="set-icon" style="background:var(--g-light)">💎</div>
-        <div class="set-info">
-          <div class="set-label" style="color:var(--g-main)" data-es="Plan Premium activo" data-en="Premium plan active">Plan Premium activo</div>
-          <div class="set-desc">${lang==='es'?'Activado el':'Activated on'} ${since} · ${lang==='es'?'Código':'Code'}: ${info?.code||'—'}</div>
-        </div>
-        <div class="set-control"><span style="font-size:20px">✅</span></div>
-      </div>`;
-  } else {
-    card.innerHTML = `
-      <div class="set-row" onclick="showUpgradeModal()" style="cursor:pointer">
-        <div class="set-icon" style="background:var(--off)">🆓</div>
-        <div class="set-info">
-          <div class="set-label" data-es="Plan Gratuito" data-en="Free Plan">Plan Gratuito</div>
-          <div class="set-desc" data-es="Toca aquí para activar Premium con tu código de Etsy" data-en="Tap here to activate Premium with your Etsy code">Toca aquí para activar Premium con tu código de Etsy</div>
-        </div>
-        <div class="set-control" style="color:var(--g-main);font-size:18px">→</div>
-      </div>`;
-  }
-}
-function logout(){sessionStorage.clear();localStorage.removeItem('ft_user');localStorage.removeItem('ft_user_setup');localStorage.removeItem('ft_premium');localStorage.removeItem('ft_lang');window.location.replace('login.html');}
-
-/* ── INIT ── */
-(function init() {
-  try {
-    let s=sessionStorage.getItem('ft_user')||localStorage.getItem('ft_user');
-    if(!s){const setup=localStorage.getItem('ft_user_setup');if(setup){const fb={name:'Usuario',email:'',income:3000,currency:'USD',lang:localStorage.getItem('ft_lang')||'es',needs:1500,wants:900,savings:600,setupDone:true,createdAt:new Date().toISOString()};try{const gu=JSON.parse(sessionStorage.getItem('ft_google_user')||'{}');if(gu.name)fb.name=gu.name;if(gu.email)fb.email=gu.email;}catch(e){}s=JSON.stringify(fb);sessionStorage.setItem('ft_user',s);localStorage.setItem('ft_user',s);}else{window.location.replace('login.html');return;}}
-    user=JSON.parse(s);lang=user.lang||sessionStorage.getItem('ft_lang')||localStorage.getItem('ft_lang')||'es';if(!sessionStorage.getItem('ft_user'))sessionStorage.setItem('ft_user',s);
-  } catch(e) { window.location.href = 'login.html'; return; }
-
+(function init(){
+  let s=localStorage.getItem('ft_user')||sessionStorage.getItem('ft_user');
+  if(!s){ window.location.replace('login.html'); return; }
+  try{ user=JSON.parse(s); }catch(e){ window.location.replace('login.html'); return; }
+  lang=user.lang||localStorage.getItem('ft_lang')||'es';
+  if(!sessionStorage.getItem('ft_user')) sessionStorage.setItem('ft_user',s);
+  if(user.currency) document.getElementById('currencySelect').value=user.currency;
   setLang(lang);
-  loadConfig();
-  renderPremiumCard();
-
-  // Show Premium badges on locked features
-  const reportBadge = document.getElementById('reportPremiumBadge');
-  if (reportBadge && typeof premiumBadge !== 'undefined' && !isPremium()) {
-    reportBadge.innerHTML = premiumBadge();
-  }
 })();
 </script>
 </body>

@@ -2,733 +2,240 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FinTrack Pro · Fondo de Emergencia</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>FinTrack Pro · Emergencia</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="premium.js"></script>
-<script>
-
-/* ── RESTORED UTILS ── */
-let user = {};
-let lang = 'es';
-function loadData(){ try{return JSON.parse(localStorage.getItem('ft_data'))||{transactions:[],emergency:0,subscriptions:[]};}catch(e){return{transactions:[],emergency:0,subscriptions:[]};} }
-function saveData(d){ localStorage.setItem('ft_data',JSON.stringify(d)); }
-function loadDebts(){ try{return JSON.parse(localStorage.getItem('ft_debts'))||[];}catch(e){return[];} }
-function saveDebts(d){ localStorage.setItem('ft_debts',JSON.stringify(d)); }
-function saveInvestments(d){ localStorage.setItem('ft_investments',JSON.stringify(d)); }
-function loadInvestments(){ try{return JSON.parse(localStorage.getItem('ft_investments'))||[];}catch(e){return[];} }
-function fmt(n){ return '$'+Math.abs(n||0).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0}); }
-function fmtD(n){ return '$'+Math.abs(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
-function loadSession() {
-  try {
-    let s = localStorage.getItem('ft_user') || sessionStorage.getItem('ft_user');
-    if (!s) {
-      const setup = localStorage.getItem('ft_user_setup');
-      if (setup) {
-        const fb = {name:'Usuario',email:'',income:3000,currency:'USD',lang:localStorage.getItem('ft_lang')||'es',needs:1500,wants:900,savings:600,setupDone:true,createdAt:new Date().toISOString()};
-        try{const gu=JSON.parse(sessionStorage.getItem('ft_google_user')||'{}');if(gu.name)fb.name=gu.name;if(gu.email)fb.email=gu.email;}catch(e){}
-        s = JSON.stringify(fb);
-        localStorage.setItem('ft_user', s);
-        sessionStorage.setItem('ft_user', s);
-      } else {
-        window.location.replace('login.html'); return;
-      }
-    }
-    user = JSON.parse(s);
-    lang = user.lang || localStorage.getItem('ft_lang') || 'es';
-    localStorage.setItem('ft_user', s);
-    sessionStorage.setItem('ft_user', s);
-  } catch(e) {
-    try {
-      const s = localStorage.getItem('ft_user');
-      if (s) { user = JSON.parse(s); lang = user.lang||'es'; return; }
-    } catch(e2) {}
-    window.location.replace('login.html');
-  }
-}
-</script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
-:root{--g-dark:#0F5132;--g-main:#1A7A4A;--g-mid:#22A362;--g-light:#E8F7EF;--g-dim:rgba(26,122,74,0.10);--white:#FFFFFF;--off:#F7F8FC;--border:#E4E6F0;--text:#1A1D2E;--text2:#4A4E69;--text3:#9395A5;--red:#E63946;--red-dim:rgba(230,57,70,0.10);--amber:#F4A261;--amb-dim:rgba(244,162,97,0.12);--blue:#4A6CF7;--blu-dim:rgba(74,108,247,0.10);--r:14px;--sidebar:240px;--topbar:58px;--shadow:0 2px 12px rgba(0,0,0,0.06);--shadow-md:0 4px 24px rgba(0,0,0,0.09);}
+:root{--g-dark:#0F5132;--g-main:#1A7A4A;--g-light:#E8F7EF;--white:#fff;--off:#F7F8FC;--border:#E4E6F0;--text:#1A1D2E;--text2:#4A4E69;--text3:#9395A5;--red:#E63946;--red-dim:rgba(230,57,70,.1);--amber:#F4A261;--amb-dim:rgba(244,162,97,.12);--blue:#4A6CF7;--blu-dim:rgba(74,108,247,.1);--shadow:0 2px 12px rgba(0,0,0,.06);}
 *{margin:0;padding:0;box-sizing:border-box;}
-body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(--text);min-height:100vh;overflow-x:hidden;}
-.app{display:flex;min-height:100vh;}
-.sidebar{width:var(--sidebar);background:var(--white);border-right:1px solid var(--border);position:fixed;top:0;left:0;bottom:0;display:flex;flex-direction:column;z-index:50;overflow-y:auto;}
-.sb-logo{display:flex;align-items:center;gap:10px;padding:22px 18px 18px;border-bottom:1px solid var(--border);}
-.sb-mark{width:36px;height:36px;background:linear-gradient(135deg,var(--g-dark),var(--g-main));border-radius:11px;display:grid;place-items:center;color:white;font-size:17px;flex-shrink:0;}
-.sb-name{font-size:15px;font-weight:800;letter-spacing:-.3px;}.sb-tag{font-size:10px;color:var(--text3);font-weight:500;}
-.sb-nav{padding:14px 10px;flex:1;}
-.sb-section{font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);padding:10px 8px 5px;}
-.sb-link{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:10px;font-size:13px;font-weight:600;color:var(--text2);cursor:pointer;margin-bottom:2px;transition:all .15s;}
-.sb-link:hover{background:var(--off);color:var(--text);}
-.sb-link.on{background:var(--g-dim);color:var(--g-main);}
-.sb-ico{font-size:15px;width:20px;text-align:center;flex-shrink:0;}
-.sb-footer{border-top:1px solid var(--border);padding:12px 10px;}
-.sb-user{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:10px;cursor:pointer;}
-.sb-user:hover{background:var(--off);}
-.sb-avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--g-dark),var(--g-main));display:grid;place-items:center;color:white;font-size:13px;font-weight:700;flex-shrink:0;}
-.sb-uname{font-size:13px;font-weight:700;}.sb-umail{font-size:10px;color:var(--text3);}
-.main{margin-left:var(--sidebar);flex:1;display:flex;flex-direction:column;}
-.topbar{background:var(--white);border-bottom:1px solid var(--border);height:var(--topbar);padding:0 28px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:40;}
-.tb-title{font-size:17px;font-weight:800;letter-spacing:-.3px;}
-.tb-right{display:flex;align-items:center;gap:10px;}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(--text);min-height:100vh;padding-bottom:90px;}
+.topbar{background:var(--white);border-bottom:1px solid var(--border);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
+.topbar-title{font-size:17px;font-weight:800;}
+.page{padding:16px;}
+.card{background:var(--white);border-radius:16px;padding:18px;margin-bottom:14px;box-shadow:var(--shadow);}
 .lang-toggle{display:flex;background:var(--off);border:1px solid var(--border);border-radius:20px;overflow:hidden;font-size:11px;font-weight:700;}
-.lt-opt{padding:5px 11px;cursor:pointer;color:var(--text3);border-radius:20px;transition:all .15s;}
+.lt-opt{padding:5px 12px;cursor:pointer;color:var(--text3);}
 .lt-opt.on{background:var(--g-main);color:white;}
-.btn-new{background:linear-gradient(135deg,var(--amber),#FFB347);color:white;border:none;border-radius:20px;padding:8px 18px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:5px;box-shadow:0 3px 12px rgba(244,162,97,0.35);transition:opacity .15s;}
-.btn-new:hover{opacity:.88;}
-.page{padding:24px 28px;max-width:900px;}
-
-/* ── EMERGENCIA STATE ── */
-function loadHist(){ try{return JSON.parse(localStorage.getItem('ft_emerg_hist'))||[];}catch(e){return[];} }
-function saveHist(d){ localStorage.setItem('ft_emerg_hist',JSON.stringify(d)); }
-
-
-/* HERO */
-.hero{background:linear-gradient(135deg,#7B5A00 0%,var(--amber) 60%,#FFB347 100%);border-radius:22px;padding:26px 30px;color:white;margin-bottom:20px;position:relative;overflow:hidden;}
-.hero::before{content:'';position:absolute;top:-50px;right:-50px;width:180px;height:180px;border-radius:50%;background:rgba(255,255,255,.08);}
-.hero::after{content:'';position:absolute;bottom:-60px;right:60px;width:130px;height:130px;border-radius:50%;background:rgba(255,255,255,.05);}
-.hero-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;position:relative;z-index:1;}
-.hero-left{}
-.hero-label{font-size:12px;opacity:.7;margin-bottom:4px;}
-.hero-amount{font-size:44px;font-weight:800;letter-spacing:-2px;line-height:1;}
-.hero-goal{font-size:12px;opacity:.65;margin-top:5px;}
-.hero-months{background:rgba(255,255,255,.2);backdrop-filter:blur(6px);border-radius:14px;padding:12px 18px;text-align:center;flex-shrink:0;}
-.hm-num{font-size:28px;font-weight:800;letter-spacing:-1px;}
-.hm-lbl{font-size:10px;opacity:.7;margin-top:2px;}
-.prog-wrap{position:relative;z-index:1;}
-.prog-labels{display:flex;justify-content:space-between;font-size:11px;opacity:.65;margin-bottom:7px;}
-.prog-track{background:rgba(255,255,255,.2);border-radius:100px;height:10px;overflow:hidden;}
-.prog-fill{height:100%;border-radius:100px;background:white;transition:width 1.4s cubic-bezier(0.34,1.56,0.64,1);}
-.prog-note{font-size:11px;opacity:.5;margin-top:5px;text-align:right;}
-.milestones{display:flex;gap:8px;margin-top:14px;position:relative;z-index:1;}
-.ms{flex:1;background:rgba(255,255,255,.12);border-radius:11px;padding:9px 10px;text-align:center;border:1px solid rgba(255,255,255,.15);}
-.ms.done{background:rgba(255,255,255,.25);border-color:rgba(255,255,255,.4);}
-.ms-icon{font-size:16px;margin-bottom:3px;}
-.ms-val{font-size:12px;font-weight:700;}
-.ms-lbl{font-size:9px;opacity:.65;margin-top:2px;}
-
-/* CARDS */
-.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:20px;}
-.card{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:20px;box-shadow:var(--shadow);}
-.card-hd{font-size:14px;font-weight:800;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;}
-.card-act{font-size:11px;font-weight:600;color:var(--amber);cursor:pointer;}
-
-/* Calculator */
-.calc-item{background:var(--off);border-radius:10px;padding:11px 13px;margin-bottom:8px;display:flex;align-items:center;gap:10px;}
-.calc-item:last-child{margin-bottom:0;}
-.calc-ico{font-size:16px;flex-shrink:0;}
-.calc-info{flex:1;}
-.calc-label{font-size:12px;font-weight:600;}
-.calc-source{font-size:9px;font-weight:600;margin-top:1px;}
-.calc-source.auto{color:var(--g-main);}
-.calc-source.manual{color:var(--amber);}
-.calc-sub{font-size:10px;color:var(--text3);margin-top:2px;}
-.calc-input{background:var(--white);border:1.5px solid var(--border);border-radius:8px;padding:6px 10px;font-size:13px;font-weight:600;width:90px;text-align:right;font-family:inherit;outline:none;color:var(--text);}
-.calc-input:focus{border-color:var(--amber);}
-.calc-result{background:linear-gradient(135deg,rgba(244,162,97,.15),rgba(255,179,71,.1));border:1px solid rgba(244,162,97,.3);border-radius:var(--r);padding:14px;text-align:center;margin-top:12px;}
-.cr-label{font-size:12px;font-weight:600;color:var(--amber);margin-bottom:4px;}
-.cr-val{font-size:22px;font-weight:800;color:var(--amber);letter-spacing:-.5px;}
-.cr-sub{font-size:11px;color:var(--text3);margin-top:4px;}
-
-/* Deposit history */
-.dep-row{display:flex;align-items:center;gap:11px;padding:10px 0;border-bottom:1px solid var(--border);}
-.dep-row:last-child{border-bottom:none;padding-bottom:0;}
-.dep-ico{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;font-size:16px;flex-shrink:0;}
-.dep-info{flex:1;}
-.dep-name{font-size:13px;font-weight:600;}
-.dep-date{font-size:11px;color:var(--text3);margin-top:2px;}
-.dep-amt{font-size:15px;font-weight:800;color:var(--amber);}
-.dep-del{color:var(--text3);cursor:pointer;font-size:16px;padding:4px;}
-.dep-del:hover{color:var(--red);}
-
-/* Tips */
-.tip-row{display:flex;gap:10px;align-items:flex-start;background:var(--off);border-radius:10px;padding:11px;margin-bottom:8px;}
-.tip-row:last-child{margin-bottom:0;}
-.tip-num{width:22px;height:22px;border-radius:50%;background:var(--amber);color:white;font-size:11px;font-weight:800;display:grid;place-items:center;flex-shrink:0;margin-top:1px;}
-.tip-text{font-size:12px;color:var(--text2);line-height:1.5;}
-.tip-text strong{font-weight:700;color:var(--text);}
-
-/* Chart */
-.chart-area{height:160px;}
-
-/* Add deposit modal */
-.overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:none;place-items:center;z-index:200;backdrop-filter:blur(5px);}
+.btn{border:none;border-radius:12px;padding:12px 18px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;}
+.btn-primary{background:var(--amber);color:white;width:100%;}
+.btn-danger{background:var(--red-dim);color:var(--red);}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;place-items:center;z-index:150;}
 .overlay.open{display:grid;}
-.modal{background:var(--white);border-radius:24px;padding:28px;width:400px;max-width:calc(100vw - 32px);box-shadow:var(--shadow-md);animation:modalPop .25s cubic-bezier(0.34,1.56,0.64,1);}
-@keyframes modalPop{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}}
-.modal-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;}
-.modal-title{font-size:18px;font-weight:800;}
-.modal-close{color:var(--text3);cursor:pointer;font-size:22px;}
+.modal{background:var(--white);border-radius:20px;width:min(480px,calc(100vw - 24px));max-height:88vh;overflow-y:auto;padding:20px;}
 .field{margin-bottom:14px;}
-.field label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text3);margin-bottom:6px;}
-.field input,.field select{width:100%;background:var(--off);border:1.5px solid var(--border);border-radius:var(--r);padding:11px 14px;font-size:14px;font-weight:500;color:var(--text);font-family:inherit;outline:none;transition:border-color .15s;}
+.field label{display:block;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;}
+.field input{width:100%;background:var(--off);border:1.5px solid var(--border);border-radius:10px;padding:11px 13px;font-size:14px;font-family:inherit;outline:none;}
 .field input:focus{border-color:var(--amber);}
-.field-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-.btn-save{width:100%;background:linear-gradient(135deg,#7B5A00,var(--amber));color:white;border:none;border-radius:var(--r);padding:13px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:4px;}
-.btn-save:hover{opacity:.88;}
-.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--text);color:white;padding:12px 20px;border-radius:20px;font-size:13px;font-weight:600;display:none;align-items:center;gap:8px;box-shadow:var(--shadow-md);z-index:300;}
-@media(max-width:860px){.sidebar{display:none;}.main{margin-left:0;padding-bottom:72px;}
-.topbar{height:auto;min-height:var(--topbar);padding:12px 16px;flex-direction:column;align-items:stretch;gap:10px;}
-.tb-title{font-size:16px;white-space:normal;}
-.tb-right{width:100%;justify-content:space-between;gap:8px;flex-wrap:wrap;}
-.btn-new{flex-shrink:0;padding:8px 14px;font-size:12px;}
-.btn-new span{display:inline;}
-.page{padding:16px;max-width:100%;}.grid-2{grid-template-columns:1fr;}.hero-amount{font-size:32px;}/* ─── MOBILE NAV ─── */
-.mob-nav{display:flex;position:fixed;bottom:0;left:0;right:0;background:var(--white);border-top:1px solid var(--border);padding:8px 0 calc(8px + env(safe-area-inset-bottom));z-index:100;align-items:center;}
-.mob-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:9px;font-weight:600;color:var(--text3);cursor:pointer;-webkit-tap-highlight-color:transparent;}
+.hist-item{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--off);}
+.hist-item:last-child{border-bottom:none;}
+#toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#1A1D2E;color:white;padding:12px 20px;border-radius:20px;font-size:13px;font-weight:600;display:none;z-index:300;}
+/* MOBILE NAV */
+.mob-nav{display:flex;position:fixed;bottom:0;left:0;right:0;background:var(--white);border-top:1px solid var(--border);padding:8px 0 calc(8px + env(safe-area-inset-bottom));z-index:100;gap:0;}
+.mob-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:9px;font-weight:700;color:var(--text3);cursor:pointer;padding:4px 0;}
 .mob-item.on{color:var(--g-main);}
-.mob-item.mob-center{flex:1.2;}
-.mob-ico{font-size:21px;line-height:1;}
-.mob-add{width:48px;height:48px;background:linear-gradient(135deg,var(--g-dark),var(--g-main));border-radius:50%;border:none;display:grid;place-items:center;color:white;font-size:26px;cursor:pointer;margin-top:-16px;box-shadow:0 4px 16px rgba(15,81,50,.35);-webkit-tap-highlight-color:transparent;}
-@media(min-width:700px){.mob-nav{display:none!important;}}
-::-webkit-scrollbar{width:5px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+.mob-ico{font-size:22px;line-height:1.2;}
+.mob-plus{width:52px;height:52px;border-radius:50%;background:var(--g-main);display:flex;align-items:center;justify-content:center;font-size:26px;color:white;margin-top:-18px;box-shadow:0 4px 14px rgba(26,122,74,.4);}
+.more-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;align-items:flex-end;z-index:200;}
+.more-overlay.open{display:flex;}
+.more-panel{background:var(--white);width:100%;border-radius:24px 24px 0 0;padding:12px 20px calc(28px + env(safe-area-inset-bottom));}
+.more-handle{width:36px;height:4px;background:var(--border);border-radius:100px;margin:0 auto 16px;}
+.more-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+.more-item{display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;}
+.more-ico{width:52px;height:52px;border-radius:16px;display:grid;place-items:center;font-size:24px;}
+.more-item span{font-size:11px;font-weight:600;color:var(--text2);text-align:center;}
 </style>
 </head>
 <body>
-<div class="app">
-<aside class="sidebar">
-  <div class="sb-logo"><div class="sb-mark">💎</div><div><div class="sb-name">FinTrack Pro</div><div class="sb-tag" data-es="Panel financiero" data-en="Financial dashboard">Panel financiero</div></div></div>
-  <nav class="sb-nav">
-    <div class="sb-section" data-es="Principal" data-en="Main">Principal</div>
-    <div class="sb-link" onclick="go('dashboard.html')"><span class="sb-ico">📊</span><span data-es="Dashboard" data-en="Dashboard">Dashboard</span></div>
-    <div class="sb-link" onclick="go('dashboard.html')"><span class="sb-ico">➕</span><span data-es="Nuevo registro" data-en="New entry">Nuevo registro</span></div>
-    <div class="sb-link" onclick="go('suscripciones.html')"><span class="sb-ico">🔄</span><span data-es="Suscripciones" data-en="Subscriptions">Suscripciones</span></div>
-    <div class="sb-link" onclick="go('metas.html')"><span class="sb-ico">🎯</span><span data-es="Metas" data-en="Goals">Metas</span></div>
-    <div class="sb-link" onclick="go('deudas.html')"><span class="sb-ico">💳</span><span data-es="Deudas" data-en="Debts">Deudas</span></div>
-    <div class="sb-section" data-es="Análisis" data-en="Analysis">Análisis</div>
-    <div class="sb-link" onclick="go('analisis.html')"><span class="sb-ico">📈</span><span data-es="Por categoría" data-en="By category">Por categoría</span></div>
-    <div class="sb-link" onclick="go('historial.html')"><span class="sb-ico">📅</span><span data-es="Historial" data-en="History">Historial</span></div>
-    <div class="sb-link" onclick="go('inversiones.html')"><span class="sb-ico">🏦</span><span data-es="Inversiones" data-en="Investments">Inversiones</span></div>
-    <div class="sb-link" onclick="go('reporte.html')"><span class="sb-ico">📄</span><span data-es="Reporte mensual" data-en="Monthly report">Reporte mensual</span></div>
-    <div class="sb-section" data-es="Herramientas" data-en="Tools">Herramientas</div>
-    <div class="sb-link" onclick="go('scanner.html')"><span class="sb-ico">📷</span><span data-es="Escanear recibo" data-en="Scan receipt">Escanear recibo</span></div>
-    <div class="sb-link on"><span class="sb-ico">🛡️</span><span data-es="Fondo emergencia" data-en="Emergency fund">Fondo emergencia</span></div>
-    <div class="sb-link" onclick="go('hogar.html')"><span class="sb-ico">🏠</span><span data-es="Hogar" data-en="Household">Hogar</span></div>
-    <div class="sb-section" data-es="Cuenta" data-en="Account">Cuenta</div>
-    <div class="sb-link" onclick="go('perfil.html')"><span class="sb-ico">👤</span><span data-es="Mi perfil" data-en="My profile">Mi perfil</span></div>
-    <div class="sb-link" onclick="go('config.html')"><span class="sb-ico">⚙️</span><span data-es="Configuración" data-en="Settings">Configuración</span></div>
-    <div class="sb-link" onclick="logout()"><span class="sb-ico">🚪</span><span data-es="Cerrar sesión" data-en="Sign out">Cerrar sesión</span></div>
-  </nav>
-  <div class="sb-footer"><div class="sb-user" onclick="go('perfil.html')"><div class="sb-avatar" id="sbAvatar">R</div><div><div class="sb-uname" id="sbName">—</div><div class="sb-umail" id="sbEmail">—</div></div></div></div>
-</aside>
 
-<div class="main">
-  <div class="topbar">
-    <div class="tb-title" data-es="Fondo de Emergencia" data-en="Emergency Fund">Fondo de Emergencia</div>
-    <div class="tb-right">
-      <div class="lang-toggle">
-        <div class="lt-opt on" id="ltES" onclick="setLang('es')">ES</div>
-        <div class="lt-opt"    id="ltEN" onclick="setLang('en')">EN</div>
-      </div>
-      <button class="btn-new" onclick="openModal()">＋ <span data-es="Agregar depósito" data-en="Add deposit">Agregar depósito</span></button>
+<div class="topbar">
+  <div class="topbar-title">🛡️ <span data-es="Fondo de Emergencia" data-en="Emergency Fund">Fondo de Emergencia</span></div>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <div class="lang-toggle">
+      <div class="lt-opt on" id="ltES" onclick="setLang('es')">ES</div>
+      <div class="lt-opt" id="ltEN" onclick="setLang('en')">EN</div>
     </div>
+    <button class="btn btn-primary" style="width:auto;padding:8px 14px" onclick="openDeposit()" data-es="+ Agregar depósito" data-en="+ Add deposit">+ Agregar depósito</button>
   </div>
-  <div class="page" id="page"></div>
-</div>
 </div>
 
-<nav class="mob-nav">
-  <div class="mob-item " onclick="go('dashboard.html')"><div class="mob-ico">📊</div><span>Inicio</span></div>
-  <div class="mob-item " onclick="go('historial.html')"><div class="mob-ico">📅</div><span>Historial</span></div>
-  <div class="mob-item mob-center"><button class="mob-add" onclick="go('dashboard.html')" onclick="openModal()">＋</button></div>
-  <div class="mob-item " onclick="go('hogar.html')"><div class="mob-ico">🏠</div><span>Hogar</span></div>
-  <div class="mob-item on" onclick="openMoreMenu()"><div class="mob-ico">☰</div><span>Más</span></div>
-</nav><!-- MORE MENU PANEL (mobile) -->
-<div class="more-overlay" id="moreOverlay" onclick="closeMoreOutside(event)">
+<div class="page">
+  <div class="card" id="heroCard"></div>
+  <div class="card">
+    <div style="font-size:13px;font-weight:800;margin-bottom:12px" data-es="📋 Historial de depósitos" data-en="📋 Deposit history">📋 Historial de depósitos</div>
+    <div id="histList"><p style="color:var(--text3);font-size:13px" data-es="Sin depósitos aún" data-en="No deposits yet">Sin depósitos aún</p></div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="overlay" id="overlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div style="font-size:16px;font-weight:800" id="modalTitle">Agregar depósito</div>
+      <div onclick="closeModal()" style="cursor:pointer;font-size:20px;color:var(--text3)">✕</div>
+    </div>
+    <div class="field">
+      <label data-es="Monto ($)" data-en="Amount ($)">Monto ($)</label>
+      <input type="number" id="fAmount" placeholder="0.00" min="0" step="0.01">
+    </div>
+    <div class="field">
+      <label data-es="Nota (opcional)" data-en="Note (optional)">Nota (opcional)</label>
+      <input type="text" id="fNote" placeholder="">
+    </div>
+    <div class="field">
+      <label data-es="Fecha" data-en="Date">Fecha</label>
+      <input type="date" id="fDate">
+    </div>
+    <button class="btn btn-primary" onclick="saveDeposit()" style="margin-bottom:8px" data-es="Guardar" data-en="Save">Guardar</button>
+    <button class="btn" style="width:100%;background:var(--off);border:1.5px solid var(--border)" onclick="closeModal()" data-es="Cancelar" data-en="Cancel">Cancelar</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<!-- MORE MENU -->
+<div class="more-overlay" id="moreOverlay" onclick="if(event.target===this)closeMoreMenu()">
   <div class="more-panel">
     <div class="more-handle"></div>
-    <div class="more-title" data-es="Más opciones" data-en="More options">Más opciones</div>
     <div class="more-grid">
-      <div class="more-item" onclick="go('dashboard.html')"><div class="more-ico" style="background:var(--g-light,#E8F7EF)">📊</div><span data-es="Dashboard" data-en="Dashboard">Dashboard</span></div>
-      <div class="more-item" onclick="go('metas.html')"><div class="more-ico" style="background:var(--g-light,#E8F7EF)">🎯</div><span data-es="Metas" data-en="Goals">Metas</span></div>
-      <div class="more-item" onclick="go('suscripciones.html')"><div class="more-ico" style="background:var(--pur-dim,rgba(123,94,167,.1))">🔄</div><span data-es="Suscripciones" data-en="Subscriptions">Suscripciones</span></div>
-      <div class="more-item" onclick="go('inversiones.html')"><div class="more-ico" style="background:var(--blu-dim,rgba(74,108,247,.1))">🏦</div><span data-es="Inversiones" data-en="Investments">Inversiones</span></div>
-      <div class="more-item" onclick="go('scanner.html')"><div class="more-ico" style="background:var(--g-light,#E8F7EF)">📷</div><span data-es="Escanear" data-en="Scan">Escanear</span></div>
-      <div class="more-item" onclick="go('emergencia.html')"><div class="more-ico" style="background:var(--amb-dim,rgba(244,162,97,.12))">🛡️</div><span data-es="Emergencia" data-en="Emergency">Emergencia</span></div>
-      <div class="more-item" onclick="go('hogar.html')"><div class="more-ico" style="background:var(--pur-dim,rgba(123,94,167,.1))">🏠</div><span data-es="Hogar" data-en="Household">Hogar</span></div>
-      <div class="more-item" onclick="go('deudas.html')"><div class="more-ico" style="background:var(--red-dim,rgba(230,57,70,.1))">💳</div><span data-es="Deudas" data-en="Debts">Deudas</span></div>
-      <div class="more-item" onclick="go('config.html')"><div class="more-ico" style="background:var(--off,#F7F8FC)">⚙️</div><span data-es="Configuración" data-en="Settings">Configuración</span></div>
+      <div class="more-item" onclick="go('deudas.html')"><div class="more-ico" style="background:var(--red-dim)">💳</div><span>Deudas</span></div>
+      <div class="more-item" onclick="go('inversiones.html')"><div class="more-ico" style="background:var(--g-light)">📈</div><span>Inversiones</span></div>
+      <div class="more-item" onclick="go('metas.html')"><div class="more-ico" style="background:var(--amb-dim)">🎯</div><span>Metas</span></div>
+      <div class="more-item" onclick="go('suscripciones.html')"><div class="more-ico" style="background:var(--blu-dim)">🔄</div><span>Suscripciones</span></div>
+      <div class="more-item" onclick="go('analisis.html')"><div class="more-ico" style="background:var(--g-light)">📊</div><span>Análisis</span></div>
+      <div class="more-item" onclick="go('scanner.html')"><div class="more-ico" style="background:var(--pur-dim)">📷</div><span>Scanner</span></div>
+      <div class="more-item" onclick="go('perfil.html')"><div class="more-ico" style="background:var(--blu-dim)">👤</div><span>Perfil</span></div>
+      <div class="more-item" onclick="go('config.html')"><div class="more-ico" style="background:var(--off)">⚙️</div><span>Config</span></div>
+      <div class="more-item" onclick="logout()"><div class="more-ico" style="background:var(--red-dim)">🚪</div><span>Salir</span></div>
     </div>
   </div>
 </div>
 
-<style>
-.more-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.4);display:none;align-items:flex-end;z-index:250;backdrop-filter:blur(3px);}
-.more-overlay.open{display:flex;}
-.more-panel{background:var(--white,#fff);width:100%;border-radius:24px 24px 0 0;padding:10px 20px 28px;box-shadow:0 -8px 32px rgba(0,0,0,.15);animation:moreSlideUp .25s cubic-bezier(0.34,1.56,0.64,1);}
-@keyframes moreSlideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
-.more-handle{width:36px;height:4px;background:var(--border,#E4E6F0);border-radius:100px;margin:0 auto 14px;}
-.more-title{font-size:15px;font-weight:800;margin-bottom:16px;}
-.more-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
-.more-item{display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;}
-.more-ico{width:52px;height:52px;border-radius:16px;display:grid;place-items:center;font-size:24px;}
-.more-item span{font-size:11px;font-weight:600;color:var(--text2,#4A4E69);text-align:center;}
-</style>
+<!-- MOBILE NAV -->
+<nav class="mob-nav">
+  <div class="mob-item" onclick="go('dashboard.html')"><div class="mob-ico">📊</div><span>Inicio</span></div>
+  <div class="mob-item" onclick="go('historial.html')"><div class="mob-ico">📅</div><span>Historial</span></div>
+  <div class="mob-item" onclick="go('dashboard.html')"><div class="mob-plus">＋</div></div>
+  <div class="mob-item" onclick="go('hogar.html')"><div class="mob-ico">🏠</div><span>Hogar</span></div>
+  <div class="mob-item" onclick="openMoreMenu()"><div class="mob-ico">☰</div><span>Más</span></div>
+</nav>
 
 <script>
+let user = {}, lang = 'es';
+const EMERG_KEY = 'ft_data';
+const HIST_KEY  = 'ft_emerg_hist';
 
+function loadData(){ try{return JSON.parse(localStorage.getItem(EMERG_KEY))||{transactions:[],emergency:0,subscriptions:[]};}catch(e){return{transactions:[],emergency:0,subscriptions:[]};} }
+function saveData(d){ localStorage.setItem(EMERG_KEY,JSON.stringify(d)); }
+function loadHist(){ try{return JSON.parse(localStorage.getItem(HIST_KEY))||[];}catch(e){return[];} }
+function saveHist(d){ localStorage.setItem(HIST_KEY,JSON.stringify(d)); }
+function fmt(n){ return '$'+Math.abs(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function go(url){ window.location.href=url; }
+function logout(){sessionStorage.clear();['ft_user','ft_user_setup','ft_premium','ft_lang'].forEach(k=>localStorage.removeItem(k));window.location.replace('login.html');}
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.style.display='block';setTimeout(()=>t.style.display='none',3000);}
+function openMoreMenu(){document.getElementById('moreOverlay').classList.add('open');}
+function closeMoreMenu(){document.getElementById('moreOverlay').classList.remove('open');}
 
-/* ─── openMoreMenu universal ─── */
 function setLang(l){
   lang=l; localStorage.setItem('ft_lang',l);
-  document.getElementById('ltES')?.classList.toggle('on',l==='es');
-  document.getElementById('ltEN')?.classList.toggle('on',l==='en');
+  document.getElementById('ltES').classList.toggle('on',l==='es');
+  document.getElementById('ltEN').classList.toggle('on',l==='en');
   document.querySelectorAll('[data-es]').forEach(el=>{const v=el.getAttribute('data-'+l);if(v)el.textContent=v;});
   render();
 }
-function openMoreMenu(){
-  if(document.getElementById('_moreOv')) return;
-  const links=[
-    {ico:'📈',l:'Análisis',    u:'analisis.html'},
-    {ico:'🎯',l:'Metas',       u:'metas.html'},
-    {ico:'💳',l:'Deudas',      u:'deudas.html'},
-    {ico:'🏦',l:'Inversiones', u:'inversiones.html'},
-    {ico:'📷',l:'Escanear',    u:'scanner.html'},
-    {ico:'📥',l:'Importar CSV',u:'importar.html'},
-    {ico:'🛡️',l:'Emergencia',  u:'emergencia.html'},
-    {ico:'🔄',l:'Suscripciones',u:'suscripciones.html'},
-    {ico:'⚙️',l:'Config',      u:'config.html'},
-    {ico:'👤',l:'Perfil',      u:'perfil.html'},
-  ];
-  const ov=document.createElement('div');
-  ov.id='_moreOv';
-  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:300;display:flex;align-items:flex-end;backdrop-filter:blur(3px);';
-  ov.addEventListener('click',e=>{if(e.target===ov)ov.remove();});
-  ov.innerHTML=`<div style="background:white;border-radius:24px 24px 0 0;padding:16px 20px calc(20px + env(safe-area-inset-bottom));width:100%;">
-    <div style="width:36px;height:4px;background:#ddd;border-radius:100px;margin:0 auto 16px;"></div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px 8px;">
-      ${links.map(k=>`<div onclick="window.location.href='${k.u}'" style="display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;">
-        <div style="width:52px;height:52px;background:#f5f5f7;border-radius:14px;display:grid;place-items:center;font-size:24px;">${k.ico}</div>
-        <span style="font-size:10px;font-weight:600;color:#4A4E69;text-align:center;">${k.l}</span>
-      </div>`).join('')}
-    </div>
-  </div>`;
-  document.body.appendChild(ov);
-}
 
 function render(){
-  const data=loadData();
-  const hist=loadHist();
-  const emergency=data.emergency||0;
-  const income=user.income||0;
-  const monthly=income;
-  const goal3=monthly*3;
-  const goal6=monthly*6;
-  const goal1=monthly;
-  const months=monthly>0?(emergency/monthly).toFixed(1):0;
-  const pct=goal3>0?Math.min((emergency/goal3)*100,100):0;
-  const daysToGoal=monthly>0&&emergency<goal3?Math.ceil((goal3-emergency)/(monthly*.1)/30):0;
+  const d = loadData();
+  const bal = parseFloat(d.emergency)||0;
+  const inc = parseFloat(user.income)||3000;
+  const target = inc * 3;
+  const pct = Math.min(Math.round((bal/target)*100),100);
+  const es = lang==='es';
 
-  const T=lang==='es'?{
-    currentFund:'Fondo actual',goalLabel:'Meta (3 meses)',monthsCovered:'meses cubiertos',
-    month1:'1 mes',month3:'3 meses',month6:'6 meses',
-    barLabel:'Progreso',leftLabel:'Falta',
-    calculator:'Calculadora de meta',calcSub:'Tus gastos esenciales mensuales (calculados automático con tus registros — puedes editarlos)',
-    rent:'Renta / Hipoteca',food:'Comida & básicos',transport:'Transporte',services:'Servicios',
-    recommended:'Meta recomendada (3 meses)',
-    history:'Historial de depósitos',noHistory:'Sin depósitos aún.',
-    tips:'Cómo llegar más rápido',
-    tip1:'Automatiza <strong>$'+fmt(monthly*.1)+'</strong>/mes → llegas en '+daysToGoal+' meses aprox.',
-    tip2:'Guarda tu fondo en una <strong>cuenta HYSA</strong> (alto rendimiento) para que crezca.',
-    tip3:'Cada vez que recibas un bono o extra, deposita el <strong>50%</strong> aquí.',
-    growth:'Crecimiento del fondo',deposit:'Depósito',withdrawal:'Retiro',bonus:'Bono',
-    deleteMsg:'¿Eliminar este depósito?',
-    recalc:'Recalcular', auto:'Auto (promedio 3 meses)', manual:'Editado manual', noData:'Sin datos aún'
-  }:{
-    currentFund:'Current fund',goalLabel:'Goal (3 months)',monthsCovered:'months covered',
-    month1:'1 month',month3:'3 months',month6:'6 months',
-    barLabel:'Progress',leftLabel:'Remaining',
-    calculator:'Goal calculator',calcSub:'Your monthly essential expenses (auto-calculated from your entries — you can edit them)',
-    rent:'Rent / Mortgage',food:'Food & basics',transport:'Transport',services:'Services',
-    recommended:'Recommended goal (3 months)',
-    history:'Deposit history',noHistory:'No deposits yet.',
-    tips:'How to get there faster',
-    tip1:'Automate <strong>$'+fmt(monthly*.1)+'</strong>/month → reach goal in ~'+daysToGoal+' months.',
-    tip2:'Keep your fund in a <strong>HYSA</strong> (high-yield savings) account so it grows.',
-    tip3:'Every time you get a bonus or extra income, deposit <strong>50%</strong> here.',
-    growth:'Fund growth',deposit:'Deposit',withdrawal:'Withdrawal',bonus:'Bonus',
-    deleteMsg:'Delete this deposit?',
-    recalc:'Recalculate', auto:'Auto (3-month avg)', manual:'Manually edited', noData:'No data yet'
-  };
-
-  T_global = T;
-
-  const page=document.getElementById('page');
-  page.innerHTML=`
-  <!-- HERO -->
-  <div class="hero">
-    <div class="hero-top">
-      <div class="hero-left">
-        <div class="hero-label">${T.currentFund}</div>
-        <div class="hero-amount">${fmtD(emergency)}</div>
-        <div class="hero-goal">${lang==='es'?'Meta':'Goal'}: ${fmt(goal3)} · ${Math.round(pct)}% ${lang==='es'?'completado':'complete'}</div>
-      </div>
-      <div class="hero-months">
-        <div class="hm-num">${months}</div>
-        <div class="hm-lbl">${T.monthsCovered}</div>
-      </div>
+  document.getElementById('heroCard').innerHTML = `
+    <div style="text-align:center;padding:8px 0 16px">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:4px">${es?'Saldo actual':'Current balance'}</div>
+      <div style="font-size:36px;font-weight:800;color:var(--amber);letter-spacing:-.5px">${fmt(bal)}</div>
+      <div style="font-size:12px;color:var(--text3);margin-top:4px">${es?'Meta':'Goal'}: ${fmt(target)} (${es?'3 meses de ingreso':'3 months income'})</div>
     </div>
-    <div class="prog-wrap">
-      <div class="prog-labels">
-        <span>$0</span>
-        <span>${fmt(goal1)} (1)</span>
-        <span>${fmt(goal3)} (3)</span>
-        <span>${fmt(goal6)} (6)</span>
-      </div>
-      <div class="prog-track"><div class="prog-fill" id="progFill" style="width:0%"></div></div>
-      <div class="prog-note">${emergency<goal3?(lang==='es'?'Faltan ':'Remaining ')+fmtD(goal3-emergency):(lang==='es'?'¡Meta de 3 meses alcanzada!':'3-month goal reached!')}</div>
+    <div style="background:var(--border);border-radius:100px;height:10px;overflow:hidden;margin-bottom:8px">
+      <div style="height:100%;border-radius:100px;background:var(--amber);width:${pct}%;transition:width .8s ease"></div>
     </div>
-    <div class="milestones">
-      <div class="ms ${emergency>=goal1?'done':''}"><div class="ms-icon">${emergency>=goal1?'✅':'🎯'}</div><div class="ms-val">${fmt(goal1)}</div><div class="ms-lbl">${T.month1}</div></div>
-      <div class="ms ${emergency>=goal3?'done':''}"><div class="ms-icon">${emergency>=goal3?'✅':'🏆'}</div><div class="ms-val">${fmt(goal3)}</div><div class="ms-lbl">${T.month3}</div></div>
-      <div class="ms ${emergency>=goal6?'done':''}"><div class="ms-icon">${emergency>=goal6?'✅':'🌟'}</div><div class="ms-val">${fmt(goal6)}</div><div class="ms-lbl">${T.month6}</div></div>
+    <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3)">
+      <span>${pct}% ${es?'completado':'complete'}</span>
+      <span>${es?'Faltan':'Remaining'}: ${fmt(Math.max(0,target-bal))}</span>
     </div>
-  </div>
+    ${pct>=100?`<div style="background:var(--g-light);color:var(--g-dark);border-radius:10px;padding:10px;margin-top:12px;font-size:12px;font-weight:600;text-align:center">🎉 ${es?'¡Meta alcanzada!':'Goal reached!'}</div>`:''}
+  `;
 
-  <div class="grid-2">
-
-    <!-- CALCULATOR -->
-    <div class="card">
-      <div class="card-hd">
-        🧮 ${T.calculator}
-        <span class="card-act" onclick="resetCalcToAuto()" style="font-size:11px;font-weight:600;color:var(--amber);cursor:pointer">🔄 ${T.recalc}</span>
-      </div>
-      <div style="font-size:12px;color:var(--text3);margin-bottom:12px">${T.calcSub}</div>
-
-      <div class="calc-item">
-        <div class="calc-ico">🏠</div>
-        <div class="calc-info">
-          <div class="calc-label">${T.rent}</div>
-          <div class="calc-source" id="srcRent"></div>
-        </div>
-        <input class="calc-input" type="number" id="calcRent" value="" placeholder="0" oninput="onCalcEdit('rent')">
-      </div>
-      <div class="calc-item">
-        <div class="calc-ico">🛒</div>
-        <div class="calc-info">
-          <div class="calc-label">${T.food}</div>
-          <div class="calc-source" id="srcFood"></div>
-        </div>
-        <input class="calc-input" type="number" id="calcFood" value="" placeholder="0" oninput="onCalcEdit('food')">
-      </div>
-      <div class="calc-item">
-        <div class="calc-ico">🚗</div>
-        <div class="calc-info">
-          <div class="calc-label">${T.transport}</div>
-          <div class="calc-source" id="srcTransport"></div>
-        </div>
-        <input class="calc-input" type="number" id="calcTransport" value="" placeholder="0" oninput="onCalcEdit('transport')">
-      </div>
-      <div class="calc-item">
-        <div class="calc-ico">💡</div>
-        <div class="calc-info">
-          <div class="calc-label">${T.services}</div>
-          <div class="calc-source" id="srcServices"></div>
-        </div>
-        <input class="calc-input" type="number" id="calcServices" value="" placeholder="0" oninput="onCalcEdit('services')">
-      </div>
-
-      <div class="calc-result">
-        <div class="cr-label">${T.recommended}</div>
-        <div class="cr-val" id="calcResult">${fmt(goal3)}</div>
-        <div class="cr-sub" id="calcSub3">× 3 ${lang==='es'?'meses de gastos esenciales':'months of essential expenses'}</div>
-      </div>
-    </div>
-
-    <!-- DEPOSIT HISTORY -->
-    <div class="card">
-      <div class="card-hd">📥 ${T.history} <span class="card-act" onclick="openModal()">+ ${lang==='es'?'Agregar':'Add'}</span></div>
-      ${!hist.length
-        ? `<div style="text-align:center;padding:24px;color:var(--text3);font-size:13px">${T.noHistory}</div>`
-        : hist.slice().reverse().slice(0,6).map(h=>{
-            const isRetiro=h.type==='retiro';
-            const icon=h.type==='bono'?'🎁':isRetiro?'⚠️':'💵';
-            const color=isRetiro?'var(--red)':'var(--amber)';
-            const d=new Date(h.date+'T00:00:00').toLocaleDateString(lang==='es'?'es-MX':'en-US',{month:'short',day:'numeric',year:'numeric'});
-            return `<div class="dep-row">
-              <div class="dep-ico" style="background:${isRetiro?'var(--red-dim)':'var(--amb-dim)'}">${icon}</div>
-              <div class="dep-info">
-                <div class="dep-name">${h.note||(isRetiro?T.withdrawal:h.type==='bono'?T.bonus:T.deposit)}</div>
-                <div class="dep-date">${d}</div>
-              </div>
-              <div class="dep-amt" style="color:${color}">${isRetiro?'-':'+'} ${fmtD(h.amount)}</div>
-              <div class="dep-del" onclick="deleteDeposit('${h.id}')">✕</div>
-            </div>`;}).join('')}
-    </div>
-  </div>
-
-  <!-- GROWTH CHART -->
-  <div class="card" style="margin-bottom:20px">
-    <div class="card-hd">📈 ${T.growth}</div>
-    <div class="chart-area"><canvas id="growthChart"></canvas></div>
-  </div>
-
-  <!-- TIPS -->
-  <div class="card" style="margin-bottom:20px">
-    <div class="card-hd">💡 ${T.tips}</div>
-    <div class="tip-row"><div class="tip-num">1</div><div class="tip-text">${T.tip1}</div></div>
-    <div class="tip-row"><div class="tip-num">2</div><div class="tip-text">${T.tip2}</div></div>
-    <div class="tip-row"><div class="tip-num">3</div><div class="tip-text">${T.tip3}</div></div>
-  </div>`;
-
-  // Animate progress
-  setTimeout(()=>{ document.getElementById('progFill').style.width=pct+'%'; },200);
-
-  // Build growth chart
-  buildGrowthChart(hist, T);
-
-  // Auto-calculate (or restore manual) values for the emergency fund calculator
-  applyCalcValues();
-}
-
-function buildGrowthChart(hist, T){
-  const canvas=document.getElementById('growthChart');
-  if(!canvas) return;
-  if(barChart){barChart.destroy();barChart=null;}
-  if(!hist.length){ canvas.parentElement.style.display='none'; return; }
-  canvas.parentElement.style.display='';
-
-  // Accumulate
-  let running=0;
-  const sorted=[...hist].sort((a,b)=>new Date(a.date)-new Date(b.date));
-  const labels=sorted.map(h=>new Date(h.date+'T00:00:00').toLocaleDateString(lang==='es'?'es-MX':'en-US',{month:'short',day:'numeric'}));
-  const vals=sorted.map(h=>{
-    running+=h.type==='retiro'?-parseFloat(h.amount):parseFloat(h.amount);
-    return Math.max(0,running);
-  });
-
-  barChart=new Chart(canvas,{
-    type:'line',
-    data:{labels,datasets:[{
-      label:lang==='es'?'Fondo acumulado':'Accumulated fund',
-      data:vals,
-      borderColor:'var(--amber)',
-      backgroundColor:'rgba(244,162,97,0.12)',
-      borderWidth:2,
-      fill:true,
-      tension:.4,
-      pointBackgroundColor:'var(--amber)',
-      pointRadius:4
-    }]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' '+fmtD(ctx.parsed.y)}}},scales:{x:{grid:{display:false},ticks:{font:{family:'Plus Jakarta Sans',size:10},color:'#9395A5'}},y:{grid:{color:'#F0F2F8'},ticks:{font:{family:'Plus Jakarta Sans',size:10},color:'#9395A5',callback:v=>'$'+v.toLocaleString('en-US')}}}}
-  });
-}
-
-/* ══════════════════════════════════════════
-   AUTO-CALCULATE essential expenses from real transactions
-   Uses average of last 3 months per category.
-   Categories mapped: Renta/Hipoteca -> rent, Supermercado -> food,
-   Gasolina -> transport, Teléfono/Internet -> services
-══════════════════════════════════════════ */
-function getAutoCalcValues(){
-  const data = loadData();
-  const now = new Date();
-  const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth()-2, 1);
-
-  const txs = (data.transactions||[]).filter(t=>{
-    const d = new Date(t.date);
-    return d >= threeMonthsAgo && ['gasto','hipoteca'].includes(t.type);
-  });
-
-  const sums = { rent:0, food:0, transport:0, services:0 };
-  txs.forEach(t=>{
-    const cat = t.cat || '';
-    const amt = parseFloat(t.amount)||0;
-    if (t.type==='hipoteca' || cat.includes('Renta') || cat.includes('Hipoteca')) sums.rent += amt;
-    else if (cat.includes('Supermercado')) sums.food += amt;
-    else if (cat.includes('Gasolina')) sums.transport += amt;
-    else if (cat.includes('Teléfono') || cat.includes('Telefono') || cat.includes('Internet')) sums.services += amt;
-  });
-
-  // Determine how many distinct months actually have data (1-3), to average correctly
-  const monthsWithData = new Set(txs.map(t=>{ const d=new Date(t.date); return d.getFullYear()+'-'+d.getMonth(); })).size || 1;
-
-  return {
-    rent: Math.round(sums.rent / monthsWithData),
-    food: Math.round(sums.food / monthsWithData),
-    transport: Math.round(sums.transport / monthsWithData),
-    services: Math.round(sums.services / monthsWithData),
-    hasData: txs.length > 0
-  };
-}
-
-function loadCalcState(){
-  try { return JSON.parse(localStorage.getItem('ft_calc_state')) || { manual:{}, values:{} }; }
-  catch(e) { return { manual:{}, values:{} }; }
-}
-function saveCalcState(s){ localStorage.setItem('ft_calc_state', JSON.stringify(s)); }
-
-function applyCalcValues(){
-  const auto = getAutoCalcValues();
-  const state = loadCalcState();
-
-  const fields = ['rent','food','transport','services'];
-  fields.forEach(f=>{
-    const isManual = !!state.manual[f];
-    const val = isManual ? (state.values[f]||0) : auto[f];
-    const inputId = 'calc'+f.charAt(0).toUpperCase()+f.slice(1);
-    const input = document.getElementById(inputId);
-    if (input) input.value = val || '';
-
-    const srcId = 'src'+f.charAt(0).toUpperCase()+f.slice(1);
-    const srcEl = document.getElementById(srcId);
-    if (srcEl) {
-      if (isManual) {
-        srcEl.textContent = '✏️ '+T_global.manual;
-        srcEl.className = 'calc-source manual';
-      } else if (auto.hasData) {
-        srcEl.textContent = '🤖 '+T_global.auto;
-        srcEl.className = 'calc-source auto';
-      } else {
-        srcEl.textContent = T_global.noData;
-        srcEl.className = 'calc-source';
-      }
-    }
-  });
-
-  recalcTotal();
-}
-
-function onCalcEdit(field){
-  const inputId = 'calc'+field.charAt(0).toUpperCase()+field.slice(1);
-  const val = parseFloat(document.getElementById(inputId).value)||0;
-
-  const state = loadCalcState();
-  state.manual[field] = true;
-  state.values[field] = val;
-  saveCalcState(state);
-
-  // Update source label immediately
-  const srcId = 'src'+field.charAt(0).toUpperCase()+field.slice(1);
-  const srcEl = document.getElementById(srcId);
-  if (srcEl) { srcEl.textContent = '✏️ '+T_global.manual; srcEl.className = 'calc-source manual'; }
-
-  recalcTotal();
-}
-
-function recalcTotal(){
-  const r=parseFloat(document.getElementById('calcRent').value)||0;
-  const f=parseFloat(document.getElementById('calcFood').value)||0;
-  const t=parseFloat(document.getElementById('calcTransport').value)||0;
-  const s=parseFloat(document.getElementById('calcServices').value)||0;
-  const total=r+f+t+s;
-  const goal3=total*3;
-  document.getElementById('calcResult').textContent=fmt(goal3);
-  document.getElementById('calcSub3').textContent='× 3 '+(lang==='es'?'meses · $'+fmt(total)+'/mes':'months · $'+fmt(total)+'/mo');
-  // Keep legacy key in sync for other parts of the app that may read it
-  localStorage.setItem('ft_calc',JSON.stringify({rent:r,food:f,transport:t,services:s}));
-}
-
-function resetCalcToAuto(){
-  saveCalcState({ manual:{}, values:{} });
-  applyCalcValues();
-  showToast(lang==='es'?'🔄 Recalculado automáticamente':'🔄 Auto-recalculated');
-}
-
-// Legacy alias kept for any old inline references
-function updateCalc(){ recalcTotal(); }
-
-function openModal(){
-  document.getElementById('mAmount').value='';
-  document.getElementById('mDate').value=new Date().toISOString().split('T')[0];
-  document.getElementById('mType').value='deposito';
-  document.getElementById('mNote').value='';
-  document.getElementById('overlay').classList.add('open');
-}
-function closeModal(){document.getElementById('overlay').classList.remove('open');}
-function closeOutside(e){if(e.target===document.getElementById('overlay'))closeModal();}
-
-function saveDeposit(){
-  const amount=parseFloat(document.getElementById('mAmount').value);
-  const date=document.getElementById('mDate').value;
-  const type=document.getElementById('mType').value;
-  const note=document.getElementById('mNote').value.trim();
-
-  if(!amount||!date){
-    const f=!amount?'mAmount':'mDate';
-    document.getElementById(f).style.borderColor='var(--red)';
-    setTimeout(()=>document.getElementById(f).style.borderColor='',1500);
+  const hist = loadHist();
+  const list = document.getElementById('histList');
+  if(!hist.length){
+    list.innerHTML = `<p style="color:var(--text3);font-size:13px;text-align:center;padding:16px 0">${es?'Sin depósitos aún':'No deposits yet'}</p>`;
     return;
   }
+  list.innerHTML = hist.slice().reverse().map(h=>`
+    <div class="hist-item">
+      <div>
+        <div style="font-size:13px;font-weight:700">${h.note||( es?'Depósito':'Deposit')}</div>
+        <div style="font-size:11px;color:var(--text3)">${h.date}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="font-size:14px;font-weight:800;color:${h.amount<0?'var(--red)':'var(--g-main)'}">${h.amount<0?'-':'+'} ${fmt(Math.abs(h.amount))}</div>
+        <div onclick="deleteDeposit('${h.id}')" style="cursor:pointer;color:var(--text3);font-size:16px">🗑️</div>
+      </div>
+    </div>
+  `).join('');
+}
 
-  const data=loadData();
-  const hist=loadHist();
+function openDeposit(){
+  document.getElementById('fAmount').value='';
+  document.getElementById('fNote').value='';
+  document.getElementById('fDate').value=new Date().toISOString().slice(0,10);
+  document.getElementById('overlay').classList.add('open');
+}
+function closeModal(){ document.getElementById('overlay').classList.remove('open'); }
 
-  if(type==='retiro'){
-    data.emergency=Math.max(0,(data.emergency||0)-amount);
-  } else {
-    data.emergency=(data.emergency||0)+amount;
-  }
-  saveData(data);
+function saveDeposit(){
+  const amount = parseFloat(document.getElementById('fAmount').value)||0;
+  const note   = document.getElementById('fNote').value.trim();
+  const date   = document.getElementById('fDate').value || new Date().toISOString().slice(0,10);
+  if(!amount){ showToast(lang==='es'?'⚠️ Ingresa un monto':'⚠️ Enter an amount'); return; }
 
-  hist.push({id:'ef_'+Date.now(),amount,date,type,note});
+  const d = loadData();
+  d.emergency = (parseFloat(d.emergency)||0) + amount;
+  saveData(d);
+
+  const hist = loadHist();
+  hist.push({ id:'h_'+Date.now(), amount, note, date });
   saveHist(hist);
-
-  // Also add to transactions
-  data.transactions.push({id:Date.now(),type:'ahorro',desc:note||(type==='retiro'?'Retiro fondo emergencia':'Depósito fondo emergencia'),amount,date,note,cat:'🛡️ Fondo emergencia'});
-  saveData(data);
 
   closeModal();
   render();
-  showToast(type==='retiro'?(lang==='es'?'⚠️ Retiro registrado':'⚠️ Withdrawal recorded'):(lang==='es'?'✅ Depósito guardado':'✅ Deposit saved'));
+  showToast(lang==='es'?'✅ Depósito guardado':'✅ Deposit saved');
 }
 
 function deleteDeposit(id){
-  if(!confirm(lang==='es'?'¿Eliminar este depósito?':'Delete this deposit?'))return;
-  const hist=loadHist().filter(h=>h.id!==id);
-  saveHist(hist);
-  // Recalculate total
-  const total=hist.reduce((s,h)=>s+(h.type==='retiro'?-parseFloat(h.amount):parseFloat(h.amount)),0);
-  const data=loadData();
-  data.emergency=Math.max(0,total);
-
-  // If this deposit originated from the Dashboard's Nuevo Registro (id prefixed with 'tx_'),
-  // also remove the underlying transaction so it doesn't keep showing in Recent Transactions.
-  if (id.startsWith('tx_')) {
-    const originalTxId = parseInt(id.replace('tx_',''));
-    data.transactions = (data.transactions||[]).filter(t => t.id !== originalTxId);
+  if(!confirm(lang==='es'?'¿Eliminar este depósito?':'Delete this deposit?')) return;
+  const hist = loadHist();
+  const item = hist.find(h=>h.id===id);
+  if(item){
+    const d = loadData();
+    d.emergency = Math.max(0,(parseFloat(d.emergency)||0) - item.amount);
+    saveData(d);
   }
-
-  saveData(data);
+  saveHist(hist.filter(h=>h.id!==id));
   render();
   showToast(lang==='es'?'🗑️ Eliminado':'🗑️ Deleted');
 }
 
-function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.style.display='flex';setTimeout(()=>t.style.display='none',3000);}
-function go(url){window.location.href=url;}
-function logout(){sessionStorage.clear();localStorage.removeItem('ft_user');localStorage.removeItem('ft_user_setup');localStorage.removeItem('ft_premium');localStorage.removeItem('ft_lang');window.location.replace('login.html');}
-
 (function init(){
-  try {
-    let s = localStorage.getItem('ft_user') || sessionStorage.getItem('ft_user');
-    if (!s) {
-      const setup = localStorage.getItem('ft_user_setup');
-      if (setup) {
-        const fb = {name:'Usuario',email:'',income:3000,currency:'USD',lang:localStorage.getItem('ft_lang')||'es',needs:1500,wants:900,savings:600,setupDone:true,createdAt:new Date().toISOString()};
-        try{const gu=JSON.parse(sessionStorage.getItem('ft_google_user')||'{}');if(gu.name)fb.name=gu.name;if(gu.email)fb.email=gu.email;}catch(e){}
-        s=JSON.stringify(fb);
-        localStorage.setItem('ft_user',s);
-        sessionStorage.setItem('ft_user',s);
-      } else { window.location.replace('login.html'); return; }
-    }
-    user = JSON.parse(s);
-    lang = user.lang || localStorage.getItem('ft_lang') || 'es';
-    localStorage.setItem('ft_user', s);
-    sessionStorage.setItem('ft_user', s);
-  } catch(e) {
-    try {
-      const s = localStorage.getItem('ft_user');
-      if(s){ user=JSON.parse(s); lang=user.lang||'es'; }
-      else { window.location.replace('login.html'); return; }
-    } catch(e2) { window.location.replace('login.html'); return; }
-  }
-  if(document.getElementById('sbName')) document.getElementById('sbName').textContent = user.name||'';
-  if(document.getElementById('sbEmail')) document.getElementById('sbEmail').textContent = user.email||'';
-  if(document.getElementById('sbAvatar')) document.getElementById('sbAvatar').textContent = (user.name||'U').charAt(0).toUpperCase();
+  let s = localStorage.getItem('ft_user') || sessionStorage.getItem('ft_user');
+  if(!s){ window.location.replace('login.html'); return; }
+  try{ user=JSON.parse(s); }catch(e){ window.location.replace('login.html'); return; }
+  lang = user.lang||localStorage.getItem('ft_lang')||'es';
+  if(!sessionStorage.getItem('ft_user')) sessionStorage.setItem('ft_user',s);
   setLang(lang);
-  render();
 })();
 </script>
 </body>
