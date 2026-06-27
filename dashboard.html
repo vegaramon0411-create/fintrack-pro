@@ -832,7 +832,17 @@ function openMoreMenu(){
   document.body.appendChild(ov);
 }
 
+function loadData() {
+  try { return JSON.parse(localStorage.getItem(STORE_KEY)) || { transactions:[], emergency:0, subscriptions:[] }; }
+  catch(e) { return { transactions:[], emergency:0, subscriptions:[] }; }
+}
 function saveData(d) { localStorage.setItem(STORE_KEY, JSON.stringify(d)); }
+
+function loadDebts() {
+  try { return JSON.parse(localStorage.getItem('ft_debts')) || []; }
+  catch(e) { return []; }
+}
+function saveDebts(d) { localStorage.setItem('ft_debts', JSON.stringify(d)); }
 
 /* ══════════════════════════════════════════
    SESSION — del login
