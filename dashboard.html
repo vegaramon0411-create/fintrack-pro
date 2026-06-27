@@ -842,49 +842,30 @@ let lang = 'es';
 
 function loadSession() {
   try {
-    // Try sessionStorage first (current tab)
-    let s = sessionStorage.getItem('ft_user');
-    // Fallback to localStorage (persists across tabs/reloads)
-    if (!s) s = localStorage.getItem('ft_user');
-
+    let s = localStorage.getItem('ft_user') || sessionStorage.getItem('ft_user');
     if (!s) {
-      // No session found but user may have setup done —
-      // check if ft_user_setup exists (means they completed onboarding before)
-      const setupDone = localStorage.getItem('ft_user_setup');
-      if (setupDone) {
-        // Rebuild a minimal session so they don't get kicked out
-        const fallback = {
-          name: 'Usuario',
-          email: '',
-          income: 3000,
-          currency: 'USD',
-          lang: localStorage.getItem('ft_lang') || 'es',
-          needs: 1500, wants: 900, savings: 600,
-          setupDone: true,
-          createdAt: new Date().toISOString()
-        };
-        // Try to get name/email from Google token if still available
-        try {
-          const gu = JSON.parse(sessionStorage.getItem('ft_google_user') || '{}');
-          if (gu.name)  fallback.name  = gu.name;
-          if (gu.email) fallback.email = gu.email;
-        } catch(e) {}
-
-        s = JSON.stringify(fallback);
-        sessionStorage.setItem('ft_user', s);
+      const setup = localStorage.getItem('ft_user_setup');
+      if (setup) {
+        const fb = {name:'Usuario',email:'',income:3000,currency:'USD',lang:localStorage.getItem('ft_lang')||'es',needs:1500,wants:900,savings:600,setupDone:true,createdAt:new Date().toISOString()};
+        try{const gu=JSON.parse(sessionStorage.getItem('ft_google_user')||'{}');if(gu.name)fb.name=gu.name;if(gu.email)fb.email=gu.email;}catch(e){}
+        s = JSON.stringify(fb);
         localStorage.setItem('ft_user', s);
+        sessionStorage.setItem('ft_user', s);
       } else {
-        // Truly new user — send to login
-        window.location.replace('login.html');
-        return;
+        window.location.replace('login.html'); return;
       }
     }
-
     user = JSON.parse(s);
-    lang = user.lang || sessionStorage.getItem('ft_lang') || localStorage.getItem('ft_lang') || 'es';
-    // Sync back to sessionStorage if it was missing
-    if (!sessionStorage.getItem('ft_user')) sessionStorage.setItem('ft_user', s);
-  } catch(e) { window.location.replace('login.html'); }
+    lang = user.lang || localStorage.getItem('ft_lang') || 'es';
+    localStorage.setItem('ft_user', s);
+    sessionStorage.setItem('ft_user', s);
+  } catch(e) {
+    try {
+      const s = localStorage.getItem('ft_user');
+      if (s) { user = JSON.parse(s); lang = user.lang||'es'; return; }
+    } catch(e2) {}
+    window.location.replace('login.html');
+  }
 }
 
 /* ══════════════════════════════════════════
