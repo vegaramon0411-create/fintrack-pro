@@ -7,6 +7,12 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="premium.js">
 /* ─── openMoreMenu universal ─── */
+function setLang(l){
+  lang=l; localStorage.setItem('ft_lang',l);
+  document.getElementById('ltES')?.classList.toggle('on',l==='es');
+  document.getElementById('ltEN')?.classList.toggle('on',l==='en');
+  document.querySelectorAll('[data-es]').forEach(el=>{const v=el.getAttribute('data-'+l);if(v)el.textContent=v;});
+}
 function openMoreMenu(){
   if(document.getElementById('_moreOv')) return;
   const links=[

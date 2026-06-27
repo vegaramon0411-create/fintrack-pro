@@ -13,6 +13,7 @@
 function saveData(d){ localStorage.setItem('ft_data',JSON.stringify(d)); }
 function loadDebts(){ try{return JSON.parse(localStorage.getItem('ft_debts'))||[];}catch(e){return[];} }
 function saveDebts(d){ localStorage.setItem('ft_debts',JSON.stringify(d)); }
+function saveInvestments(d){ localStorage.setItem('ft_investments',JSON.stringify(d)); }
 function loadInvestments(){ try{return JSON.parse(localStorage.getItem('ft_investments'))||[];}catch(e){return[];} }
 function showToast(msg,dur){ dur=dur||3000; const t=document.getElementById('toast'); if(!t)return; t.textContent=msg; t.style.display='block'; setTimeout(()=>t.style.display='none',dur); }
 function loadSession() {

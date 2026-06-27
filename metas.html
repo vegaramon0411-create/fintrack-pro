@@ -10,10 +10,13 @@
 <script>
 
 /* ── RESTORED UTILS ── */
+let user = {};
+let lang = 'es';
 function loadData(){ try{return JSON.parse(localStorage.getItem('ft_data'))||{transactions:[],emergency:0,subscriptions:[]};}catch(e){return{transactions:[],emergency:0,subscriptions:[]};} }
 function saveData(d){ localStorage.setItem('ft_data',JSON.stringify(d)); }
 function loadDebts(){ try{return JSON.parse(localStorage.getItem('ft_debts'))||[];}catch(e){return[];} }
 function saveDebts(d){ localStorage.setItem('ft_debts',JSON.stringify(d)); }
+function saveInvestments(d){ localStorage.setItem('ft_investments',JSON.stringify(d)); }
 function loadInvestments(){ try{return JSON.parse(localStorage.getItem('ft_investments'))||[];}catch(e){return[];} }
 function fmt(n){ return '$'+Math.abs(n||0).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0}); }
 function fmtD(n){ return '$'+Math.abs(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
