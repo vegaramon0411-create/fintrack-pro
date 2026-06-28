@@ -88,6 +88,12 @@ select.field-input{background:var(--off);border:1.5px solid var(--border);border
         <div class="setting-info"><div class="setting-label" data-es="Exportar datos" data-en="Export data">Exportar datos</div><div class="setting-sub">JSON</div></div>
         <div class="setting-ctrl">›</div>
       </div>
+      <div class="setting-row" onclick="document.getElementById('importFileInput').click()" style="cursor:pointer">
+        <div class="setting-ico" style="background:var(--blu-dim)">📥</div>
+        <div class="setting-info"><div class="setting-label" data-es="Importar datos" data-en="Import data">Importar datos</div><div class="setting-sub" data-es="Restaurar desde backup JSON" data-en="Restore from JSON backup">Restaurar desde backup JSON</div></div>
+        <div class="setting-ctrl">›</div>
+      </div>
+      <input type="file" id="importFileInput" accept=".json" style="display:none" onchange="importData(event)">
       <div class="setting-row" onclick="clearData()" style="cursor:pointer">
         <div class="setting-ico" style="background:var(--red-dim)">🗑️</div>
         <div class="setting-info"><div class="setting-label" style="color:var(--red)" data-es="Borrar todos mis datos" data-en="Clear all my data">Borrar todos mis datos</div><div class="setting-sub" data-es="Esto no se puede deshacer" data-en="This cannot be undone">Esto no se puede deshacer</div></div>
@@ -161,9 +167,31 @@ function saveCurrency(){
 }
 
 function exportData(){
-  const data={user,transactions:JSON.parse(localStorage.getItem('ft_data')||'{}'),debts:JSON.parse(localStorage.getItem('ft_debts')||'[]'),investments:JSON.parse(localStorage.getItem('ft_investments')||'[]'),goals:JSON.parse(localStorage.getItem('ft_goals')||'[]')};
+  const data={user,transactions:JSON.parse(localStorage.getItem('ft_data')||'{}'),debts:JSON.parse(localStorage.getItem('ft_debts')||'[]'),investments:JSON.parse(localStorage.getItem('ft_investments')||'[]'),goals:JSON.parse(localStorage.getItem('ft_goals')||'[]'),subs:JSON.parse(localStorage.getItem('ft_subs')||'[]'),emergHist:JSON.parse(localStorage.getItem('ft_emerg_hist')||'[]')};
   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='fintrack-backup.json'; a.click();
+}
+
+function importData(e){
+  const file=e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=function(ev){
+    try{
+      const d=JSON.parse(ev.target.result);
+      if(d.transactions) localStorage.setItem('ft_data',JSON.stringify(d.transactions));
+      if(d.debts)        localStorage.setItem('ft_debts',JSON.stringify(d.debts));
+      if(d.investments)  localStorage.setItem('ft_investments',JSON.stringify(d.investments));
+      if(d.goals)        localStorage.setItem('ft_goals',JSON.stringify(d.goals));
+      if(d.subs)         localStorage.setItem('ft_subs',JSON.stringify(d.subs));
+      if(d.emergHist)    localStorage.setItem('ft_emerg_hist',JSON.stringify(d.emergHist));
+      showToast(lang==='es'?'✅ Datos restaurados correctamente':'✅ Data restored successfully');
+      setTimeout(()=>go('dashboard.html'),1500);
+    }catch(err){
+      showToast(lang==='es'?'❌ Archivo inválido':'❌ Invalid file');
+    }
+  };
+  reader.readAsText(file);
+  e.target.value='';
 }
 
 function clearData(){

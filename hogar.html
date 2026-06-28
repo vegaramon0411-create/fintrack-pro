@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>FinTrack Pro · Hogar</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="premium.js"></script>
@@ -204,16 +204,9 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
 .btn-secondary{background:var(--off);border:1.5px solid var(--border);color:var(--text2);border-radius:12px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;width:100%;}
 .btn-danger{background:var(--red-dim);color:var(--red);border:none;border-radius:12px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;}
 
-/* MOBILE NAV */
-.mob-nav{display:flex;position:fixed;bottom:0;left:0;right:0;background:var(--white);border-top:1px solid var(--border);padding:10px 4px calc(10px + env(safe-area-inset-bottom));z-index:50;}
-.mob-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:9px;font-weight:600;color:var(--text3);cursor:pointer;}
-.mob-item.on{color:var(--g-main);}
-.mob-ico{font-size:20px;line-height:1;}
-
 /* TOAST */
 #toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--text);color:white;padding:12px 20px;border-radius:20px;font-size:13px;font-weight:600;display:none;z-index:200;white-space:nowrap;}
 
-@media(min-width:700px){.mob-nav{display:none;}.page{padding:24px;}}
 /* ─── MOBILE NAV ─── */
 .mob-nav{display:flex;position:fixed;bottom:0;left:0;right:0;background:var(--white);border-top:1px solid var(--border);padding:8px 0 calc(8px + env(safe-area-inset-bottom));z-index:100;align-items:center;}
 .mob-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:9px;font-weight:600;color:var(--text3);cursor:pointer;-webkit-tap-highlight-color:transparent;}

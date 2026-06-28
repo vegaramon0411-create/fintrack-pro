@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>FinTrack Pro · Dashboard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -912,6 +912,7 @@ function openMoreMenu(){
   document.body.appendChild(ov);
 }
 
+const STORE_KEY = 'ft_data';
 function loadData() {
   try { return JSON.parse(localStorage.getItem(STORE_KEY)) || { transactions:[], emergency:0, subscriptions:[] }; }
   catch(e) { return { transactions:[], emergency:0, subscriptions:[] }; }
@@ -1387,7 +1388,11 @@ const defaultSubs = [
 
 function renderSubs() {
   const data = loadData();
-  const subs = data.subscriptions && data.subscriptions.length ? data.subscriptions : defaultSubs;
+  // suscripciones.html guarda en ft_subs — leer de ahí primero
+  let subs = [];
+  try { subs = JSON.parse(localStorage.getItem('ft_subs') || '[]'); } catch(e) { subs = []; }
+  if (!subs.length && data.subscriptions && data.subscriptions.length) subs = data.subscriptions;
+  if (!subs.length) subs = defaultSubs;
   const total = subs.reduce((s,x) => s+(parseFloat(x.amount)||0), 0);
 
   document.getElementById('subTotal').textContent = fmtD(total)+'/'+(lang==='es'?'mes':'mo');
