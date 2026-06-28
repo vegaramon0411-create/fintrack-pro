@@ -12,6 +12,8 @@
 /* ── RESTORED UTILS ── */
 let user = {};
 let lang = 'es';
+let selectedAvatar = '';
+const AVATAR_KEY = 'ft_avatar';
 function loadData(){ try{return JSON.parse(localStorage.getItem('ft_data'))||{transactions:[],emergency:0,subscriptions:[]};}catch(e){return{transactions:[],emergency:0,subscriptions:[]};} }
 function saveData(d){ localStorage.setItem('ft_data',JSON.stringify(d)); }
 function loadDebts(){ try{return JSON.parse(localStorage.getItem('ft_debts'))||[];}catch(e){return[];} }
