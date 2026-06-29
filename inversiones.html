@@ -19,12 +19,12 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
 .lt-opt.on{background:var(--g-main);color:white;}
 .btn{border:none;border-radius:12px;padding:11px 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;}
 .btn-primary{background:var(--g-main);color:white;}
-.inv-item{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--off);}
+.inv-item{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--off);}
 .inv-item:last-child{border-bottom:none;}
-.inv-ico{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;font-size:18px;font-weight:800;background:var(--g-light);color:var(--g-dark);}
-.inv-info{flex:1;}
-.inv-name{font-size:13px;font-weight:700;}
-.inv-meta{font-size:11px;color:var(--text3);}
+.inv-ico{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;font-size:11px;font-weight:800;background:var(--g-light);color:var(--g-dark);flex-shrink:0;text-align:center;line-height:1.1;word-break:break-all;padding:2px;}
+.inv-info{flex:1;min-width:0;}
+.inv-name{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.inv-meta{font-size:10px;color:var(--text3);margin-top:2px;}
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;place-items:center;z-index:150;}
 .overlay.open{display:grid;}
 .modal{background:var(--white);border-radius:20px;width:min(480px,calc(100vw - 24px));max-height:88vh;overflow-y:auto;padding:20px;}
@@ -243,19 +243,23 @@ function render(){
     var cost=shares*avg;
     var val=shares*cur;
     var g=val-cost;
-    var hogarBadge=invView==='hogar'?'<span style="background:var(--g-light);color:var(--g-dark);font-size:9px;font-weight:700;padding:2px 6px;border-radius:20px;margin-left:4px">Hogar</span>':'';
-    var addedBy=i.addedBy?'<span style="color:var(--text3);font-size:9px"> '+i.addedBy+'</span>':'';
+    var hogarBadge=invView==='hogar'?'<span style="background:var(--g-light);color:var(--g-dark);font-size:9px;font-weight:700;padding:2px 6px;border-radius:20px;margin-left:4px">🏠</span>':'';
+    var tick=(i.ticker||'?').slice(0,4);
+    var platform=i.platform&&i.platform!=='Importado'?i.platform:'';
     return '<div class="inv-item">'
-      +'<div class="inv-ico">'+(i.ticker||'?').slice(0,4)+'</div>'
+      +'<div class="inv-ico">'+tick+'</div>'
       +'<div class="inv-info">'
-      +'<div class="inv-name">'+(i.ticker||'--')+' '+hogarBadge+'<span style="font-size:10px;color:var(--text3);font-weight:600"> '+(i.type||'')+' '+(i.platform?'- '+i.platform:'')+'</span>'+addedBy+'</div>'
-      +'<div class="inv-meta">'+fmtN(shares)+' '+(es?'unidades':'units')+' Avg '+fmt(avg)+' Cur '+fmt(cur)+'</div>'
+      +'<div class="inv-name">'+tick+' '+hogarBadge+(platform?'<span style="font-size:10px;color:var(--text3);font-weight:500"> · '+platform+'</span>':'')+'</div>'
+      +'<div class="inv-meta">'+fmtN(shares)+' u · $'+avg.toFixed(2)+' avg'+(cur!==avg?' → $'+cur.toFixed(2):'')+'</div>'
       +'</div>'
-      +'<div style="text-align:right">'
+      +'<div style="text-align:right;flex-shrink:0">'
       +'<div style="font-size:13px;font-weight:800">'+fmt(val)+'</div>'
       +'<div style="font-size:11px;color:'+(g>=0?'var(--g-main)':'var(--red)')+';font-weight:700">'+(g>=0?'+':'')+fmt(g)+'</div>'
       +'</div>'
-      +'<div onclick="deleteInv(\"'+i.id+'\")" style="cursor:pointer;color:var(--text3);padding-left:8px">X</div>'
+      +'<div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;padding-left:4px">'
+      +'<div onclick="editInv(\''+i.id+'\')" style="cursor:pointer;color:var(--blue);font-size:16px;line-height:1" title="Editar">✏️</div>'
+      +'<div onclick="deleteInv(\''+i.id+'\')" style="cursor:pointer;color:var(--text3);font-size:14px;line-height:1" title="Eliminar">🗑</div>'
+      +'</div>'
       +'</div>';
   }).join('');
 }
@@ -271,6 +275,25 @@ function openAdd(){
   document.getElementById('modalTitle').textContent=lang==='es'?'Nueva inversion':'New investment';
   document.getElementById('overlay').classList.add('open');
 }
+
+function editInv(id){
+  var list=invView==='hogar'?loadHogarInv():loadInv();
+  var inv=list.find(function(i){return i.id===id;});
+  if(!inv) return;
+  editingId=id;
+  document.getElementById('fTicker').value=inv.ticker||'';
+  document.getElementById('fShares').value=inv.shares||1;
+  document.getElementById('fAvgPrice').value=inv.avgPrice||inv.amount||'';
+  document.getElementById('fCurPrice').value=inv.curPrice||inv.avgPrice||inv.amount||'';
+  document.getElementById('fPlatform').value=inv.platform||'';
+  document.getElementById('fType').value=inv.type||'etf';
+  var field=document.getElementById('invHogarField');
+  if(field) field.style.display=isHogarConnected()?'':'none';
+  invIsHogar=invView==='hogar';
+  setInvHogar(invIsHogar);
+  document.getElementById('modalTitle').textContent=lang==='es'?'Editar inversion':'Edit investment';
+  document.getElementById('overlay').classList.add('open');
+}
 function closeModal(){document.getElementById('overlay').classList.remove('open');}
 
 function saveInv(){
@@ -281,13 +304,31 @@ function saveInv(){
   var curPrice=parseFloat(document.getElementById('fCurPrice').value)||avgPrice;
   var platform=document.getElementById('fPlatform').value.trim();
   if(!ticker){showToast('!'+(lang==='es'?' Ingresa el ticker o nombre':' Enter ticker or name'));return;}
-  var entry={id:'i_'+Date.now(),ticker:ticker,type:type,shares:shares,avgPrice:avgPrice,curPrice:curPrice,platform:platform,addedBy:user.name||'',addedAt:new Date().toISOString()};
-  if(invIsHogar){
-    var list=loadHogarInv();list.push(entry);saveHogarInv(list);
-    showToast(lang==='es'?'Inversion guardada en el Hogar':'Investment saved to Household');
+  
+  if(editingId){
+    // EDITAR
+    if(invIsHogar){
+      var list=loadHogarInv();
+      var idx=list.findIndex(function(i){return i.id===editingId;});
+      if(idx>=0){list[idx]=Object.assign({},list[idx],{ticker:ticker,type:type,shares:shares,avgPrice:avgPrice,curPrice:curPrice,platform:platform});}
+      saveHogarInv(list);
+    } else {
+      var list2=loadInv();
+      var idx2=list2.findIndex(function(i){return i.id===editingId;});
+      if(idx2>=0){list2[idx2]=Object.assign({},list2[idx2],{ticker:ticker,type:type,shares:shares,avgPrice:avgPrice,curPrice:curPrice,platform:platform});}
+      saveInvPersonal(list2);
+    }
+    showToast(lang==='es'?'Inversion actualizada':'Investment updated');
   } else {
-    var list2=loadInv();list2.push(entry);saveInvPersonal(list2);
-    showToast(lang==='es'?'Inversion personal guardada':'Personal investment saved');
+    // NUEVA
+    var entry={id:'i_'+Date.now(),ticker:ticker,type:type,shares:shares,avgPrice:avgPrice,curPrice:curPrice,platform:platform,addedBy:user.name||'',addedAt:new Date().toISOString()};
+    if(invIsHogar){
+      var list3=loadHogarInv();list3.push(entry);saveHogarInv(list3);
+      showToast(lang==='es'?'Inversion guardada en el Hogar':'Investment saved to Household');
+    } else {
+      var list4=loadInv();list4.push(entry);saveInvPersonal(list4);
+      showToast(lang==='es'?'Inversion personal guardada':'Personal investment saved');
+    }
   }
   closeModal();render();
 }
