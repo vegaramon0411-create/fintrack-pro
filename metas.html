@@ -287,7 +287,7 @@ function deleteGoal(id){
   let s=localStorage.getItem('ft_user')||sessionStorage.getItem('ft_user');
   if(!s){ window.location.replace('login.html'); return; }
   try{ user=JSON.parse(s); }catch(e){ window.location.replace('login.html'); return; }
-  lang=user.lang||localStorage.getItem('ft_lang')||'es';
+  lang=localStorage.getItem('ft_lang')||user.lang||'es';
   if(!sessionStorage.getItem('ft_user')) sessionStorage.setItem('ft_user',s);
   setLang(lang);
 })();

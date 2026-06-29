@@ -34,13 +34,13 @@ function loadSession() {
       }
     }
     user = JSON.parse(s);
-    lang = user.lang || localStorage.getItem('ft_lang') || 'es';
+    lang = localStorage.getItem('ft_lang') || user.lang || 'es';
     localStorage.setItem('ft_user', s);
     sessionStorage.setItem('ft_user', s);
   } catch(e) {
     try {
       const s = localStorage.getItem('ft_user');
-      if (s) { user = JSON.parse(s); lang = user.lang||'es'; return; }
+      if (s) { user = JSON.parse(s); lang = localStorage.getItem('ft_lang')||user.lang||'es'; return; }
     } catch(e2) {}
     window.location.replace('login.html');
   }
