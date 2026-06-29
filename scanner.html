@@ -172,7 +172,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
 @media(max-width:860px){
   .sidebar{display:none;}
   .main{margin-left:0;padding-bottom:72px;}
-  .topbar{height:auto;min-height:var(--topbar);padding:12px 16px;flex-direction:column;align-items:stretch;gap:10px;}
+  .topbar{height:56px;min-height:56px;padding:0 14px;flex-direction:row;align-items:center;}
   .tb-title{font-size:16px;white-space:normal;}
   .tb-right{width:100%;justify-content:space-between;gap:8px;flex-wrap:wrap;}
   .page{padding:16px;max-width:100%;}
@@ -385,7 +385,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
         <!-- HOGAR TOGGLE — solo si hay hogar conectado -->
         <div id="scannerHogarField" style="display:none;margin-bottom:14px">
           <label style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:8px">
-            <span data-es="¿Este gasto es del hogar o personal?" data-en="Household or personal expense?">¿Este gasto es del hogar o personal?</span>
+            <span id="scanHogarLabel" data-es="¿Este registro es del hogar o personal?" data-en="Household or personal?">¿Este registro es del hogar o personal?</span>
           </label>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
             <button id="scanBtnHogar" onclick="setScanHogar(true)" type="button"
@@ -725,6 +725,16 @@ function pickType(btn, type) {
   currentType = type;
   document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('on'));
   btn.classList.add('on');
+  // Actualizar label del toggle según el tipo
+  const lbl = document.getElementById('scanHogarLabel');
+  if(lbl){
+    if(type==='inversion') lbl.textContent = lang==='es'?'¿Esta inversión es personal o del hogar?':'Personal or household investment?';
+    else if(type==='ahorro') lbl.textContent = lang==='es'?'¿Este ahorro es personal o del hogar?':'Personal or household savings?';
+    else lbl.textContent = lang==='es'?'¿Este registro es del hogar o personal?':'Household or personal?';
+  }
+  // Mostrar toggle para gasto, inversión y ahorro si hay hogar conectado
+  const field = document.getElementById('scannerHogarField');
+  if(field) field.style.display = isScanHogarConnected() && ['gasto','inversion','ahorro','suscripcion'].includes(type) ? '' : 'none';
 }
 
 /* ── HOGAR TOGGLE ── */
@@ -781,7 +791,28 @@ function saveEntry() {
   const data  = loadData();
   const entry = { id:Date.now(), type:currentType, desc, amount, date, note, cat, source:'scanner', hogar: isScanHogarConnected() ? scanIsHogar : undefined };
 
-  if (currentType === 'ahorro') data.emergency = (data.emergency||0) + amount;
+  if (currentType === 'ahorro') {
+    data.emergency = (data.emergency||0) + amount;
+  }
+
+  if (currentType === 'inversion') {
+    if (isScanHogarConnected() && scanIsHogar) {
+      // Inversión del hogar → ft_hogar_inv
+      try {
+        const hogarInvs = JSON.parse(localStorage.getItem('ft_hogar_inv')||'[]');
+        hogarInvs.push({ id:'sc_'+entry.id, ticker:desc.split(/[\s–-]/)[0].toUpperCase().slice(0,6), type:'stock', shares:1, avgPrice:amount, curPrice:amount, platform:'Scanner', addedBy:user.name||'', addedAt:new Date().toISOString() });
+        localStorage.setItem('ft_hogar_inv', JSON.stringify(hogarInvs));
+      } catch(e){}
+    } else {
+      // Inversión personal → ft_investments
+      try {
+        const invs = JSON.parse(localStorage.getItem('ft_investments')||'[]');
+        invs.push({ id:'sc_'+entry.id, ticker:desc.split(/[\s–-]/)[0].toUpperCase().slice(0,6), name:desc, amount:amount, avgPrice:amount, curPrice:amount, shares:1, date:date, platform:'Scanner', invType:'stock' });
+        localStorage.setItem('ft_investments', JSON.stringify(invs));
+      } catch(e){}
+    }
+  }
+
   data.transactions.push(entry);
   saveData(data);
 

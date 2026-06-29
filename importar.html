@@ -205,9 +205,31 @@ let lang = 'es';
 let user = {};
 let step = 1;
 let importMode = null;   // 'bank' | 'fidelity' | 'manual' | 'ai'
+let importIsHogar = false;
 let parsedRows = [];     // all detected rows
 let reviewRows = [];     // rows after classification
 let activeFilter = 'all';
+
+function isHogarConnected(){
+  try{ const h=JSON.parse(localStorage.getItem('ft_hogar')||'{}'); return h.connected===true&&!h.manuallyLeft; }
+  catch(e){ return false; }
+}
+function setImportHogar(val){
+  importIsHogar=val;
+  const bH=document.getElementById('impBtnHogar');
+  const bP=document.getElementById('impBtnPersonal');
+  const hint=document.getElementById('impHogarHint');
+  if(!bH||!bP) return;
+  bH.style.background=val?'var(--g-light)':'var(--off)';
+  bH.style.borderColor=val?'var(--g-main)':'var(--border)';
+  bH.style.color=val?'var(--g-dark)':'';
+  bP.style.background=!val?'var(--blu-dim)':'var(--off)';
+  bP.style.borderColor=!val?'var(--blue)':'var(--border)';
+  bP.style.color=!val?'var(--blue)':'';
+  if(hint) hint.textContent=val
+    ?(lang==='es'?'Sale del fondo del hogar · visible para tu pareja':'From household fund · visible to partner')
+    :(lang==='es'?'Solo tuyo · privado':'Only yours · private');
+}
 
 /* ── SESSION ── */
 function loadSession() {
@@ -1149,8 +1171,34 @@ function renderStep3(){
   const excluded  = reviewRows.filter(r=>r.status==='exclude').length;
   const toDecide  = reviewRows.filter(r=>r.status==='decide'||r.status==='pending').length;
 
+  // Toggle hogar global solo si hay hogar conectado
+  const hogarConnected = isHogarConnected();
+  const hogarToggleHtml = hogarConnected ? `
+  <div class="card" style="margin-top:12px;border:2px solid var(--g-main)">
+    <div style="font-size:12px;font-weight:800;color:var(--g-dark);margin-bottom:10px">
+      🏠 ${lang==='es'?'¿Estas transacciones son del hogar o personales?':'Are these transactions household or personal?'}
+    </div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:10px">
+      ${lang==='es'?'Aplica a todos los gastos importados. Las inversiones se ruteán según esta selección.':'Applies to all imported expenses. Investments are routed based on this selection.'}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <button id="impBtnPersonal" onclick="setImportHogar(false)" type="button"
+        style="padding:10px;border-radius:10px;border:2px solid var(--blue);background:var(--blu-dim);color:var(--blue);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">
+        👤 ${lang==='es'?'Personal':'Personal'}
+      </button>
+      <button id="impBtnHogar" onclick="setImportHogar(true)" type="button"
+        style="padding:10px;border-radius:10px;border:2px solid var(--border);background:var(--off);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">
+        🏠 ${lang==='es'?'Del hogar':'Household'}
+      </button>
+    </div>
+    <div id="impHogarHint" style="font-size:10px;color:var(--text3);margin-top:6px;text-align:center">
+      ${lang==='es'?'Solo tuyo · privado · no afecta el hogar':'Only yours · private · doesn\'t affect household'}
+    </div>
+  </div>` : '';
+
   document.getElementById('page').innerHTML = `
-  <div class="card" style="margin-top:16px">
+  ${hogarToggleHtml}
+  <div class="card" style="margin-top:12px">
     <div class="card-title">${lang==='es'?'Revisa las transacciones':'Review transactions'}</div>
     <div class="card-sub">
       ${lang==='es'
@@ -1328,39 +1376,23 @@ function renderStep4(){
   toImport.forEach(r=>{
     if(isFid){
       if(r.type==='inversion'){
-        // Add to investments
-        investments.push({
-          id: Date.now()+Math.random(),
-          ticker: r.symbol,
-          name: r.desc || r.symbol,
-          amount: Math.abs(r.amount),
-          price: r.price,
-          qty: r.qty,
-          date: r.date,
-          platform: 'Fidelity',
-          invType: 'stock',
-          status: 'active',
-        });
+        if(importIsHogar){
+          // Inversión del hogar → ft_hogar_inv
+          const hogarInvs = JSON.parse(localStorage.getItem('ft_hogar_inv')||'[]');
+          hogarInvs.push({ id:'fi_'+(Date.now()+Math.random()), ticker:r.symbol||'INV', name:r.desc||r.symbol, amount:Math.abs(r.amount), avgPrice:r.price||Math.abs(r.amount), curPrice:r.price||Math.abs(r.amount), shares:r.qty||1, date:r.date, platform:'Fidelity', invType:'stock', addedBy:user.name||'' });
+          localStorage.setItem('ft_hogar_inv', JSON.stringify(hogarInvs));
+        } else {
+          investments.push({ id:Date.now()+Math.random(), ticker:r.symbol, name:r.desc||r.symbol, amount:Math.abs(r.amount), price:r.price, qty:r.qty, date:r.date, platform:'Fidelity', invType:'stock', status:'active' });
+        }
         inversiones++;
       } else if(r.type==='venta'){
         if(r.sellDisposition === 'withdraw'){
-          // Record as income
-          data.transactions.push({
-            id: Date.now()+Math.random(),
-            type:'ingreso', desc:`Venta ${r.symbol||''}`, amount:Math.abs(r.amount),
-            date:r.date, cat:'💰 Inversión', note:'Venta Fidelity',
-          });
+          data.transactions.push({ id:Date.now()+Math.random(), type:'ingreso', desc:`Venta ${r.symbol||''}`, amount:Math.abs(r.amount), date:r.date, cat:'💰 Inversión', note:'Venta Fidelity' });
           ingresos++;
-        } else if(r.sellDisposition === 'cash'){
-          pendientes++;
-        }
+        } else if(r.sellDisposition === 'cash'){ pendientes++; }
         ventas++;
       } else if(r.type==='ingreso'){
-        data.transactions.push({
-          id:Date.now()+Math.random(),
-          type:'ingreso', desc:r.desc||'Dividendo', amount:Math.abs(r.amount),
-          date:r.date, cat:'💰 Inversión', note:'Fidelity dividend',
-        });
+        data.transactions.push({ id:Date.now()+Math.random(), type:'ingreso', desc:r.desc||'Dividendo', amount:Math.abs(r.amount), date:r.date, cat:'💰 Inversión', note:'Fidelity dividend' });
         ingresos++;
       }
     } else {
@@ -1374,9 +1406,21 @@ function renderStep4(){
         date: r.date,
         cat: r.ftCat,
         note: r.account||'',
+        hogar: isHogarConnected() ? importIsHogar : undefined,
       });
       if(type==='gasto') gastos++;
-      else ingresos++;
+      else if(type==='inversion'){
+        const ticker = (r.symbol || r.desc || '').split(/[\s–-]/)[0].toUpperCase().slice(0,6);
+        if(importIsHogar){
+          // Inversión del hogar → ft_hogar_inv
+          const hogarInvs = JSON.parse(localStorage.getItem('ft_hogar_inv')||'[]');
+          hogarInvs.push({ id:'imp_'+(Date.now()+Math.random()), ticker, name:r.desc||ticker, amount:Math.abs(r.amount), avgPrice:Math.abs(r.amount), curPrice:Math.abs(r.amount), shares:1, date:r.date, platform:r.account||'Importado', invType:'stock', addedBy:user.name||'' });
+          localStorage.setItem('ft_hogar_inv', JSON.stringify(hogarInvs));
+        } else {
+          investments.push({ id:'imp_'+(Date.now()+Math.random()), ticker, name:r.desc||ticker, amount:Math.abs(r.amount), avgPrice:Math.abs(r.amount), curPrice:Math.abs(r.amount), shares:1, date:r.date, platform:r.account||'Importado', invType:'stock', fromImport:true });
+        }
+        inversiones++;
+      } else ingresos++;
     }
     imported++;
   });

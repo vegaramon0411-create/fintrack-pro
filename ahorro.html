@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>FinTrack Pro · Ahorro Libre</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="premium.js"></script>
+<style>
+:root{--g-dark:#0F5132;--g-main:#1A7A4A;--g-light:#E8F7EF;--white:#fff;--off:#F7F8FC;--border:#E4E6F0;--text:#1A1D2E;--text2:#4A4E69;--text3:#9395A5;--red:#E63946;--red-dim:rgba(230,57,70,.1);--amber:#F4A261;--amb-dim:rgba(244,162,97,.12);--blue:#4A6CF7;--blu-dim:rgba(74,108,247,.1);--purple:#7B5EA7;--pur-dim:rgba(123,94,167,.1);--shadow:0 2px 12px rgba(0,0,0,.06);}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{overflow-x:hidden;}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(--text);min-height:100vh;padding-bottom:90px;}
+.topbar{background:var(--white);border-bottom:1px solid var(--border);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;gap:8px;}
+.topbar-title{font-size:17px;font-weight:800;flex-shrink:0;}
+.page{padding:16px;}
+.card{background:var(--white);border-radius:16px;padding:18px;margin-bottom:14px;box-shadow:var(--shadow);}
+.lang-toggle{display:flex;background:var(--off);border:1px solid var(--border);border-radius:20px;overflow:hidden;font-size:11px;font-weight:700;}
+.lt-opt{padding:5px 12px;cursor:pointer;color:var(--text3);}
+.lt-opt.on{background:var(--g-main);color:white;}
+.btn{border:none;border-radius:12px;padding:12px 18px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;}
+.btn-primary{background:var(--purple);color:white;}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;place-items:center;z-index:150;}
+.overlay.open{display:grid;}
+.modal{background:var(--white);border-radius:20px;width:min(480px,calc(100vw - 24px));max-height:88vh;overflow-y:auto;padding:20px;}
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;}
+.field input,.field select{width:100%;background:var(--off);border:1.5px solid var(--border);border-radius:10px;padding:11px 13px;font-size:14px;font-family:inherit;outline:none;}
+.field input:focus,.field select:focus{border-color:var(--purple);}
+.hist-item{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--off);}
+.hist-item:last-child{border-bottom:none;}
+#toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#1A1D2E;color:white;padding:12px 20px;border-radius:20px;font-size:13px;font-weight:600;display:none;z-index:300;white-space:nowrap;}
+/* PROG BAR */
+.prog-wrap{margin-bottom:10px;}
+.prog-label{display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:6px;}
+.prog-bar{height:10px;background:var(--border);border-radius:100px;overflow:hidden;}
+.prog-fill{height:100%;border-radius:100px;background:var(--purple);transition:width .4s;}
+/* CATEGORY CHIPS */
+.cat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px;}
+.cat-chip{padding:8px 6px;border-radius:10px;border:1.5px solid var(--border);font-size:11px;font-weight:700;text-align:center;cursor:pointer;background:var(--off);color:var(--text2);transition:all .15s;}
+.cat-chip.on{border-color:var(--purple);background:var(--pur-dim);color:var(--purple);}
+/* MOBILE NAV */
+.mob-nav{display:flex;position:fixed;bottom:0;left:0;right:0;background:var(--white);border-top:1px solid var(--border);padding:8px 0 calc(8px + env(safe-area-inset-bottom));z-index:100;gap:0;}
+.mob-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:9px;font-weight:700;color:var(--text3);cursor:pointer;padding:4px 0;}
+.mob-item.on{color:var(--g-main);}
+.mob-ico{font-size:22px;line-height:1.2;}
+.mob-plus{width:52px;height:52px;border-radius:50%;background:var(--g-main);display:flex;align-items:center;justify-content:center;font-size:26px;color:white;margin-top:-18px;box-shadow:0 4px 14px rgba(26,122,74,.4);}
+.more-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;align-items:flex-end;z-index:200;}
+.more-overlay.open{display:flex;}
+.more-panel{background:var(--white);width:100%;border-radius:24px 24px 0 0;padding:12px 20px calc(28px + env(safe-area-inset-bottom));}
+.more-handle{width:36px;height:4px;background:var(--border);border-radius:100px;margin:0 auto 16px;}
+.more-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+.more-item{display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;}
+.more-ico{width:52px;height:52px;border-radius:16px;display:grid;place-items:center;font-size:24px;}
+.more-item span{font-size:11px;font-weight:600;color:var(--text2);text-align:center;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-title">💵 <span data-es="Ahorro Libre" data-en="Free Savings">Ahorro Libre</span></div>
+  <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+    <div class="lang-toggle">
+      <div class="lt-opt on" id="ltES" onclick="setLang('es')">ES</div>
+      <div class="lt-opt" id="ltEN" onclick="setLang('en')">EN</div>
+    </div>
+    <button class="btn btn-primary" style="width:auto;padding:8px 12px;font-size:12px;white-space:nowrap;" onclick="openModal('deposito')" data-es="+ Depositar" data-en="+ Deposit">+ Depositar</button>
+  </div>
+</div>
+
+<div class="page" id="page"></div>
+
+<!-- MODAL DEPOSITO/RETIRO -->
+<div class="overlay" id="overlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div style="font-size:16px;font-weight:800" id="modalTitle">Depositar</div>
+      <div onclick="closeModal()" style="cursor:pointer;font-size:20px;color:var(--text3)">✕</div>
+    </div>
+    <!-- Tabs deposito/retiro -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:16px">
+      <button id="tabDep" onclick="setModalTab('deposito')" style="padding:8px;border-radius:10px;border:none;background:var(--purple);color:white;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit" data-es="💵 Depositar" data-en="💵 Deposit">💵 Depositar</button>
+      <button id="tabRet" onclick="setModalTab('retiro')" style="padding:8px;border-radius:10px;border:1.5px solid var(--border);background:var(--off);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;color:var(--text2)" data-es="↩ Retirar" data-en="↩ Withdraw">↩ Retirar</button>
+    </div>
+    <div class="field">
+      <label id="amtLabel" data-es="Monto ($)" data-en="Amount ($)">Monto ($)</label>
+      <input type="number" id="mAmount" placeholder="0.00" min="0" step="0.01">
+    </div>
+    <div class="field">
+      <label data-es="Categoría" data-en="Category">Categoría</label>
+      <div class="cat-grid" id="catGrid"></div>
+    </div>
+    <div class="field">
+      <label data-es="Nota (opcional)" data-en="Note (optional)">Nota (opcional)</label>
+      <input type="text" id="mNote" placeholder="">
+    </div>
+    <div class="field">
+      <label data-es="Fecha" data-en="Date">Fecha</label>
+      <input type="date" id="mDate">
+    </div>
+    <button class="btn btn-primary" onclick="saveEntry()" style="width:100%;margin-bottom:8px" id="btnSave" data-es="Guardar" data-en="Save">Guardar</button>
+    <button class="btn" onclick="closeModal()" style="width:100%;background:var(--off);border:1.5px solid var(--border)" data-es="Cancelar" data-en="Cancel">Cancelar</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<!-- MORE MENU -->
+<div class="more-overlay" id="moreOverlay" onclick="if(event.target===this)closeMoreMenu()">
+  <div class="more-panel">
+    <div class="more-handle"></div>
+    <div class="more-grid">
+      <div class="more-item" onclick="go('analisis.html')"><div class="more-ico" style="background:var(--g-light)">📈</div><span>Análisis</span></div>
+      <div class="more-item" onclick="go('metas.html')"><div class="more-ico" style="background:var(--amb-dim)">🎯</div><span>Metas</span></div>
+      <div class="more-item" onclick="go('deudas.html')"><div class="more-ico" style="background:var(--red-dim)">💳</div><span>Deudas</span></div>
+      <div class="more-item" onclick="go('inversiones.html')"><div class="more-ico" style="background:var(--blu-dim)">🏦</div><span>Inversiones</span></div>
+      <div class="more-item" onclick="go('scanner.html')"><div class="more-ico" style="background:rgba(123,94,167,.1)">📷</div><span>Escanear</span></div>
+      <div class="more-item" onclick="go('importar.html')"><div class="more-ico" style="background:var(--blu-dim)">📥</div><span>Importar CSV</span></div>
+      <div class="more-item" onclick="go('emergencia.html')"><div class="more-ico" style="background:var(--amb-dim)">🛡️</div><span>Emergencia</span></div>
+      <div class="more-item" onclick="go('suscripciones.html')"><div class="more-ico" style="background:rgba(123,94,167,.1)">🔄</div><span>Suscripciones</span></div>
+      <div class="more-item" onclick="go('config.html')"><div class="more-ico" style="background:var(--off)">⚙️</div><span>Config</span></div>
+      <div class="more-item" onclick="go('perfil.html')"><div class="more-ico" style="background:var(--blu-dim)">👤</div><span>Perfil</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- MOBILE NAV -->
+<nav class="mob-nav">
+  <div class="mob-item" onclick="go('dashboard.html')"><div class="mob-ico">📊</div><span>Inicio</span></div>
+  <div class="mob-item" onclick="go('historial.html')"><div class="mob-ico">📅</div><span>Historial</span></div>
+  <div class="mob-item" onclick="go('dashboard.html')"><div class="mob-plus">＋</div></div>
+  <div class="mob-item" onclick="go('hogar.html')"><div class="mob-ico">🏠</div><span>Hogar</span></div>
+  <div class="mob-item" onclick="openMoreMenu()"><div class="mob-ico">☰</div><span>Más</span></div>
+</nav>
+
+<script>
+let user={}, lang='es', modalTab='deposito', selectedCat='';
+const SAVINGS_KEY='ft_available_savings';
+const HIST_KEY='ft_savings_hist';
+
+const CATS_ES=['🏖️ Vacaciones','🚗 Auto','🏠 Casa','📱 Tecnología','👕 Ropa','🎓 Educación','💊 Salud','🎁 Regalos','🍽️ Comida','💰 General'];
+const CATS_EN=['🏖️ Vacation','🚗 Car','🏠 Home','📱 Tech','👕 Clothing','🎓 Education','💊 Health','🎁 Gifts','🍽️ Food','💰 General'];
+
+function go(url){window.location.href=url;}
+function logout(){sessionStorage.clear();['ft_user','ft_user_setup','ft_premium','ft_lang'].forEach(k=>localStorage.removeItem(k));window.location.replace('login.html');}
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.style.display='block';setTimeout(()=>t.style.display='none',3000);}
+function openMoreMenu(){document.getElementById('moreOverlay').classList.add('open');}
+function closeMoreMenu(){document.getElementById('moreOverlay').classList.remove('open');}
+
+function loadSavings(){return parseFloat(localStorage.getItem(SAVINGS_KEY)||'0');}
+function saveSavings(n){localStorage.setItem(SAVINGS_KEY,Math.max(0,n).toFixed(2));}
+function loadHist(){try{return JSON.parse(localStorage.getItem(HIST_KEY)||'[]');}catch(e){return[];}}
+function saveHist(h){localStorage.setItem(HIST_KEY,JSON.stringify(h));}
+
+function setLang(l){
+  lang=l; localStorage.setItem('ft_lang',l);
+  document.getElementById('ltES').classList.toggle('on',l==='es');
+  document.getElementById('ltEN').classList.toggle('on',l==='en');
+  document.querySelectorAll('[data-es]').forEach(el=>{const v=el.getAttribute('data-'+l);if(v)el.textContent=v;});
+  render();
+}
+
+function render(){
+  const es=lang==='es';
+  const bal=loadSavings();
+  const hist=loadHist();
+
+  // Calcular por categoría
+  const byCat={};
+  hist.filter(h=>h.tipo==='deposito').forEach(h=>{
+    const c=h.cat||'💰 General';
+    byCat[c]=(byCat[c]||0)+h.monto;
+  });
+  const catRows=Object.entries(byCat).sort((a,b)=>b[1]-a[1]).map(([cat,amt])=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--off)">
+      <div style="font-size:13px;font-weight:600">${cat}</div>
+      <div style="font-size:13px;font-weight:800;color:var(--purple)">$${amt.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+    </div>`).join('');
+
+  // Historial
+  const histRows=hist.slice().reverse().slice(0,30).map(h=>{
+    const isRet=h.tipo==='retiro';
+    return `<div class="hist-item">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:36px;height:36px;border-radius:10px;background:${isRet?'var(--red-dim)':'var(--pur-dim)'};display:grid;place-items:center;font-size:16px">${isRet?'↩':'💵'}</div>
+        <div>
+          <div style="font-size:13px;font-weight:700">${h.nota||(isRet?(es?'Retiro':'Withdrawal'):(es?'Depósito':'Deposit'))}</div>
+          <div style="font-size:10px;color:var(--text3)">${h.fecha}${h.cat?' · '+h.cat:''}</div>
+        </div>
+      </div>
+      <div style="font-size:14px;font-weight:800;color:${isRet?'var(--red)':'var(--purple)'}">${isRet?'-':'+'}$${h.monto.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('page').innerHTML=`
+  <!-- SALDO PRINCIPAL -->
+  <div class="card" style="background:linear-gradient(135deg,#4A1E8A,var(--purple));color:white;text-align:center">
+    <div style="font-size:12px;opacity:.7;margin-bottom:6px;letter-spacing:.5px">${es?'AHORRO LIBRE DISPONIBLE':'FREE SAVINGS BALANCE'}</div>
+    <div style="font-size:40px;font-weight:800;margin-bottom:4px">$${bal.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+    <div style="font-size:12px;opacity:.6;margin-bottom:20px">${es?'Sin restricciones · úsalo cuando quieras':'No restrictions · use it whenever you want'}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <button onclick="openModal('deposito')" style="background:rgba(255,255,255,.2);border:1.5px solid rgba(255,255,255,.4);border-radius:12px;padding:10px;font-size:13px;font-weight:700;color:white;cursor:pointer;font-family:inherit">
+        💵 ${es?'Depositar':'Deposit'}
+      </button>
+      <button onclick="openModal('retiro')" style="background:rgba(255,255,255,.15);border:1.5px solid rgba(255,255,255,.3);border-radius:12px;padding:10px;font-size:13px;font-weight:700;color:white;cursor:pointer;font-family:inherit">
+        ↩ ${es?'Retirar':'Withdraw'}
+      </button>
+    </div>
+  </div>
+
+  <!-- DIFERENCIA CON EMERGENCIA -->
+  <div class="card" style="border-left:4px solid var(--purple)">
+    <div style="font-size:13px;font-weight:800;margin-bottom:8px">💡 ${es?'¿Qué lo diferencia del fondo de emergencia?':'How is this different from emergency fund?'}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div style="background:var(--pur-dim);border-radius:10px;padding:10px">
+        <div style="font-size:10px;font-weight:700;color:var(--purple);margin-bottom:4px">💵 ${es?'Ahorro Libre':'Free Savings'}</div>
+        <div style="font-size:11px;color:var(--text2)">${es?'Para lo que quieras · vacaciones · caprichos · oportunidades':'For anything · vacation · splurges · opportunities'}</div>
+      </div>
+      <div style="background:var(--blu-dim);border-radius:10px;padding:10px">
+        <div style="font-size:10px;font-weight:700;color:var(--blue);margin-bottom:4px">🛡️ ${es?'Fondo Emergencia':'Emergency Fund'}</div>
+        <div style="font-size:11px;color:var(--text2)">${es?'Solo para emergencias reales · no tocar':'Only for real emergencies · don\'t touch'}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- POR CATEGORÍA -->
+  ${Object.keys(byCat).length>0?`
+  <div class="card">
+    <div style="font-size:14px;font-weight:800;margin-bottom:12px">📊 ${es?'Por categoría':'By category'}</div>
+    ${catRows}
+  </div>`:''}
+
+  <!-- HISTORIAL -->
+  <div class="card">
+    <div style="font-size:14px;font-weight:800;margin-bottom:12px">📋 ${es?'Historial':'History'}</div>
+    ${histRows||`<div style="text-align:center;padding:24px;color:var(--text3);font-size:13px">${es?'Sin movimientos aún':'No movements yet'}</div>`}
+  </div>`;
+}
+
+function openModal(tab){
+  document.getElementById('mDate').value=new Date().toISOString().split('T')[0];
+  document.getElementById('mAmount').value='';
+  document.getElementById('mNote').value='';
+  selectedCat='';
+  setModalTab(tab);
+  document.getElementById('overlay').classList.add('open');
+}
+function closeModal(){document.getElementById('overlay').classList.remove('open');}
+
+function setModalTab(tab){
+  modalTab=tab;
+  const isDep=tab==='deposito';
+  const es=lang==='es';
+  document.getElementById('tabDep').style.background=isDep?'var(--purple)':'var(--off)';
+  document.getElementById('tabDep').style.color=isDep?'white':'var(--text2)';
+  document.getElementById('tabDep').style.border=isDep?'none':'1.5px solid var(--border)';
+  document.getElementById('tabRet').style.background=!isDep?'var(--red-dim)':'var(--off)';
+  document.getElementById('tabRet').style.color=!isDep?'var(--red)':'var(--text2)';
+  document.getElementById('tabRet').style.border=!isDep?'1.5px solid var(--red)':'1.5px solid var(--border)';
+  document.getElementById('modalTitle').textContent=isDep?(es?'Depositar al ahorro':'Deposit to savings'):(es?'Retirar del ahorro':'Withdraw from savings');
+  // Mostrar categorías solo en depósito
+  const catField=document.getElementById('catGrid').parentElement;
+  catField.style.display=isDep?'':'none';
+  if(isDep) renderCats();
+}
+
+function renderCats(){
+  const cats=lang==='es'?CATS_ES:CATS_EN;
+  document.getElementById('catGrid').innerHTML=cats.map(c=>`
+    <div class="cat-chip ${selectedCat===c?'on':''}" onclick="selectCat('${c}')">${c}</div>`).join('');
+}
+
+function selectCat(c){
+  selectedCat=c;
+  renderCats();
+}
+
+function saveEntry(){
+  const es=lang==='es';
+  const amt=parseFloat(document.getElementById('mAmount').value);
+  const nota=document.getElementById('mNote').value.trim();
+  const fecha=document.getElementById('mDate').value;
+  if(!amt||amt<=0){showToast(es?'⚠️ Ingresa un monto válido':'⚠️ Enter a valid amount');return;}
+  if(!fecha){showToast(es?'⚠️ Selecciona una fecha':'⚠️ Select a date');return;}
+
+  const isRet=modalTab==='retiro';
+  const bal=loadSavings();
+  if(isRet&&amt>bal){showToast(es?`⚠️ Solo tienes ${fmt(bal)} disponible`:`⚠️ Only ${fmt(bal)} available`);return;}
+
+  const newBal=isRet?bal-amt:bal+amt;
+  saveSavings(newBal);
+
+  const hist=loadHist();
+  hist.push({id:Date.now(),tipo:modalTab,monto:amt,nota,fecha,cat:isRet?'':selectedCat});
+  saveHist(hist);
+
+  closeModal();
+  showToast(isRet?(es?`✅ -${fmt(amt)} retirado`:`✅ -${fmt(amt)} withdrawn`):(es?`✅ +${fmt(amt)} depositado`:`✅ +${fmt(amt)} deposited`));
+  render();
+}
+
+function fmt(n){return '$'+Math.abs(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
+
+(function init(){
+  const s=localStorage.getItem('ft_user')||sessionStorage.getItem('ft_user');
+  if(!s){window.location.replace('login.html');return;}
+  try{user=JSON.parse(s);}catch(e){window.location.replace('login.html');return;}
+  lang=user.lang||localStorage.getItem('ft_lang')||'es';
+  if(!sessionStorage.getItem('ft_user')) sessionStorage.setItem('ft_user',s);
+  setLang(lang);
+  render();
+})();
+</script>
+</body>
+</html>

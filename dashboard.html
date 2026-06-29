@@ -26,6 +26,8 @@
   --amb-dim: rgba(244,162,97,0.12);
   --blue:    #4A6CF7;
   --blu-dim: rgba(74,108,247,0.10);
+  --purple: #7B5EA7;
+  --pur-dim: rgba(123,94,167,0.10);
   --purple:  #7B5EA7;
   --pur-dim: rgba(123,94,167,0.10);
   --r:       14px;
@@ -457,6 +459,7 @@ body {
     <div class="sb-link" onclick="go('scanner.html')"><span class="sb-ico">📷</span><span data-es="Escanear recibo" data-en="Scan receipt">Escanear recibo</span></div>
     <div class="sb-link" onclick="go('importar.html')"><span class="sb-ico">📥</span><span data-es="Importar CSV" data-en="Import CSV">Importar CSV</span></div>
     <div class="sb-link" onclick="go('emergencia.html')"><span class="sb-ico">🛡️</span> <span data-es="Fondo emergencia" data-en="Emergency fund">Fondo emergencia</span></div>
+    <div class="sb-link" onclick="go('ahorro.html')"><span class="sb-ico">💵</span> <span data-es="Ahorro libre" data-en="Free savings">Ahorro libre</span></div>
     <div class="sb-link" onclick="go('hogar.html')"><span class="sb-ico">🏠</span> <span data-es="Hogar" data-en="Household">Hogar</span> <span class="sb-badge" id="hogarBadge" style="display:none">!</span></div>
 
     <div class="sb-section" data-es="Cuenta" data-en="Account">Cuenta</div>
@@ -539,7 +542,7 @@ body {
         <div style="font-size:12px;opacity:.7;margin-bottom:14px" data-es="total acumulado · privado" data-en="total accumulated · private">total acumulado · privado</div>
         <div class="hero-chips" id="heroChipsDinero">
           <div class="hero-chip">
-            <div data-es="💰 Ahorro disponible" data-en="💰 Available savings">💰 Ahorro disponible</div>
+            <div data-es="💵 Ahorro libre" data-en="💵 Free savings">💵 Ahorro libre</div>
             <div class="hc-val" id="chipAvailSavings">$0</div>
           </div>
           <div class="hero-chip">
@@ -830,6 +833,7 @@ body {
         <button class="type-btn" onclick="setType('ahorro')" data-es="🛡️ Ahorro" data-en="🛡️ Savings">🛡️ Ahorro</button>
         <button class="type-btn" onclick="setType('suscripcion')" data-es="🔄 Suscripción" data-en="🔄 Subscription">🔄 Suscripción</button>
         <button class="type-btn" onclick="setType('hipoteca')" data-es="🏠 Renta/Hipoteca" data-en="🏠 Rent/Mortgage">🏠 Renta/Hipoteca</button>
+        <button class="type-btn" onclick="closeModal();openDebtAbonarModal()" style="grid-column:span 3;background:var(--red-dim);color:var(--red);border-color:var(--red)" data-es="💳 Abonar a deuda" data-en="💳 Pay a debt">💳 Abonar a deuda</button>
       </div>
 
       <div class="field">
@@ -895,6 +899,7 @@ function openMoreMenu(){
     {ico:'📷',l:'Escanear',    u:'scanner.html'},
     {ico:'📥',l:'Importar CSV',u:'importar.html'},
     {ico:'🛡️',l:'Emergencia',  u:'emergencia.html'},
+    {ico:'💵',l:'Ahorro libre', u:'ahorro.html'},
     {ico:'🔄',l:'Suscripciones',u:'suscripciones.html'},
     {ico:'⚙️',l:'Config',      u:'config.html'},
     {ico:'👤',l:'Perfil',      u:'perfil.html'},
@@ -1489,8 +1494,10 @@ function updateHeroDinero(){
     const shares = parseFloat(i.shares)||1;
     const avg = parseFloat(i.avgPrice)||0;
     const cur = parseFloat(i.curPrice)||avg;
-    // Usar valor actual si existe, si no el costo, si no amount legacy
-    return a + (shares>1||avg>0 ? shares*cur : parseFloat(i.amount)||0);
+    const amt = parseFloat(i.amount)||0;
+    // Si tiene precio real (del broker), usar shares*cur; si no, usar amount directo
+    const val = (avg>0||cur>0) ? shares*cur : amt;
+    return a + val;
   },0);
   const patrimony = availSavings + emergency + totalInvested;
 
@@ -2332,6 +2339,37 @@ function migrateLegacyCategories() {
 ══════════════════════════════════════════ */
 loadSession();
 migrateLegacyCategories();
+// Migrar inversiones del historial a ft_investments si no están ya ahí
+(function migrateInvestmentsFromHistory(){
+  try {
+    const data = JSON.parse(localStorage.getItem('ft_data')||'{}');
+    const txs = (data.transactions||[]).filter(t=>t.type==='inversion');
+    if(!txs.length) return;
+    let invs = JSON.parse(localStorage.getItem('ft_investments')||'[]');
+    const existingIds = new Set(invs.map(i=>String(i.id)));
+    let added = 0;
+    txs.forEach(t=>{
+      const syncId = 'tx_'+t.id;
+      if(existingIds.has(syncId)||existingIds.has(String(t.id))) return;
+      const ticker = (t.desc||'').split(/[\s–\-]/)[0].toUpperCase().slice(0,6)||'INV';
+      invs.push({
+        id: syncId,
+        ticker: ticker,
+        name: t.desc||ticker,
+        amount: Math.abs(t.amount||0),
+        avgPrice: Math.abs(t.amount||0),
+        curPrice: Math.abs(t.amount||0),
+        shares: 1,
+        date: t.date,
+        platform: t.note||'Importado',
+        invType: 'stock',
+        fromImport: true,
+      });
+      added++;
+    });
+    if(added>0) localStorage.setItem('ft_investments', JSON.stringify(invs));
+  } catch(e){}
+})();
 setLang(lang);
 renderDashboard();
 updateBadges();
@@ -2414,6 +2452,12 @@ function openDebtAbonar(id){
   window.location.href='deudas.html';
 }
 
+function openDebtAbonarModal(){
+  // Abrir deudas con el modal de selector de deuda
+  localStorage.setItem('ft_open_abonar','__selector__');
+  window.location.href='deudas.html';
+}
+
 function dismissDebtAlert(id){
   localStorage.setItem('ft_debt_dismiss_'+id, new Date().toDateString());
   renderDebtBanners();
@@ -2439,7 +2483,9 @@ function renderMiDineroTab(){
     const shares=parseFloat(i.shares)||1;
     const avg=parseFloat(i.avgPrice)||0;
     const cur=parseFloat(i.curPrice)||avg;
-    return a+(shares>1||avg>0 ? shares*cur : parseFloat(i.amount)||0);
+    const amt=parseFloat(i.amount)||0;
+    const val=(avg>0||cur>0)?shares*cur:amt;
+    return a+val;
   },0);
   const hogarConnected=isHogarConnected();
   const sharedSpent=hogarConnected?(totals.hogarSpent||0):0;
@@ -2490,13 +2536,10 @@ function renderMiDineroTab(){
     <div class="card-hd">🏦 ${es?'Mi patrimonio personal':'My personal assets'}</div>
     <div style="font-size:11px;color:var(--text3);margin-top:-10px;margin-bottom:12px">🔒 ${es?'Privado — nadie más lo ve':'Private — nobody else sees this'}</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
-      <div style="background:var(--g-light);border-radius:12px;padding:14px">
-        <div style="font-size:10px;color:var(--g-dark);font-weight:600;margin-bottom:4px">💰 ${es?'Ahorro disponible':'Available savings'}</div>
-        <div style="font-size:20px;font-weight:800;color:var(--g-main)">${fmt(availSavings)}</div>
-        <div style="display:flex;gap:5px;margin-top:8px">
-          <button onclick="showSavingsModal()" style="flex:1;background:var(--g-main);color:white;border:none;border-radius:8px;padding:6px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit">+</button>
-          <button onclick="showWithdrawModal()" style="flex:1;background:white;border:1.5px solid var(--g-main);color:var(--g-main);border-radius:8px;padding:6px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit">-</button>
-        </div>
+      <div style="background:var(--pur-dim);border-radius:12px;padding:14px">
+        <div style="font-size:10px;color:var(--purple);font-weight:600;margin-bottom:4px">💵 ${es?'Ahorro libre':'Free savings'}</div>
+        <div style="font-size:20px;font-weight:800;color:var(--purple)">${fmt(availSavings)}</div>
+        <button onclick="go('ahorro.html')" style="margin-top:8px;width:100%;background:white;border:1.5px solid var(--purple);color:var(--purple);border-radius:8px;padding:5px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit">→ ${es?'Ver detalle':'View detail'}</button>
       </div>
       <div style="background:var(--blu-dim);border-radius:12px;padding:14px">
         <div style="font-size:10px;color:var(--blue);font-weight:600;margin-bottom:4px">🏦 ${es?'Fondo emergencia':'Emergency fund'}</div>
