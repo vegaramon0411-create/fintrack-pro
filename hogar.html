@@ -292,6 +292,13 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
 const GAS_URL_HOGAR = 'https://script.google.com/macros/s/AKfycbwITyU4qld-IOEVKyLU9XHI46T8g_LjJaNp3nlQgler8-nMeIlztMmG_lZMVMm9cBkP/exec';
 let lang = 'es', user = {};
 let activeTab = 'resumen';
+const FONDOS_KEY = 'ft_hogar_fondos';
+
+function loadFondos(){
+  try{ return JSON.parse(localStorage.getItem(FONDOS_KEY)) || { emerg:{meta:0,actual:0,hist:[]}, ahorro:{meta:0,nombre:'',actual:0,hist:[]} }; }
+  catch(e){ return { emerg:{meta:0,actual:0,hist:[]}, ahorro:{meta:0,nombre:'',actual:0,hist:[]} }; }
+}
+function saveFondos(d){ localStorage.setItem(FONDOS_KEY, JSON.stringify(d)); }
 
 /* ── UTILS ── */
 function go(url){ window.location.href = url; }
@@ -631,10 +638,107 @@ function renderResumen(calc, sharedTxs, partnerName, partnerIncome, totalIncome,
         <div class="pc-leftover-lbl">${es?'le queda este mes':'left this month'}</div>
       </div>
     </div>
-  </div>`;
+  </div>
+
+  ${renderFondosCards(calc, es)}`;
 }
 
-/* ── TAB: DISTRIBUCION ── */
+/* ── FONDOS DEL HOGAR (Emergencia + Meta) ── */
+function renderFondosCards(calc, es){
+  const fondos = loadFondos();
+  const sobrante = Math.max(0, (calc.myLeftover||0) + (calc.partnerLeftover||0));
+  const sugeridoEmerg = Math.round(sobrante * 0.5);
+  const sugeridoAhorro = Math.round(sobrante * 0.5);
+
+  function progBar(actual, meta){
+    const pct = meta>0 ? Math.min((actual/meta)*100,100) : 0;
+    const color = pct>=100?'var(--g-main)':pct>=50?'var(--amber)':'var(--blue)';
+    return '<div style="height:8px;background:var(--border);border-radius:100px;overflow:hidden;margin:8px 0">'
+      +'<div style="height:100%;width:'+pct.toFixed(1)+'%;background:'+color+';border-radius:100px;transition:width .4s"></div></div>'
+      +'<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3)">'
+      +'<span>'+pct.toFixed(0)+'%</span><span>Meta: '+fmt(meta)+'</span></div>';
+  }
+
+  function fondoCard(tipo, emoji, titulo, fondo, sugerido){
+    const actual = fondo.actual||0;
+    const meta = fondo.meta||0;
+    const configId = 'fondoConfig_'+tipo;
+    return '<div class="card" style="margin-top:12px">'
+      +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">'
+      +'<div>'
+      +'<div style="font-size:13px;font-weight:800">'+emoji+' '+(es?titulo:titulo)+'</div>'
+      +'<div style="font-size:11px;color:var(--text3);margin-top:2px">'+(es?'Fondo compartido del hogar':'Shared household fund')+'</div>'
+      +'</div>'
+      +'<button onclick="toggleFondoConfig(\''+tipo+'\')" style="background:var(--off);border:1.5px solid var(--border);border-radius:10px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">⚙️</button>'
+      +'</div>'
+      // Saldo actual
+      +'<div style="text-align:center;background:var(--g-light);border-radius:12px;padding:12px;margin-bottom:12px">'
+      +'<div style="font-size:11px;color:var(--text3);margin-bottom:2px">'+(es?'Saldo actual':'Current balance')+'</div>'
+      +'<div style="font-size:28px;font-weight:800;color:var(--g-dark)">'+fmt(actual)+'</div>'
+      +(meta>0?progBar(actual,meta):'')
+      +'</div>'
+      // Sugerencia automática
+      +(sobrante>0?
+        '<div style="background:rgba(26,122,74,.06);border:1.5px dashed var(--g-main);border-radius:12px;padding:12px;margin-bottom:12px">'
+        +'<div style="font-size:11px;font-weight:700;color:var(--g-dark);margin-bottom:6px">💡 '+(es?'Sugerencia del mes':'Monthly suggestion')+'</div>'
+        +'<div style="font-size:12px;color:var(--text2);margin-bottom:8px">'
+        +(es?'Del sobrante del hogar (<strong>'+fmt(sobrante)+'</strong>), podrían aportar:':'From household surplus (<strong>'+fmt(sobrante)+'</strong>), you could contribute:')
+        +'</div>'
+        +'<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">'
+        +'<div style="font-size:20px;font-weight:800;color:var(--g-main)">'+fmt(sugerido)+'/mes</div>'
+        +'<button onclick="aplicarAporte(\''+tipo+'\','+sugerido+')" style="background:var(--g-main);color:white;border:none;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">'
+        +(es?'✓ Aplicar':'✓ Apply')+'</button>'
+        +'</div>'
+        +'</div>'
+      :'')
+      // Panel de config (oculto por defecto)
+      +'<div id="'+configId+'" style="display:none;border-top:1px solid var(--border);padding-top:12px;margin-top:4px">'
+      +'<div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px">'+(es?'Configurar fondo':'Configure fund')+'</div>'
+      +(tipo==='ahorro'?'<div style="margin-bottom:8px"><label style="font-size:11px;font-weight:600;color:var(--text2);display:block;margin-bottom:4px">'+(es?'Nombre de la meta':'Goal name')+'</label><input type="text" id="fondoNombre_'+tipo+'" value="'+(fondo.nombre||'')+'" placeholder="'+(es?'Ej: Casa, Viaje, Auto':'e.g. House, Trip, Car')+'" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;box-sizing:border-box"></div>':'')
+      +'<div style="margin-bottom:8px"><label style="font-size:11px;font-weight:600;color:var(--text2);display:block;margin-bottom:4px">'+(es?'Meta ($)':'Goal amount ($)')+'</label><input type="number" id="fondoMeta_'+tipo+'" value="'+(meta||'')+'" placeholder="0" min="0" step="100" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;box-sizing:border-box"></div>'
+      +'<div style="margin-bottom:10px"><label style="font-size:11px;font-weight:600;color:var(--text2);display:block;margin-bottom:4px">'+(es?'Aporte manual ($)':'Manual deposit ($)')+'</label><input type="number" id="fondoAporte_'+tipo+'" placeholder="0" min="0" step="10" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;box-sizing:border-box"></div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'
+      +'<button onclick="guardarFondoConfig(\''+tipo+'\')" style="background:var(--g-main);color:white;border:none;border-radius:10px;padding:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">'+(es?'Guardar':'Save')+'</button>'
+      +'<button onclick="toggleFondoConfig(\''+tipo+'\')" style="background:var(--off);border:1.5px solid var(--border);border-radius:10px;padding:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">'+(es?'Cancelar':'Cancel')+'</button>'
+      +'</div></div>'
+      +'</div>';
+  }
+
+  return fondoCard('emerg','🛡️', es?'Fondo de Emergencia del Hogar':'Household Emergency Fund', fondos.emerg, sugeridoEmerg)
+       + fondoCard('ahorro','🎯', fondos.ahorro.nombre||(es?'Meta de Ahorro Compartida':'Shared Savings Goal'), fondos.ahorro, sugeridoAhorro);
+}
+
+function toggleFondoConfig(tipo){
+  const el = document.getElementById('fondoConfig_'+tipo);
+  if(el) el.style.display = el.style.display==='none'?'':'none';
+}
+
+function aplicarAporte(tipo, monto){
+  const fondos = loadFondos();
+  fondos[tipo].actual = (fondos[tipo].actual||0) + monto;
+  fondos[tipo].hist = fondos[tipo].hist||[];
+  fondos[tipo].hist.push({ fecha:new Date().toISOString().slice(0,10), monto, tipo:'sugerido' });
+  saveFondos(fondos);
+  showToast(lang==='es'?'✅ Aporte aplicado':'✅ Deposit applied');
+  render();
+}
+
+function guardarFondoConfig(tipo){
+  const fondos = loadFondos();
+  const meta = parseFloat(document.getElementById('fondoMeta_'+tipo)?.value)||0;
+  const aporte = parseFloat(document.getElementById('fondoAporte_'+tipo)?.value)||0;
+  const nombre = document.getElementById('fondoNombre_'+tipo)?.value?.trim()||'';
+  fondos[tipo].meta = meta;
+  if(nombre) fondos[tipo].nombre = nombre;
+  if(aporte>0){
+    fondos[tipo].actual = (fondos[tipo].actual||0) + aporte;
+    fondos[tipo].hist = fondos[tipo].hist||[];
+    fondos[tipo].hist.push({ fecha:new Date().toISOString().slice(0,10), monto:aporte, tipo:'manual' });
+  }
+  saveFondos(fondos);
+  showToast(lang==='es'?'✅ Fondo actualizado':'✅ Fund updated');
+  render();
+}
 function renderDistribucion(calc, partnerName, totalIncome, mode){
   const es = lang==='es';
   const rows = [
