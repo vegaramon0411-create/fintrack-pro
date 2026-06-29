@@ -46,6 +46,7 @@ function openMoreMenu(){
   --sidebar:240px; --topbar:58px;
 }
 *{margin:0;padding:0;box-sizing:border-box;}
+html,body{overflow-x:hidden;}
 body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(--text);min-height:100vh;}
 
 /* ─── LAYOUT ─── */
@@ -69,27 +70,26 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
 .sb-uname{font-size:13px;font-weight:700;}.sb-umail{font-size:10px;color:var(--text3);}
 
 /* ─── MAIN ─── */
-.main{margin-left:var(--sidebar);flex:1;display:flex;flex-direction:column;min-height:100vh;}
+.main{margin-left:var(--sidebar);flex:1;display:flex;flex-direction:column;min-height:100vh;overflow-x:hidden;}
 
 /* ─── TOPBAR ─── */
 .topbar{background:var(--white);border-bottom:1px solid var(--border);height:var(--topbar);padding:0 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;gap:10px;}
-.tb-title{font-size:clamp(14px,4vw,17px);font-weight:800;white-space:nowrap;flex-shrink:0;}
+.tb-title{font-size:17px;font-weight:800;white-space:nowrap;flex-shrink:0;}
 .tb-right{display:flex;align-items:center;gap:8px;flex-shrink:0;}
 .lang-toggle{display:flex;background:var(--off);border:1px solid var(--border);border-radius:20px;overflow:hidden;font-size:11px;font-weight:700;}
 .lt-opt{padding:5px 10px;cursor:pointer;color:var(--text3);border-radius:20px;transition:all .15s;}
 .lt-opt.on{background:var(--g-main);color:white;}
 
 /* ─── PAGE ─── */
-.page{padding:24px;max-width:760px;}
+.page{padding:24px;max-width:760px;width:100%;box-sizing:border-box;}
 
 /* ─── MOBILE ─── */
 @media(max-width:860px){
   .sidebar{display:none;}
   .sidebar.open{display:flex;}
-  .main{margin-left:0;padding-bottom:80px;}
-  .topbar{height:56px;min-height:56px;padding:0 14px;flex-direction:row;align-items:center;}
-  .tb-title{font-size:15px;}
-  .page{padding:14px;max-width:100%;}
+  .main{margin-left:0;padding-bottom:80px;width:100%;overflow-x:hidden;}
+  .topbar{height:var(--topbar);padding:0 16px;}
+  .page{padding:16px;max-width:100%;width:100%;}
   .tab-row{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px;}
   .mob-nav{display:flex!important;}
 }
