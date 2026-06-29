@@ -658,6 +658,19 @@ async function verifyAccessAndProceed(email) {
       try { localStorage.setItem('ft_premium', JSON.stringify(planInfo)); } catch(e) {}
       try { sessionStorage.setItem('ft_premium', JSON.stringify(planInfo)); } catch(e) {}
 
+      // Sincronizar créditos extra del Sheet al localStorage
+      if(result.creditsExtra && result.creditsExtra > 0){
+        try {
+          const aiRaw = localStorage.getItem('ft_ai_credits');
+          const ai = aiRaw ? JSON.parse(aiRaw) : {used:0, month:new Date().toISOString().slice(0,7), extra:0};
+          // Solo actualizar si el Sheet tiene más créditos extra que los locales
+          if(result.creditsExtra > (ai.extra||0)){
+            ai.extra = result.creditsExtra;
+            localStorage.setItem('ft_ai_credits', JSON.stringify(ai));
+          }
+        } catch(e) {}
+      }
+
       // If returning user (setup already done), go straight to dashboard
       const setupDone = localStorage.getItem('ft_user_setup');
       if (setupDone) {
