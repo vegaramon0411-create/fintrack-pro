@@ -186,10 +186,10 @@ body {
 .hero-chips { display:flex; flex-direction:column; gap:8px; position:relative;z-index:1; flex-shrink:0; }
 .hero-chip  {
   background:rgba(255,255,255,.15); border-radius:12px;
-  padding:10px 16px; backdrop-filter:blur(6px); min-width:140px;
-  font-size:11px; font-weight:600; opacity:.85;
+  padding:8px 12px; backdrop-filter:blur(6px); min-width:120px;
+  font-size:10px; font-weight:600; opacity:.9;
 }
-.hc-val { font-size:18px; font-weight:800; letter-spacing:-.5px; margin-top:3px; opacity:1; }
+.hc-val { font-size:16px; font-weight:800; letter-spacing:-.5px; margin-top:2px; opacity:1; }
 
 /* ─── KPI ROW ─── */
 .kpi-row { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:20px; }
@@ -546,8 +546,12 @@ body {
             <div class="hc-val" id="chipAvailSavings">$0</div>
           </div>
           <div class="hero-chip">
-            <div data-es="🏦 Fondo emergencia" data-en="🏦 Emergency fund">🏦 Fondo emergencia</div>
+            <div data-es="🛡️ Fondo emergencia" data-en="🛡️ Emergency fund">🛡️ Emergencia</div>
             <div class="hc-val" id="chipEmergency">$0</div>
+          </div>
+          <div class="hero-chip">
+            <div data-es="📈 Inversiones" data-en="📈 Investments">📈 Inversiones</div>
+            <div class="hc-val" id="chipInvested">$0</div>
           </div>
         </div>
         <div style="margin-top:10px;background:rgba(255,255,255,.12);border-radius:12px;padding:10px">
@@ -1513,6 +1517,7 @@ function updateHeroDinero(){
   if(el('heroPatrimony'))    el('heroPatrimony').textContent    = fmt(patrimony);
   if(el('chipAvailSavings')) el('chipAvailSavings').textContent = fmt(availSavings);
   if(el('chipEmergency'))    el('chipEmergency').textContent    = fmt(emergency);
+  if(el('chipInvested'))     el('chipInvested').textContent     = fmt(totalInvested);
 
   const sobroEl = el('heroSobro');
   const btnsEl  = el('heroDistBtns');
