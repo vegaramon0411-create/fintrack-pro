@@ -308,52 +308,37 @@ function showUpgradeModal(){
   const ov=document.createElement('div');
   ov.id='_upgradeOv';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:400;display:grid;place-items:center;';
-  ov.innerHTML=`<div style="background:white;border-radius:20px;width:min(420px,calc(100vw - 24px));padding:24px;max-height:90vh;overflow-y:auto">
-    <div style="text-align:center;margin-bottom:20px">
-      <div style="font-size:36px;margin-bottom:8px">💎</div>
-      <div style="font-size:18px;font-weight:800;margin-bottom:6px">${prem
-        ?(es?'Tus créditos IA se agotaron':'Your AI credits ran out')
-        :(es?'Función Premium':'Premium Feature')}</div>
-      <div style="font-size:13px;color:#9395A5">${prem
-        ?(es?`Usaste tus 3 créditos del mes. Compra más para seguir analizando archivos con IA.`:`You used your 3 monthly credits. Buy more to keep using AI analysis.`)
-        :(es?'El análisis IA con clasificación automática es exclusivo para usuarios Premium.':'AI analysis with auto-classification is exclusive to Premium users.')}</div>
-    </div>
-    ${!prem?`
-    <div style="background:linear-gradient(135deg,#0F5132,#1A7A4A);border-radius:14px;padding:16px;color:white;margin-bottom:12px">
-      <div style="font-size:12px;opacity:.7;margin-bottom:4px">${es?'Plan Premium incluye:':'Premium plan includes:'}</div>
-      <div style="font-size:13px;font-weight:600;margin-bottom:4px">✅ ${es?'3 análisis IA por mes':'3 AI analyses per month'}</div>
-      <div style="font-size:13px;font-weight:600;margin-bottom:4px">✅ ${es?'Importación ilimitada CSV':'Unlimited CSV import'}</div>
-      <div style="font-size:13px;font-weight:600;margin-bottom:16px">✅ ${es?'Todas las funciones del hogar':'All household features'}</div>
-      <button onclick="window.open('https://www.etsy.com/shop/finanzone','_blank')" style="width:100%;background:white;color:#0F5132;border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">
-        🛒 ${es?'Activar Premium en Etsy':'Activate Premium on Etsy'}
-      </button>
-    </div>`:''}
-    <div style="background:#F7F8FC;border-radius:14px;padding:16px;margin-bottom:12px">
-      <div style="font-size:13px;font-weight:800;margin-bottom:4px">⚡ ${es?'Créditos extra':'Extra credits'}</div>
-      <div style="font-size:12px;color:#9395A5;margin-bottom:12px">${es?'Se acumulan · nunca vencen · úsalos cuando quieras':'Accumulate · never expire · use whenever you want'}</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
-        <div style="background:white;border:1.5px solid #E4E6F0;border-radius:10px;padding:10px;text-align:center">
-          <div style="font-size:16px;font-weight:800">+5</div>
-          <div style="font-size:11px;color:#9395A5">${es?'créditos':'credits'}</div>
-          <div style="font-size:13px;font-weight:700;color:#1A7A4A;margin-top:4px">$2.99</div>
-        </div>
-        <div style="background:white;border:1.5px solid #E4E6F0;border-radius:10px;padding:10px;text-align:center">
-          <div style="font-size:16px;font-weight:800">+15</div>
-          <div style="font-size:11px;color:#9395A5">${es?'créditos':'credits'}</div>
-          <div style="font-size:13px;font-weight:700;color:#1A7A4A;margin-top:4px">$6.99</div>
-        </div>
-      </div>
-      <button onclick="window.open('https://www.etsy.com/shop/finanzone','_blank')" style="width:100%;background:#1A7A4A;color:white;border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:8px">
-        🛒 ${es?'Comprar créditos en Etsy':'Buy credits on Etsy'}
-      </button>
-      <div style="font-size:11px;color:#9395A5;text-align:center;margin-bottom:10px">${es?'Después de comprar, activa tu código aquí:':'After buying, activate your code here:'}</div>
-      <div style="display:flex;gap:8px">
-        <input id="_codeInput" type="text" placeholder="${es?'Código de activación':'Activation code'}" style="flex:1;background:white;border:1.5px solid #E4E6F0;border-radius:10px;padding:10px;font-size:13px;font-family:inherit;outline:none">
-        <button onclick="activarCodigoCreditos()" style="background:#4A6CF7;color:white;border:none;border-radius:10px;padding:10px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">${es?'Activar':'Activate'}</button>
-      </div>
-    </div>
-    <button onclick="document.getElementById('_upgradeOv').remove()" style="width:100%;background:#F7F8FC;border:1.5px solid #E4E6F0;border-radius:10px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">${es?'Cancelar':'Cancel'}</button>
-  </div>`;
+  var _ph=es?'Codigo de activacion':'Activation code';
+  var _act=es?'Activar':'Activate';
+  var _can=es?'Cancelar':'Cancel';
+  var _tit=prem?(es?'Tus creditos IA se agotaron':'Your AI credits ran out'):(es?'Funcion Premium':'Premium Feature');
+  var _sub=prem?(es?'Usaste tus 3 creditos del mes. Compra mas para seguir analizando archivos con IA.':'You used your 3 monthly credits. Buy more to keep using AI analysis.'):(es?'El analisis IA es exclusivo para usuarios Premium.':'AI analysis is exclusive to Premium users.');
+  var _premBlock=!prem?('<div style="background:linear-gradient(135deg,#0F5132,#1A7A4A);border-radius:14px;padding:16px;color:white;margin-bottom:12px">'
+    +'<div style="font-size:12px;opacity:.7;margin-bottom:4px">'+(es?'Plan Premium incluye:':'Premium plan includes:')+'</div>'
+    +'<div style="font-size:13px;font-weight:600;margin-bottom:4px">checkmark 3 '+(es?'analisis IA por mes':'AI analyses per month')+'</div>'
+    +'<div style="font-size:13px;font-weight:600;margin-bottom:16px">checkmark '+(es?'Importacion ilimitada CSV':'Unlimited CSV import')+'</div>'
+    +'<button onclick="window.open(\'https://www.etsy.com/shop/finanzone\',\'_blank\')" style="width:100%;background:white;color:#0F5132;border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">Activar Premium en Etsy</button>'
+    +'</div>'):'';
+  ov.innerHTML='<div style="background:white;border-radius:20px;width:min(420px,calc(100vw - 24px));padding:24px;max-height:90vh;overflow-y:auto">'
+    +'<div style="text-align:center;margin-bottom:20px"><div style="font-size:36px;margin-bottom:8px">💎</div>'
+    +'<div style="font-size:18px;font-weight:800;margin-bottom:6px">'+_tit+'</div>'
+    +'<div style="font-size:13px;color:#9395A5">'+_sub+'</div></div>'
+    +_premBlock
+    +'<div style="background:#F7F8FC;border-radius:14px;padding:16px;margin-bottom:12px">'
+    +'<div style="font-size:13px;font-weight:800;margin-bottom:4px">Creditos extra</div>'
+    +'<div style="font-size:12px;color:#9395A5;margin-bottom:12px">'+(es?'Se acumulan, nunca vencen':'Accumulate, never expire')+'</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">'
+    +'<div style="background:white;border:1.5px solid #E4E6F0;border-radius:10px;padding:10px;text-align:center"><div style="font-size:16px;font-weight:800">+5</div><div style="font-size:13px;font-weight:700;color:#1A7A4A;margin-top:4px">$2.99</div></div>'
+    +'<div style="background:white;border:1.5px solid #E4E6F0;border-radius:10px;padding:10px;text-align:center"><div style="font-size:16px;font-weight:800">+15</div><div style="font-size:13px;font-weight:700;color:#1A7A4A;margin-top:4px">$6.99</div></div>'
+    +'</div>'
+    +'<button onclick="window.open(\'https://www.etsy.com/shop/finanzone\',\'_blank\')" style="width:100%;background:#1A7A4A;color:white;border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:8px">Comprar creditos en Etsy</button>'
+    +'<div style="font-size:11px;color:#9395A5;text-align:center;margin-bottom:10px">'+(es?'Despues de comprar, activa tu codigo aqui:':'After buying, activate your code here:')+'</div>'
+    +'<div style="display:flex;gap:8px">'
+    +'<input id="_codeInput" type="text" placeholder="'+_ph+'" style="flex:1;background:white;border:1.5px solid #E4E6F0;border-radius:10px;padding:10px;font-size:13px;font-family:inherit;outline:none">'
+    +'<button onclick="activarCodigoCreditos()" style="background:#4A6CF7;color:white;border:none;border-radius:10px;padding:10px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">'+_act+'</button>'
+    +'</div></div>'
+    +'<button onclick="document.getElementById(\'_upgradeOv\').remove()" style="width:100%;background:#F7F8FC;border:1.5px solid #E4E6F0;border-radius:10px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">'+_can+'</button>'
+    +'</div>';
   document.body.appendChild(ov);
   ov.addEventListener('click',function(e){if(e.target===ov)ov.remove();});
 }
