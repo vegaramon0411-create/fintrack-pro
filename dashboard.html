@@ -2533,29 +2533,52 @@ function renderMiDineroTab(){
   </div>
 
   <div class="card" style="margin-bottom:14px">
-    <div class="card-hd">🏦 ${es?'Mi patrimonio personal':'My personal assets'}</div>
-    <div style="font-size:11px;color:var(--text3);margin-top:-10px;margin-bottom:12px">🔒 ${es?'Privado — nadie más lo ve':'Private — nobody else sees this'}</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
-      <div style="background:var(--pur-dim);border-radius:12px;padding:14px">
-        <div style="font-size:10px;color:var(--purple);font-weight:600;margin-bottom:4px">💵 ${es?'Ahorro libre':'Free savings'}</div>
-        <div style="font-size:20px;font-weight:800;color:var(--purple)">${fmt(availSavings)}</div>
-        <button onclick="go('ahorro.html')" style="margin-top:8px;width:100%;background:white;border:1.5px solid var(--purple);color:var(--purple);border-radius:8px;padding:5px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit">→ ${es?'Ver detalle':'View detail'}</button>
+    <div class="card-hd">💎 ${es?'Mi patrimonio personal':'My personal assets'}</div>
+    <div style="font-size:11px;color:var(--text3);margin-top:-10px;margin-bottom:14px">🔒 ${es?'Privado — nadie más lo ve':'Private — nobody else sees this'}</div>
+
+    <!-- AHORRO LIBRE -->
+    <div style="background:var(--pur-dim);border-radius:14px;padding:16px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:10px">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:10px;color:var(--purple);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">💵 ${es?'Ahorro libre':'Free savings'}</div>
+        <div style="font-size:24px;font-weight:800;color:var(--purple)">${fmt(availSavings)}</div>
+        <div style="font-size:10px;color:var(--purple);opacity:.7;margin-top:2px">${es?'Sin restricciones · úsalo cuando quieras':'No restrictions · use anytime'}</div>
       </div>
-      <div style="background:var(--blu-dim);border-radius:12px;padding:14px">
-        <div style="font-size:10px;color:var(--blue);font-weight:600;margin-bottom:4px">🏦 ${es?'Fondo emergencia':'Emergency fund'}</div>
-        <div style="font-size:20px;font-weight:800;color:var(--blue)">${fmt(emergencyFund)}</div>
-        <button onclick="go('emergencia.html')" style="margin-top:8px;width:100%;background:white;border:1.5px solid var(--blue);color:var(--blue);border-radius:8px;padding:5px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit">→ ${es?'Ver':'View'}</button>
+      <button onclick="go('ahorro.html')" style="background:var(--purple);color:white;border:none;border-radius:10px;padding:8px 14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0">→ ${es?'Ver':'View'}</button>
+    </div>
+
+    <!-- FONDO EMERGENCIA -->
+    <div style="background:var(--blu-dim);border-radius:14px;padding:16px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:10px">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:10px;color:var(--blue);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">🛡️ ${es?'Fondo de emergencia':'Emergency fund'}</div>
+        <div style="font-size:24px;font-weight:800;color:var(--blue)">${fmt(emergencyFund)}</div>
+        <div style="font-size:10px;color:var(--blue);opacity:.7;margin-top:2px">${es?'Solo para emergencias reales':'Only for real emergencies'}</div>
+      </div>
+      <button onclick="go('emergencia.html')" style="background:var(--blue);color:white;border:none;border-radius:10px;padding:8px 14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0">→ ${es?'Ver':'View'}</button>
+    </div>
+
+    <!-- INVERSIONES -->
+    <div style="background:var(--amb-dim);border-radius:14px;padding:16px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:10px">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:10px;color:#7A3B0A;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">📈 ${es?'Inversiones personales':'Personal investments'}</div>
+        <div style="font-size:24px;font-weight:800;color:#7A3B0A">${fmt(totalInvested)}</div>
+        <div style="font-size:10px;color:#7A3B0A;opacity:.7;margin-top:2px">${es?'Portafolio · ETFs · acciones':'Portfolio · ETFs · stocks'}</div>
+      </div>
+      <button onclick="go('inversiones.html')" style="background:var(--amber);color:white;border:none;border-radius:10px;padding:8px 14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0">→ ${es?'Ver':'View'}</button>
+    </div>
+
+    <!-- TOTAL -->
+    <div style="background:var(--text);border-radius:14px;padding:16px;color:white;display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-size:11px;opacity:.6;margin-bottom:4px">${es?'Total patrimonio personal':'Total personal assets'}</div>
+        <div style="font-size:28px;font-weight:800">${fmt(totalPatrimony)}</div>
+      </div>
+      <div style="text-align:right;opacity:.7;font-size:11px">
+        <div>${fmt(availSavings)} ${es?'ahorro':'savings'}</div>
+        <div>${fmt(emergencyFund)} ${es?'emergencia':'emergency'}</div>
+        <div>${fmt(totalInvested)} ${es?'inversiones':'investments'}</div>
       </div>
     </div>
-    <div style="background:var(--amb-dim);border-radius:12px;padding:14px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">
-      <div><div style="font-size:10px;color:#7A3B0A;font-weight:600;margin-bottom:4px">📈 ${es?'Inversiones':'Investments'}</div>
-      <div style="font-size:20px;font-weight:800;color:#7A3B0A">${fmt(totalInvested)}</div></div>
-      <button onclick="go('inversiones.html')" style="background:var(--amber);color:white;border:none;border-radius:10px;padding:8px 14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">→</button>
-    </div>
-    <div style="background:var(--text);border-radius:12px;padding:14px;color:white">
-      <div style="font-size:11px;opacity:.6;margin-bottom:4px">${es?'Total patrimonio personal':'Total personal assets'}</div>
-      <div style="font-size:26px;font-weight:800">${fmt(totalPatrimony)}</div>
-    </div>
+  </div>
   </div>
 
   ${debts.length?`<div class="card"><div class="card-hd">📅 ${es?'Pagos del mes':'Monthly payments'}</div>${debtRows}</div>`:''}`;
