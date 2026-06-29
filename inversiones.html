@@ -52,12 +52,16 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
 
 <div class="topbar">
   <div class="topbar-title">📈 <span data-es="Inversiones" data-en="Investments">Inversiones</span></div>
-  <div style="display:flex;align-items:center;gap:10px;">
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;">
+    <div id="invViewToggle" style="display:none;background:var(--off);border:1.5px solid var(--border);border-radius:20px;overflow:hidden;display:none;font-size:11px;font-weight:700;">
+      <button id="btnViewPersonal" onclick="switchView('personal')" style="padding:6px 12px;border:none;background:var(--g-main);color:white;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">👤 Personal</button>
+      <button id="btnViewHogar" onclick="switchView('hogar')" style="padding:6px 12px;border:none;background:transparent;color:var(--text3);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">🏠 Hogar</button>
+    </div>
     <div class="lang-toggle">
       <div class="lt-opt on" id="ltES" onclick="setLang('es')">ES</div>
       <div class="lt-opt" id="ltEN" onclick="setLang('en')">EN</div>
     </div>
-    <button class="btn btn-primary" onclick="openAdd()" style="padding:8px 14px" data-es="+ Nueva inversión" data-en="+ New investment">+ Nueva inversión</button>
+    <button class="btn btn-primary" onclick="openAdd()" style="padding:8px 14px" data-es="+ Nueva" data-en="+ New">+ Nueva</button>
   </div>
 </div>
 
@@ -72,13 +76,29 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
       <div style="font-size:16px;font-weight:800" id="modalTitle">Nueva inversión</div>
       <div onclick="closeModal()" style="cursor:pointer;font-size:20px;color:var(--text3)">✕</div>
     </div>
-    <div class="field"><label data-es="Ticker / Nombre" data-en="Ticker / Name">Ticker / Nombre</label><input type="text" id="fTicker" placeholder="AAPL, FXAIX, QQQM..."></div>
+    <!-- TOGGLE PERSONAL/HOGAR -->
+    <div id="invHogarField" style="display:none;margin-bottom:14px">
+      <label style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:8px" data-es="¿Esta inversión es para?" data-en="This investment is for?">¿Esta inversión es para?</label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <button id="invBtnPersonal" onclick="setInvHogar(false)" type="button"
+          style="padding:11px;border-radius:10px;border:2px solid var(--g-main);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--blu-dim);color:var(--blue);transition:all .15s">
+          👤 <span data-es="Personal" data-en="Personal">Personal</span>
+        </button>
+        <button id="invBtnHogar" onclick="setInvHogar(true)" type="button"
+          style="padding:11px;border-radius:10px;border:2px solid var(--border);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--off);transition:all .15s">
+          🏠 <span data-es="Del hogar" data-en="Household">Del hogar</span>
+        </button>
+      </div>
+      <div id="invHogarHint" style="font-size:10px;color:var(--text3);margin-top:5px;text-align:center">Solo tuyo · privado · no visible para tu pareja</div>
+    </div>
+    <div class="field"><label data-es="Ticker / Nombre" data-en="Ticker / Name">Ticker / Nombre</label><input type="text" id="fTicker" placeholder="AAPL, FXAIX, QQQM..." oninput="autoDetectInvHogar(this.value)"></div>
     <div class="field"><label data-es="Tipo" data-en="Type">Tipo</label>
       <select id="fType">
         <option value="etf">ETF</option>
         <option value="stock">Acción / Stock</option>
         <option value="crypto">Cripto</option>
         <option value="bond">Bono</option>
+        <option value="ahorro">Ahorro / Fondo</option>
         <option value="other">Otro</option>
       </select>
     </div>
@@ -86,8 +106,8 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
     <div class="field"><label data-es="Precio promedio ($)" data-en="Avg price ($)">Precio promedio ($)</label><input type="number" id="fAvgPrice" placeholder="0.00" step="0.01" min="0"></div>
     <div class="field"><label data-es="Precio actual ($)" data-en="Current price ($)">Precio actual ($)</label><input type="number" id="fCurPrice" placeholder="0.00" step="0.01" min="0"></div>
     <div class="field"><label data-es="Plataforma" data-en="Platform">Plataforma</label><input type="text" id="fPlatform" placeholder="Fidelity, Robinhood..."></div>
-    <button class="btn btn-primary" onclick="saveInv()" style="width:100%;margin-bottom:8px">Guardar</button>
-    <button class="btn" style="width:100%;background:var(--off);border:1.5px solid var(--border)" onclick="closeModal()">Cancelar</button>
+    <button class="btn btn-primary" onclick="saveInv()" style="width:100%;margin-bottom:8px" data-es="Guardar" data-en="Save">Guardar</button>
+    <button class="btn" style="width:100%;background:var(--off);border:1.5px solid var(--border)" onclick="closeModal()" data-es="Cancelar" data-en="Cancel">Cancelar</button>
   </div>
 </div>
 
@@ -120,14 +140,19 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
 </nav>
 
 <script>
-let user={},lang='es',editingId=null;
+let user={},lang='es',editingId=null,invView='personal',invIsHogar=false;
 const KEY='ft_investments';
+const HOGAR_INV_KEY='ft_hogar_inv';
+const HOGAR_INV_KW=/casa|hogar|renta|hipoteca|fondo.?(comun|familiar|casa|hogar)|ahorro.?(hogar|casa|familiar|juntos)|viaje.?juntos|emergencia.?hogar|VNQ|REIT/i;
 
-function loadInv(){ try{return JSON.parse(localStorage.getItem(KEY))||[];}catch(e){return[];} }
-function saveInv(d){ localStorage.setItem(KEY,JSON.stringify(d)); }
-function fmt(n){ return '$'+Math.abs(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
-function fmtN(n){ return Math.abs(n||0).toLocaleString('en-US',{minimumFractionDigits:4,maximumFractionDigits:4}); }
-function go(url){ window.location.href=url; }
+function isHogarConnected(){try{const h=JSON.parse(localStorage.getItem('ft_hogar')||'{}');return h.connected===true&&!h.manuallyLeft;}catch(e){return false;}}
+function loadInv(){try{return JSON.parse(localStorage.getItem(KEY))||[];}catch(e){return[];}}
+function saveInvPersonal(d){localStorage.setItem(KEY,JSON.stringify(d));}
+function loadHogarInv(){try{return JSON.parse(localStorage.getItem(HOGAR_INV_KEY))||[];}catch(e){return[];}}
+function saveHogarInv(d){localStorage.setItem(HOGAR_INV_KEY,JSON.stringify(d));}
+function fmt(n){return '$'+Math.abs(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function fmtN(n){return Math.abs(n||0).toLocaleString('en-US',{minimumFractionDigits:4,maximumFractionDigits:4});}
+function go(url){window.location.href=url;}
 function logout(){sessionStorage.clear();['ft_user','ft_user_setup','ft_premium','ft_lang'].forEach(k=>localStorage.removeItem(k));window.location.replace('login.html');}
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.style.display='block';setTimeout(()=>t.style.display='none',3000);}
 function openMoreMenu(){document.getElementById('moreOverlay').classList.add('open');}
@@ -141,103 +166,149 @@ function setLang(l){
   render();
 }
 
+function switchView(v){
+  invView=v;
+  const bP=document.getElementById('btnViewPersonal');
+  const bH=document.getElementById('btnViewHogar');
+  if(!bP||!bH) return;
+  bP.style.background=v==='personal'?'var(--g-main)':'transparent';
+  bP.style.color=v==='personal'?'white':'var(--text3)';
+  bH.style.background=v==='hogar'?'var(--g-main)':'transparent';
+  bH.style.color=v==='hogar'?'white':'var(--text3)';
+  render();
+}
+
+function setInvHogar(val){
+  invIsHogar=val;
+  const bH=document.getElementById('invBtnHogar');
+  const bP=document.getElementById('invBtnPersonal');
+  const hint=document.getElementById('invHogarHint');
+  if(!bH||!bP) return;
+  bH.style.background=val?'var(--g-light)':'var(--off)';
+  bH.style.borderColor=val?'var(--g-main)':'var(--border)';
+  bH.style.color=val?'var(--g-dark)':'';
+  bP.style.background=!val?'var(--blu-dim)':'var(--off)';
+  bP.style.borderColor=!val?'var(--blue)':'var(--border)';
+  bP.style.color=!val?'var(--blue)':'';
+  if(hint) hint.textContent=val
+    ?(lang==='es'?'Visible para tu pareja - inversion compartida':'Visible to partner - shared investment')
+    :(lang==='es'?'Solo tuyo - privado - no visible para tu pareja':'Only yours - private');
+}
+
+function autoDetectInvHogar(val){
+  if(!isHogarConnected()) return;
+  if(HOGAR_INV_KW.test(val)) setInvHogar(true);
+}
+
 function render(){
-  const invs=loadInv();
   const es=lang==='es';
+  const invs=invView==='hogar'?loadHogarInv():loadInv();
   let totalCost=0,totalValue=0;
   invs.forEach(i=>{
-    const shares=parseFloat(i.shares)||0;
-    const avg=parseFloat(i.avgPrice)||0;
+    const shares=parseFloat(i.shares)||1;
+    const avg=parseFloat(i.avgPrice)||parseFloat(i.amount)||0;
     const cur=parseFloat(i.curPrice)||avg;
     totalCost+=shares*avg;
     totalValue+=shares*cur;
   });
   const gain=totalValue-totalCost;
   const gainPct=totalCost>0?((gain/totalCost)*100):0;
+  const viewLabel=invView==='hogar'?'🏠 '+(es?'Hogar':'Household'):'👤 '+(es?'Personal':'Personal');
+  const viewColor=invView==='hogar'?'var(--g-main)':'var(--blue)';
 
-  document.getElementById('summaryCard').innerHTML=`
-    <div style="text-align:center;margin-bottom:14px">
-      <div style="font-size:11px;color:var(--text3);margin-bottom:4px">${es?'Valor total del portafolio':'Total portfolio value'}</div>
-      <div style="font-size:32px;font-weight:800;color:var(--g-main)">${fmt(totalValue)}</div>
-      <div style="font-size:13px;color:${gain>=0?'var(--g-main)':'var(--red)'};font-weight:700">
-        ${gain>=0?'+':''}${fmt(gain)} (${gain>=0?'+':''}${gainPct.toFixed(2)}%)
-      </div>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-      <div style="background:var(--off);border-radius:10px;padding:10px;text-align:center">
-        <div style="font-size:14px;font-weight:800">${fmt(totalCost)}</div>
-        <div style="font-size:10px;color:var(--text3)">${es?'Invertido':'Invested'}</div>
-      </div>
-      <div style="background:var(--off);border-radius:10px;padding:10px;text-align:center">
-        <div style="font-size:14px;font-weight:800">${invs.length}</div>
-        <div style="font-size:10px;color:var(--text3)">${es?'Posiciones':'Positions'}</div>
-      </div>
-    </div>`;
+  document.getElementById('summaryCard').innerHTML=
+    '<div style="text-align:center;margin-bottom:14px">'
+    +'<div style="font-size:10px;font-weight:700;color:'+viewColor+';margin-bottom:4px;letter-spacing:.5px">'+viewLabel+'</div>'
+    +'<div style="font-size:11px;color:var(--text3);margin-bottom:4px">'+(es?'Valor total del portafolio':'Total portfolio value')+'</div>'
+    +'<div style="font-size:32px;font-weight:800;color:var(--g-main)">'+fmt(totalValue)+'</div>'
+    +'<div style="font-size:13px;color:'+(gain>=0?'var(--g-main)':'var(--red)')+';font-weight:700">'+(gain>=0?'+':'')+fmt(gain)+' ('+(gain>=0?'+':'')+gainPct.toFixed(2)+'%)</div>'
+    +'</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+    +'<div style="background:var(--off);border-radius:10px;padding:10px;text-align:center"><div style="font-size:14px;font-weight:800">'+fmt(totalCost)+'</div><div style="font-size:10px;color:var(--text3)">'+(es?'Invertido':'Invested')+'</div></div>'
+    +'<div style="background:var(--off);border-radius:10px;padding:10px;text-align:center"><div style="font-size:14px;font-weight:800">'+invs.length+'</div><div style="font-size:10px;color:var(--text3)">'+(es?'Posiciones':'Positions')+'</div></div>'
+    +'</div>';
 
   const list=document.getElementById('invList');
-  if(!invs.length){ list.innerHTML=`<p style="color:var(--text3);font-size:13px;text-align:center;padding:30px 0">${es?'Sin inversiones aún':'No investments yet'}</p>`; return; }
+  if(!invs.length){
+    list.innerHTML='<p style="color:var(--text3);font-size:13px;text-align:center;padding:30px 0">'
+      +(invView==='hogar'?(es?'Sin inversiones del hogar aun. Agrega una para empezar.':'No household investments yet.'):(es?'Sin inversiones aun':'No investments yet'))
+      +'</p>';
+    return;
+  }
 
-  list.innerHTML=invs.map(i=>{
-    const shares=parseFloat(i.shares)||0;
-    const avg=parseFloat(i.avgPrice)||0;
-    const cur=parseFloat(i.curPrice)||avg;
-    const cost=shares*avg;
-    const val=shares*cur;
-    const g=val-cost;
-    const gPct=cost>0?(g/cost)*100:0;
-    return `
-    <div class="inv-item">
-      <div class="inv-ico">${(i.ticker||'?').slice(0,4)}</div>
-      <div class="inv-info">
-        <div class="inv-name">${i.ticker||'—'} <span style="font-size:10px;color:var(--text3);font-weight:600">${i.type||''} ${i.platform?'· '+i.platform:''}</span></div>
-        <div class="inv-meta">${fmtN(shares)} ${es?'acciones':'shares'} · Avg ${fmt(avg)} · Cur ${fmt(cur)}</div>
-      </div>
-      <div style="text-align:right">
-        <div style="font-size:13px;font-weight:800">${fmt(val)}</div>
-        <div style="font-size:11px;color:${g>=0?'var(--g-main)':'var(--red)'};font-weight:700">${g>=0?'+':''}${fmt(g)}</div>
-      </div>
-      <div onclick="deleteInv('${i.id}')" style="cursor:pointer;color:var(--text3);padding-left:8px">🗑️</div>
-    </div>`;
+  list.innerHTML=invs.map(function(i){
+    var shares=parseFloat(i.shares)||1;
+    var avg=parseFloat(i.avgPrice)||parseFloat(i.amount)||0;
+    var cur=parseFloat(i.curPrice)||avg;
+    var cost=shares*avg;
+    var val=shares*cur;
+    var g=val-cost;
+    var hogarBadge=invView==='hogar'?'<span style="background:var(--g-light);color:var(--g-dark);font-size:9px;font-weight:700;padding:2px 6px;border-radius:20px;margin-left:4px">Hogar</span>':'';
+    var addedBy=i.addedBy?'<span style="color:var(--text3);font-size:9px"> '+i.addedBy+'</span>':'';
+    return '<div class="inv-item">'
+      +'<div class="inv-ico">'+(i.ticker||'?').slice(0,4)+'</div>'
+      +'<div class="inv-info">'
+      +'<div class="inv-name">'+(i.ticker||'--')+' '+hogarBadge+'<span style="font-size:10px;color:var(--text3);font-weight:600"> '+(i.type||'')+' '+(i.platform?'- '+i.platform:'')+'</span>'+addedBy+'</div>'
+      +'<div class="inv-meta">'+fmtN(shares)+' '+(es?'unidades':'units')+' Avg '+fmt(avg)+' Cur '+fmt(cur)+'</div>'
+      +'</div>'
+      +'<div style="text-align:right">'
+      +'<div style="font-size:13px;font-weight:800">'+fmt(val)+'</div>'
+      +'<div style="font-size:11px;color:'+(g>=0?'var(--g-main)':'var(--red)')+';font-weight:700">'+(g>=0?'+':'')+fmt(g)+'</div>'
+      +'</div>'
+      +'<div onclick="deleteInv(''+i.id+'')" style="cursor:pointer;color:var(--text3);padding-left:8px">X</div>'
+      +'</div>';
   }).join('');
 }
 
 function openAdd(){
   editingId=null;
-  ['fTicker','fShares','fAvgPrice','fCurPrice','fPlatform'].forEach(id=>document.getElementById(id).value='');
+  ['fTicker','fShares','fAvgPrice','fCurPrice','fPlatform'].forEach(function(id){document.getElementById(id).value='';});
+  document.getElementById('fType').value='etf';
+  var field=document.getElementById('invHogarField');
+  if(field) field.style.display=isHogarConnected()?'':'none';
+  invIsHogar=invView==='hogar';
+  setInvHogar(invIsHogar);
+  document.getElementById('modalTitle').textContent=lang==='es'?'Nueva inversion':'New investment';
   document.getElementById('overlay').classList.add('open');
 }
-function closeModal(){ document.getElementById('overlay').classList.remove('open'); }
+function closeModal(){document.getElementById('overlay').classList.remove('open');}
 
 function saveInv(){
-  const ticker=document.getElementById('fTicker').value.trim().toUpperCase();
-  const type=document.getElementById('fType').value;
-  const shares=parseFloat(document.getElementById('fShares').value)||0;
-  const avgPrice=parseFloat(document.getElementById('fAvgPrice').value)||0;
-  const curPrice=parseFloat(document.getElementById('fCurPrice').value)||avgPrice;
-  const platform=document.getElementById('fPlatform').value.trim();
-  if(!ticker||!shares){ showToast('⚠️ '+(lang==='es'?'Ingresa ticker y acciones':'Enter ticker and shares')); return; }
-  const invs=loadInv();
-  invs.push({id:'i_'+Date.now(),ticker,type,shares,avgPrice,curPrice,platform,addedAt:new Date().toISOString()});
-  localStorage.setItem('ft_investments',JSON.stringify(invs));
-  closeModal();
-  render();
-  showToast(lang==='es'?'✅ Inversión guardada':'✅ Investment saved');
+  var ticker=document.getElementById('fTicker').value.trim().toUpperCase();
+  var type=document.getElementById('fType').value;
+  var shares=parseFloat(document.getElementById('fShares').value)||1;
+  var avgPrice=parseFloat(document.getElementById('fAvgPrice').value)||0;
+  var curPrice=parseFloat(document.getElementById('fCurPrice').value)||avgPrice;
+  var platform=document.getElementById('fPlatform').value.trim();
+  if(!ticker){showToast('!'+(lang==='es'?' Ingresa el ticker o nombre':' Enter ticker or name'));return;}
+  var entry={id:'i_'+Date.now(),ticker:ticker,type:type,shares:shares,avgPrice:avgPrice,curPrice:curPrice,platform:platform,addedBy:user.name||'',addedAt:new Date().toISOString()};
+  if(invIsHogar){
+    var list=loadHogarInv();list.push(entry);saveHogarInv(list);
+    showToast(lang==='es'?'Inversion guardada en el Hogar':'Investment saved to Household');
+  } else {
+    var list2=loadInv();list2.push(entry);saveInvPersonal(list2);
+    showToast(lang==='es'?'Inversion personal guardada':'Personal investment saved');
+  }
+  closeModal();render();
 }
 
 function deleteInv(id){
-  if(!confirm(lang==='es'?'¿Eliminar?':'Delete?')) return;
-  const invs=loadInv().filter(i=>i.id!==id);
-  localStorage.setItem('ft_investments',JSON.stringify(invs));
+  if(!confirm(lang==='es'?'Eliminar esta inversion?':'Delete this investment?')) return;
+  if(invView==='hogar'){saveHogarInv(loadHogarInv().filter(function(i){return i.id!==id;}));}
+  else{saveInvPersonal(loadInv().filter(function(i){return i.id!==id;}));}
   render();
 }
 
 (function init(){
-  let s=localStorage.getItem('ft_user')||sessionStorage.getItem('ft_user');
-  if(!s){ window.location.replace('login.html'); return; }
-  try{ user=JSON.parse(s); }catch(e){ window.location.replace('login.html'); return; }
+  var s=localStorage.getItem('ft_user')||sessionStorage.getItem('ft_user');
+  if(!s){window.location.replace('login.html');return;}
+  try{user=JSON.parse(s);}catch(e){window.location.replace('login.html');return;}
   lang=user.lang||localStorage.getItem('ft_lang')||'es';
   if(!sessionStorage.getItem('ft_user')) sessionStorage.setItem('ft_user',s);
+  var tog=document.getElementById('invViewToggle');
+  if(tog && isHogarConnected()) tog.style.display='flex';
   setLang(lang);
+  render();
 })();
 </script>
 </body>

@@ -95,7 +95,9 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
   .sidebar.open{display:flex;}
   .main{margin-left:0;padding-bottom:80px;}
   .topbar{height:auto;min-height:var(--topbar);padding:12px 16px;flex-direction:column;align-items:stretch;gap:8px;}
-  .page{padding:16px;}
+  .page{padding:16px;max-width:100%;}
+  .tab-row{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  .mob-nav{display:flex!important;}
 }
 @media(min-width:861px){
   .sidebar{display:flex!important;}
@@ -502,6 +504,7 @@ function renderDashboard(hogar){
     <button class="tab-btn ${activeTab==='resumen'?'on':''}" onclick="switchTab('resumen')">${es?'📊 Resumen':'📊 Summary'}</button>
     <button class="tab-btn ${activeTab==='distribucion'?'on':''}" onclick="switchTab('distribucion')">${es?'💰 Distribución':'💰 Distribution'}</button>
     <button class="tab-btn ${activeTab==='deudas'?'on':''}" onclick="switchTab('deudas')">${es?'💳 Deudas':'💳 Debts'}</button>
+    <button class="tab-btn ${activeTab==='inversiones'?'on':''}" onclick="switchTab('inversiones')">${es?'📈 Inversiones':'📈 Investments'}</button>
     <button class="tab-btn ${activeTab==='guia'?'on':''}" onclick="switchTab('guia')">${es?'📋 Guía':'📋 Guide'}</button>
   </div>
 
@@ -530,7 +533,7 @@ function switchTab(tab){
   const totalIncome = myIncome + partnerIncome;
 
   document.querySelectorAll('.tab-btn').forEach((b,i)=>{
-    const tabs = ['resumen','distribucion','deudas','guia'];
+    const tabs = ['resumen','distribucion','deudas','inversiones','guia'];
     b.classList.toggle('on', tabs[i]===tab);
   });
 
@@ -545,6 +548,7 @@ function renderTab(calc, sharedTxs, partnerName, partnerIncome, mode, totalIncom
   if(activeTab==='resumen') container.innerHTML = renderResumen(calc, sharedTxs, partnerName, partnerIncome, totalIncome, mode);
   else if(activeTab==='distribucion') container.innerHTML = renderDistribucion(calc, partnerName, totalIncome, mode);
   else if(activeTab==='deudas') container.innerHTML = renderDeudas(partnerName);
+  else if(activeTab==='inversiones') container.innerHTML = renderHogarInversiones();
   else if(activeTab==='guia') container.innerHTML = renderGuia(mode, calc, partnerName);
 }
 
@@ -684,6 +688,61 @@ function renderDistribucion(calc, partnerName, totalIncome, mode){
 }
 
 /* ── TAB: DEUDAS ── */
+function renderHogarInversiones(){
+  const es=lang==='es';
+  let invs=[];
+  try{invs=JSON.parse(localStorage.getItem('ft_hogar_inv')||'[]');}catch(e){invs=[];}
+  const fmt2=function(n){return '$'+Math.abs(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});};
+  const fmtN2=function(n){return Math.abs(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});};
+
+  let totalCost=0,totalValue=0;
+  invs.forEach(function(i){
+    var shares=parseFloat(i.shares)||1;
+    var avg=parseFloat(i.avgPrice)||parseFloat(i.amount)||0;
+    var cur=parseFloat(i.curPrice)||avg;
+    totalCost+=shares*avg; totalValue+=shares*cur;
+  });
+  var gain=totalValue-totalCost;
+  var gainPct=totalCost>0?((gain/totalCost)*100):0;
+
+  var summary='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px">'
+    +'<div style="background:var(--g-light);border-radius:12px;padding:12px;text-align:center"><div style="font-size:16px;font-weight:800;color:var(--g-dark)">'+fmt2(totalValue)+'</div><div style="font-size:10px;color:var(--text3)">'+(es?'Valor total':'Total value')+'</div></div>'
+    +'<div style="background:var(--off);border-radius:12px;padding:12px;text-align:center"><div style="font-size:16px;font-weight:800">'+fmt2(totalCost)+'</div><div style="font-size:10px;color:var(--text3)">'+(es?'Invertido':'Invested')+'</div></div>'
+    +'<div style="background:'+(gain>=0?'var(--g-light)':'rgba(230,57,70,.1)')+';border-radius:12px;padding:12px;text-align:center"><div style="font-size:16px;font-weight:800;color:'+(gain>=0?'var(--g-dark)':'var(--red)')+')">'+(gain>=0?'+':'')+fmt2(gain)+'</div><div style="font-size:10px;color:var(--text3)">'+(es?'Ganancia':'Gain')+'</div></div>'
+    +'</div>';
+
+  var addBtn='<div style="text-align:center;margin-bottom:14px">'
+    +'<button onclick="window.location.href=\'inversiones.html\'" style="background:linear-gradient(135deg,var(--g-dark),var(--g-main));color:white;border:none;border-radius:12px;padding:10px 20px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">'
+    +(es?'+ Agregar inversión al Hogar':'+ Add Household Investment')+'</button></div>';
+
+  if(!invs.length) return '<div class="card">'
+    +'<div style="text-align:center;padding:30px 0">'
+    +'<div style="font-size:36px;margin-bottom:10px">📈</div>'
+    +'<div style="font-size:15px;font-weight:800;margin-bottom:6px">'+(es?'Sin inversiones del hogar':'No household investments')+'</div>'
+    +'<div style="font-size:12px;color:var(--text3);margin-bottom:18px">'+(es?'Agrega ETFs, ahorros o fondos compartidos':'Add ETFs, savings or shared funds')+'</div>'
+    +addBtn+'</div></div>';
+
+  var list=invs.map(function(i){
+    var shares=parseFloat(i.shares)||1;
+    var avg=parseFloat(i.avgPrice)||parseFloat(i.amount)||0;
+    var cur=parseFloat(i.curPrice)||avg;
+    var val=shares*cur;
+    var g=val-(shares*avg);
+    return '<div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--off)">'
+      +'<div style="width:42px;height:42px;border-radius:12px;background:var(--g-light);display:grid;place-items:center;font-size:13px;font-weight:800;color:var(--g-dark);flex-shrink:0">'+(i.ticker||'?').slice(0,4)+'</div>'
+      +'<div style="flex:1;min-width:0">'
+      +'<div style="font-size:13px;font-weight:700">'+(i.ticker||'--')+' <span style="background:var(--g-light);color:var(--g-dark);font-size:9px;font-weight:700;padding:2px 6px;border-radius:20px">🏠 Hogar</span></div>'
+      +'<div style="font-size:11px;color:var(--text3)">'+(i.type||'')+(i.platform?' - '+i.platform:'')+(i.addedBy?' - '+i.addedBy:'')+'</div>'
+      +'</div>'
+      +'<div style="text-align:right;flex-shrink:0">'
+      +'<div style="font-size:13px;font-weight:800">'+fmt2(val)+'</div>'
+      +'<div style="font-size:11px;color:'+(g>=0?'var(--g-main)':'var(--red)')+';font-weight:700">'+(g>=0?'+':'')+fmt2(g)+'</div>'
+      +'</div></div>';
+  }).join('');
+
+  return '<div class="card">'+summary+addBtn+list+'</div>';
+}
+
 function renderDeudas(partnerName){
   const es = lang==='es';
   const debts = loadDebts();

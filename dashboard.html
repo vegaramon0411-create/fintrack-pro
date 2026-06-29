@@ -387,25 +387,28 @@ body {
 /* ─── MOBILE ─── */
 @media(max-width:860px){
   .sidebar { transform:translateX(-100%); }
-  .main { margin-left:0; padding-bottom:72px; }
+  .main { margin-left:0; padding-bottom:80px; }
   .topbar { height:auto; min-height:var(--topbar); padding:12px 16px; flex-direction:column; align-items:stretch; gap:10px; }
   .tb-title { font-size:16px; white-space:normal; }
   .tb-right { width:100%; justify-content:space-between; gap:8px; flex-wrap:wrap; }
-  .page { padding:16px; }
+  .page { padding:16px; max-width:100%; }
   .kpi-row { grid-template-columns:1fr 1fr; }
   .grid-2, .grid-3 { grid-template-columns:1fr; }
   .subs-grid { grid-template-columns:1fr 1fr; }
   .hero { grid-template-columns:1fr; }
   .hero-chips { flex-direction:row; flex-wrap:wrap; }
-  .hero-amount { font-size:36px; }
-  /* ─── MOBILE NAV ─── */
-.mob-nav{display:flex;position:fixed;bottom:0;left:0;right:0;background:var(--white);border-top:1px solid var(--border);padding:8px 0 calc(8px + env(safe-area-inset-bottom));z-index:100;align-items:center;}
-.mob-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:9px;font-weight:600;color:var(--text3);cursor:pointer;-webkit-tap-highlight-color:transparent;}
+  .hero-amount { font-size:clamp(28px,8vw,40px); }
+  .mob-nav { display:flex !important; }
+}
+@media(min-width:861px){
+  .mob-nav { display:none !important; }
+}
+.mob-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--white);border-top:1px solid var(--border);padding:8px 0 calc(8px + env(safe-area-inset-bottom));z-index:100;align-items:center;}
+.mob-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:9px;font-weight:600;color:var(--text3);cursor:pointer;-webkit-tap-highlight-color:transparent;padding:2px 0;}
 .mob-item.on{color:var(--g-main);}
 .mob-item.mob-center{flex:1.2;}
 .mob-ico{font-size:21px;line-height:1;}
 .mob-add{width:48px;height:48px;background:linear-gradient(135deg,var(--g-dark),var(--g-main));border-radius:50%;border:none;display:grid;place-items:center;color:white;font-size:26px;cursor:pointer;margin-top:-16px;box-shadow:0 4px 16px rgba(15,81,50,.35);-webkit-tap-highlight-color:transparent;}
-@media(min-width:700px){.mob-nav{display:none!important;}}
 
 ::-webkit-scrollbar { width:5px; }
 ::-webkit-scrollbar-track { background:transparent; }
@@ -1652,9 +1655,22 @@ function autoDetectHogar(cat){
 function showHogarToggle(type){
   const field = document.getElementById('hogarToggleField');
   if(!field) return;
-  // Only show for gastos when hogar is connected
-  const show = isHogarConnected() && ['gasto','suscripcion','hipoteca'].includes(type);
+  // Mostrar para gastos, inversiones y ahorros cuando hogar está conectado
+  const show = isHogarConnected() && ['gasto','suscripcion','hipoteca','inversion','ahorro'].includes(type);
   field.style.display = show ? '' : 'none';
+  // Actualizar el hint según el tipo
+  const hint = document.getElementById('hogarToggleHint');
+  if(hint && show){
+    if(type==='inversion'){
+      hint.textContent = isHogarTx
+        ? (lang==='es'?'Se guardará en inversiones del hogar · visible para tu pareja':'Saved to household investments · visible to partner')
+        : (lang==='es'?'Se guardará en tus inversiones personales · privado':'Saved to your personal investments · private');
+    } else if(type==='ahorro'){
+      hint.textContent = isHogarTx
+        ? (lang==='es'?'Ahorro compartido del hogar · visible para tu pareja':'Shared household savings · visible to partner')
+        : (lang==='es'?'Tu ahorro personal · privado':'Your personal savings · private');
+    }
+  }
 }
 
 function openModal() {
@@ -1732,7 +1748,16 @@ function saveEntry() {
       addEmergencyHistoryEntry({ id: entry.id, amount, date, type:'deposito', note: desc });
     }
     if (currentType === 'inversion') {
-      addInvestmentSyncEntry({ id: entry.id, name: desc, amount, date, note });
+      if (isHogarConnected() && isHogarTx) {
+        // Guardar en ft_hogar_inv como posición del hogar
+        try {
+          const hogarInvs = JSON.parse(localStorage.getItem('ft_hogar_inv')||'[]');
+          hogarInvs.push({ id:'hi_'+entry.id, ticker:desc.toUpperCase(), type:'ahorro', shares:1, avgPrice:amount, curPrice:amount, platform:'Hogar', addedBy:user.name||'', addedAt:new Date().toISOString() });
+          localStorage.setItem('ft_hogar_inv', JSON.stringify(hogarInvs));
+        } catch(e) {}
+      } else {
+        addInvestmentSyncEntry({ id: entry.id, name: desc, amount, date, note });
+      }
     }
     data.transactions.push(entry);
   }
