@@ -289,10 +289,51 @@ let activeTab = 'resumen';
 const FONDOS_KEY = 'ft_hogar_fondos';
 
 function loadFondos(){
-  try{ return JSON.parse(localStorage.getItem(FONDOS_KEY)) || { emerg:{meta:0,actual:0,hist:[]}, ahorro:{meta:0,nombre:'',actual:0,hist:[]} }; }
-  catch(e){ return { emerg:{meta:0,actual:0,hist:[]}, ahorro:{meta:0,nombre:'',actual:0,hist:[]} }; }
+  try{
+    const d = JSON.parse(localStorage.getItem(FONDOS_KEY));
+    if(!d) return { emerg:{meta:0,actual:0,fecha:'',hist:[]}, metas:[] };
+    // migrar estructura vieja si existe
+    if(d.ahorro && !d.metas){
+      d.metas = d.ahorro.meta>0 ? [{
+        id:'m_legacy', nombre:d.ahorro.nombre||'Meta 1',
+        meta:d.ahorro.meta, actual:d.ahorro.actual||0,
+        fecha:'', hist:d.ahorro.hist||[]
+      }] : [];
+      delete d.ahorro;
+    }
+    if(!d.metas) d.metas = [];
+    if(!d.emerg) d.emerg = {meta:0,actual:0,fecha:'',hist:[]};
+    return d;
+  } catch(e){ return { emerg:{meta:0,actual:0,fecha:'',hist:[]}, metas:[] }; }
 }
 function saveFondos(d){ localStorage.setItem(FONDOS_KEY, JSON.stringify(d)); }
+function fmtFondo(n){ return '$'+Math.abs(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+
+/* Proyección inteligente */
+function calcProyeccion(actual, meta, fecha, histMeses){
+  const avgAporte = histMeses>0 ? histMeses : 0;
+  const falta = Math.max(0,(meta||0)-(actual||0));
+  const hoy = new Date();
+  if(fecha){
+    const fin = new Date(fecha+'T00:00:00');
+    const mesesRestantes = Math.max(0, (fin.getFullYear()-hoy.getFullYear())*12 + (fin.getMonth()-hoy.getMonth()));
+    const necesitaPorMes = mesesRestantes>0 ? falta/mesesRestantes : falta;
+    const totalAlFin = (actual||0) + (avgAporte*mesesRestantes);
+    return { tipo:'fecha', mesesRestantes, necesitaPorMes, totalAlFin, falta };
+  } else if(meta>0 && avgAporte>0){
+    const mesesParaMeta = Math.ceil(falta/avgAporte);
+    return { tipo:'meta', mesesParaMeta, porMes:avgAporte, porAnio:avgAporte*12, falta };
+  } else if(avgAporte>0){
+    return { tipo:'libre', porMes:avgAporte, porAnio:avgAporte*12 };
+  }
+  return null;
+}
+
+function calcAvgAporte(hist){
+  if(!hist||!hist.length) return 0;
+  const ultimos = hist.slice(-6);
+  return ultimos.reduce((a,h)=>a+(h.monto||0),0) / ultimos.length;
+}
 
 /* ── UTILS ── */
 function go(url){ window.location.href = url; }
@@ -634,105 +675,265 @@ function renderResumen(calc, sharedTxs, partnerName, partnerIncome, totalIncome,
     </div>
   </div>
 
-  ${renderFondosCards(calc, es)}`;
+  ` + renderFondosCards(calc, es);
 }
 
 /* ── FONDOS DEL HOGAR (Emergencia + Meta) ── */
 function renderFondosCards(calc, es){
   const fondos = loadFondos();
   const sobrante = Math.max(0, (calc.myLeftover||0) + (calc.partnerLeftover||0));
-  const sugeridoEmerg = Math.round(sobrante * 0.5);
-  const sugeridoAhorro = Math.round(sobrante * 0.5);
 
   function progBar(actual, meta){
-    const pct = meta>0 ? Math.min((actual/meta)*100,100) : 0;
+    if(!meta||meta<=0) return '';
+    const pct = Math.min((actual/meta)*100,100);
     const color = pct>=100?'var(--g-main)':pct>=50?'var(--amber)':'var(--blue)';
-    return '<div style="height:8px;background:var(--border);border-radius:100px;overflow:hidden;margin:8px 0">'
-      +'<div style="height:100%;width:'+pct.toFixed(1)+'%;background:'+color+';border-radius:100px;transition:width .4s"></div></div>'
+    return '<div style="height:8px;background:var(--border);border-radius:100px;overflow:hidden;margin:6px 0">'
+      +'<div style="height:100%;width:'+pct.toFixed(1)+'%;background:'+color+';border-radius:100px"></div></div>'
       +'<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3)">'
-      +'<span>'+pct.toFixed(0)+'%</span><span>Meta: '+fmt(meta)+'</span></div>';
+      +'<span>'+pct.toFixed(0)+'%</span><span>Meta: '+fmtFondo(meta)+'</span></div>';
   }
 
-  function fondoCard(tipo, emoji, titulo, fondo, sugerido){
-    const actual = fondo.actual||0;
-    const meta = fondo.meta||0;
-    const configId = 'fondoConfig_'+tipo;
+  function proyHtml(avg, actual, meta, fecha){
+    const p = calcProyeccion(actual, meta, fecha, avg);
+    if(!p) return '';
+    var txt='';
+    if(p.tipo==='fecha'){
+      txt=(es?'Necesitas ':'You need ')+fmtFondo(p.necesitaPorMes)+(es?'/mes para llegar al ':'/mo to reach by ')+fecha;
+      if(p.totalAlFin<(meta||0)) txt+=(es?' · Faltarian '+fmtFondo((meta||0)-p.totalAlFin):' · Would be short '+fmtFondo((meta||0)-p.totalAlFin));
+    } else if(p.tipo==='meta'){
+      txt=(es?'Con este ritmo, meta en ~'+p.mesesParaMeta+' meses':'At this rate, goal in ~'+p.mesesParaMeta+' months');
+    } else {
+      txt=(es?'Ahorrando '+fmtFondo(p.porMes)+'/mes · '+fmtFondo(p.porAnio)+'/año':'Saving '+fmtFondo(p.porMes)+'/mo · '+fmtFondo(p.porAnio)+'/yr');
+    }
+    return '<div style="background:var(--g-light);border-radius:10px;padding:10px;margin-top:8px;font-size:11px;color:var(--g-dark);font-weight:600">📊 '+txt+'</div>';
+  }
+
+  function histHtml(hist, tipo, idx){
+    if(!hist||!hist.length) return '<div style="color:var(--text3);font-size:12px;text-align:center;padding:8px">'+(es?'Sin movimientos':'No movements')+'</div>';
+    return hist.slice().reverse().slice(0,8).map(function(h,i){
+      var realIdx = hist.length-1-i;
+      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--off)">'
+        +'<div><div style="font-size:12px;font-weight:600">'+fmtFondo(h.monto)+'</div>'
+        +'<div style="font-size:10px;color:var(--text3)">'+h.fecha+(h.desdePres?' · del presupuesto':'')+'</div></div>'
+        +'<button data-tipo="'+tipo+'" data-hidx="'+realIdx+'" data-midx="'+(idx!==undefined?String(idx):'')+'" onclick="(function(b){eliminarMovFondo(b.dataset.tipo,parseInt(b.dataset.hidx),b.dataset.midx===\'\' ?null:parseInt(b.dataset.midx))})(this)" style="background:var(--red-dim);color:var(--red);border:none;border-radius:8px;padding:4px 8px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit">✕</button>'
+        +'</div>';
+    }).join('');
+  }
+
+  // ── FONDO EMERGENCIA ──
+  var emerg = fondos.emerg;
+  var avgEmerg = calcAvgAporte(emerg.hist);
+  var emergCard = '<div class="card" style="margin-top:12px" id="cardEmerg">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'
+    +'<div><div style="font-size:14px;font-weight:800">🛡️ '+(es?'Fondo de Emergencia del Hogar':'Household Emergency Fund')+'</div>'
+    +'<div style="font-size:11px;color:var(--text3)">'+(es?'Solo para emergencias reales':'Only for real emergencies')+'</div></div>'
+    +'<button onclick="toggleSeccion(\'secEmerg\')" style="background:var(--off);border:1.5px solid var(--border);border-radius:10px;padding:5px 10px;font-size:12px;cursor:pointer;font-family:inherit">⚙️</button>'
+    +'</div>'
+    +'<div style="text-align:center;background:var(--blu-dim);border-radius:12px;padding:12px;margin-bottom:8px">'
+    +'<div style="font-size:11px;color:var(--blue);margin-bottom:2px">'+(es?'Saldo actual':'Balance')+'</div>'
+    +'<div style="font-size:28px;font-weight:800;color:var(--blue)">'+fmtFondo(emerg.actual||0)+'</div>'
+    +(emerg.meta>0?progBar(emerg.actual||0,emerg.meta):'')
+    +'</div>'
+    +proyHtml(avgEmerg, emerg.actual||0, emerg.meta||0, emerg.fecha||'')
+    +(sobrante>0?'<div style="background:rgba(26,122,74,.06);border:1.5px dashed var(--g-main);border-radius:10px;padding:10px;margin-top:8px;display:flex;align-items:center;justify-content:space-between">'
+      +'<div style="font-size:12px;color:var(--g-dark)">💡 '+(es?'Sugerido':'Suggested')+': <strong>'+fmtFondo(Math.round(sobrante*0.5))+'/mes</strong></div>'
+      +'<button onclick="abrirAporteModal(\'emerg\')" style="background:var(--g-main);color:white;border:none;border-radius:8px;padding:7px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">'+(es?'Depositar':'Deposit')+'</button>'
+      +'</div>':'')
+    +'<div id="secEmerg" style="display:none;margin-top:12px;border-top:1px solid var(--off);padding-top:12px">'
+    +'<div style="font-size:11px;font-weight:700;margin-bottom:8px;color:var(--text3);text-transform:uppercase">'+(es?'Configurar':'Configure')+'</div>'
+    +'<label style="font-size:11px;font-weight:600;display:block;margin-bottom:4px">'+(es?'Meta ($)':'Goal ($)')+'</label>'
+    +'<input type="number" id="emMetaInput" value="'+(emerg.meta||'')+'" placeholder="0" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;margin-bottom:8px;box-sizing:border-box">'
+    +'<label style="font-size:11px;font-weight:600;display:block;margin-bottom:4px">'+(es?'Fecha límite (opcional)':'Target date (optional)')+'</label>'
+    +'<input type="date" id="emFechaInput" value="'+(emerg.fecha||'')+'" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;margin-bottom:10px;box-sizing:border-box">'
+    +'<button onclick="guardarConfigEmerg()" style="width:100%;background:var(--g-main);color:white;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:8px">'+(es?'Guardar configuración':'Save config')+'</button>'
+    +'<div style="font-size:12px;font-weight:700;margin-bottom:6px">'+(es?'Historial':'History')+'</div>'
+    +histHtml(emerg.hist,'emerg',undefined)
+    +'</div>'
+    +'</div>';
+
+  // ── METAS MÚLTIPLES ──
+  var metasCards = (fondos.metas||[]).map(function(meta, idx){
+    var avg = calcAvgAporte(meta.hist);
     return '<div class="card" style="margin-top:12px">'
-      +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">'
-      +'<div>'
-      +'<div style="font-size:13px;font-weight:800">'+emoji+' '+(es?titulo:titulo)+'</div>'
-      +'<div style="font-size:11px;color:var(--text3);margin-top:2px">'+(es?'Fondo compartido del hogar':'Shared household fund')+'</div>'
-      +'</div>'
-      +'<button onclick="toggleFondoConfig(\''+tipo+'\')" style="background:var(--off);border:1.5px solid var(--border);border-radius:10px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">⚙️</button>'
-      +'</div>'
-      // Saldo actual
-      +'<div style="text-align:center;background:var(--g-light);border-radius:12px;padding:12px;margin-bottom:12px">'
-      +'<div style="font-size:11px;color:var(--text3);margin-bottom:2px">'+(es?'Saldo actual':'Current balance')+'</div>'
-      +'<div style="font-size:28px;font-weight:800;color:var(--g-dark)">'+fmt(actual)+'</div>'
-      +(meta>0?progBar(actual,meta):'')
-      +'</div>'
-      // Sugerencia automática
-      +(sobrante>0?
-        '<div style="background:rgba(26,122,74,.06);border:1.5px dashed var(--g-main);border-radius:12px;padding:12px;margin-bottom:12px">'
-        +'<div style="font-size:11px;font-weight:700;color:var(--g-dark);margin-bottom:6px">💡 '+(es?'Sugerencia del mes':'Monthly suggestion')+'</div>'
-        +'<div style="font-size:12px;color:var(--text2);margin-bottom:8px">'
-        +(es?'Del sobrante del hogar (<strong>'+fmt(sobrante)+'</strong>), podrían aportar:':'From household surplus (<strong>'+fmt(sobrante)+'</strong>), you could contribute:')
-        +'</div>'
-        +'<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">'
-        +'<div style="font-size:20px;font-weight:800;color:var(--g-main)">'+fmt(sugerido)+'/mes</div>'
-        +'<button onclick="aplicarAporte(\''+tipo+'\','+sugerido+')" style="background:var(--g-main);color:white;border:none;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">'
-        +(es?'✓ Aplicar':'✓ Apply')+'</button>'
-        +'</div>'
-        +'</div>'
-      :'')
-      // Panel de config (oculto por defecto)
-      +'<div id="'+configId+'" style="display:none;border-top:1px solid var(--border);padding-top:12px;margin-top:4px">'
-      +'<div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px">'+(es?'Configurar fondo':'Configure fund')+'</div>'
-      +(tipo==='ahorro'?'<div style="margin-bottom:8px"><label style="font-size:11px;font-weight:600;color:var(--text2);display:block;margin-bottom:4px">'+(es?'Nombre de la meta':'Goal name')+'</label><input type="text" id="fondoNombre_'+tipo+'" value="'+(fondo.nombre||'')+'" placeholder="'+(es?'Ej: Casa, Viaje, Auto':'e.g. House, Trip, Car')+'" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;box-sizing:border-box"></div>':'')
-      +'<div style="margin-bottom:8px"><label style="font-size:11px;font-weight:600;color:var(--text2);display:block;margin-bottom:4px">'+(es?'Meta ($)':'Goal amount ($)')+'</label><input type="number" id="fondoMeta_'+tipo+'" value="'+(meta||'')+'" placeholder="0" min="0" step="100" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;box-sizing:border-box"></div>'
-      +'<div style="margin-bottom:10px"><label style="font-size:11px;font-weight:600;color:var(--text2);display:block;margin-bottom:4px">'+(es?'Aporte manual ($)':'Manual deposit ($)')+'</label><input type="number" id="fondoAporte_'+tipo+'" placeholder="0" min="0" step="10" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;box-sizing:border-box"></div>'
-      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'
-      +'<button onclick="guardarFondoConfig(\''+tipo+'\')" style="background:var(--g-main);color:white;border:none;border-radius:10px;padding:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">'+(es?'Guardar':'Save')+'</button>'
-      +'<button onclick="toggleFondoConfig(\''+tipo+'\')" style="background:var(--off);border:1.5px solid var(--border);border-radius:10px;padding:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">'+(es?'Cancelar':'Cancel')+'</button>'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'
+      +'<div><div style="font-size:14px;font-weight:800">🎯 '+(meta.nombre||'Meta')+'</div>'
+      +'<div style="font-size:11px;color:var(--text3)">'+(meta.meta>0?fmtFondo(meta.meta)+' objetivo':'Sin monto objetivo')+(meta.fecha?' · '+meta.fecha:'')+'</div></div>'
+      +'<div style="display:flex;gap:6px">'
+      +'<button data-midx="'+idx+'" onclick="abrirAporteModal(\'meta\',parseInt(this.dataset.midx))" style="background:var(--g-main);color:white;border:none;border-radius:10px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">+</button>'
+      +'<button data-tsec="'+('secMeta'+idx)+'" onclick="toggleSeccion(this.dataset.tsec)" style="background:var(--off);border:1.5px solid var(--border);border-radius:10px;padding:5px 10px;font-size:12px;cursor:pointer;font-family:inherit">⚙️</button>'
+      +'<button data-eidx="'+idx+'" onclick="eliminarMeta(parseInt(this.dataset.eidx))" style="background:var(--red-dim);color:var(--red);border:none;border-radius:10px;padding:5px 8px;font-size:12px;cursor:pointer;font-family:inherit">🗑</button>'
       +'</div></div>'
+      +'<div style="text-align:center;background:var(--pur-dim);border-radius:12px;padding:12px;margin-bottom:8px">'
+      +'<div style="font-size:11px;color:var(--purple);margin-bottom:2px">'+(es?'Ahorrado':'Saved')+'</div>'
+      +'<div style="font-size:28px;font-weight:800;color:var(--purple)">'+fmtFondo(meta.actual||0)+'</div>'
+      +(meta.meta>0?progBar(meta.actual||0,meta.meta):'')
+      +'</div>'
+      +proyHtml(avg, meta.actual||0, meta.meta||0, meta.fecha||'')
+      +'<div id="secMeta'+idx+'" style="display:none;margin-top:12px;border-top:1px solid var(--off);padding-top:12px">'
+      +'<label style="font-size:11px;font-weight:600;display:block;margin-bottom:4px">'+(es?'Nombre':'Name')+'</label>'
+      +'<input type="text" id="mNombre'+idx+'" value="'+(meta.nombre||'')+'" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;margin-bottom:8px;box-sizing:border-box">'
+      +'<label style="font-size:11px;font-weight:600;display:block;margin-bottom:4px">'+(es?'Monto objetivo ($)':'Goal amount ($)')+'</label>'
+      +'<input type="number" id="mMeta'+idx+'" value="'+(meta.meta||'')+'" placeholder="0 = libre" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;margin-bottom:8px;box-sizing:border-box">'
+      +'<label style="font-size:11px;font-weight:600;display:block;margin-bottom:4px">'+(es?'Fecha objetivo (opcional)':'Target date (optional)')+'</label>'
+      +'<input type="date" id="mFecha'+idx+'" value="'+(meta.fecha||'')+'" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;margin-bottom:10px;box-sizing:border-box">'
+      +'<button data-gidx="'+idx+'" onclick="guardarConfigMeta(parseInt(this.dataset.gidx))" style="width:100%;background:var(--purple);color:white;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:8px">'+(es?'Guardar':'Save')+'</button>'
+      +'<div style="font-size:12px;font-weight:700;margin-bottom:6px">'+(es?'Historial':'History')+'</div>'
+      +histHtml(meta.hist,'meta',idx)
+      +'</div></div>';
+  }).join('');
+
+  var addMetaBtn = '<div style="margin-top:12px;text-align:center">'
+    +'<button onclick="agregarNuevaMeta()" style="background:var(--purple);color:white;border:none;border-radius:12px;padding:12px 24px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">+ '+(es?'Nueva meta compartida':'New shared goal')+'</button>'
+    +'</div>';
+
+  return emergCard + metasCards + addMetaBtn;
+}
+
+
+function toggleSeccion(id){
+  var el=document.getElementById(id);
+  if(el) el.style.display=el.style.display==='none'?'block':'none';
+}
+
+// ── MODAL DE APORTE ──
+var _aporteCtx = null;
+function abrirAporteModal(tipo, idx){
+  _aporteCtx = {tipo:tipo, idx:idx};
+  var fondos = loadFondos();
+  var es = lang==='es';
+  // Crear modal estático si no existe
+  var m = document.getElementById('_aporteModal');
+  if(!m){
+    m = document.createElement('div');
+    m.id='_aporteModal';
+    m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:300;display:flex;align-items:flex-end;justify-content:center';
+    m.innerHTML='<div style="background:white;border-radius:20px 20px 0 0;width:100%;max-width:500px;padding:20px;padding-bottom:calc(20px + env(safe-area-inset-bottom))">'
+      +'<div style="font-size:15px;font-weight:800;margin-bottom:14px" id="_aporteTitle">Depositar</div>'
+      +'<label style="font-size:11px;font-weight:700;color:#9395A5;display:block;margin-bottom:6px">MONTO ($)</label>'
+      +'<input type="number" id="_aporteMonto" placeholder="0.00" min="0" step="1" style="width:100%;padding:11px;border:1.5px solid #E4E6F0;border-radius:10px;font-size:16px;font-family:inherit;margin-bottom:10px;box-sizing:border-box;outline:none">'
+      +'<label style="font-size:11px;font-weight:700;color:#9395A5;display:block;margin-bottom:6px">TIPO DE DEPÓSITO</label>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">'
+      +'<button id="_btnNuevo" style="padding:10px;border-radius:10px;border:2px solid #1A7A4A;background:#E8F7EF;color:#0F5132;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">💰 Nuevo depósito</button>'
+      +'<button id="_btnYaHecho" style="padding:10px;border-radius:10px;border:2px solid #E4E6F0;background:#F7F8FC;color:#4A4E69;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">📦 Ya lo tenía ahorrado</button>'
+      +'</div>'
+      +'<div id="_presBanner" style="background:#E8F7EF;border-radius:10px;padding:10px;margin-bottom:14px;font-size:12px;color:#0F5132;display:none">✅ Se descontará del presupuesto mensual (categoría ahorro)</div>'
+      +'<label style="font-size:11px;font-weight:700;color:#9395A5;display:block;margin-bottom:6px">FECHA</label>'
+      +'<input type="date" id="_aporteFecha" style="width:100%;padding:11px;border:1.5px solid #E4E6F0;border-radius:10px;font-size:14px;font-family:inherit;margin-bottom:14px;box-sizing:border-box">'
+      +'<button id="_btnGuardarAporte" style="width:100%;background:#1A7A4A;color:white;border:none;border-radius:12px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:8px">Guardar</button>'
+      +'<button id="_btnCerrarAporte" style="width:100%;background:#F7F8FC;border:1.5px solid #E4E6F0;border-radius:12px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">Cancelar</button>'
       +'</div>';
+    document.body.appendChild(m);
+    // Conectar botones
+    var desdePres = false;
+    document.getElementById('_btnNuevo').addEventListener('click',function(){
+      desdePres=true;
+      this.style.borderColor='#1A7A4A'; this.style.background='#E8F7EF';
+      var b=document.getElementById('_btnYaHecho'); b.style.borderColor='#E4E6F0'; b.style.background='#F7F8FC';
+      document.getElementById('_presBanner').style.display='block';
+    });
+    document.getElementById('_btnYaHecho').addEventListener('click',function(){
+      desdePres=false;
+      this.style.borderColor='#1A7A4A'; this.style.background='#E8F7EF';
+      var b=document.getElementById('_btnNuevo'); b.style.borderColor='#E4E6F0'; b.style.background='#F7F8FC';
+      document.getElementById('_presBanner').style.display='none';
+    });
+    document.getElementById('_btnGuardarAporte').addEventListener('click',function(){
+      var monto=parseFloat(document.getElementById('_aporteMonto').value);
+      var fecha=document.getElementById('_aporteFecha').value;
+      if(!monto||monto<=0){showToast(lang==='es'?'Ingresa un monto válido':'Enter a valid amount');return;}
+      if(!fecha){showToast(lang==='es'?'Selecciona una fecha':'Select a date');return;}
+      var f=loadFondos();
+      var entry={monto:monto,fecha:fecha,desdePres:desdePres};
+      if(_aporteCtx.tipo==='emerg'){
+        f.emerg.actual=(f.emerg.actual||0)+monto;
+        f.emerg.hist=f.emerg.hist||[]; f.emerg.hist.push(entry);
+        if(desdePres) registrarEnPresupuesto(monto,lang==='es'?'Fondo emergencia hogar':'Household emergency fund');
+      } else if(_aporteCtx.tipo==='meta'){
+        var meta=f.metas[_aporteCtx.idx];
+        if(meta){ meta.actual=(meta.actual||0)+monto; meta.hist=meta.hist||[]; meta.hist.push(entry);
+          if(desdePres) registrarEnPresupuesto(monto,meta.nombre||'Meta hogar'); }
+      }
+      saveFondos(f);
+      document.getElementById('_aporteModal').style.display='none';
+      showToast(lang==='es'?'✅ Aporte guardado':'✅ Deposit saved');
+      render();
+    });
+    document.getElementById('_btnCerrarAporte').addEventListener('click',function(){ document.getElementById('_aporteModal').style.display='none'; });
   }
-
-  return fondoCard('emerg','🛡️', es?'Fondo de Emergencia del Hogar':'Household Emergency Fund', fondos.emerg, sugeridoEmerg)
-       + fondoCard('ahorro','🎯', fondos.ahorro.nombre||(es?'Meta de Ahorro Compartida':'Shared Savings Goal'), fondos.ahorro, sugeridoAhorro);
+  // Reset
+  document.getElementById('_aporteMonto').value='';
+  document.getElementById('_aporteFecha').value=new Date().toISOString().split('T')[0];
+  document.getElementById('_presBanner').style.display='none';
+  document.getElementById('_btnNuevo').style.borderColor='#E4E6F0'; document.getElementById('_btnNuevo').style.background='#F7F8FC';
+  document.getElementById('_btnYaHecho').style.borderColor='#E4E6F0'; document.getElementById('_btnYaHecho').style.background='#F7F8FC';
+  var titulo = tipo==='emerg'?(es?'Depositar al fondo de emergencia':'Deposit to emergency fund'):(fondos.metas[idx]?'Depositar a '+fondos.metas[idx].nombre:'Depositar');
+  document.getElementById('_aporteTitle').textContent=titulo;
+  document.getElementById('_aporteModal').style.display='flex';
 }
 
-function toggleFondoConfig(tipo){
-  const el = document.getElementById('fondoConfig_'+tipo);
-  if(el) el.style.display = el.style.display==='none'?'':'none';
+function registrarEnPresupuesto(monto, desc){
+  try{
+    var data=JSON.parse(localStorage.getItem('ft_data')||'{}');
+    data.transactions=data.transactions||[];
+    data.transactions.push({id:Date.now(),type:'ahorro',desc:desc,amount:monto,date:new Date().toISOString().split('T')[0],cat:'🏠 Hogar',hogar:true});
+    localStorage.setItem('ft_data',JSON.stringify(data));
+  }catch(e){}
 }
 
-function aplicarAporte(tipo, monto){
-  const fondos = loadFondos();
-  fondos[tipo].actual = (fondos[tipo].actual||0) + monto;
-  fondos[tipo].hist = fondos[tipo].hist||[];
-  fondos[tipo].hist.push({ fecha:new Date().toISOString().slice(0,10), monto, tipo:'sugerido' });
+function guardarConfigEmerg(){
+  var fondos=loadFondos();
+  fondos.emerg.meta=parseFloat(document.getElementById('emMetaInput').value)||0;
+  fondos.emerg.fecha=document.getElementById('emFechaInput').value||'';
   saveFondos(fondos);
-  showToast(lang==='es'?'✅ Aporte aplicado':'✅ Deposit applied');
+  showToast(lang==='es'?'✅ Configuración guardada':'✅ Config saved');
   render();
 }
 
-function guardarFondoConfig(tipo){
-  const fondos = loadFondos();
-  const meta = parseFloat(document.getElementById('fondoMeta_'+tipo)?.value)||0;
-  const aporte = parseFloat(document.getElementById('fondoAporte_'+tipo)?.value)||0;
-  const nombre = document.getElementById('fondoNombre_'+tipo)?.value?.trim()||'';
-  fondos[tipo].meta = meta;
-  if(nombre) fondos[tipo].nombre = nombre;
-  if(aporte>0){
-    fondos[tipo].actual = (fondos[tipo].actual||0) + aporte;
-    fondos[tipo].hist = fondos[tipo].hist||[];
-    fondos[tipo].hist.push({ fecha:new Date().toISOString().slice(0,10), monto:aporte, tipo:'manual' });
-  }
+function guardarConfigMeta(idx){
+  var fondos=loadFondos();
+  if(!fondos.metas[idx]) return;
+  fondos.metas[idx].nombre=document.getElementById('mNombre'+idx).value.trim()||'Meta';
+  fondos.metas[idx].meta=parseFloat(document.getElementById('mMeta'+idx).value)||0;
+  fondos.metas[idx].fecha=document.getElementById('mFecha'+idx).value||'';
   saveFondos(fondos);
-  showToast(lang==='es'?'✅ Fondo actualizado':'✅ Fund updated');
+  showToast(lang==='es'?'✅ Meta actualizada':'✅ Goal updated');
   render();
 }
+
+function agregarNuevaMeta(){
+  var fondos=loadFondos();
+  fondos.metas=fondos.metas||[];
+  fondos.metas.push({id:'m_'+Date.now(),nombre:lang==='es'?'Nueva meta':'New goal',meta:0,actual:0,fecha:'',hist:[]});
+  saveFondos(fondos);
+  render();
+}
+
+function eliminarMeta(idx){
+  if(!confirm(lang==='es'?'¿Eliminar esta meta?':'Delete this goal?')) return;
+  var fondos=loadFondos();
+  fondos.metas.splice(idx,1);
+  saveFondos(fondos);
+  render();
+}
+
+function eliminarMovFondo(tipo, histIdx, metaIdx){
+  if(!confirm(lang==='es'?'¿Eliminar este movimiento?':'Delete this movement?')) return;
+  var fondos=loadFondos();
+  if(tipo==='emerg'){
+    var mov=fondos.emerg.hist[histIdx];
+    if(mov){ fondos.emerg.actual=Math.max(0,(fondos.emerg.actual||0)-mov.monto); fondos.emerg.hist.splice(histIdx,1); }
+  } else if(tipo==='meta' && metaIdx!==null && metaIdx!==undefined){
+    var meta=fondos.metas[metaIdx];
+    if(meta){ var m=meta.hist[histIdx]; if(m){ meta.actual=Math.max(0,(meta.actual||0)-m.monto); meta.hist.splice(histIdx,1); } }
+  }
+  saveFondos(fondos);
+  render();
+}
+
+// Mantener compatibilidad con aplicarAporte viejo
+function aplicarAporte(tipo, monto){ abrirAporteModal(tipo); }
+
+
 function renderDistribucion(calc, partnerName, totalIncome, mode){
   const es = lang==='es';
   const rows = [
