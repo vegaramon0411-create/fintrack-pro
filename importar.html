@@ -331,39 +331,44 @@ function showUpgradeModal(){
     +'<div style="background:white;border:1.5px solid #E4E6F0;border-radius:10px;padding:10px;text-align:center"><div style="font-size:16px;font-weight:800">+5</div><div style="font-size:13px;font-weight:700;color:#1A7A4A;margin-top:4px">$2.99</div></div>'
     +'<div style="background:white;border:1.5px solid #E4E6F0;border-radius:10px;padding:10px;text-align:center"><div style="font-size:16px;font-weight:800">+15</div><div style="font-size:13px;font-weight:700;color:#1A7A4A;margin-top:4px">$6.99</div></div>'
     +'</div>'
-    +'<button onclick="window.open(\'https://www.etsy.com/shop/finanzone\',\'_blank\')" style="width:100%;background:#1A7A4A;color:white;border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:8px">Comprar creditos en Etsy</button>'
-    +'<div style="font-size:11px;color:#9395A5;text-align:center;margin-bottom:10px">'+(es?'Despues de comprar, activa tu codigo aqui:':'After buying, activate your code here:')+'</div>'
+    +'<button id="_btnEtsy" style="width:100%;background:#1A7A4A;color:white;border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:8px">Comprar creditos en Etsy</button>'
+    +'<div style="font-size:11px;color:#9395A5;text-align:center;margin-bottom:10px">'+(es?'Despues de comprar, activa tu codigo:':'After buying, activate your code:')+'</div>'
     +'<div style="display:flex;gap:8px">'
     +'<input id="_codeInput" type="text" placeholder="'+_ph+'" style="flex:1;background:white;border:1.5px solid #E4E6F0;border-radius:10px;padding:10px;font-size:13px;font-family:inherit;outline:none">'
-    +'<button onclick="activarCodigoCreditos()" style="background:#4A6CF7;color:white;border:none;border-radius:10px;padding:10px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">'+_act+'</button>'
+    +'<button id="_btnActivar" style="background:#4A6CF7;color:white;border:none;border-radius:10px;padding:10px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">'+_act+'</button>'
     +'</div></div>'
-    +'<button onclick="document.getElementById(\'_upgradeOv\').remove()" style="width:100%;background:#F7F8FC;border:1.5px solid #E4E6F0;border-radius:10px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">'+_can+'</button>'
+    +'<button id="_btnCancelar" style="width:100%;background:#F7F8FC;border:1.5px solid #E4E6F0;border-radius:10px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">'+_can+'</button>'
     +'</div>';
   document.body.appendChild(ov);
+  // Usar addEventListener - más confiable en iOS Safari que onclick inline
+  document.getElementById('_btnActivar').addEventListener('click', activarCodigoCreditos);
+  document.getElementById('_btnCancelar').addEventListener('click', function(){ ov.remove(); });
+  document.getElementById('_btnEtsy').addEventListener('click', function(){ window.open('https://www.etsy.com/shop/finanzone','_blank'); });
   ov.addEventListener('click',function(e){if(e.target===ov)ov.remove();});
 }
 
 function activarCodigoCreditos(){
   const es=lang==='es';
   const input=document.getElementById('_codeInput');
-  if(!input) return;
+  if(!input){showToast('Error: no se encontro el campo');return;}
   const code=input.value.trim().toUpperCase();
-  // Códigos válidos — formato FZ5-XXXX da 5 créditos, FZ15-XXXX da 15
+  if(!code){showToast(es?'⚠️ Escribe el codigo':'⚠️ Enter the code');return;}
   const match5=code.match(/^FZ5-[A-Z0-9]{4}$/);
   const match15=code.match(/^FZ15-[A-Z0-9]{4}$/);
-  // Verificar que no se haya usado antes
   const usedCodes=JSON.parse(localStorage.getItem('ft_used_codes')||'[]');
-  if(usedCodes.includes(code)){showToast(es?'⚠️ Código ya usado':'⚠️ Code already used');return;}
+  if(usedCodes.includes(code)){showToast(es?'⚠️ Codigo ya usado':'⚠️ Code already used');return;}
   if(match5||match15){
     const qty=match15?15:5;
     addExtraCredits(qty);
     usedCodes.push(code);
     localStorage.setItem('ft_used_codes',JSON.stringify(usedCodes));
-    document.getElementById('_upgradeOv').remove();
-    showToast(es?`✅ +${qty} créditos activados`:`✅ +${qty} credits activated`);
+    // Cerrar modal
+    var ov=document.getElementById('_upgradeOv');
+    if(ov) ov.remove();
+    showToast(es?'✅ +'+qty+' creditos activados':'✅ +'+qty+' credits activated');
     renderStep1();
   } else {
-    showToast(es?'❌ Código inválido':'❌ Invalid code');
+    showToast(es?'❌ Codigo invalido. Ejemplo: FZ5-R4M9':'❌ Invalid code. Example: FZ5-R4M9');
   }
 }
 
