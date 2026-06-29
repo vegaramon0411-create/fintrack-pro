@@ -1485,7 +1485,13 @@ function updateHeroDinero(){
   const efData = JSON.parse(localStorage.getItem('ft_data')||'{}');
   const emergency = efData.emergency||0;
   const investments = JSON.parse(localStorage.getItem('ft_investments')||'[]');
-  const totalInvested = investments.reduce((a,i)=>a+(parseFloat(i.amount)||0),0);
+  const totalInvested = investments.reduce((a,i)=>{
+    const shares = parseFloat(i.shares)||1;
+    const avg = parseFloat(i.avgPrice)||0;
+    const cur = parseFloat(i.curPrice)||avg;
+    // Usar valor actual si existe, si no el costo, si no amount legacy
+    return a + (shares>1||avg>0 ? shares*cur : parseFloat(i.amount)||0);
+  },0);
   const patrimony = availSavings + emergency + totalInvested;
 
   const totals = getMonthTotals();
@@ -2429,7 +2435,12 @@ function renderMiDineroTab(){
   const emergencyFund=efData.emergency||0;
   const availSavings=parseFloat(localStorage.getItem('ft_available_savings')||'0');
   const investments=JSON.parse(localStorage.getItem('ft_investments')||'[]');
-  const totalInvested=investments.reduce((a,i)=>a+(parseFloat(i.amount)||0),0);
+  const totalInvested=investments.reduce((a,i)=>{
+    const shares=parseFloat(i.shares)||1;
+    const avg=parseFloat(i.avgPrice)||0;
+    const cur=parseFloat(i.curPrice)||avg;
+    return a+(shares>1||avg>0 ? shares*cur : parseFloat(i.amount)||0);
+  },0);
   const hogarConnected=isHogarConnected();
   const sharedSpent=hogarConnected?(totals.hogarSpent||0):0;
   const personalSpent=(totals.personalNeedsSpent||0)+(totals.wantsSpent||0);
