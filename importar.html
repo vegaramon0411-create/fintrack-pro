@@ -1819,6 +1819,25 @@ async function compressAndEncode(file){
 ══════════════════════════════════════ */
 loadSession();
 renderStep1();
+
+// Sincronizar créditos extra del GAS en segundo plano
+(async function syncCreditsFromGAS(){
+  try {
+    if(!user||!user.email) return;
+    const GAS_URL_CREDITS = 'https://script.google.com/macros/s/AKfycbwITyU4qld-IOEVKyLU9XHI46T8g_LjJaNp3nlQgler8-nMeIlztMmG_lZMVMm9cBkP/exec';
+    const url = GAS_URL_CREDITS + '?action=checkAccess&email=' + encodeURIComponent(user.email);
+    const res = await fetch(url);
+    const data = await res.json();
+    if(data && data.creditsExtra && data.creditsExtra > 0){
+      const ai = JSON.parse(localStorage.getItem('ft_ai_credits')||'{"used":0,"extra":0}');
+      if(data.creditsExtra > (ai.extra||0)){
+        ai.extra = data.creditsExtra;
+        localStorage.setItem('ft_ai_credits', JSON.stringify(ai));
+        renderStep1(); // refrescar badge
+      }
+    }
+  } catch(e){}
+})();
 </script>
 </body>
 </html>
