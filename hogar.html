@@ -737,7 +737,7 @@ function renderFondosCards(calc, es){
     +proyHtml(avgEmerg, emerg.actual||0, emerg.meta||0, emerg.fecha||'')
     +(sobrante>0?'<div style="background:rgba(26,122,74,.06);border:1.5px dashed var(--g-main);border-radius:10px;padding:10px;margin-top:8px;display:flex;align-items:center;justify-content:space-between">'
       +'<div style="font-size:12px;color:var(--g-dark)">💡 '+(es?'Sugerido':'Suggested')+': <strong>'+fmtFondo(Math.round(sobrante*0.5))+'/mes</strong></div>'
-      +'<button onclick="abrirAporteModal(\'emerg\',undefined,'+Math.round(sobrante*0.5)+')" style="background:var(--g-main);color:white;border:none;border-radius:8px;padding:7px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">'+(es?'Depositar':'Deposit')+'</button>'
+      +'<button onclick="abrirAporteModal(\'emerg\')" style="background:var(--g-main);color:white;border:none;border-radius:8px;padding:7px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">'+(es?'Depositar':'Deposit')+'</button>'
       +'</div>':'')
     +'<div id="secEmerg" style="display:none;margin-top:12px;border-top:1px solid var(--off);padding-top:12px">'
     +'<div style="font-size:11px;font-weight:700;margin-bottom:8px;color:var(--text3);text-transform:uppercase">'+(es?'Configurar':'Configure')+'</div>'
@@ -797,7 +797,7 @@ function toggleSeccion(id){
 
 // ── MODAL DE APORTE ──
 var _aporteCtx = null;
-function abrirAporteModal(tipo, idx, montoSugerido){
+function abrirAporteModal(tipo, idx){
   _aporteCtx = {tipo:tipo, idx:idx};
   var fondos = loadFondos();
   var es = lang==='es';
@@ -861,7 +861,7 @@ function abrirAporteModal(tipo, idx, montoSugerido){
     document.getElementById('_btnCerrarAporte').addEventListener('click',function(){ document.getElementById('_aporteModal').style.display='none'; });
   }
   // Reset
-  document.getElementById('_aporteMonto').value = montoSugerido||'';
+  document.getElementById('_aporteMonto').value='';
   document.getElementById('_aporteFecha').value=new Date().toISOString().split('T')[0];
   document.getElementById('_presBanner').style.display='none';
   document.getElementById('_btnNuevo').style.borderColor='#E4E6F0'; document.getElementById('_btnNuevo').style.background='#F7F8FC';
@@ -1434,7 +1434,7 @@ function setLang(l){
   let s = sessionStorage.getItem('ft_user')||localStorage.getItem('ft_user');
   if(!s){ window.location.replace('login.html'); return; }
   user = JSON.parse(s);
-  lang = localStorage.getItem('ft_lang')||user.lang||'es';
+  lang = user.lang||localStorage.getItem('ft_lang')||'es';
   if(!sessionStorage.getItem('ft_user')) sessionStorage.setItem('ft_user',s);
 
   const hogar = loadHogar();
