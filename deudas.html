@@ -997,7 +997,7 @@ function closeDetailOutside(e){ if(e.target===document.getElementById('detailOve
 /* \u2500\u2500 LANG + NAV \u2500\u2500 */
 function setLang(l){
   lang=l;
-  sessionStorage.setItem('ft_lang',l);
+  localStorage.setItem('ft_lang',l);
   localStorage.setItem('ft_lang',l);
   document.getElementById('ltES').classList.toggle('on',l==='es');
   document.getElementById('ltEN').classList.toggle('on',l==='en');

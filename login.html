@@ -546,7 +546,7 @@ let userData = {};
 /* ─── LANGUAGE ─── */
 function setLang(l) {
   lang = l;
-  sessionStorage.setItem('ft_lang', l);
+  localStorage.setItem('ft_lang', l);
   document.getElementById('langES').classList.toggle('on', l==='es');
   document.getElementById('langEN').classList.toggle('on', l==='en');
   document.querySelectorAll('[data-es]').forEach(el => {
@@ -823,7 +823,7 @@ function finishSetup() {
   };
 
   sessionStorage.setItem('ft_user', JSON.stringify(session));
-  sessionStorage.setItem('ft_lang', langPref);
+  localStorage.setItem('ft_lang', langPref);
   localStorage.setItem('ft_user', JSON.stringify(session));   // persists across reloads
   localStorage.setItem('ft_lang', langPref);
   localStorage.setItem('ft_user_setup', '1');

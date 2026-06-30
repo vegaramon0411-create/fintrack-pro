@@ -509,7 +509,7 @@ function fmtD(n) { return '$'+Math.abs(n).toLocaleString('en-US',{minimumFractio
 /* ── LANG ── */
 function setLang(l) {
   lang = l;
-  sessionStorage.setItem('ft_lang', l);
+  localStorage.setItem('ft_lang', l);
   document.getElementById('ltES').classList.toggle('on', l==='es');
   document.getElementById('ltEN').classList.toggle('on', l==='en');
   document.querySelectorAll('[data-es]').forEach(el => {

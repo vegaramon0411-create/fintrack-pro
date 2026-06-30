@@ -976,13 +976,14 @@ function loadSession() {
 ══════════════════════════════════════════ */
 function setLang(l) {
   lang = l;
-  sessionStorage.setItem('ft_lang', l);
+  localStorage.setItem('ft_lang', l);
   document.getElementById('ltES').classList.toggle('on', l==='es');
   document.getElementById('ltEN').classList.toggle('on', l==='en');
   document.querySelectorAll('[data-es]').forEach(el => {
     const v = el.getAttribute('data-'+l);
     if (v) el.textContent = v;
   });
+  if (document.getElementById('mCat')) { document.getElementById('mCat').innerHTML=''; populateCategorySelect(); }
   renderDashboard();
 }
 
@@ -1704,6 +1705,7 @@ function openModal() {
   document.getElementById('btnDeleteEntry').style.display = 'none';
   cancelQuickForm();
   switchInputTab('manual', document.getElementById('tabBtnManual'));
+  populateCategorySelect();
   setType('gasto');
   // Init hogar toggle
   isHogarTx = false;
@@ -1923,6 +1925,27 @@ function showToast(icon, title, msg, color) {
 /* ══════════════════════════════════════════
    SHARED HELPERS — type & category setters
 ══════════════════════════════════════════ */
+function populateCategorySelect() {
+  const sel = document.getElementById('mCat');
+  if (!sel || sel.options.length > 0) return; // ya llenado, no duplicar
+  const es = lang === 'es';
+  const cats = [
+    { v:'🛒 Supermercado',        es:'🛒 Supermercado',          en:'🛒 Groceries' },
+    { v:'🏠 Renta / Hipoteca',    es:'🏠 Renta / Hipoteca',      en:'🏠 Rent / Mortgage' },
+    { v:'⛽ Gasolina',             es:'⛽ Gasolina',               en:'⛽ Gas' },
+    { v:'💊 Salud',                es:'💊 Salud',                  en:'💊 Health' },
+    { v:'📱 Teléfono/Internet',   es:'📱 Teléfono/Internet',     en:'📱 Phone/Internet' },
+    { v:'🔧 Mantenimiento',       es:'🔧 Mantenimiento',         en:'🔧 Maintenance' },
+    { v:'🍔 Restaurantes',        es:'🍔 Restaurantes',          en:'🍔 Restaurants' },
+    { v:'🎬 Entretenimiento',     es:'🎬 Entretenimiento',       en:'🎬 Entertainment' },
+    { v:'👕 Ropa',                 es:'👕 Ropa',                   en:'👕 Clothing' },
+    { v:'✈️ Viajes',               es:'✈️ Viajes',                 en:'✈️ Travel' },
+    { v:'💳 Deudas',               es:'💳 Deudas',                 en:'💳 Debts' },
+    { v:'📦 Otros',                es:'📦 Otros',                  en:'📦 Other' }
+  ];
+  sel.innerHTML = cats.map(c => `<option value="${c.v}">${es?c.es:c.en}</option>`).join('');
+}
+
 function setType(type) {
   currentType = type;
   document.querySelectorAll('.type-btn').forEach(b => {

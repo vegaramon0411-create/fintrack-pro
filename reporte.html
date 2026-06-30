@@ -693,7 +693,7 @@ function downloadPDF(){
    LANG + INIT
 ══════════════════════════════════════ */
 function setLang(l){
-  lang=l; sessionStorage.setItem('ft_lang',l);
+  lang=l; localStorage.setItem('ft_lang',l);
   document.getElementById('ltES').classList.toggle('on',l==='es');
   document.getElementById('ltEN').classList.toggle('on',l==='en');
   document.querySelectorAll('[data-es]').forEach(el=>{const v=el.getAttribute('data-'+l);if(v)el.textContent=v;});

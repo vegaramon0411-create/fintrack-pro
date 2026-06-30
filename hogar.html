@@ -755,12 +755,11 @@ function renderFondosCards(calc, es){
   var metasCards = (fondos.metas||[]).map(function(meta, idx){
     var avg = calcAvgAporte(meta.hist);
     return '<div class="card" style="margin-top:12px">'
-      +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'
-      +'<div><div style="font-size:14px;font-weight:800">🎯 '+(meta.nombre||'Meta')+'</div>'
+      +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;gap:8px">'
+      +'<div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:800">🎯 '+(meta.nombre||'Meta')+'</div>'
       +'<div style="font-size:11px;color:var(--text3)">'+(meta.meta>0?fmtFondo(meta.meta)+' objetivo':'Sin monto objetivo')+(meta.fecha?' · '+meta.fecha:'')+'</div></div>'
-      +'<div style="display:flex;gap:6px">'
-      +'<div style="display:flex;gap:6px">'
-      +'<button data-midx="'+idx+'" onclick="abrirAporteModal(\'meta\',parseInt(this.dataset.midx))" style="background:var(--g-main);color:white;border:none;border-radius:10px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">+</button>'
+      +'<div style="display:flex;gap:6px;flex-shrink:0">'
+      +'<button data-tsec2="'+('secMeta'+idx)+'" onclick="toggleSeccion(this.dataset.tsec2)" style="background:var(--off);border:1.5px solid var(--border);border-radius:10px;padding:5px 10px;font-size:12px;cursor:pointer;font-family:inherit">⚙️</button>'
       +'<button data-eidx="'+idx+'" onclick="eliminarMeta(parseInt(this.dataset.eidx))" style="background:var(--red-dim);color:var(--red);border:none;border-radius:10px;padding:5px 8px;font-size:12px;cursor:pointer;font-family:inherit">🗑</button>'
       +'</div></div>'
       +'<div style="text-align:center;background:var(--pur-dim);border-radius:12px;padding:12px;margin-bottom:8px">'
@@ -769,7 +768,7 @@ function renderFondosCards(calc, es){
       +(meta.meta>0?progBar(meta.actual||0,meta.meta):'')
       +'</div>'
       +proyHtml(avg, meta.actual||0, meta.meta||0, meta.fecha||'')
-      +'<div style="background:rgba(123,94,167,.06);border:1.5px dashed var(--purple);border-radius:10px;padding:10px;margin-top:8px;display:flex;align-items:center;justify-content:space-between">'
+      +'<div style="background:rgba(123,94,167,.06);border:1.5px dashed var(--purple);border-radius:10px;padding:10px;margin-top:8px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">'
       +'<div style="font-size:12px;color:var(--purple);font-weight:600">'+(es?'Agregar a esta meta':'Add to this goal')+'</div>'
       +'<button data-midx="'+idx+'" onclick="abrirAporteModal(\'meta\',parseInt(this.dataset.midx))" style="background:var(--purple);color:white;border:none;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">'+(es?'💵 Depositar':'💵 Deposit')+'</button>'
       +'</div>'
