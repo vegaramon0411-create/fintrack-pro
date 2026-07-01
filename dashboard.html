@@ -749,6 +749,9 @@ body {
       <div id="goalsPreview"></div>
     </div>
 
+    <!-- APORTE DEL MES -->
+    <div id="aporteMesCard" style="display:none"></div>
+
   </div><!-- /page -->
 </div><!-- /main -->
 </div><!-- /app -->
@@ -1056,9 +1059,17 @@ function getCategoryType(cat) {
 function getMonthTotals() {
   const data = loadData();
   const now  = new Date();
-  const txs  = data.transactions.filter(t => {
-    const d = new Date(t.date);
-    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  const curYear  = now.getFullYear();
+  const curMonth = now.getMonth();
+
+  const txs = data.transactions.filter(t => {
+    if (!t.date) return false;
+    // Parsear manualmente para evitar bug de timezone en iOS Safari
+    // 'YYYY-MM-DD' interpretado como UTC puede caer en mes anterior en zonas UTC-X
+    const parts = String(t.date).split(/[-T]/);
+    const y = parseInt(parts[0]);
+    const m = parseInt(parts[1]) - 1; // 0-indexed
+    return y === curYear && m === curMonth;
   });
 
   const totals = { gasto:0, ingreso:0, inversion:0, ahorro:0, suscripcion:0, hipoteca:0 };
@@ -1071,14 +1082,29 @@ function getMonthTotals() {
   let hogarSpent = 0, personalNeedsSpent = 0, personalWantsSpent = 0;
   const hogarConnected = (() => { try{ const h=JSON.parse(localStorage.getItem('ft_hogar')||'{}'); return h.connected===true && !h.manuallyLeft; }catch(e){return false;} })();
 
+  // Calcular el % del hogar que le corresponde a este usuario según el modo
+  const myHogarPct = (() => {
+    try {
+      const h = JSON.parse(localStorage.getItem('ft_hogar')||'{}');
+      if(!h.connected) return 0.5;
+      const mode = h.mode||'equal';
+      if(mode === 'equal') return 0.5;
+      const myIncome = parseFloat(user.income)||0;
+      const partnerIncome = parseFloat(h.partnerIncome)||0;
+      const total = myIncome + partnerIncome;
+      return total > 0 ? myIncome/total : 0.5;
+    } catch(e){ return 0.5; }
+  })();
+
   txs.forEach(t => {
     if (t.type === 'gasto' || t.type === 'suscripcion' || t.type === 'hipoteca') {
       const amt = parseFloat(t.amount) || 0;
       const kind = t.type === 'hipoteca' ? 'needs' : getCategoryType(t.cat);
-
       if(hogarConnected && t.hogar === true){
         hogarSpent += amt;
-        if(kind === 'needs') needsSpent += amt; else wantsSpent += amt;
+        // Solo sumar la parte proporcional al 50/30/20 personal
+        const myPart = amt * myHogarPct;
+        if(kind === 'needs') needsSpent += myPart; else wantsSpent += myPart;
       } else {
         if(kind === 'needs'){ needsSpent += amt; personalNeedsSpent += amt; }
         else { wantsSpent += amt; personalWantsSpent += amt; }
@@ -1220,6 +1246,9 @@ function renderDashboard() {
 
   // ── GOALS PREVIEW ──
   renderGoalsPreview();
+
+  // ── APORTE DEL MES (hogar) ──
+  renderAporteMes(totals);
 
   // ── APPLY PREMIUM LOCKS ──
   applyDashboardLocks();
@@ -1390,7 +1419,129 @@ function renderEmergency() {
     </div>`).join('');
 }
 
-/* ══════════════════════════════════════════
+function renderAporteMes(totals){
+  const card = document.getElementById('aporteMesCard');
+  if(!card) return;
+
+  // Solo mostrar si hay hogar conectado
+  const hogar = (() => { try{ return JSON.parse(localStorage.getItem('ft_hogar')||'{}'); }catch(e){ return {}; } })();
+  if(!hogar.connected || hogar.manuallyLeft){ card.style.display='none'; return; }
+
+  const es = lang==='es';
+  const income = user.income || 0;
+  if(income <= 0){ card.style.display='none'; return; }
+
+  // Porcentajes (defaults: 50% hogar necesidades, 10% ahorro hogar, 40% personal)
+  const payPct  = parseFloat(hogar.payPctHogar)||50;
+  const savePct = parseFloat(hogar.saveHogarPct)||10;
+  const totalHogarPct = payPct + savePct; // 60%
+
+  // Frecuencia de pago del usuario
+  const freq = user.payFreq || 'weekly';
+  const checksPerMonth = freq==='weekly'?4:freq==='biweekly'?2:1;
+  const freqLabel = es
+    ? {weekly:'semanal',biweekly:'quincenal',monthly:'mensual'}[freq]
+    : {weekly:'weekly',biweekly:'bi-weekly',monthly:'monthly'}[freq];
+
+  // Monto por cheque
+  const aporteTotal    = income * totalHogarPct / 100;  // $1,800 si $3,000 y 60%
+  const aportePorCheque = aporteTotal / checksPerMonth;  // $450/semana
+  const personalPorCheque = (income * 40/100) / checksPerMonth;
+
+  // Cuánto ya depositó al hogar este mes (gastos marcados hogar + ahorros hogar)
+  const yaDepositado = (totals.hogarSpent||0) + ((totals.ahorro||0));
+  const falta = Math.max(0, aporteTotal - yaDepositado);
+  const depositadoPct = aporteTotal > 0 ? Math.min((yaDepositado/aporteTotal)*100,100) : 0;
+
+  // Sobrante del 50% de necesidades hogar
+  const presupuestoNecesidades = income * payPct / 100;  // $1,500
+  const gastadoHogar = totals.hogarSpent || 0;
+  const sobrante = Math.max(0, presupuestoNecesidades - gastadoHogar);
+
+  // Ahorros en metas hogar este mes
+  const fondos = (() => { try{ return JSON.parse(localStorage.getItem('ft_hogar_fondos')||'{}'); }catch(e){ return {}; }})();
+  const now = new Date();
+  const mesKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  let ahorroMetasMes = 0;
+  (fondos.metas||[]).forEach(m=>{
+    (m.hist||[]).forEach(h=>{ if(h.fecha && h.fecha.startsWith(mesKey) && h.desdePres) ahorroMetasMes += h.monto||0; });
+  });
+  (fondos.emerg ? [fondos.emerg] : []).forEach(e=>{
+    (e.hist||[]).forEach(h=>{ if(h.fecha && h.fecha.startsWith(mesKey) && h.desdePres) ahorroMetasMes += h.monto||0; });
+  });
+  const sobranteReal = Math.max(0, sobrante - ahorroMetasMes);
+  const mitadSobrante = sobranteReal / 2;
+
+  const statusColor = falta <= 0 ? 'var(--g-main)' : 'var(--amber)';
+  const statusIcon  = falta <= 0 ? '✅' : '⏳';
+  const statusTxt   = falta <= 0
+    ? (es?'Aporte del mes completado':'Month contribution complete')
+    : (es?`Faltan ${fmt(falta)} por depositar`:`${fmt(falta)} remaining to deposit`);
+
+  card.style.display = '';
+  card.innerHTML = `
+  <div class="card" style="border-left:4px solid ${statusColor};margin-top:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+      <div style="font-size:14px;font-weight:800">🏠 ${es?'Mi aporte al hogar':'My household contribution'}</div>
+      <div style="font-size:11px;font-weight:700;color:${statusColor}">${statusIcon} ${falta<=0?(es?'Al día':'Up to date'):(es?'Pendiente':'Pending')}</div>
+    </div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:14px">${statusTxt}</div>
+
+    <!-- BARRA DE PROGRESO -->
+    <div style="height:8px;background:var(--border);border-radius:100px;overflow:hidden;margin-bottom:6px">
+      <div style="height:100%;width:${depositadoPct.toFixed(0)}%;background:${statusColor};border-radius:100px;transition:width .4s"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-bottom:14px">
+      <span>${es?'Depositado':'Deposited'}: ${fmt(yaDepositado)}</span>
+      <span>${es?'Meta':'Goal'}: ${fmt(aporteTotal)} (${totalHogarPct}%)</span>
+    </div>
+
+    <!-- POR CHEQUE -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+      <div style="background:var(--red-dim);border-radius:12px;padding:12px;text-align:center">
+        <div style="font-size:10px;color:var(--red);font-weight:700;margin-bottom:4px">🏠 ${es?`Al hogar (${freqLabel})`:`To household (${freqLabel})`}</div>
+        <div style="font-size:20px;font-weight:800;color:var(--red)">${fmt(aportePorCheque)}</div>
+        <div style="font-size:10px;color:var(--text3)">${payPct}% ${es?'necesidades':'needs'} + ${savePct}% ${es?'ahorro':'savings'}</div>
+      </div>
+      <div style="background:var(--blu-dim);border-radius:12px;padding:12px;text-align:center">
+        <div style="font-size:10px;color:var(--blue);font-weight:700;margin-bottom:4px">👤 ${es?`Personal (${freqLabel})`:`Personal (${freqLabel})`}</div>
+        <div style="font-size:20px;font-weight:800;color:var(--blue)">${fmt(personalPorCheque)}</div>
+        <div style="font-size:10px;color:var(--text3)">40% ${es?'para ti':'for you'}</div>
+      </div>
+    </div>
+
+    <!-- SOBRANTE DEL MES -->
+    ${sobranteReal > 0 ? `
+    <div style="background:var(--g-light);border-radius:12px;padding:14px">
+      <div style="font-size:12px;font-weight:800;color:var(--g-dark);margin-bottom:4px">💰 ${es?'Sobrante del 50% hogar este mes':'Household 50% surplus this month'}</div>
+      <div style="font-size:22px;font-weight:800;color:var(--g-main);margin-bottom:2px">${fmt(sobranteReal)}</div>
+      ${ahorroMetasMes > 0 ? `<div style="font-size:10px;color:var(--text3);margin-bottom:8px">${es?`Ya se depositaron ${fmt(ahorroMetasMes)} a metas este mes`:`${fmt(ahorroMetasMes)} already deposited to goals this month`}</div>` : ''}
+      <div style="font-size:11px;color:var(--g-dark);margin-bottom:8px">${es?'¿Qué hacer con el sobrante?':'What to do with the surplus?'}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
+        <div onclick="go('hogar.html')" style="background:white;border-radius:8px;padding:8px;text-align:center;cursor:pointer;border:1.5px solid var(--g-main)">
+          <div style="font-size:16px">🛡️</div>
+          <div style="font-size:9px;font-weight:700;color:var(--g-dark)">${fmt(sobranteReal)}</div>
+          <div style="font-size:9px;color:var(--text3)">${es?'Emergencia':'Emergency'}</div>
+        </div>
+        <div onclick="go('hogar.html')" style="background:white;border-radius:8px;padding:8px;text-align:center;cursor:pointer;border:1.5px solid var(--purple)">
+          <div style="font-size:16px">🎯</div>
+          <div style="font-size:9px;font-weight:700;color:var(--purple)">${fmt(sobranteReal)}</div>
+          <div style="font-size:9px;color:var(--text3)">${es?'A metas':'To goals'}</div>
+        </div>
+        <div style="background:white;border-radius:8px;padding:8px;text-align:center;border:1.5px solid var(--blue)">
+          <div style="font-size:16px">👥</div>
+          <div style="font-size:9px;font-weight:700;color:var(--blue)">${fmt(mitadSobrante)}</div>
+          <div style="font-size:9px;color:var(--text3)">${es?'c/u':'each'}</div>
+        </div>
+      </div>
+    </div>` : gastadoHogar > 0 ? `
+    <div style="background:var(--off);border-radius:10px;padding:10px;font-size:11px;color:var(--text2);text-align:center">
+      📊 ${es?'Sin sobrante este mes — el presupuesto del hogar está aprovechado':'No surplus this month — household budget is fully used'}
+    </div>` : ''}
+  </div>`;
+}
+
+/* ══* ══════════════════════════════════════════
    SUBSCRIPTIONS
 ══════════════════════════════════════════ */
 const defaultSubs = [
@@ -1504,7 +1655,14 @@ function updateHeroDinero(){
     const val = (avg>0||cur>0) ? shares*cur : amt;
     return a + val;
   },0);
-  const patrimony = availSavings + emergency + totalInvested;
+  const hogar = (() => { try{ return JSON.parse(localStorage.getItem('ft_hogar')||'{}'); }catch(e){ return {}; } })();
+  const hogarConn = hogar.connected && !hogar.manuallyLeft;
+  const persPct2 = hogarConn ? (100-(parseFloat(hogar.payPctHogar)||50)-(parseFloat(hogar.saveHogarPct)||10)) : 100;
+  const myHogarPct2 = (() => { try{ if(!hogarConn) return 0.5; const mode=hogar.mode||'equal'; if(mode==='equal') return 0.5; const total=(user.income||0)+(parseFloat(hogar.partnerIncome)||0); return total>0?(user.income||0)/total:0.5; }catch(e){ return 0.5; } })();
+  const personalBudget2 = income * persPct2 / 100;
+  const personalGastado2 = (totals.personalNeedsSpent||0) + (totals.personalWantsSpent||0) + (totals.hogarSpent||0)*myHogarPct2;
+  const personalDisponible2 = Math.max(0, personalBudget2 - personalGastado2);
+  const patrimony = availSavings + emergency + totalInvested + (hogarConn ? personalDisponible2 : 0);
 
   const totals = getMonthTotals();
   const income = user.income||0;
@@ -2516,10 +2674,23 @@ function renderMiDineroTab(){
     return a+val;
   },0);
   const hogarConnected=isHogarConnected();
-  const sharedSpent=hogarConnected?(totals.hogarSpent||0):0;
-  const personalSpent=(totals.personalNeedsSpent||0)+(totals.wantsSpent||0);
-  const leftover=income+extraIncome-sharedSpent-personalSpent;
-  const totalPatrimony=availSavings+emergencyFund+totalInvested;
+  const sharedSpent = hogarConnected ? (totals.hogarSpent||0) : 0;
+  const myHogarPct = (() => { try { const h=JSON.parse(localStorage.getItem('ft_hogar')||'{}'); if(!h.connected) return 0.5; const mode=h.mode||'equal'; if(mode==='equal') return 0.5; const total=(user.income||0)+(parseFloat(h.partnerIncome)||0); return total>0?(user.income||0)/total:0.5; } catch(e){ return 0.5; } })();
+  const personalNeedsSpent = totals.personalNeedsSpent||0;
+  const personalWantsSpent = totals.personalWantsSpent||0;
+  const hogarMyPart = sharedSpent * myHogarPct;
+  const personalSpent = personalNeedsSpent + personalWantsSpent + hogarMyPart;
+  const leftover = income + extraIncome - sharedSpent - (personalNeedsSpent + personalWantsSpent);
+
+  // Disponible personal = 40% del ingreso - lo que ya gasté personal este mes
+  const hogar = (() => { try{ return JSON.parse(localStorage.getItem('ft_hogar')||'{}'); }catch(e){ return {}; } })();
+  const persPct = hogarConnected ? (100 - (parseFloat(hogar.payPctHogar)||50) - (parseFloat(hogar.saveHogarPct)||10)) : 100;
+  const personalBudget = income * persPct / 100;
+  const personalGastado = personalNeedsSpent + personalWantsSpent + hogarMyPart;
+  const personalDisponible = Math.max(0, personalBudget - personalGastado);
+  const personalGastadoPct = personalBudget > 0 ? Math.min((personalGastado/personalBudget)*100, 100) : 0;
+
+  const totalPatrimony = availSavings + emergencyFund + totalInvested + personalDisponible;
 
   const container=document.getElementById('miDineroContent');
   if(!container) return;
@@ -2564,6 +2735,24 @@ function renderMiDineroTab(){
     <div class="card-hd">💎 ${es?'Mi patrimonio personal':'My personal assets'}</div>
     <div style="font-size:11px;color:var(--text3);margin-top:-10px;margin-bottom:14px">🔒 ${es?'Privado — nadie más lo ve':'Private — nobody else sees this'}</div>
 
+    <!-- DISPONIBLE PERSONAL ESTE MES (40%) -->
+    ${hogarConnected ? `<div style="background:var(--g-light);border-radius:14px;padding:16px;margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:10px;color:var(--g-dark);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">👤 ${es?`Personal disponible (${persPct}%)`:`Personal available (${persPct}%)`}</div>
+          <div style="font-size:24px;font-weight:800;color:var(--g-main)">${fmt(personalDisponible)}</div>
+          <div style="font-size:10px;color:var(--g-dark);opacity:.7;margin-top:2px">${es?`De ${fmt(personalBudget)} · gastado ${fmt(personalGastado)}`:`Of ${fmt(personalBudget)} · spent ${fmt(personalGastado)}`}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-size:18px;font-weight:800;color:${personalGastadoPct>=90?'var(--red)':'var(--g-main)'}">${Math.round(personalGastadoPct)}%</div>
+          <div style="font-size:9px;color:var(--text3)">${es?'usado':'used'}</div>
+        </div>
+      </div>
+      <div style="height:6px;background:rgba(0,0,0,.1);border-radius:100px;overflow:hidden;margin-top:10px">
+        <div style="height:100%;width:${personalGastadoPct.toFixed(0)}%;background:${personalGastadoPct>=90?'var(--red)':'var(--g-main)'};border-radius:100px;transition:width .4s"></div>
+      </div>
+    </div>` : ''}
+
     <!-- AHORRO LIBRE -->
     <div style="background:var(--pur-dim);border-radius:14px;padding:16px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:10px">
       <div style="flex:1;min-width:0">
@@ -2601,9 +2790,10 @@ function renderMiDineroTab(){
         <div style="font-size:28px;font-weight:800">${fmt(totalPatrimony)}</div>
       </div>
       <div style="text-align:right;opacity:.7;font-size:11px">
-        <div>${fmt(availSavings)} ${es?'ahorro':'savings'}</div>
-        <div>${fmt(emergencyFund)} ${es?'emergencia':'emergency'}</div>
-        <div>${fmt(totalInvested)} ${es?'inversiones':'investments'}</div>
+        ${hogarConnected?`<div>👤 ${fmt(personalDisponible)} ${es?'disponible':'available'}</div>`:''}
+        <div>💵 ${fmt(availSavings)} ${es?'ahorro libre':'free savings'}</div>
+        <div>🛡️ ${fmt(emergencyFund)} ${es?'emergencia':'emergency'}</div>
+        <div>📈 ${fmt(totalInvested)} ${es?'inversiones':'investments'}</div>
       </div>
     </div>
   </div>
