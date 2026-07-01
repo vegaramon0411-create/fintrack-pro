@@ -588,7 +588,7 @@ function renderTab(calc, sharedTxs, partnerName, partnerIncome, mode, totalIncom
   if(!container) return;
 
   if(activeTab==='resumen') container.innerHTML = renderResumen(calc, sharedTxs, partnerName, partnerIncome, totalIncome, mode);
-  else if(activeTab==='distribucion') container.innerHTML = renderDistribucion(calc, partnerName, totalIncome, mode);
+  else if(activeTab==='distribucion') container.innerHTML = renderDistribucion(calc, partnerName, totalIncome, mode, partnerIncome);
   else if(activeTab==='deudas') container.innerHTML = renderDeudas(partnerName);
   else if(activeTab==='inversiones') container.innerHTML = renderHogarInversiones();
   else if(activeTab==='guia') container.innerHTML = renderGuia(mode, calc, partnerName);
@@ -800,11 +800,13 @@ function toggleSeccion(id){
 
 // ── MODAL DE APORTE ──
 var _aporteCtx = null;
+var _desdePres = false;
+
 function abrirAporteModal(tipo, idx, montoSugerido){
   _aporteCtx = {tipo:tipo, idx:idx};
+  _desdePres = false;
   var fondos = loadFondos();
   var es = lang==='es';
-  // Crear modal estático si no existe
   var m = document.getElementById('_aporteModal');
   if(!m){
     m = document.createElement('div');
@@ -814,51 +816,50 @@ function abrirAporteModal(tipo, idx, montoSugerido){
       +'<div style="font-size:15px;font-weight:800;margin-bottom:14px" id="_aporteTitle">Depositar</div>'
       +'<label style="font-size:11px;font-weight:700;color:#9395A5;display:block;margin-bottom:6px">MONTO ($)</label>'
       +'<input type="number" id="_aporteMonto" placeholder="0.00" min="0" step="1" style="width:100%;padding:11px;border:1.5px solid #E4E6F0;border-radius:10px;font-size:16px;font-family:inherit;margin-bottom:10px;box-sizing:border-box;outline:none">'
-      +'<label style="font-size:11px;font-weight:700;color:#9395A5;display:block;margin-bottom:6px">TIPO DE DEPÓSITO</label>'
+      +'<label style="font-size:11px;font-weight:700;color:#9395A5;display:block;margin-bottom:6px">TIPO DE DEPOSITO</label>'
       +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">'
-      +'<button id="_btnNuevo" style="padding:10px;border-radius:10px;border:2px solid #1A7A4A;background:#E8F7EF;color:#0F5132;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">💰 Nuevo depósito</button>'
-      +'<button id="_btnYaHecho" style="padding:10px;border-radius:10px;border:2px solid #E4E6F0;background:#F7F8FC;color:#4A4E69;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">📦 Ya lo tenía ahorrado</button>'
+      +'<button id="_btnNuevo" style="padding:10px;border-radius:10px;border:2px solid #E4E6F0;background:#F7F8FC;color:#4A4E69;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">Nuevo deposito</button>'
+      +'<button id="_btnYaHecho" style="padding:10px;border-radius:10px;border:2px solid #E4E6F0;background:#F7F8FC;color:#4A4E69;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">Ya lo tenia ahorrado</button>'
       +'</div>'
-      +'<div id="_presBanner" style="background:#E8F7EF;border-radius:10px;padding:10px;margin-bottom:14px;font-size:12px;color:#0F5132;display:none">✅ Se descontará del presupuesto mensual (categoría ahorro)</div>'
+      +'<div id="_presBanner" style="background:#E8F7EF;border-radius:10px;padding:10px;margin-bottom:14px;font-size:12px;color:#0F5132;display:none">Se descontara del presupuesto mensual</div>'
       +'<label style="font-size:11px;font-weight:700;color:#9395A5;display:block;margin-bottom:6px">FECHA</label>'
       +'<input type="date" id="_aporteFecha" style="width:100%;padding:11px;border:1.5px solid #E4E6F0;border-radius:10px;font-size:14px;font-family:inherit;margin-bottom:14px;box-sizing:border-box">'
       +'<button id="_btnGuardarAporte" style="width:100%;background:#1A7A4A;color:white;border:none;border-radius:12px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:8px">Guardar</button>'
       +'<button id="_btnCerrarAporte" style="width:100%;background:#F7F8FC;border:1.5px solid #E4E6F0;border-radius:12px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">Cancelar</button>'
       +'</div>';
     document.body.appendChild(m);
-    // Conectar botones
-    var desdePres = false;
-    document.getElementById('_btnNuevo').addEventListener('click',function(){
-      desdePres=true;
-      this.style.borderColor='#1A7A4A'; this.style.background='#E8F7EF';
-      var b=document.getElementById('_btnYaHecho'); b.style.borderColor='#E4E6F0'; b.style.background='#F7F8FC';
-      document.getElementById('_presBanner').style.display='block';
-    });
-    document.getElementById('_btnYaHecho').addEventListener('click',function(){
-      desdePres=false;
-      this.style.borderColor='#1A7A4A'; this.style.background='#E8F7EF';
-      var b=document.getElementById('_btnNuevo'); b.style.borderColor='#E4E6F0'; b.style.background='#F7F8FC';
-      document.getElementById('_presBanner').style.display='none';
-    });
+
+    function updateBtns(){
+      var bN=document.getElementById('_btnNuevo'), bY=document.getElementById('_btnYaHecho');
+      bN.style.borderColor=_desdePres?'#1A7A4A':'#E4E6F0';
+      bN.style.background=_desdePres?'#E8F7EF':'#F7F8FC';
+      bN.style.color=_desdePres?'#0F5132':'#4A4E69';
+      bY.style.borderColor=(!_desdePres)?'#1A7A4A':'#E4E6F0';
+      bY.style.background=(!_desdePres)?'#E8F7EF':'#F7F8FC';
+      bY.style.color=(!_desdePres)?'#0F5132':'#4A4E69';
+      document.getElementById('_presBanner').style.display=_desdePres?'block':'none';
+    }
+    document.getElementById('_btnNuevo').addEventListener('click',function(){ _desdePres=true; updateBtns(); });
+    document.getElementById('_btnYaHecho').addEventListener('click',function(){ _desdePres=false; updateBtns(); });
     document.getElementById('_btnGuardarAporte').addEventListener('click',function(){
       var monto=parseFloat(document.getElementById('_aporteMonto').value);
       var fecha=document.getElementById('_aporteFecha').value;
-      if(!monto||monto<=0){showToast(lang==='es'?'Ingresa un monto válido':'Enter a valid amount');return;}
+      if(!monto||monto<=0){showToast(lang==='es'?'Ingresa un monto valido':'Enter a valid amount');return;}
       if(!fecha){showToast(lang==='es'?'Selecciona una fecha':'Select a date');return;}
       var f=loadFondos();
-      var entry={monto:monto,fecha:fecha,desdePres:desdePres};
+      var entry={monto:monto,fecha:fecha,desdePres:_desdePres};
       if(_aporteCtx.tipo==='emerg'){
         f.emerg.actual=(f.emerg.actual||0)+monto;
         f.emerg.hist=f.emerg.hist||[]; f.emerg.hist.push(entry);
-        if(desdePres) registrarEnPresupuesto(monto,lang==='es'?'Fondo emergencia hogar':'Household emergency fund');
+        if(_desdePres) registrarEnPresupuesto(monto,lang==='es'?'Fondo emergencia hogar':'Household emergency fund');
       } else if(_aporteCtx.tipo==='meta'){
         var meta=f.metas[_aporteCtx.idx];
         if(meta){ meta.actual=(meta.actual||0)+monto; meta.hist=meta.hist||[]; meta.hist.push(entry);
-          if(desdePres) registrarEnPresupuesto(monto,meta.nombre||'Meta hogar'); }
+          if(_desdePres) registrarEnPresupuesto(monto,meta.nombre||'Meta hogar'); }
       }
       saveFondos(f);
       document.getElementById('_aporteModal').style.display='none';
-      showToast(lang==='es'?'✅ Aporte guardado':'✅ Deposit saved');
+      showToast(lang==='es'?'Aporte guardado':'Deposit saved');
       render();
     });
     document.getElementById('_btnCerrarAporte').addEventListener('click',function(){ document.getElementById('_aporteModal').style.display='none'; });
@@ -882,6 +883,36 @@ function registrarEnPresupuesto(monto, desc){
     localStorage.setItem('ft_data',JSON.stringify(data));
   }catch(e){}
 }
+
+function saveDistConfig(){
+  var h = loadHogar();
+  var paySlider = document.querySelector('input[oninput*="hogar"]');
+  var saveSlider = document.querySelector('input[oninput*="ahorro"]');
+  if(paySlider) h.payPctHogar = parseInt(paySlider.value)||50;
+  if(saveSlider) h.saveHogarPct = parseInt(saveSlider.value)||10;
+  var myFreqSel = document.getElementById('myFreqSel');
+  var partFreqSel = document.getElementById('partFreqSel');
+  if(myFreqSel) h.myPayFreq = myFreqSel.value;
+  if(partFreqSel) h.partPayFreq = partFreqSel.value;
+  saveHogar(h);
+  showToast(lang==='es'?'✅ Configuración guardada':'✅ Config saved');
+  render();
+}
+
+function updateDistPcts(val, tipo){
+  var h = loadHogar();
+  var payPct = tipo==='hogar' ? parseInt(val) : (parseFloat(h.payPctHogar)||50);
+  var savePct = tipo==='ahorro' ? parseInt(val) : (parseFloat(h.saveHogarPct)||10);
+  var personal = 100 - payPct - savePct;
+  var el = document.getElementById('personalPctShow');
+  if(el) el.textContent = Math.max(0,personal)+'%';
+  if(personal < 0){
+    if(el) el.style.color='var(--red)';
+  } else {
+    if(el) el.style.color='var(--blue)';
+  }
+}
+
 
 function guardarConfigEmerg(){
   var fondos=loadFondos();
@@ -937,40 +968,114 @@ function eliminarMovFondo(tipo, histIdx, metaIdx){
 function aplicarAporte(tipo, monto){ abrirAporteModal(tipo); }
 
 
-function renderDistribucion(calc, partnerName, totalIncome, mode){
+function renderDistribucion(calc, partnerName, totalIncome, mode, partnerIncome){
   const es = lang==='es';
-  const rows = [
-    { label: es?'Ingreso combinado':'Combined income', val: fmt(totalIncome), color:'var(--g-main)', pct:100 },
-    { label: es?`Gastos del hogar (${calc.myPct}/${calc.partnerPct})`:`Household expenses (${calc.myPct}/${calc.partnerPct})`, val: '-'+fmt(calc.sharedTotal), color:'var(--red)', pct: totalIncome>0?Math.round((calc.sharedTotal/totalIncome)*100):0 },
-  ];
-  const leftover = totalIncome - calc.sharedTotal;
+  const partnerInc = partnerIncome || 0;
+  const hogar = loadHogar();
+
+  // Configuración de pago guardada en ft_hogar
+  const payPct    = parseFloat(hogar.payPctHogar)||50;  // % que va al hogar
+  const savePct   = parseFloat(hogar.saveHogarPct)||10; // % que va a ahorro
+  const personalPct = 100 - payPct - savePct;           // lo que queda personal
+
+  const myFreq    = user.payFreq || hogar.myPayFreq || 'weekly';   // lee del perfil primero
+  const partFreq  = hogar.partPayFreq  || 'biweekly';
+
+  const freqLabel = { weekly: es?'Semanal':'Weekly', biweekly: es?'Quincenal':'Bi-weekly', monthly: es?'Mensual':'Monthly' };
+
+  // Cuánto aporta cada quien al hogar por cheque
+  const myPerCheck    = user.income    > 0 ? (user.income    * payPct/100) / (myFreq==='weekly'?4:myFreq==='biweekly'?2:1) : 0;
+  const partPerCheck  = partnerInc > 0 ? (partnerInc * payPct/100) / (partFreq==='weekly'?4:partFreq==='biweekly'?2:1) : 0;
+
+  // Sobrante del mes
+  const leftover = Math.max(0, totalIncome - calc.sharedTotal);
+  const hogarBudget = totalIncome * payPct / 100;
+  const hogarSurplus = Math.max(0, hogarBudget - calc.sharedTotal);
+
   const myPart = mode==='common' ? leftover/2 : calc.myLeftover;
   const partnerPart = mode==='common' ? leftover/2 : calc.partnerLeftover;
 
-  return `
-  <div class="card">
-    <div class="card-title">💰 ${es?'Cómo fluye el dinero':'How money flows'}</div>
-    <div class="card-sub">${es?'Basado en el modo actual y gastos de este mes':'Based on current mode and this month\'s expenses'}</div>
+  const rows = [
+    { label: es?'Ingreso combinado':'Combined income', val: fmt(totalIncome), color:'var(--g-main)', pct:100 },
+    { label: es?`Al hogar (${payPct}%)`:`To household (${payPct}%)`, val: '-'+fmt(hogarBudget), color:'var(--red)', pct:payPct },
+    { label: es?`Al ahorro (${savePct}%)`:`To savings (${savePct}%)`, val: '-'+fmt(totalIncome*savePct/100), color:'var(--amber)', pct:savePct },
+    { label: es?`Personal (${personalPct}%)`:`Personal (${personalPct}%)`, val: fmt(totalIncome*personalPct/100), color:'var(--blue)', pct:personalPct },
+  ];
 
-    <!-- FLOW VISUAL -->
+  return `
+  <!-- PLAN DE DISTRIBUCIÓN -->
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+      <div class="card-title">📋 ${es?'Plan de distribución':'Distribution plan'}</div>
+      <button onclick="toggleSeccion('secDistConfig')" style="background:var(--off);border:1.5px solid var(--border);border-radius:10px;padding:4px 10px;font-size:12px;cursor:pointer;font-family:inherit">⚙️</button>
+    </div>
+    <div class="card-sub">${es?'Cómo dividir cada cheque automáticamente':'How to split each paycheck automatically'}</div>
+
+    <!-- SLIDERS CONFIG -->
+    <div id="secDistConfig" style="display:none;background:var(--off);border-radius:12px;padding:14px;margin-bottom:14px">
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;margin-bottom:12px">${es?'Configurar porcentajes':'Configure percentages'}</div>
+      <div style="margin-bottom:10px">
+        <label style="font-size:12px;font-weight:600;display:flex;justify-content:space-between"><span>${es?'Al hogar (gastos compartidos)':'To household (shared expenses)'}</span><span id="payPctVal">${payPct}%</span></label>
+        <input type="range" min="10" max="80" value="${payPct}" step="5" oninput="document.getElementById('payPctVal').textContent=this.value+'%';updateDistPcts(this.value,'hogar')" style="width:100%;margin-top:4px">
+      </div>
+      <div style="margin-bottom:10px">
+        <label style="font-size:12px;font-weight:600;display:flex;justify-content:space-between"><span>${es?'A ahorro del hogar':'To household savings'}</span><span id="savePctVal">${savePct}%</span></label>
+        <input type="range" min="0" max="30" value="${savePct}" step="5" oninput="document.getElementById('savePctVal').textContent=this.value+'%';updateDistPcts(this.value,'ahorro')" style="width:100%;margin-top:4px">
+      </div>
+      <div style="background:white;border-radius:8px;padding:10px;font-size:12px;color:var(--text2);margin-bottom:12px">
+        <span style="color:var(--blue);font-weight:700">${es?'Personal restante:':'Personal remaining:'} <span id="personalPctShow">${personalPct}%</span></span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+        <div>
+          <label style="font-size:11px;font-weight:600;color:var(--text3);display:block;margin-bottom:4px">${es?'Tu frecuencia de pago':'Your pay frequency'}</label>
+          <select id="myFreqSel" onchange="saveDistConfig()" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-family:inherit">
+            <option value="weekly" ${myFreq==='weekly'?'selected':''}>${freqLabel.weekly}</option>
+            <option value="biweekly" ${myFreq==='biweekly'?'selected':''}>${freqLabel.biweekly}</option>
+            <option value="monthly" ${myFreq==='monthly'?'selected':''}>${freqLabel.monthly}</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:600;color:var(--text3);display:block;margin-bottom:4px">${es?`Frecuencia de ${partnerName}`:`${partnerName}'s frequency`}</label>
+          <select id="partFreqSel" onchange="saveDistConfig()" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-family:inherit">
+            <option value="weekly" ${partFreq==='weekly'?'selected':''}>${freqLabel.weekly}</option>
+            <option value="biweekly" ${partFreq==='biweekly'?'selected':''}>${freqLabel.biweekly}</option>
+            <option value="monthly" ${partFreq==='monthly'?'selected':''}>${freqLabel.monthly}</option>
+          </select>
+        </div>
+      </div>
+      <button onclick="saveDistConfig()" style="width:100%;background:var(--g-main);color:white;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">${es?'Guardar configuración':'Save configuration'}</button>
+    </div>
+
+    <!-- FLUJO DEL DINERO -->
     <div style="background:var(--off);border-radius:12px;padding:14px;margin-bottom:14px">
       ${rows.map(r=>`
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:13px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:13px">
         <span style="color:var(--text2)">${r.label}</span>
         <span style="font-weight:800;color:${r.color}">${r.val}</span>
       </div>
-      <div class="prog-bar" style="margin-bottom:10px">
-        <div class="prog-fill" style="width:${r.pct}%;background:${r.color}"></div>
+      <div style="height:6px;background:var(--border);border-radius:100px;overflow:hidden;margin-bottom:10px">
+        <div style="height:100%;width:${r.pct}%;background:${r.color};border-radius:100px"></div>
       </div>`).join('')}
-      <div style="display:flex;justify-content:space-between;align-items:center;font-size:14px;font-weight:800;border-top:1px solid var(--border);padding-top:10px">
-        <span>${es?'Lo que sobra para repartir':'Available to distribute'}</span>
-        <span style="color:var(--g-main)">${fmt(Math.max(0,leftover))}</span>
+    </div>
+
+    <!-- POR CHEQUE -->
+    <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px">💵 ${es?'Lo que aportas cada cheque al hogar':'Your household contribution per paycheck'}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+      <div style="background:var(--g-light);border-radius:12px;padding:14px;text-align:center">
+        <div style="font-size:10px;color:var(--g-dark);margin-bottom:2px">${user.name||'Tú'} · ${freqLabel[myFreq]}</div>
+        <div style="font-size:20px;font-weight:800;color:var(--g-main)">${fmt(myPerCheck)}</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:2px">${es?'por cheque al hogar':'per paycheck to household'}</div>
+      </div>
+      <div style="background:var(--blu-dim);border-radius:12px;padding:14px;text-align:center">
+        <div style="font-size:10px;color:var(--blue);margin-bottom:2px">${partnerName} · ${freqLabel[partFreq]}</div>
+        <div style="font-size:20px;font-weight:800;color:var(--blue)">${fmt(partPerCheck)}</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:2px">${es?'por cheque al hogar':'per paycheck to household'}</div>
       </div>
     </div>
 
-    <!-- SPLIT -->
-    <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px">${es?'Le queda a cada quien':'Each person gets'}</div>
-    <div class="person-grid">
+    <!-- SPLIT PERSONAL -->
+    <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px">👤 ${es?'Personal este mes':'Personal this month'}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
       <div style="background:var(--g-light);border-radius:12px;padding:14px;text-align:center">
         <div style="font-size:10px;color:var(--g-dark);margin-bottom:4px">${user.name||'Tú'} (${calc.myPct}%)</div>
         <div style="font-size:22px;font-weight:800;color:var(--g-main)">${fmt(Math.max(0,myPart))}</div>
@@ -983,9 +1088,26 @@ function renderDistribucion(calc, partnerName, totalIncome, mode){
       </div>
     </div>
 
-    <div style="background:var(--amb-dim);border-radius:10px;padding:12px;margin-top:12px;font-size:12px;color:#7A3B0A">
-      🔒 ${es?'Los gastos personales de cada quien son privados y no se combinan aquí.':'Each person\'s personal expenses are private and not combined here.'}
-    </div>
+    <!-- SOBRANTE DEL HOGAR -->
+    ${hogarSurplus > 0 ? `
+    <div style="background:var(--g-light);border:1.5px solid var(--g-main);border-radius:12px;padding:14px">
+      <div style="font-size:13px;font-weight:800;color:var(--g-dark);margin-bottom:6px">🎉 ${es?'Sobrante del hogar este mes':'Household surplus this month'}</div>
+      <div style="font-size:24px;font-weight:800;color:var(--g-main);margin-bottom:8px">${fmt(hogarSurplus)}</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:10px">${es?'Gastaron menos del presupuesto del hogar. Opciones:':'You spent less than the household budget. Options:'}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+        <div style="background:white;border-radius:8px;padding:10px;text-align:center">
+          <div style="font-size:11px;font-weight:700;color:var(--purple)">${fmt(hogarSurplus/2)}</div>
+          <div style="font-size:10px;color:var(--text3)">${es?'Mover a metas':'Move to goals'}</div>
+        </div>
+        <div style="background:white;border-radius:8px;padding:10px;text-align:center">
+          <div style="font-size:11px;font-weight:700;color:var(--g-main)">${fmt(hogarSurplus/2)}</div>
+          <div style="font-size:10px;color:var(--text3)">${es?'Repartir en partes iguales':'Split equally'}</div>
+        </div>
+      </div>
+    </div>` : `
+    <div style="background:var(--off);border-radius:10px;padding:12px;font-size:12px;color:var(--text2)">
+      🔒 ${es?'Los gastos personales de cada quien son privados.':'Each person\'s personal expenses are private.'}
+    </div>`}
   </div>`;
 }
 
@@ -1132,59 +1254,136 @@ function makeDebtPersonal(id){
 /* ── TAB: GUIA ── */
 function renderGuia(mode, calc, partnerName){
   const es = lang==='es';
-  const modeGuides = {
-    equal: {
-      title: es?'⚖️ Modo 50/50 — Cómo hacerlo funcionar':'⚖️ 50/50 Mode — How to make it work',
-      options: [
-        { title: es?'Opción A — Cuenta conjunta (ideal)':'Option A — Joint account (ideal)', body: es?`Abran una cuenta de cheques conjunta en su banco. Depositen sus sueldos ahí. Paguen todos los gastos del hogar desde esa cuenta. Lo que sobra lo dividen a la mitad y cada quien lo mueve a su cuenta personal.`:`Open a joint checking account at your bank. Deposit your paychecks there. Pay all household expenses from that account. Split what's left and move it to personal accounts.` },
-        { title: es?'Opción B — Zelle mensual':'Option B — Monthly Zelle', body: es?`Decidan quién paga qué. Al final del mes calculen si alguien pagó de más. La app les dice cuánto se deben entre sí. Transfiéranse la diferencia por Zelle.`:`Decide who pays what. At month end, calculate if someone paid more. The app tells you how much you owe each other. Transfer the difference via Zelle.` },
-        { title: es?'⚠️ Considera esto':'⚠️ Consider this', body: es?`Si uno de los dos gana significativamente más que el otro, el modo Proporcional puede ser más justo. Con 50/50 ambos pagan igual aunque no ganen igual.`:`If one of you earns significantly more, Proportional mode may be fairer. With 50/50 both pay equally even if income differs.` }
-      ]
-    },
-    proportional: {
-      title: es?'📊 Modo Proporcional — Cómo hacerlo funcionar':'📊 Proportional Mode — How to make it work',
-      options: [
-        { title: es?'Opción A — Cuenta conjunta':'Option A — Joint account', body: es?`Igual que 50/50 pero cada quien deposita según su porcentaje. ${user.name||'Tú'} deposita ${calc.myPct}% de los gastos del hogar. ${partnerName} deposita ${calc.partnerPct}%.`:`Same as 50/50 but each deposits their percentage. ${user.name||'You'} deposits ${calc.myPct}% of household expenses. ${partnerName} deposits ${calc.partnerPct}%.` },
-        { title: es?'Opción B — Porcentaje de cada cheque':'Option B — Percentage of each paycheck', body: es?`Cuando reciban su cheque, aparten automáticamente el porcentaje que les corresponde para el hogar. El resto es personal.`:`When you receive your paycheck, automatically set aside your household percentage. The rest is personal.` },
-        { title: es?'✅ Por qué es justo':'✅ Why it\'s fair', body: es?`Quien gana más aporta más, pero ambos quedan con una proporción similar de ingreso personal. Es el modo más equitativo cuando hay diferencia de ingresos.`:`Whoever earns more contributes more, but both keep a similar proportion of personal income. It's the most equitable mode when there's an income difference.` }
-      ]
-    },
-    common: {
-      title: es?'🏦 Fondo común — Cómo hacerlo funcionar':'🏦 Common Fund — How to make it work',
-      options: [
-        { title: es?'Opción A — Cuenta conjunta (muy recomendado)':'Option A — Joint account (highly recommended)', body: es?`Ambos depositan su sueldo completo en una cuenta conjunta. Pagan TODOS los gastos del hogar desde ahí. Lo que sobra lo dividen según el acuerdo (50/50 o proporcional) y cada quien lo mueve a su cuenta personal.`:`Both deposit full paycheck into a joint account. Pay ALL household expenses from there. Split what's left per agreement and move to personal accounts.` },
-        { title: es?'Opción B — Uno administra, el otro transfiere':'Option B — One manages, other transfers', body: es?`Una persona administra los gastos del hogar. La otra transfiere su parte completa cada mes. Requiere mucha confianza y comunicación.`:`One person manages household expenses. The other transfers their full share monthly. Requires trust and communication.` },
-        { title: es?'💡 Ventaja principal':'💡 Main advantage', body: es?`Maximiza el ahorro del hogar porque todo está centralizado. Ideal si tienen metas grandes juntos (casa, viaje, fondo de emergencia).`:`Maximizes household savings because everything is centralized. Ideal for big goals together (house, travel, emergency fund).` }
-      ]
-    }
-  };
+  const hogar = loadHogar();
+  const payPct  = parseFloat(hogar.payPctHogar)||50;
+  const savePct = parseFloat(hogar.saveHogarPct)||10;
+  const persPct = 100 - payPct - savePct;
+  const freq = user.payFreq || hogar.myPayFreq || 'weekly';
+  const freqLabel = es
+    ? {weekly:'semanal',biweekly:'quincenal',monthly:'mensual'}[freq]
+    : {weekly:'weekly',biweekly:'bi-weekly',monthly:'monthly'}[freq];
+  const checksPerMonth = freq==='weekly'?4:freq==='biweekly'?2:1;
+  const myIncome = user.income || 0;
+  const aportePorCheque = myIncome * (payPct+savePct)/100 / checksPerMonth;
+  const personalPorCheque = myIncome * persPct/100 / checksPerMonth;
 
-  const guide = modeGuides[mode] || modeGuides.equal;
+  function fmt2(n){ return '$'+Math.abs(n||0).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0}); }
 
   return `
-  <div class="card">
-    <div class="card-title">${guide.title}</div>
-    <div class="card-sub">${es?'Cómo implementarlo en la vida real':'How to implement it in real life'}</div>
-    ${guide.options.map(opt=>`
-    <div class="howto-option">
-      <div class="howto-opt-title">${opt.title}</div>
-      <div class="howto-opt-sub">${opt.body}</div>
-    </div>`).join('')}
-  </div>
+  <!-- CÓMO FUNCIONA EL SISTEMA -->
+  <div class="card" style="border-left:4px solid var(--g-main)">
+    <div class="card-title">📋 ${es?'Cómo funciona el sistema':'How the system works'}</div>
+    <div class="card-sub">${es?'El modelo de finanzas compartidas de tu hogar':'Your household shared finance model'}</div>
 
-  <div class="card" style="background:var(--g-light);border:none">
-    <div class="card-title" style="color:var(--g-dark)">📌 ${es?'Reglas del hogar':'Household rules'}</div>
-    <div style="font-size:12px;color:var(--g-dark);line-height:1.6">
-      ✅ ${es?'Los gastos del hogar se marcan como "🏠 Del hogar" al registrarlos':'Household expenses are tagged as "🏠 Household" when adding them'}<br>
-      ✅ ${es?'Los gustos personales son privados — nadie los ve':'Personal spending is private — nobody sees it'}<br>
-      ✅ ${es?'Las deudas compartidas muestran el saldo completo a ambos':'Shared debts show the full balance to both'}<br>
-      ✅ ${es?'Las inversiones del hogar se pueden combinar':'Household investments can be combined'}<br>
-      🔒 ${es?'Tu ahorro personal nunca es visible para tu pareja':'Your personal savings are never visible to your partner'}
+    <!-- PASO 1: CUANDO LLEGA EL CHEQUE -->
+    <div style="background:var(--g-light);border-radius:14px;padding:16px;margin-bottom:12px">
+      <div style="font-size:13px;font-weight:800;color:var(--g-dark);margin-bottom:10px">💵 ${es?'Paso 1 — Cuando llega tu cheque':'Step 1 — When your paycheck arrives'}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px">
+        <div style="background:white;border-radius:10px;padding:10px;text-align:center">
+          <div style="font-size:18px;font-weight:800;color:var(--red)">${payPct}%</div>
+          <div style="font-size:10px;font-weight:700;color:var(--text3);margin-top:2px">🏠 ${es?'Necesidades hogar':'Household needs'}</div>
+        </div>
+        <div style="background:white;border-radius:10px;padding:10px;text-align:center">
+          <div style="font-size:18px;font-weight:800;color:var(--amber)">${savePct}%</div>
+          <div style="font-size:10px;font-weight:700;color:var(--text3);margin-top:2px">💰 ${es?'Ahorro hogar':'Household savings'}</div>
+        </div>
+        <div style="background:white;border-radius:10px;padding:10px;text-align:center">
+          <div style="font-size:18px;font-weight:800;color:var(--blue)">${persPct}%</div>
+          <div style="font-size:10px;font-weight:700;color:var(--text3);margin-top:2px">👤 ${es?'Personal tuyo':'Your personal'}</div>
+        </div>
+      </div>
+      ${myIncome > 0 ? `<div style="background:white;border-radius:10px;padding:10px;font-size:12px;color:var(--text2)">
+        📅 ${es?`Pago ${freqLabel} — depositas al hogar`:`${freqLabel} pay — you deposit to household`} <strong style="color:var(--red)">${fmt2(aportePorCheque)}</strong> ${es?'y te quedan para ti':'and keep for yourself'} <strong style="color:var(--blue)">${fmt2(personalPorCheque)}</strong>
+      </div>` : ''}
+    </div>
+
+    <!-- PASO 2: GASTOS DEL HOGAR -->
+    <div style="background:var(--off);border-radius:14px;padding:16px;margin-bottom:12px">
+      <div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:10px">🛒 ${es?'Paso 2 — Cómo se cuentan los gastos del hogar':'Step 2 — How household expenses are counted'}</div>
+      <div style="font-size:12px;color:var(--text2);line-height:1.7;margin-bottom:10px">
+        ${es?`Cuando registras un gasto del hogar (despensa, renta, servicios), <strong>el monto total se registra en Hogar</strong>, pero en tu 50/30/20 personal solo se descuenta <strong>tu parte (${calc.myPct}%)</strong>. Lo mismo para ${partnerName}.`
+        :`When you log a household expense (groceries, rent, utilities), <strong>the full amount appears in Household</strong>, but in your personal 50/30/20 only <strong>your share (${calc.myPct}%)</strong> is deducted. Same for ${partnerName}.`}
+      </div>
+      <div style="background:white;border-radius:10px;padding:12px">
+        <div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:8px">${es?'EJEMPLO — Despensa $200':'EXAMPLE — Groceries $200'}</div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+          <span>🏠 ${es?'Registrado en Hogar':'Recorded in Household'}</span><strong>$200</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+          <span>👤 ${es?`Se descuenta a ti (${calc.myPct}%)`:`Deducted from you (${calc.myPct}%)`}</span><strong style="color:var(--red)">-${fmt2(200*calc.myPct/100)}</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:12px">
+          <span>👤 ${es?`Se descuenta a ${partnerName} (${calc.partnerPct}%)`:`Deducted from ${partnerName} (${calc.partnerPct}%)`}</span><strong style="color:var(--red)">-${fmt2(200*calc.partnerPct/100)}</strong>
+        </div>
+      </div>
+    </div>
+
+    <!-- PASO 3: AHORROS EN METAS -->
+    <div style="background:var(--pur-dim);border-radius:14px;padding:16px;margin-bottom:12px">
+      <div style="font-size:13px;font-weight:800;color:var(--purple);margin-bottom:10px">🎯 ${es?'Paso 3 — Ahorros en metas del hogar':'Step 3 — Savings toward household goals'}</div>
+      <div style="font-size:12px;color:var(--text2);line-height:1.7;margin-bottom:10px">
+        ${es?`Cuando depositan a una meta del hogar (Wedding, Hijo@, etc.) con "Nuevo depósito", <strong>sale del ${savePct}% de ahorro del hogar</strong>. En el 50/30/20 personal de cada quien se descuenta su parte.`
+        :`When you deposit to a household goal (Wedding, Child, etc.) with "New deposit", it <strong>comes from the ${savePct}% household savings</strong>. Each person's personal 50/30/20 shows their share deducted.`}
+      </div>
+      <div style="background:white;border-radius:10px;padding:12px">
+        <div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:8px">${es?'EJEMPLO — Meta Wedding $80 + Hijo@ $80':'EXAMPLE — Wedding goal $80 + Child $80'}</div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+          <span>🎯 ${es?'Total depositado a metas':'Total deposited to goals'}</span><strong>$160</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+          <span>💰 ${es?`Sale del ${savePct}% ahorro hogar`:`From ${savePct}% household savings`}</span><strong style="color:var(--amber)">-$160</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+          <span>👤 ${es?`Tu ahorro personal (${calc.myPct}%)`:`Your personal savings (${calc.myPct}%)`}</span><strong style="color:var(--purple)">-$80</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:12px">
+          <span>👤 ${es?`${partnerName} ahorro personal (${calc.partnerPct}%)`:`${partnerName} personal savings (${calc.partnerPct}%)`}</span><strong style="color:var(--purple)">-$80</strong>
+        </div>
+      </div>
+    </div>
+
+    <!-- PASO 4: SOBRANTE -->
+    <div style="background:var(--amb-dim);border-radius:14px;padding:16px;margin-bottom:12px">
+      <div style="font-size:13px;font-weight:800;color:#7A3B0A;margin-bottom:10px">💰 ${es?'Paso 4 — Sobrante a fin de mes':'Step 4 — Surplus at end of month'}</div>
+      <div style="font-size:12px;color:var(--text2);line-height:1.7;margin-bottom:10px">
+        ${es?`Si al final del mes sobró dinero del ${payPct}% de necesidades del hogar (gastaron menos), ese sobrante se puede:`
+        :`If at the end of the month the ${payPct}% household needs had a surplus (you spent less), that surplus can:`}
+      </div>
+      <div style="display:grid;grid-template-columns:1fr;gap:8px">
+        <div style="background:white;border-radius:10px;padding:10px;display:flex;gap:10px;align-items:center">
+          <div style="font-size:20px">🛡️</div>
+          <div><div style="font-size:12px;font-weight:700">${es?'Opción A — Fondo de emergencia del hogar':'Option A — Household emergency fund'}</div>
+          <div style="font-size:11px;color:var(--text3)">${es?'Todo el sobrante va al fondo de emergencias':'All surplus goes to emergency fund'}</div></div>
+        </div>
+        <div style="background:white;border-radius:10px;padding:10px;display:flex;gap:10px;align-items:center">
+          <div style="font-size:20px">🎯</div>
+          <div><div style="font-size:12px;font-weight:700">${es?'Opción B — Metas del hogar':'Option B — Household goals'}</div>
+          <div style="font-size:11px;color:var(--text3)">${es?'Aceleramos una meta (Wedding, casa, etc.)':'Accelerate a goal (Wedding, house, etc.)'}</div></div>
+        </div>
+        <div style="background:white;border-radius:10px;padding:10px;display:flex;gap:10px;align-items:center">
+          <div style="font-size:20px">👥</div>
+          <div><div style="font-size:12px;font-weight:700">${es?'Opción C — Repartir entre los dos':'Option C — Split between both'}</div>
+          <div style="font-size:11px;color:var(--text3)">${es?'Cada quien recibe su 50% en su cuenta personal':'Each person receives 50% in their personal account'}</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- REGLAS RÁPIDAS -->
+    <div style="background:var(--g-light);border-radius:12px;padding:14px">
+      <div style="font-size:12px;font-weight:800;color:var(--g-dark);margin-bottom:8px">📌 ${es?'Reglas rápidas':'Quick rules'}</div>
+      <div style="font-size:12px;color:var(--g-dark);line-height:1.8">
+        ✅ ${es?'Al registrar un gasto → marca si es 🏠 Del hogar o 👤 Personal':'When logging an expense → tag it 🏠 Household or 👤 Personal'}<br>
+        ✅ ${es?'Al depositar en una meta elige Nuevo deposito para descontar del mes':'When depositing to a goal choose New deposit to deduct from month'}<br>
+        ✅ ${es?'Los gastos personales de cada quien son privados':'Personal expenses of each person are private'}<br>
+        ✅ ${es?'Tu 50/30/20 incluye automáticamente tu parte de los gastos del hogar':'Your 50/30/20 automatically includes your share of household expenses'}<br>
+        🔒 ${es?'Tu ahorro y patrimonio personal nunca son visibles para tu pareja':'Your personal savings are never visible to your partner'}
+      </div>
     </div>
   </div>
 
   <button class="btn-secondary" onclick="changeMode()">${es?'🔄 Cambiar modo de finanzas':'🔄 Change finance mode'}</button>`;
 }
+
 
 /* ── MODE SELECTOR ── */
 function renderModeSelector(myIncome, partnerIncome, partnerName){
