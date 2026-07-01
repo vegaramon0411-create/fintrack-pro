@@ -1005,7 +1005,7 @@ function setLang(l){
   render();
 }
 function go(url){window.location.href=url;}
-function logout(){sessionStorage.clear();localStorage.removeItem('ft_user');localStorage.removeItem('ft_user_setup');localStorage.removeItem('ft_premium');localStorage.removeItem('ft_lang');window.location.replace('login.html');}
+function logout(){sessionStorage.clear();localStorage.removeItem('ft_premium');window.location.replace('login.html');}
 function openMoreMenu(){document.getElementById('moreOverlay').classList.add('open');}
 function closeMoreMenu(){document.getElementById('moreOverlay').classList.remove('open');}
 

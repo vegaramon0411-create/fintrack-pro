@@ -2488,13 +2488,10 @@ function updateBadges() {
    LOGOUT
 ══════════════════════════════════════════ */
 function logout() {
-  // Clear everything — including ft_user_setup so loadSession
-  // doesn't auto-rebuild the session from localStorage
+  // Solo limpiar la sesión activa — preservar datos del perfil y setup
   sessionStorage.clear();
-  localStorage.removeItem('ft_user');
-  localStorage.removeItem('ft_user_setup');
+  // NO borrar ft_user ni ft_user_setup para preservar ingreso y configuración
   localStorage.removeItem('ft_premium');
-  localStorage.removeItem('ft_lang');
   window.location.replace('login.html');
 }
 

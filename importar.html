@@ -388,7 +388,7 @@ function activarCodigoCreditos(){
 /* ── UTILS ── */
 function fmt(n){return '$'+Math.abs(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function go(url){window.location.href=url;}
-function logout(){sessionStorage.clear();localStorage.removeItem('ft_user');localStorage.removeItem('ft_user_setup');localStorage.removeItem('ft_premium');window.location.replace('login.html');}
+function logout(){sessionStorage.clear();localStorage.removeItem('ft_premium');window.location.replace('login.html');}
 function showToast(msg,dur=3000){const t=document.getElementById('toast');t.textContent=msg;t.style.display='block';setTimeout(()=>t.style.display='none',dur);}
 
 function setStep(n){
