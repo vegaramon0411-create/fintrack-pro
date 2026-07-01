@@ -475,6 +475,39 @@ function render(){
     ${buildHouseholdSection(T)}
   </div>
 
+  <!-- FRECUENCIA DE PAGO -->
+  <div class="card">
+    <div class="card-hd">💵 ${es?'Frecuencia de pago':'Pay frequency'}</div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:12px">${es?'Configura cuándo recibes tu sueldo para calcular cuánto depositar al hogar cada cheque.':'Configure your pay schedule to calculate how much to deposit per paycheck.'}</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">
+      ${['weekly','biweekly','monthly'].map(f=>{
+        const lbl = es ? {weekly:'Semanal',biweekly:'Quincenal',monthly:'Mensual'}[f] : {weekly:'Weekly',biweekly:'Bi-weekly',monthly:'Monthly'}[f];
+        const selected = (user.payFreq||'weekly')===f;
+        return `<button onclick="setPayFreq('${f}')" style="padding:10px 6px;border-radius:10px;border:2px solid ${selected?'var(--g-main)':'var(--border)'};background:${selected?'var(--g-light)':'var(--off)'};color:${selected?'var(--g-dark)':'var(--text2)'};font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">${lbl}</button>`;
+      }).join('')}
+    </div>
+    ${(()=>{
+      const freq = user.payFreq||'weekly';
+      const inc = user.income||0;
+      const payPct = 60; // 50% necesidades + 10% ahorro
+      const perCheck = inc * payPct/100 / (freq==='weekly'?4:freq==='biweekly'?2:1);
+      const personal = inc * 40/100 / (freq==='weekly'?4:freq==='biweekly'?2:1);
+      return `<div style="background:var(--g-light);border-radius:12px;padding:14px">
+        <div style="font-size:11px;color:var(--g-dark);font-weight:700;margin-bottom:8px">📋 ${es?'Por cheque':'Per paycheck'}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div style="text-align:center;background:white;border-radius:8px;padding:10px">
+            <div style="font-size:18px;font-weight:800;color:var(--red)">${fmt(perCheck)}</div>
+            <div style="font-size:10px;color:var(--text3)">${es?'→ Al hogar (60%)':'→ To household (60%)'}</div>
+          </div>
+          <div style="text-align:center;background:white;border-radius:8px;padding:10px">
+            <div style="font-size:18px;font-weight:800;color:var(--blue)">${fmt(personal)}</div>
+            <div style="font-size:10px;color:var(--text3)">${es?'→ Personal (40%)':'→ Personal (40%)'}</div>
+          </div>
+        </div>
+      </div>`;
+    })()}
+  </div>
+
   <!-- RECENT ACTIVITY -->
   <div class="card">
     <div class="card-hd">🕐 ${T.activity}</div>
@@ -854,6 +887,13 @@ function saveAvatar(){
 }
 
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.style.display='flex';setTimeout(()=>t.style.display='none',2500);}
+function setPayFreq(freq){
+  user.payFreq = freq;
+  const s = JSON.stringify(user);
+  localStorage.setItem('ft_user', s);
+  sessionStorage.setItem('ft_user', s);
+  render();
+}
 function go(url){window.location.href=url;}
 function logout(){sessionStorage.clear();localStorage.removeItem('ft_user');localStorage.removeItem('ft_user_setup');localStorage.removeItem('ft_premium');localStorage.removeItem('ft_lang');window.location.replace('login.html');}
 
