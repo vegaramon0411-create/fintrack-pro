@@ -354,6 +354,7 @@ function computeHealthScore(stats){
 
 /* ── RENDER ── */
 function render(){
+  const es = lang==='es';
   const stats = computeStats();
   const achievements = getAchievements(stats);
   const health = computeHealthScore(stats);
@@ -403,6 +404,33 @@ function render(){
 
   const savedAvatar = localStorage.getItem(AVATAR_KEY);
   const since = user.createdAt ? new Date(user.createdAt).toLocaleDateString(lang==='es'?'es-MX':'en-US',{year:'numeric',month:'long'}) : '—';
+
+  // Pre-calcular frecuencia de pago (fuera del template para evitar IIFE en iOS Safari)
+  const _freq = user.payFreq||'weekly';
+  const _inc = user.income||0;
+  const _hogar = (() => { try{ return JSON.parse(localStorage.getItem('ft_hogar')||'{}'); }catch(e){ return {}; } })();
+  const _hogarConn = _hogar.connected && !_hogar.manuallyLeft;
+  const _payPct = _hogarConn ? (parseFloat(_hogar.payPctHogar)||50) : 50;
+  const _savPct = _hogarConn ? (parseFloat(_hogar.saveHogarPct)||10) : 10;
+  const _totHogarPct = _payPct + _savPct;
+  const _persPct = 100 - _totHogarPct;
+  const _checks = _freq==='weekly'?4:_freq==='biweekly'?2:1;
+  const _perCheck = _inc * _totHogarPct/100 / _checks;
+  const _personal = _inc * _persPct/100 / _checks;
+  const _freqLabel = es ? {weekly:'Semanal',biweekly:'Quincenal',monthly:'Mensual'}[_freq] : {weekly:'Weekly',biweekly:'Bi-weekly',monthly:'Monthly'}[_freq];
+  const _freqHtml = _inc > 0 ? `<div style="background:var(--g-light);border-radius:12px;padding:14px">
+    <div style="font-size:11px;color:var(--g-dark);font-weight:700;margin-bottom:8px">📋 ${es?'Por cheque':'Per paycheck'} (${_freqLabel})</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div style="text-align:center;background:white;border-radius:8px;padding:10px">
+        <div style="font-size:18px;font-weight:800;color:var(--red)">${fmt(_perCheck)}</div>
+        <div style="font-size:10px;color:var(--text3)">${es?`→ Al hogar (${_totHogarPct}%)`:`→ To household (${_totHogarPct}%)`}</div>
+      </div>
+      <div style="text-align:center;background:white;border-radius:8px;padding:10px">
+        <div style="font-size:18px;font-weight:800;color:var(--blue)">${fmt(_personal)}</div>
+        <div style="font-size:10px;color:var(--text3)">${es?`→ Personal (${_persPct}%)`:`→ Personal (${_persPct}%)`}</div>
+      </div>
+    </div>
+  </div>` : '';
 
   const page = document.getElementById('page');
   page.innerHTML = `
@@ -482,30 +510,11 @@ function render(){
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">
       ${['weekly','biweekly','monthly'].map(f=>{
         const lbl = es ? {weekly:'Semanal',biweekly:'Quincenal',monthly:'Mensual'}[f] : {weekly:'Weekly',biweekly:'Bi-weekly',monthly:'Monthly'}[f];
-        const selected = (user.payFreq||'weekly')===f;
+        const selected = (_freq)===f;
         return `<button onclick="setPayFreq('${f}')" style="padding:10px 6px;border-radius:10px;border:2px solid ${selected?'var(--g-main)':'var(--border)'};background:${selected?'var(--g-light)':'var(--off)'};color:${selected?'var(--g-dark)':'var(--text2)'};font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">${lbl}</button>`;
       }).join('')}
     </div>
-    ${(()=>{
-      const freq = user.payFreq||'weekly';
-      const inc = user.income||0;
-      const payPct = 60; // 50% necesidades + 10% ahorro
-      const perCheck = inc * payPct/100 / (freq==='weekly'?4:freq==='biweekly'?2:1);
-      const personal = inc * 40/100 / (freq==='weekly'?4:freq==='biweekly'?2:1);
-      return `<div style="background:var(--g-light);border-radius:12px;padding:14px">
-        <div style="font-size:11px;color:var(--g-dark);font-weight:700;margin-bottom:8px">📋 ${es?'Por cheque':'Per paycheck'}</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-          <div style="text-align:center;background:white;border-radius:8px;padding:10px">
-            <div style="font-size:18px;font-weight:800;color:var(--red)">${fmt(perCheck)}</div>
-            <div style="font-size:10px;color:var(--text3)">${es?'→ Al hogar (60%)':'→ To household (60%)'}</div>
-          </div>
-          <div style="text-align:center;background:white;border-radius:8px;padding:10px">
-            <div style="font-size:18px;font-weight:800;color:var(--blue)">${fmt(personal)}</div>
-            <div style="font-size:10px;color:var(--text3)">${es?'→ Personal (40%)':'→ Personal (40%)'}</div>
-          </div>
-        </div>
-      </div>`;
-    })()}
+    ${_freqHtml}
   </div>
 
   <!-- RECENT ACTIVITY -->
