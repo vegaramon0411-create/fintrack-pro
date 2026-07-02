@@ -277,8 +277,23 @@ input, select, textarea { font-size: 16px !important; }
     </div>
     <!-- Info de la deuda seleccionada -->
     <div id="abonarDebtInfo" style="background:var(--off);border-radius:10px;padding:12px;margin-bottom:14px;display:none">
-      <div style="font-size:11px;color:var(--text3);margin-bottom:4px" data-es="Saldo actual" data-en="Current balance">Saldo actual</div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Saldo actual</div>
       <div style="font-size:22px;font-weight:800" id="abonarSaldoActual">$0</div>
+    </div>
+
+    <!-- NUEVO / YA LO TENÍA -->
+    <div style="margin-bottom:14px">
+      <label style="display:block;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Tipo de abono</label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <button id="abonarBtnNuevo" onclick="setAbonoTipo('nuevo')" type="button"
+          style="padding:10px;border-radius:10px;border:2px solid var(--g-main);background:var(--g-light);color:var(--g-dark);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;line-height:1.5">
+          💸 Nuevo abono<br><span style="font-size:9px;font-weight:400">Se descuenta del mes</span>
+        </button>
+        <button id="abonarBtnYaTenia" onclick="setAbonoTipo('existente')" type="button"
+          style="padding:10px;border-radius:10px;border:2px solid var(--border);background:var(--off);color:var(--text2);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;line-height:1.5">
+          📦 Ya lo tenía<br><span style="font-size:9px;font-weight:400">Solo registrar</span>
+        </button>
+      </div>
     </div>
     <div style="margin-bottom:14px">
       <label style="display:block;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px" data-es="Monto del abono ($)" data-en="Payment amount ($)">Monto del abono ($)</label>
@@ -1012,6 +1027,21 @@ function openMoreMenu(){document.getElementById('moreOverlay').classList.add('op
 function closeMoreMenu(){document.getElementById('moreOverlay').classList.remove('open');}
 
 /* ── ABONO ── */
+var abonoTipo = 'nuevo';
+
+function setAbonoTipo(tipo){
+  abonoTipo = tipo;
+  var bN=document.getElementById('abonarBtnNuevo');
+  var bE=document.getElementById('abonarBtnYaTenia');
+  if(!bN||!bE) return;
+  bN.style.borderColor = tipo==='nuevo'?'var(--g-main)':'var(--border)';
+  bN.style.background  = tipo==='nuevo'?'var(--g-light)':'var(--off)';
+  bN.style.color       = tipo==='nuevo'?'var(--g-dark)':'var(--text2)';
+  bE.style.borderColor = tipo==='existente'?'var(--g-main)':'var(--border)';
+  bE.style.background  = tipo==='existente'?'var(--g-light)':'var(--off)';
+  bE.style.color       = tipo==='existente'?'var(--g-dark)':'var(--text2)';
+}
+
 function openAbonar(debtId){
   const debts = loadDebts();
   const es = lang==='es';
@@ -1021,6 +1051,7 @@ function openAbonar(debtId){
   document.getElementById('abonarFecha').value = new Date().toISOString().split('T')[0];
   document.getElementById('abonarMonto').value = '';
   document.getElementById('abonarNota').value = '';
+  abonoTipo='nuevo'; setAbonoTipo('nuevo');
 
   if(debtId){
     // Viene de la card — deuda específica
@@ -1094,15 +1125,18 @@ function guardarAbono(){
 
   // Registrar en historial de abonos
   if(!debts[idx].abonos) debts[idx].abonos = [];
-  debts[idx].abonos.push({ id:Date.now(), monto, fecha, nota, saldoAntes:oldBalance, saldoDespues:newBalance });
+  debts[idx].abonos.push({ id:Date.now(), monto, fecha, nota, saldoAntes:oldBalance, saldoDespues:newBalance, tipo:abonoTipo });
 
-  // También registrar en ft_data como gasto tipo deuda
-  try {
-    const data = JSON.parse(localStorage.getItem('ft_data')||'{}');
-    data.transactions = data.transactions||[];
-    data.transactions.push({ id:Date.now(), type:'gasto', desc:(es?'Abono a ':'Payment to ')+d.name, amount:monto, date:fecha, cat:'💳 Deudas', note:nota });
-    localStorage.setItem('ft_data', JSON.stringify(data));
-  } catch(e){}
+  // Solo registrar en ft_data si es abono NUEVO del mes
+  if(abonoTipo === 'nuevo'){
+    try {
+      const data = JSON.parse(localStorage.getItem('ft_data')||'{}');
+      data.transactions = data.transactions||[];
+      const esHogar = d.type==='hipoteca' || d.type==='hogar';
+      data.transactions.push({ id:Date.now(), type:'gasto', desc:(es?'Abono a ':'Payment to ')+d.name, amount:monto, date:fecha, cat:'💳 Deudas', note:nota, hogar:esHogar });
+      localStorage.setItem('ft_data', JSON.stringify(data));
+    } catch(e){}
+  }
 
   saveDebts(debts);
   closeAbonar();
