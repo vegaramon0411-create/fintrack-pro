@@ -217,8 +217,21 @@ function renderList(){
       <div class="tx-amount" style="color:${t.type==='ingreso'?'var(--g-main)':'var(--red)'}">
         ${t.type==='ingreso'?'+':'-'}${fmt(parseFloat(t.amount)||0)}
       </div>
+      <button data-tid="${t.id}" onclick="deleteTx(this.dataset.tid)"
+        style="background:var(--red-dim);color:var(--red);border:none;border-radius:8px;padding:5px 8px;font-size:12px;cursor:pointer;font-family:inherit;flex-shrink:0;margin-left:4px">🗑</button>
     </div>
   `).join('');
+}
+
+function deleteTx(id){
+  const es = lang==='es';
+  if(!confirm(es?'¿Eliminar este movimiento?':'Delete this transaction?')) return;
+  try{
+    const data = JSON.parse(localStorage.getItem('ft_data')||'{}');
+    data.transactions = (data.transactions||[]).filter(t=>String(t.id)!==String(id));
+    localStorage.setItem('ft_data',JSON.stringify(data));
+    render();
+  }catch(e){}
 }
 
 (function init(){
