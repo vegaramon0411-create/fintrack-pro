@@ -948,7 +948,22 @@ let lang = 'es';
 
 function loadSession() {
   try {
-    let s = localStorage.getItem('ft_user') || sessionStorage.getItem('ft_user');
+    // Siempre leer de localStorage primero para tener los datos más frescos
+    let s = localStorage.getItem('ft_user');
+    // Validar que tenga income válido, si no intentar sessionStorage
+    if(s){
+      const parsed = JSON.parse(s);
+      if(!parsed || !parsed.income || parsed.income <= 0){
+        // ft_user existe pero income es 0 — buscar en sessionStorage como respaldo
+        const ss = sessionStorage.getItem('ft_user');
+        if(ss){
+          const pss = JSON.parse(ss);
+          if(pss && pss.income > 0) s = ss;
+        }
+      }
+    } else {
+      s = sessionStorage.getItem('ft_user');
+    }
     if (!s) {
       const setup = localStorage.getItem('ft_user_setup');
       if (setup) {
@@ -963,6 +978,7 @@ function loadSession() {
     }
     user = JSON.parse(s);
     lang = localStorage.getItem('ft_lang') || user.lang || 'es';
+    // Siempre sincronizar ambos storages con el valor más fresco
     localStorage.setItem('ft_user', s);
     sessionStorage.setItem('ft_user', s);
   } catch(e) {
