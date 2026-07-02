@@ -518,16 +518,30 @@ function renderDashboard(hogar){
     common: es?'🏦 Fondo común':'🏦 Common fund'
   };
 
+  // Cheques confirmados del mes - aportado real al hogar
+  const _now = new Date();
+  const _mes = _now.getFullYear()+'-'+String(_now.getMonth()+1).padStart(2,'0');
+  let _chequesDelMes = [];
+  try{ _chequesDelMes = (JSON.parse(localStorage.getItem('ft_cheques')||'[]')).filter(c=>c.mes===_mes); }catch(e){}
+  const _totalAportado = _chequesDelMes.reduce((a,c)=>a+(c.hogarAmt||0),0);
+  const _chequesMios = _chequesDelMes.filter(c=>!c.dePartner);
+  const _miAportado = _chequesMios.reduce((a,c)=>a+(c.hogarAmt||0),0);
+
   document.getElementById('page').innerHTML = `
   <!-- HERO -->
   <div class="hero-combined">
     <div class="hc-label">${es?'Ingreso combinado del hogar':'Combined household income'}</div>
     <div class="hc-amount">${fmt(totalIncome)}<span style="font-size:16px;opacity:.6">/mes</span></div>
+    ${_totalAportado > 0 ? `<div style="background:rgba(255,255,255,.15);border-radius:10px;padding:8px 12px;margin-top:8px;font-size:12px">
+      <div style="opacity:.7;margin-bottom:2px">${es?'Aportado al fondo del hogar este mes':'Contributed to household fund this month'}</div>
+      <div style="font-size:20px;font-weight:800">${fmt(_totalAportado)}</div>
+    </div>` : ''}
     <div class="hc-members">
       <div class="hc-member">
         <div class="hc-member-name">${user.name||'Tú'}</div>
         <div class="hc-member-amt">${fmt(myIncome)}</div>
         <div class="hc-member-pct">${calc.myPct}% ${es?'del total':'of total'}</div>
+        ${_miAportado > 0 ? `<div style="font-size:10px;opacity:.7;margin-top:2px">${es?'Aportado':'Contributed'}: ${fmt(_miAportado)}</div>` : ''}
       </div>
       <div class="hc-member">
         <div class="hc-member-name">${partnerName}</div>
