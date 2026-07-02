@@ -466,7 +466,8 @@ function saveInv(){
           desc:ticker,amount:amount,
           date:new Date().toISOString().split('T')[0],
           cat:'Inversion',note:platform,
-          hogar:invIsHogar&&isHogarConnected()
+          hogar:invIsHogar&&isHogarConnected(),
+          fromInvPage:true
         });
         localStorage.setItem('ft_data',JSON.stringify(data));
       }catch(e){}
