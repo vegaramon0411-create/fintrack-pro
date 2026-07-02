@@ -409,6 +409,8 @@ function render(){
 
   // Pre-calcular frecuencia de pago (fuera del template para evitar IIFE en iOS Safari)
   const _freq = user.payFreq||'weekly';
+  const _payDay = user.payDay||'thursday'; // día de la semana o número
+  const _payAuto = user.payAuto||false;
   const _inc = user.income||0;
   const _hogar = (() => { try{ return JSON.parse(localStorage.getItem('ft_hogar')||'{}'); }catch(e){ return {}; } })();
   const _hogarConn = _hogar.connected && !_hogar.manuallyLeft;
@@ -420,19 +422,42 @@ function render(){
   const _perCheck = _inc * _totHogarPct/100 / _checks;
   const _personal = _inc * _persPct/100 / _checks;
   const _freqLabel = es ? {weekly:'Semanal',biweekly:'Quincenal',monthly:'Mensual'}[_freq] : {weekly:'Weekly',biweekly:'Bi-weekly',monthly:'Monthly'}[_freq];
-  const _freqHtml = _inc > 0 ? `<div style="background:var(--g-light);border-radius:12px;padding:14px">
-    <div style="font-size:11px;color:var(--g-dark);font-weight:700;margin-bottom:8px">📋 ${es?'Por cheque':'Per paycheck'} (${_freqLabel})</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+
+  // Opciones de día según frecuencia
+  const _dayOpts = _freq==='weekly'
+    ? [{v:'monday',l:es?'Lunes':'Monday'},{v:'tuesday',l:es?'Martes':'Tuesday'},{v:'wednesday',l:es?'Miércoles':'Wednesday'},{v:'thursday',l:es?'Jueves':'Thursday'},{v:'friday',l:es?'Viernes':'Friday'},{v:'saturday',l:es?'Sábado':'Saturday'}]
+    : _freq==='biweekly'
+    ? [{v:'1',l:'1'},{v:'8',l:'8'},{v:'15',l:'15'},{v:'16',l:'16'}]
+    : Array.from({length:28},(_,i)=>({v:String(i+1),l:String(i+1)}));
+
+  const _dayLabel = _dayOpts.find(d=>d.v===String(_payDay));
+
+  const _freqHtml = `<div style="background:var(--g-light);border-radius:12px;padding:14px">
+    <div style="font-size:11px;color:var(--g-dark);font-weight:700;margin-bottom:10px">📋 ${es?'Por cheque':'Per paycheck'} (${_freqLabel})</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
       <div style="text-align:center;background:white;border-radius:8px;padding:10px">
         <div style="font-size:18px;font-weight:800;color:var(--red)">${fmt(_perCheck)}</div>
-        <div style="font-size:10px;color:var(--text3)">${es?`→ Al hogar (${_totHogarPct}%)`:`→ To household (${_totHogarPct}%)`}</div>
+        <div style="font-size:10px;color:var(--text3)">${es?'→ Al hogar':'→ To household'} (${_totHogarPct}%)</div>
       </div>
       <div style="text-align:center;background:white;border-radius:8px;padding:10px">
         <div style="font-size:18px;font-weight:800;color:var(--blue)">${fmt(_personal)}</div>
-        <div style="font-size:10px;color:var(--text3)">${es?`→ Personal (${_persPct}%)`:`→ Personal (${_persPct}%)`}</div>
+        <div style="font-size:10px;color:var(--text3)">${es?'→ Personal':'→ Personal'} (${_persPct}%)</div>
       </div>
     </div>
-  </div>` : '';
+    <div style="margin-bottom:10px">
+      <label style="font-size:11px;font-weight:700;color:var(--g-dark);display:block;margin-bottom:6px">${es?'Día de pago':'Pay day'}</label>
+      <select id="payDaySel" onchange="savePayDay(this.value)" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;background:white">
+        ${_dayOpts.map(d=>`<option value="${d.v}" ${String(_payDay)===d.v?'selected':''}>${d.l}</option>`).join('')}
+      </select>
+    </div>
+    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px;background:white;border-radius:8px">
+      <input type="checkbox" id="payAutoCheck" ${_payAuto?'checked':''} onchange="savePayAuto(this.checked)" style="width:18px;height:18px;cursor:pointer">
+      <div>
+        <div style="font-size:12px;font-weight:700;color:var(--g-dark)">${es?'Registro automático':'Auto-register'}</div>
+        <div style="font-size:10px;color:var(--text3)">${es?'El app registra tu cheque en el día configurado':'App registers your paycheck on the configured day'}</div>
+      </div>
+    </label>
+  </div>`;
 
   const page = document.getElementById('page');
   page.innerHTML = `
@@ -923,6 +948,19 @@ function setPayFreq(freq){
   localStorage.setItem('ft_user', s);
   sessionStorage.setItem('ft_user', s);
   render();
+}
+function savePayDay(day){
+  user.payDay = day;
+  const s = JSON.stringify(user);
+  localStorage.setItem('ft_user', s);
+  sessionStorage.setItem('ft_user', s);
+}
+function savePayAuto(val){
+  user.payAuto = val;
+  const s = JSON.stringify(user);
+  localStorage.setItem('ft_user', s);
+  sessionStorage.setItem('ft_user', s);
+  showToast(val ? (lang==='es'?'✅ Registro automático activado':'✅ Auto-register on') : (lang==='es'?'Registro automático desactivado':'Auto-register off'));
 }
 
 function toggleEditIncome(){
