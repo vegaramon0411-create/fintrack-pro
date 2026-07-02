@@ -1667,10 +1667,19 @@ function updateHeroDinero(){
     const avg = parseFloat(i.avgPrice)||0;
     const cur = parseFloat(i.curPrice)||avg;
     const amt = parseFloat(i.amount)||0;
-    // Si tiene precio real (del broker), usar shares*cur; si no, usar amount directo
     const val = (avg>0||cur>0) ? shares*cur : amt;
     return a + val;
   },0);
+
+  // Declarar income y totals PRIMERO antes de usarlos
+  const totals = getMonthTotals();
+  const income = user.income||0;
+  const extraIncome = totals.ingreso||0;
+  const sharedSpent = isHogarConnected() ? (totals.hogarSpent||0) : 0;
+  const personalSpent = (totals.personalNeedsSpent||0) + (totals.wantsSpent||0);
+  const leftover = Math.max(0, income + extraIncome - sharedSpent - personalSpent);
+  const es = lang==='es';
+
   const hogar = (() => { try{ return JSON.parse(localStorage.getItem('ft_hogar')||'{}'); }catch(e){ return {}; } })();
   const hogarConn = hogar.connected && !hogar.manuallyLeft;
   const persPct2 = hogarConn ? (100-(parseFloat(hogar.payPctHogar)||50)-(parseFloat(hogar.saveHogarPct)||10)) : 100;
@@ -1679,14 +1688,6 @@ function updateHeroDinero(){
   const personalGastado2 = (totals.personalNeedsSpent||0) + (totals.personalWantsSpent||0) + (totals.hogarSpent||0)*myHogarPct2;
   const personalDisponible2 = Math.max(0, personalBudget2 - personalGastado2);
   const patrimony = availSavings + emergency + totalInvested + (hogarConn ? personalDisponible2 : 0);
-
-  const totals = getMonthTotals();
-  const income = user.income||0;
-  const extraIncome = totals.ingreso||0;
-  const sharedSpent = isHogarConnected() ? (totals.hogarSpent||0) : 0;
-  const personalSpent = (totals.personalNeedsSpent||0) + (totals.wantsSpent||0);
-  const leftover = Math.max(0, income + extraIncome - sharedSpent - personalSpent);
-  const es = lang==='es';
 
   const el = id => document.getElementById(id);
   if(el('heroPatrimony'))    el('heroPatrimony').textContent    = fmt(patrimony);
