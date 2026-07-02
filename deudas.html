@@ -166,6 +166,8 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
 .more-item{display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;}
 .more-ico{width:52px;height:52px;border-radius:16px;display:grid;place-items:center;font-size:24px;}
 .more-item span{font-size:11px;font-weight:600;color:var(--text2);text-align:center;}
+
+input, select, textarea { font-size: 16px !important; }
 </style>
 </head>
 <body>
@@ -1079,7 +1081,7 @@ function guardarAbono(){
   if(!fecha){ showToast(es?'⚠️ Selecciona una fecha':'⚠️ Select a date'); return; }
 
   const debts = loadDebts();
-  const idx = debts.findIndex(d=>d.id===debtId);
+  const idx = debts.findIndex(d=>String(d.id)===String(debtId));
   if(idx<0){ showToast('⚠️ Deuda no encontrada'); return; }
 
   const d = debts[idx];
