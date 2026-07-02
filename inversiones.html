@@ -67,47 +67,104 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
 
 <div class="page">
   <div class="card" id="summaryCard"></div>
+  <div class="card" id="recurrentesList" style="display:none"></div>
   <div class="card" id="invList"></div>
 </div>
 
 <div class="overlay" id="overlay" onclick="if(event.target===this)closeModal()">
   <div class="modal">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-      <div style="font-size:16px;font-weight:800" id="modalTitle">Nueva inversión</div>
-      <div onclick="closeModal()" style="cursor:pointer;font-size:20px;color:var(--text3)">✕</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div style="font-size:16px;font-weight:800" id="modalTitle">Nueva inversion</div>
+      <div onclick="closeModal()" style="cursor:pointer;font-size:20px;color:var(--text3)">x</div>
     </div>
-    <!-- TOGGLE PERSONAL/HOGAR -->
-    <div id="invHogarField" style="display:none;margin-bottom:14px">
-      <label style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:8px" data-es="¿Esta inversión es para?" data-en="This investment is for?">¿Esta inversión es para?</label>
+
+    <!-- PASO 1: Nueva o existente (solo al crear) -->
+    <div id="invTipoPanel" style="margin-bottom:14px">
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Tipo de registro</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <button id="invBtnPersonal" onclick="setInvHogar(false)" type="button"
-          style="padding:11px;border-radius:10px;border:2px solid var(--g-main);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--blu-dim);color:var(--blue);transition:all .15s">
-          👤 <span data-es="Personal" data-en="Personal">Personal</span>
+        <button id="btnNuevaInv" onclick="setInvModo('nueva')" type="button"
+          style="padding:10px;border-radius:10px;border:2px solid var(--g-main);background:var(--g-light);color:var(--g-dark);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;line-height:1.4">
+          Nueva<br><span style="font-size:10px;font-weight:400">Sale del disponible del mes</span>
         </button>
-        <button id="invBtnHogar" onclick="setInvHogar(true)" type="button"
-          style="padding:11px;border-radius:10px;border:2px solid var(--border);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--off);transition:all .15s">
-          🏠 <span data-es="Del hogar" data-en="Household">Del hogar</span>
+        <button id="btnExisteInv" onclick="setInvModo('existente')" type="button"
+          style="padding:10px;border-radius:10px;border:2px solid var(--border);background:var(--off);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;color:var(--text2);line-height:1.4">
+          Ya la tenia<br><span style="font-size:10px;font-weight:400">Solo capturar</span>
         </button>
       </div>
-      <div id="invHogarHint" style="font-size:10px;color:var(--text3);margin-top:5px;text-align:center">Solo tuyo · privado · no visible para tu pareja</div>
     </div>
-    <div class="field"><label data-es="Ticker / Nombre" data-en="Ticker / Name">Ticker / Nombre</label><input type="text" id="fTicker" placeholder="AAPL, FXAIX, QQQM..." oninput="autoDetectInvHogar(this.value)"></div>
-    <div class="field"><label data-es="Tipo" data-en="Type">Tipo</label>
+
+    <!-- TOGGLE PERSONAL/HOGAR -->
+    <div id="invHogarField" style="display:none;margin-bottom:14px">
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Es para:</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <button id="invBtnPersonal" onclick="setInvHogar(false)" type="button"
+          style="padding:10px;border-radius:10px;border:2px solid var(--g-main);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--g-light);color:var(--g-dark)">Personal</button>
+        <button id="invBtnHogar" onclick="setInvHogar(true)" type="button"
+          style="padding:10px;border-radius:10px;border:2px solid var(--border);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--off);color:var(--text2)">Hogar</button>
+      </div>
+    </div>
+
+    <!-- MODO SIMPLE / AVANZADO -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px">Datos</div>
+      <div style="display:flex;gap:6px">
+        <button id="btnSimple" onclick="setInvComplexity('simple')" type="button"
+          style="padding:4px 10px;border-radius:20px;border:1.5px solid var(--g-main);background:var(--g-main);color:white;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit">Simple</button>
+        <button id="btnAvanzado" onclick="setInvComplexity('avanzado')" type="button"
+          style="padding:4px 10px;border-radius:20px;border:1.5px solid var(--border);background:var(--off);font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;color:var(--text2)">Avanzado</button>
+      </div>
+    </div>
+
+    <div class="field"><label>Ticker / Nombre</label><input type="text" id="fTicker" placeholder="AAPL, FXAIX, QQQM..." oninput="autoDetectInvHogar(this.value)"></div>
+    <div class="field"><label>Tipo</label>
       <select id="fType">
         <option value="etf">ETF</option>
-        <option value="stock">Acción / Stock</option>
+        <option value="stock">Accion / Stock</option>
         <option value="crypto">Cripto</option>
         <option value="bond">Bono</option>
         <option value="ahorro">Ahorro / Fondo</option>
         <option value="other">Otro</option>
       </select>
     </div>
-    <div class="field"><label data-es="Acciones / Unidades" data-en="Shares / Units">Acciones</label><input type="number" id="fShares" placeholder="0" step="0.0001" min="0"></div>
-    <div class="field"><label data-es="Precio promedio ($)" data-en="Avg price ($)">Precio promedio ($)</label><input type="number" id="fAvgPrice" placeholder="0.00" step="0.01" min="0"></div>
-    <div class="field"><label data-es="Precio actual ($)" data-en="Current price ($)">Precio actual ($)</label><input type="number" id="fCurPrice" placeholder="0.00" step="0.01" min="0"></div>
-    <div class="field"><label data-es="Plataforma" data-en="Platform">Plataforma</label><input type="text" id="fPlatform" placeholder="Fidelity, Robinhood..."></div>
-    <button class="btn btn-primary" onclick="saveInv()" style="width:100%;margin-bottom:8px" data-es="Guardar" data-en="Save">Guardar</button>
-    <button class="btn" style="width:100%;background:var(--off);border:1.5px solid var(--border)" onclick="closeModal()" data-es="Cancelar" data-en="Cancel">Cancelar</button>
+
+    <!-- SIMPLE: solo monto -->
+    <div id="panelSimple">
+      <div class="field"><label>Monto invertido ($)</label><input type="number" id="fMontoSimple" placeholder="0.00" step="0.01" min="0"></div>
+    </div>
+
+    <!-- AVANZADO: shares + precios -->
+    <div id="panelAvanzado" style="display:none">
+      <div class="field"><label>Acciones / Unidades</label><input type="number" id="fShares" placeholder="0" step="0.0001" min="0"></div>
+      <div class="field"><label>Precio promedio de compra ($)</label><input type="number" id="fAvgPrice" placeholder="0.00" step="0.01" min="0"></div>
+      <div class="field"><label>Precio actual ($)</label><input type="number" id="fCurPrice" placeholder="0.00" step="0.01" min="0"></div>
+    </div>
+
+    <div class="field"><label>Plataforma (opcional)</label><input type="text" id="fPlatform" placeholder="Fidelity, Robinhood..."></div>
+
+    <!-- RECURRENTE (solo si nueva) -->
+    <div id="recurrentePanel" style="display:none;background:var(--g-light);border-radius:12px;padding:12px;margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="font-size:12px;font-weight:700;color:var(--g-dark)">Es recurrente?</div>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+          <input type="checkbox" id="fRecurrente" onchange="toggleRecurrente(this.checked)" style="width:18px;height:18px;cursor:pointer">
+          <span style="font-size:11px;font-weight:600;color:var(--g-dark)">Si</span>
+        </label>
+      </div>
+      <div id="recurrenteFreqPanel" style="display:none">
+        <div style="font-size:11px;color:var(--g-dark);margin-bottom:8px">Frecuencia:</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">
+          <button type="button" id="freqW" onclick="setFreqInv('weekly')"
+            style="padding:8px;border-radius:8px;border:1.5px solid var(--g-main);background:var(--g-main);color:white;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">Semanal</button>
+          <button type="button" id="freqBW" onclick="setFreqInv('biweekly')"
+            style="padding:8px;border-radius:8px;border:1.5px solid var(--border);background:var(--off);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;color:var(--text2)">Quincenal</button>
+          <button type="button" id="freqM" onclick="setFreqInv('monthly')"
+            style="padding:8px;border-radius:8px;border:1.5px solid var(--border);background:var(--off);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;color:var(--text2)">Mensual</button>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn btn-primary" onclick="saveInv()" style="width:100%;margin-bottom:8px">Guardar</button>
+    <button class="btn" style="width:100%;background:var(--off);border:1.5px solid var(--border)" onclick="closeModal()">Cancelar</button>
   </div>
 </div>
 
@@ -262,16 +319,70 @@ function render(){
       +'</div>'
       +'</div>';
   }).join('');
+  renderRecurrentes();
+}
+
+var invModo = 'nueva'; // 'nueva' | 'existente'
+var invComplexity = 'simple'; // 'simple' | 'avanzado'
+var invFreq = 'weekly';
+
+function setInvModo(modo){
+  invModo = modo;
+  var bN=document.getElementById('btnNuevaInv'), bE=document.getElementById('btnExisteInv');
+  bN.style.borderColor = modo==='nueva'?'var(--g-main)':'var(--border)';
+  bN.style.background  = modo==='nueva'?'var(--g-light)':'var(--off)';
+  bN.style.color       = modo==='nueva'?'var(--g-dark)':'var(--text2)';
+  bE.style.borderColor = modo==='existente'?'var(--g-main)':'var(--border)';
+  bE.style.background  = modo==='existente'?'var(--g-light)':'var(--off)';
+  bE.style.color       = modo==='existente'?'var(--g-dark)':'var(--text2)';
+  document.getElementById('recurrentePanel').style.display = modo==='nueva' ? '' : 'none';
+}
+
+function setInvComplexity(c){
+  invComplexity = c;
+  var bS=document.getElementById('btnSimple'), bA=document.getElementById('btnAvanzado');
+  bS.style.background = c==='simple'?'var(--g-main)':'var(--off)';
+  bS.style.borderColor = c==='simple'?'var(--g-main)':'var(--border)';
+  bS.style.color = c==='simple'?'white':'var(--text2)';
+  bA.style.background = c==='avanzado'?'var(--g-main)':'var(--off)';
+  bA.style.borderColor = c==='avanzado'?'var(--g-main)':'var(--border)';
+  bA.style.color = c==='avanzado'?'white':'var(--text2)';
+  document.getElementById('panelSimple').style.display = c==='simple'?'':'none';
+  document.getElementById('panelAvanzado').style.display = c==='avanzado'?'':'none';
+}
+
+function setFreqInv(f){
+  invFreq = f;
+  ['weekly','biweekly','monthly'].forEach(function(x){
+    var id = x==='weekly'?'freqW':x==='biweekly'?'freqBW':'freqM';
+    var btn = document.getElementById(id);
+    btn.style.background = x===f?'var(--g-main)':'var(--off)';
+    btn.style.borderColor = x===f?'var(--g-main)':'var(--border)';
+    btn.style.color = x===f?'white':'var(--text2)';
+  });
+}
+
+function toggleRecurrente(checked){
+  document.getElementById('recurrenteFreqPanel').style.display = checked ? '' : 'none';
 }
 
 function openAdd(){
   editingId=null;
-  ['fTicker','fShares','fAvgPrice','fCurPrice','fPlatform'].forEach(function(id){document.getElementById(id).value='';});
+  invModo='nueva'; invComplexity='simple'; invFreq='weekly';
+  ['fTicker','fPlatform','fMontoSimple','fShares','fAvgPrice','fCurPrice'].forEach(function(id){
+    var el=document.getElementById(id); if(el) el.value='';
+  });
   document.getElementById('fType').value='etf';
+  document.getElementById('fRecurrente').checked=false;
+  document.getElementById('recurrenteFreqPanel').style.display='none';
+  setInvModo('nueva');
+  setInvComplexity('simple');
+  setFreqInv('weekly');
   var field=document.getElementById('invHogarField');
   if(field) field.style.display=isHogarConnected()?'':'none';
   invIsHogar=invView==='hogar';
   setInvHogar(invIsHogar);
+  document.getElementById('invTipoPanel').style.display='';
   document.getElementById('modalTitle').textContent=lang==='es'?'Nueva inversion':'New investment';
   document.getElementById('overlay').classList.add('open');
 }
@@ -281,12 +392,23 @@ function editInv(id){
   var inv=list.find(function(i){return i.id===id;});
   if(!inv) return;
   editingId=id;
+  // Al editar, ocultar el panel de tipo y recurrente
+  document.getElementById('invTipoPanel').style.display='none';
+  document.getElementById('recurrentePanel').style.display='none';
+  // Determinar si es simple o avanzado según los datos guardados
+  var esAvanzado = inv.shares && parseFloat(inv.shares) !== 1;
+  setInvComplexity(esAvanzado ? 'avanzado' : 'simple');
   document.getElementById('fTicker').value=inv.ticker||'';
-  document.getElementById('fShares').value=inv.shares||1;
-  document.getElementById('fAvgPrice').value=inv.avgPrice||inv.amount||'';
-  document.getElementById('fCurPrice').value=inv.curPrice||inv.avgPrice||inv.amount||'';
-  document.getElementById('fPlatform').value=inv.platform||'';
   document.getElementById('fType').value=inv.type||'etf';
+  document.getElementById('fPlatform').value=inv.platform||'';
+  if(esAvanzado){
+    document.getElementById('fShares').value=inv.shares||1;
+    document.getElementById('fAvgPrice').value=inv.avgPrice||inv.amount||'';
+    document.getElementById('fCurPrice').value=inv.curPrice||inv.avgPrice||inv.amount||'';
+  } else {
+    var monto = (parseFloat(inv.shares)||1) * (parseFloat(inv.curPrice)||parseFloat(inv.avgPrice)||parseFloat(inv.amount)||0);
+    document.getElementById('fMontoSimple').value=monto||inv.amount||'';
+  }
   var field=document.getElementById('invHogarField');
   if(field) field.style.display=isHogarConnected()?'':'none';
   invIsHogar=invView==='hogar';
@@ -294,43 +416,124 @@ function editInv(id){
   document.getElementById('modalTitle').textContent=lang==='es'?'Editar inversion':'Edit investment';
   document.getElementById('overlay').classList.add('open');
 }
+
 function closeModal(){document.getElementById('overlay').classList.remove('open');}
 
 function saveInv(){
   var ticker=document.getElementById('fTicker').value.trim().toUpperCase();
   var type=document.getElementById('fType').value;
-  var shares=parseFloat(document.getElementById('fShares').value)||1;
-  var avgPrice=parseFloat(document.getElementById('fAvgPrice').value)||0;
-  var curPrice=parseFloat(document.getElementById('fCurPrice').value)||avgPrice;
   var platform=document.getElementById('fPlatform').value.trim();
-  if(!ticker){showToast('!'+(lang==='es'?' Ingresa el ticker o nombre':' Enter ticker or name'));return;}
-  
-  if(editingId){
-    // EDITAR
-    if(invIsHogar){
-      var list=loadHogarInv();
-      var idx=list.findIndex(function(i){return i.id===editingId;});
-      if(idx>=0){list[idx]=Object.assign({},list[idx],{ticker:ticker,type:type,shares:shares,avgPrice:avgPrice,curPrice:curPrice,platform:platform});}
-      saveHogarInv(list);
-    } else {
-      var list2=loadInv();
-      var idx2=list2.findIndex(function(i){return i.id===editingId;});
-      if(idx2>=0){list2[idx2]=Object.assign({},list2[idx2],{ticker:ticker,type:type,shares:shares,avgPrice:avgPrice,curPrice:curPrice,platform:platform});}
-      saveInvPersonal(list2);
-    }
-    showToast(lang==='es'?'Inversion actualizada':'Investment updated');
+  if(!ticker){showToast(lang==='es'?'Ingresa el ticker o nombre':'Enter ticker or name');return;}
+
+  var shares, avgPrice, curPrice, amount;
+  if(invComplexity==='avanzado'){
+    shares=parseFloat(document.getElementById('fShares').value)||1;
+    avgPrice=parseFloat(document.getElementById('fAvgPrice').value)||0;
+    curPrice=parseFloat(document.getElementById('fCurPrice').value)||avgPrice;
+    amount=shares*avgPrice;
   } else {
-    // NUEVA
-    var entry={id:'i_'+Date.now(),ticker:ticker,type:type,shares:shares,avgPrice:avgPrice,curPrice:curPrice,platform:platform,addedBy:user.name||'',addedAt:new Date().toISOString()};
-    if(invIsHogar){
-      var list3=loadHogarInv();list3.push(entry);saveHogarInv(list3);
-      showToast(lang==='es'?'Inversion guardada en el Hogar':'Investment saved to Household');
+    amount=parseFloat(document.getElementById('fMontoSimple').value)||0;
+    shares=1; avgPrice=amount; curPrice=amount;
+    if(amount<=0){showToast(lang==='es'?'Ingresa el monto invertido':'Enter the amount invested');return;}
+  }
+
+  var esRecurrente = !editingId && invModo==='nueva' && document.getElementById('fRecurrente').checked;
+
+  if(editingId){
+    // EDITAR posicion existente
+    var list = invView==='hogar'?loadHogarInv():loadInv();
+    var idx = list.findIndex(function(i){return i.id===editingId;});
+    if(idx>=0){
+      list[idx]=Object.assign({},list[idx],{ticker:ticker,type:type,shares:shares,avgPrice:avgPrice,curPrice:curPrice,amount:amount,platform:platform});
+    }
+    if(invView==='hogar') saveHogarInv(list); else saveInvPersonal(list);
+    showToast(lang==='es'?'Inversion actualizada':'Investment updated');
+
+  } else {
+    // NUEVA posicion
+    var entry={id:'i_'+Date.now(),ticker:ticker,type:type,shares:shares,avgPrice:avgPrice,curPrice:curPrice,amount:amount,platform:platform,modo:invModo,addedBy:user.name||'',addedAt:new Date().toISOString()};
+
+    if(invView==='hogar'){ var l=loadHogarInv();l.push(entry);saveHogarInv(l); }
+    else { var l2=loadInv();l2.push(entry);saveInvPersonal(l2); }
+
+    // Si es nueva → registrar en ft_data como transaccion del mes (descuenta del 40%)
+    if(invModo==='nueva'){
+      try{
+        var data=JSON.parse(localStorage.getItem('ft_data')||'{}');
+        data.transactions=data.transactions||[];
+        data.transactions.push({
+          id:'inv_'+entry.id,type:'inversion',
+          desc:ticker,amount:amount,
+          date:new Date().toISOString().split('T')[0],
+          cat:'Inversion',note:platform,
+          hogar:invIsHogar&&isHogarConnected()
+        });
+        localStorage.setItem('ft_data',JSON.stringify(data));
+      }catch(e){}
+    }
+
+    // Si es recurrente → guardar en ft_inv_recurrentes
+    if(esRecurrente){
+      try{
+        var recs=JSON.parse(localStorage.getItem('ft_inv_recurrentes')||'[]');
+        recs.push({id:'r_'+Date.now(),ticker:ticker,type:type,amount:amount,platform:platform,freq:invFreq,activo:true,addedAt:new Date().toISOString()});
+        localStorage.setItem('ft_inv_recurrentes',JSON.stringify(recs));
+      }catch(e){}
+      showToast(lang==='es'?('Inversion guardada + recordatorio '+invFreq):'Investment saved + reminder set');
     } else {
-      var list4=loadInv();list4.push(entry);saveInvPersonal(list4);
-      showToast(lang==='es'?'Inversion personal guardada':'Personal investment saved');
+      showToast(lang==='es'?(invModo==='nueva'?'Nueva inversion registrada':'Inversion capturada'):(invModo==='nueva'?'Investment registered':'Investment captured'));
     }
   }
   closeModal();render();
+}
+
+function renderRecurrentes(){
+  var es=lang==='es';
+  var recs=[];
+  try{recs=JSON.parse(localStorage.getItem('ft_inv_recurrentes')||'[]');}catch(e){}
+  var activos=recs.filter(function(r){return r.activo;});
+  var el=document.getElementById('recurrentesList');
+  if(!el) return;
+  if(!activos.length){el.style.display='none';return;}
+  el.style.display='';
+  var freqLabel={weekly:es?'Semanal':'Weekly',biweekly:es?'Quincenal':'Bi-weekly',monthly:es?'Mensual':'Monthly'};
+  el.innerHTML='<div style="font-size:13px;font-weight:800;margin-bottom:10px">🔄 '+(es?'Inversiones recurrentes':'Recurring investments')+'</div>'
+    +activos.map(function(r){
+      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--off)">'
+        +'<div><div style="font-size:13px;font-weight:700">'+r.ticker+'</div>'
+        +'<div style="font-size:10px;color:var(--text3)">'+freqLabel[r.freq||'weekly']+' · $'+Math.abs(r.amount||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+'</div></div>'
+        +'<button data-rid="'+r.id+'" onclick="ejecutarRecurrente(this.dataset.rid)" style="background:var(--g-main);color:white;border:none;border-radius:10px;padding:8px 14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">'+(es?'Depositar':'Deposit')+'</button>'
+        +'</div>';
+    }).join('');
+}
+
+function ejecutarRecurrente(rid){
+  var recs=[];
+  try{recs=JSON.parse(localStorage.getItem('ft_inv_recurrentes')||'[]');}catch(e){}
+  var r=recs.find(function(x){return x.id===rid;});
+  if(!r) return;
+  // Registrar como transaccion del mes
+  try{
+    var data=JSON.parse(localStorage.getItem('ft_data')||'{}');
+    data.transactions=data.transactions||[];
+    data.transactions.push({id:'rec_'+Date.now(),type:'inversion',desc:r.ticker,amount:r.amount,date:new Date().toISOString().split('T')[0],cat:'Inversion',note:r.platform||'Recurrente'});
+    localStorage.setItem('ft_data',JSON.stringify(data));
+  }catch(e){}
+  // Actualizar o agregar la posicion en ft_investments
+  var invs=[];
+  try{invs=JSON.parse(localStorage.getItem('ft_investments')||'[]');}catch(e){}
+  var idx=invs.findIndex(function(i){return i.ticker===r.ticker;});
+  if(idx>=0){
+    var oldAmt=parseFloat(invs[idx].amount)||0;
+    invs[idx].amount=oldAmt+r.amount;
+    invs[idx].curPrice=invs[idx].amount;
+    invs[idx].avgPrice=invs[idx].amount;
+  } else {
+    invs.push({id:'rec_'+Date.now(),ticker:r.ticker,type:r.type||'etf',shares:1,avgPrice:r.amount,curPrice:r.amount,amount:r.amount,platform:r.platform||'',addedAt:new Date().toISOString()});
+  }
+  localStorage.setItem('ft_investments',JSON.stringify(invs));
+  showToast((lang==='es'?'Depositado: ':'Deposited: ')+'$'+r.amount);
+  render();
 }
 
 function deleteInv(id){
