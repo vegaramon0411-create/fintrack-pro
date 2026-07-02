@@ -754,6 +754,37 @@ input, select, textarea { font-size: 16px !important; }
     <!-- APORTE DEL MES -->
     <div id="aporteMesCard" style="display:none"></div>
 
+    <!-- MODAL CHEQUE - estático para iOS Safari -->
+    <div id="chequeModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:400;align-items:flex-end;justify-content:center">
+      <div style="background:white;border-radius:20px 20px 0 0;width:100%;max-width:500px;padding:20px;padding-bottom:calc(20px + env(safe-area-inset-bottom))">
+        <div style="font-size:16px;font-weight:800;margin-bottom:4px">💵 Recibí mi cheque</div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:14px" id="chequeSubtitle"></div>
+        <label style="font-size:11px;font-weight:700;color:#9395A5;display:block;margin-bottom:6px">MONTO RECIBIDO ($)</label>
+        <input type="number" id="chequeMonto" placeholder="0.00" step="0.01" min="0"
+          style="width:100%;padding:12px;border:2px solid var(--g-main);border-radius:10px;font-size:18px;font-weight:700;font-family:inherit;margin-bottom:12px;box-sizing:border-box;outline:none;text-align:center">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+          <button id="chequeNuevoBtn" onclick="setChequeType('nuevo')" type="button"
+            style="padding:10px;border-radius:10px;border:2px solid var(--g-main);background:var(--g-light);color:var(--g-dark);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;line-height:1.4">
+            💸 Pago nuevo<br><span style="font-size:9px;font-weight:400">Registrar en el mes</span>
+          </button>
+          <button id="chequeExistenteBtn" onclick="setChequeType('existente')" type="button"
+            style="padding:10px;border-radius:10px;border:2px solid var(--border);background:var(--off);color:var(--text2);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;line-height:1.4">
+            📦 Ya lo tenía<br><span style="font-size:9px;font-weight:400">Solo capturar</span>
+          </button>
+        </div>
+        <div id="chequePreview" style="background:var(--g-light);border-radius:10px;padding:12px;margin-bottom:14px;display:none">
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+            <span>🏠 Al hogar (60%)</span><strong id="chequeHogarAmt">$0</strong>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:12px">
+            <span>👤 A tu cuenta personal (40%)</span><strong id="chequePersonalAmt" style="color:var(--blue)">$0</strong>
+          </div>
+        </div>
+        <button id="chequeGuardarBtn" style="width:100%;background:var(--g-main);color:white;border:none;border-radius:12px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:8px">✅ Confirmar cheque</button>
+        <button onclick="closeChequeModal()" style="width:100%;background:var(--off);border:1.5px solid var(--border);border-radius:12px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">Cancelar</button>
+      </div>
+    </div>
+
   </div><!-- /page -->
 </div><!-- /main -->
 </div><!-- /app -->
@@ -1400,6 +1431,129 @@ function filterTx(f, btn) {
 /* ══════════════════════════════════════════
    EMERGENCY FUND
 ══════════════════════════════════════════ */
+/* ══════════════════════════════════════════
+   CHEQUE / PAYCHECK
+══════════════════════════════════════════ */
+var chequeType = 'nuevo';
+
+function getAbonosDelMes(){
+  try{
+    const data = JSON.parse(localStorage.getItem('ft_data')||'{}');
+    const now = new Date();
+    const y = now.getFullYear(), m = now.getMonth();
+    return (data.transactions||[]).filter(t=>{
+      if(t.cat !== '💳 Deudas' || t.type !== 'gasto') return false;
+      const parts = String(t.date).split(/[-T]/);
+      return parseInt(parts[0])===y && parseInt(parts[1])-1===m;
+    }).reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
+  }catch(e){return 0;}
+}
+
+function getChequesDelMes(){
+  try{
+    const now = new Date();
+    const key = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+    const all = JSON.parse(localStorage.getItem('ft_cheques')||'[]');
+    return all.filter(c=>c.mes===key);
+  }catch(e){return[];}
+}
+
+function isPayDay(){
+  const freq = user.payFreq||'weekly';
+  const payDay = user.payDay||'thursday';
+  const now = new Date();
+  const days = {sunday:0,monday:1,tuesday:2,wednesday:3,thursday:4,friday:5,saturday:6};
+  if(freq==='weekly') return now.getDay()===( days[payDay]!==undefined ? days[payDay] : 4 );
+  if(freq==='biweekly') return String(now.getDate())===String(payDay);
+  if(freq==='monthly') return String(now.getDate())===String(payDay);
+  return false;
+}
+
+function openChequeModal(){
+  const hogar = (() => { try{ return JSON.parse(localStorage.getItem('ft_hogar')||'{}'); }catch(e){ return {}; } })();
+  const payPct = parseFloat(hogar.payPctHogar)||50;
+  const savPct = parseFloat(hogar.saveHogarPct)||10;
+  const totHogar = payPct + savPct;
+  const freq = user.payFreq||'weekly';
+  const checks = freq==='weekly'?4:freq==='biweekly'?2:1;
+  const expected = (user.income||0) / checks;
+  const es = lang==='es';
+
+  document.getElementById('chequeMonto').value = expected > 0 ? expected.toFixed(2) : '';
+  document.getElementById('chequeSubtitle').textContent = es
+    ? `${totHogar}% al hogar · ${100-totHogar}% a tu cuenta personal`
+    : `${totHogar}% to household · ${100-totHogar}% to personal account`;
+  chequeType = 'nuevo';
+  setChequeType('nuevo');
+  updateChequePreview();
+  document.getElementById('chequeModal').style.display='flex';
+}
+
+function closeChequeModal(){
+  document.getElementById('chequeModal').style.display='none';
+}
+
+function setChequeType(t){
+  chequeType = t;
+  var bN=document.getElementById('chequeNuevoBtn'), bE=document.getElementById('chequeExistenteBtn');
+  bN.style.borderColor=t==='nuevo'?'var(--g-main)':'var(--border)';
+  bN.style.background=t==='nuevo'?'var(--g-light)':'var(--off)';
+  bN.style.color=t==='nuevo'?'var(--g-dark)':'var(--text2)';
+  bE.style.borderColor=t==='existente'?'var(--g-main)':'var(--border)';
+  bE.style.background=t==='existente'?'var(--g-light)':'var(--off)';
+  bE.style.color=t==='existente'?'var(--g-dark)':'var(--text2)';
+}
+
+function updateChequePreview(){
+  const monto = parseFloat(document.getElementById('chequeMonto').value)||0;
+  const hogar = (() => { try{ return JSON.parse(localStorage.getItem('ft_hogar')||'{}'); }catch(e){ return {}; } })();
+  const totHogar = (parseFloat(hogar.payPctHogar)||50)+(parseFloat(hogar.saveHogarPct)||10);
+  const hogarAmt = monto * totHogar/100;
+  const personalAmt = monto * (100-totHogar)/100;
+  const preview = document.getElementById('chequePreview');
+  if(preview && monto>0){
+    preview.style.display='';
+    document.getElementById('chequeHogarAmt').textContent=fmtD(hogarAmt);
+    document.getElementById('chequePersonalAmt').textContent=fmtD(personalAmt);
+  } else if(preview){ preview.style.display='none'; }
+}
+
+function guardarCheque(){
+  const monto = parseFloat(document.getElementById('chequeMonto').value);
+  if(!monto||monto<=0){ showToast(lang==='es'?'Ingresa el monto recibido':'Enter the amount received'); return; }
+  const hogar = (() => { try{ return JSON.parse(localStorage.getItem('ft_hogar')||'{}'); }catch(e){ return {}; } })();
+  const totHogar = (parseFloat(hogar.payPctHogar)||50)+(parseFloat(hogar.saveHogarPct)||10);
+  const hogarAmt = monto * totHogar/100;
+  const personalAmt = monto * (100-totHogar)/100;
+  const now = new Date();
+  const fecha = now.toISOString().split('T')[0];
+  const mes = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  const es = lang==='es';
+
+  // Guardar en ft_cheques
+  const cheques = JSON.parse(localStorage.getItem('ft_cheques')||'[]');
+  cheques.push({id:Date.now(),monto,hogarAmt,personalAmt,fecha,mes,tipo:chequeType});
+  localStorage.setItem('ft_cheques',JSON.stringify(cheques));
+
+  // Si es pago nuevo → registrar como ingreso en ft_data
+  if(chequeType==='nuevo'){
+    const data = JSON.parse(localStorage.getItem('ft_data')||'{}');
+    data.transactions = data.transactions||[];
+    data.transactions.push({
+      id:Date.now(), type:'ingreso',
+      desc:es?'Cheque recibido':'Paycheck received',
+      amount:monto, date:fecha, cat:'💰 Ingreso'
+    });
+    localStorage.setItem('ft_data',JSON.stringify(data));
+  }
+
+  closeChequeModal();
+  showToast(es
+    ?`✅ $${monto.toFixed(2)} registrado · $${personalAmt.toFixed(2)} a tu cuenta personal`
+    :`✅ $${monto.toFixed(2)} registered · $${personalAmt.toFixed(2)} to personal account`);
+  renderDashboard();
+}
+
 function renderEmergency() {
   const data     = loadData();
   const emergency= data.emergency || 0;
@@ -1497,70 +1651,67 @@ function renderAporteMes(totals){
     ? (es?'Aporte del mes completado':'Month contribution complete')
     : (es?`Faltan ${fmt(falta)} por depositar`:`${fmt(falta)} remaining to deposit`);
 
+  // Cheques confirmados del mes
+  const chequesDelMes = getChequesDelMes();
+  const totalChequesMes = chequesDelMes.reduce((a,c)=>a+c.monto,0);
+  const totalHogarAportado = chequesDelMes.reduce((a,c)=>a+c.hogarAmt,0);
+  const totalPersonalApartado = chequesDelMes.reduce((a,c)=>a+c.personalAmt,0);
+  const esDiaPago = isPayDay();
+
   card.style.display = '';
   card.innerHTML = `
-  <div class="card" style="border-left:4px solid ${statusColor};margin-top:14px">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-      <div style="font-size:14px;font-weight:800">🏠 ${es?'Mi aporte al hogar':'My household contribution'}</div>
-      <div style="font-size:11px;font-weight:700;color:${statusColor}">${statusIcon} ${falta<=0?(es?'Al día':'Up to date'):(es?'Pendiente':'Pending')}</div>
-    </div>
-    <div style="font-size:11px;color:var(--text3);margin-bottom:14px">${statusTxt}</div>
-
-    <!-- BARRA DE PROGRESO -->
-    <div style="height:8px;background:var(--border);border-radius:100px;overflow:hidden;margin-bottom:6px">
-      <div style="height:100%;width:${depositadoPct.toFixed(0)}%;background:${statusColor};border-radius:100px;transition:width .4s"></div>
-    </div>
-    <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-bottom:14px">
-      <span>${es?'Depositado':'Deposited'}: ${fmt(yaDepositado)}</span>
-      <span>${es?'Meta':'Goal'}: ${fmt(aporteTotal)} (${totalHogarPct}%)</span>
+  <div class="card" style="border-left:4px solid var(--g-main);margin-top:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div style="font-size:14px;font-weight:800">💵 ${es?'Mi cheque':'My paycheck'}</div>
+      <button onclick="openChequeModal()" style="background:${esDiaPago?'var(--g-main)':'var(--off)'};color:${esDiaPago?'white':'var(--text2)'};border:${esDiaPago?'none':'1.5px solid var(--border)'};border-radius:10px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">
+        ${esDiaPago?'💵':'+'} ${es?'Recibí mi cheque':'I got paid'}
+      </button>
     </div>
 
-    <!-- POR CHEQUE -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
-      <div style="background:var(--red-dim);border-radius:12px;padding:12px;text-align:center">
-        <div style="font-size:10px;color:var(--red);font-weight:700;margin-bottom:4px">🏠 ${es?`Al hogar (${freqLabel})`:`To household (${freqLabel})`}</div>
-        <div style="font-size:20px;font-weight:800;color:var(--red)">${fmt(aportePorCheque)}</div>
-        <div style="font-size:10px;color:var(--text3)">${payPct}% ${es?'necesidades':'needs'} + ${savePct}% ${es?'ahorro':'savings'}</div>
+    ${totalChequesMes > 0 ? `
+    <div style="background:var(--off);border-radius:12px;padding:12px;margin-bottom:10px">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:6px">${es?'Registrado este mes':'Registered this month'} (${chequesDelMes.length} ${es?'cheque(s)':'paycheck(s)'})</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div style="text-align:center">
+          <div style="font-size:18px;font-weight:800;color:var(--red)">${fmtD(totalHogarAportado)}</div>
+          <div style="font-size:10px;color:var(--text3)">🏠 ${es?'Aportado al hogar':'To household'}</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:18px;font-weight:800;color:var(--blue)">${fmtD(totalPersonalApartado)}</div>
+          <div style="font-size:10px;color:var(--text3)">👤 ${es?'A tu cuenta personal':'To personal account'}</div>
+        </div>
       </div>
-      <div style="background:var(--blu-dim);border-radius:12px;padding:12px;text-align:center">
-        <div style="font-size:10px;color:var(--blue);font-weight:700;margin-bottom:4px">👤 ${es?`Personal (${freqLabel})`:`Personal (${freqLabel})`}</div>
-        <div style="font-size:20px;font-weight:800;color:var(--blue)">${fmt(personalPorCheque)}</div>
-        <div style="font-size:10px;color:var(--text3)">40% ${es?'para ti':'for you'}</div>
-      </div>
-    </div>
+    </div>` : `
+    <div style="background:var(--off);border-radius:10px;padding:12px;font-size:12px;color:var(--text3);text-align:center">
+      ${esDiaPago
+        ? `🔔 ${es?'Hoy es tu día de pago. Toca el botón para registrar.':'Today is your pay day. Tap the button to register.'}`
+        : `📅 ${es?`Próximo pago: ${freqLabel}`:`Next pay: ${freqLabel}`} · ${fmtD(aportePorCheque)} ${es?'al hogar':'to household'}`}
+    </div>`}
 
     <!-- SOBRANTE DEL MES -->
     ${sobranteReal > 0 ? `
-    <div style="background:var(--g-light);border-radius:12px;padding:14px">
-      <div style="font-size:12px;font-weight:800;color:var(--g-dark);margin-bottom:4px">💰 ${es?'Sobrante del 50% hogar este mes':'Household 50% surplus this month'}</div>
-      <div style="font-size:22px;font-weight:800;color:var(--g-main);margin-bottom:2px">${fmt(sobranteReal)}</div>
-      ${ahorroMetasMes > 0 ? `<div style="font-size:10px;color:var(--text3);margin-bottom:8px">${es?`Ya se depositaron ${fmt(ahorroMetasMes)} a metas este mes`:`${fmt(ahorroMetasMes)} already deposited to goals this month`}</div>` : ''}
-      <div style="font-size:11px;color:var(--g-dark);margin-bottom:8px">${es?'¿Qué hacer con el sobrante?':'What to do with the surplus?'}</div>
+    <div style="background:var(--g-light);border-radius:12px;padding:12px;margin-top:10px">
+      <div style="font-size:12px;font-weight:800;color:var(--g-dark);margin-bottom:4px">💰 ${es?'Sobrante del hogar este mes':'Household surplus this month'}</div>
+      <div style="font-size:20px;font-weight:800;color:var(--g-main);margin-bottom:8px">${fmt(sobranteReal)}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
         <div onclick="go('hogar.html')" style="background:white;border-radius:8px;padding:8px;text-align:center;cursor:pointer;border:1.5px solid var(--g-main)">
-          <div style="font-size:16px">🛡️</div>
-          <div style="font-size:9px;font-weight:700;color:var(--g-dark)">${fmt(sobranteReal)}</div>
+          <div style="font-size:14px">🛡️</div><div style="font-size:9px;font-weight:700;color:var(--g-dark)">${fmt(sobranteReal)}</div>
           <div style="font-size:9px;color:var(--text3)">${es?'Emergencia':'Emergency'}</div>
         </div>
         <div onclick="go('hogar.html')" style="background:white;border-radius:8px;padding:8px;text-align:center;cursor:pointer;border:1.5px solid var(--purple)">
-          <div style="font-size:16px">🎯</div>
-          <div style="font-size:9px;font-weight:700;color:var(--purple)">${fmt(sobranteReal)}</div>
-          <div style="font-size:9px;color:var(--text3)">${es?'A metas':'To goals'}</div>
+          <div style="font-size:14px">🎯</div><div style="font-size:9px;font-weight:700;color:var(--purple)">${fmt(sobranteReal)}</div>
+          <div style="font-size:9px;color:var(--text3)">${es?'Metas':'Goals'}</div>
         </div>
         <div style="background:white;border-radius:8px;padding:8px;text-align:center;border:1.5px solid var(--blue)">
-          <div style="font-size:16px">👥</div>
-          <div style="font-size:9px;font-weight:700;color:var(--blue)">${fmt(mitadSobrante)}</div>
+          <div style="font-size:14px">👥</div><div style="font-size:9px;font-weight:700;color:var(--blue)">${fmt(mitadSobrante)}</div>
           <div style="font-size:9px;color:var(--text3)">${es?'c/u':'each'}</div>
         </div>
       </div>
-    </div>` : gastadoHogar > 0 ? `
-    <div style="background:var(--off);border-radius:10px;padding:10px;font-size:11px;color:var(--text2);text-align:center">
-      📊 ${es?'Sin sobrante este mes — el presupuesto del hogar está aprovechado':'No surplus this month — household budget is fully used'}
     </div>` : ''}
   </div>`;
 }
 
-/* ══* ══════════════════════════════════════════
+/* ══════════════════════════════════════════
    SUBSCRIPTIONS
 ══════════════════════════════════════════ */
 const defaultSubs = [
@@ -2596,6 +2747,22 @@ setLang(lang);
 renderDashboard();
 updateBadges();
 
+// Conectar modal de cheque
+document.getElementById('chequeGuardarBtn').addEventListener('click', guardarCheque);
+document.getElementById('chequeMonto').addEventListener('input', updateChequePreview);
+document.getElementById('chequeModal').addEventListener('click', function(e){ if(e.target===this) closeChequeModal(); });
+
+// Auto-registro si es día de pago y está activado
+(function checkAutoPayday(){
+  if(!user.payAuto) return;
+  if(!isPayDay()) return;
+  const mes = new Date().getFullYear()+'-'+String(new Date().getMonth()+1).padStart(2,'0');
+  const hoy = new Date().toISOString().split('T')[0];
+  const cheques = JSON.parse(localStorage.getItem('ft_cheques')||'[]');
+  const yaHoy = cheques.some(c=>c.fecha===hoy);
+  if(!yaHoy) setTimeout(()=>openChequeModal(), 1000);
+})();
+
 // Auto-sync profile to GAS if user is part of a household
 (function syncProfileToGAS(){
   try {
@@ -2726,7 +2893,8 @@ function renderMiDineroTab(){
   const personalDisponible = Math.max(0, personalBudget - personalGastado);
   const personalGastadoPct = personalBudget > 0 ? Math.min((personalGastado/personalBudget)*100, 100) : 0;
 
-  const totalPatrimony = availSavings + emergencyFund + totalInvested + personalDisponible;
+  const abonosDelMes = getAbonosDelMes();
+  const totalPatrimony = availSavings + emergencyFund + totalInvested + personalDisponible - abonosDelMes;
 
   const container=document.getElementById('miDineroContent');
   if(!container) return;
