@@ -1091,7 +1091,7 @@ function getMonthTotals() {
   const totals = { gasto:0, ingreso:0, inversion:0, ahorro:0, suscripcion:0, hipoteca:0 };
   txs.forEach(t => { totals[t.type] = (totals[t.type]||0) + parseFloat(t.amount); });
 
-  const spent = totals.gasto + totals.suscripcion + totals.hipoteca;
+  const spent = totals.gasto + totals.suscripcion + totals.hipoteca + totals.ahorro + totals.inversion;
 
   // ── Classify spending by CATEGORY, separating hogar vs personal ──
   let needsSpent = 0, wantsSpent = 0;
@@ -1199,7 +1199,8 @@ function renderDashboard() {
   // ── 50/30/20 — classified by REAL CATEGORY (needs vs wants), not transaction type ──
   const needsSpent  = totals.needsSpent;
   const wantsSpent  = totals.wantsSpent;
-  const savingsSpent= totals.ahorro  + totals.inversion;
+  // Inversiones cuentan en el 20% ahorro (métrica) Y en el gasto del mes
+  const savingsSpent = totals.ahorro + totals.inversion;
 
   const nPct = needs   > 0 ? Math.min((needsSpent/needs)*100,  100) : 0;
   const wPct = wants   > 0 ? Math.min((wantsSpent/wants)*100,  100) : 0;
@@ -2543,7 +2544,8 @@ migrateLegacyCategories();
 (function migrateInvestmentsFromHistory(){
   try {
     const data = JSON.parse(localStorage.getItem('ft_data')||'{}');
-    const txs = (data.transactions||[]).filter(t=>t.type==='inversion');
+    // Solo migrar las que NO vienen de inversiones.html (fromInvPage=true)
+    const txs = (data.transactions||[]).filter(t=>t.type==='inversion' && !t.fromInvPage);
     if(!txs.length) return;
     let invs = JSON.parse(localStorage.getItem('ft_investments')||'[]');
     const existingIds = new Set(invs.map(i=>String(i.id)));
@@ -2570,6 +2572,24 @@ migrateLegacyCategories();
     if(added>0) localStorage.setItem('ft_investments', JSON.stringify(invs));
   } catch(e){}
 })();
+// Limpiar duplicados en ft_investments (inversiones con mismo ticker+amount+date)
+(function cleanDuplicateInvestments(){
+  try{
+    var invs = JSON.parse(localStorage.getItem('ft_investments')||'[]');
+    var seen = new Set();
+    var clean = invs.filter(function(i){
+      // Clave única: ticker + avgPrice + fecha (para evitar eliminar compras distintas)
+      var key = (i.ticker||'')+'_'+(i.avgPrice||i.amount||0)+'_'+(i.addedAt||i.date||'').slice(0,10);
+      if(seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    if(clean.length < invs.length){
+      localStorage.setItem('ft_investments',JSON.stringify(clean));
+    }
+  }catch(e){}
+})();
+
 setLang(lang);
 renderDashboard();
 updateBadges();
