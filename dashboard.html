@@ -1113,27 +1113,8 @@ function getMonthTotals() {
   const curYear  = now.getFullYear();
   const curMonth = now.getMonth();
 
-  const txs = data.transactions.filter(t => {
-    if (!t.date) return false;
-    // Parsear manualmente para evitar bug de timezone en iOS Safari
-    // 'YYYY-MM-DD' interpretado como UTC puede caer en mes anterior en zonas UTC-X
-    const parts = String(t.date).split(/[-T]/);
-    const y = parseInt(parts[0]);
-    const m = parseInt(parts[1]) - 1; // 0-indexed
-    return y === curYear && m === curMonth;
-  });
-
-  const totals = { gasto:0, ingreso:0, inversion:0, ahorro:0, suscripcion:0, hipoteca:0 };
-  txs.forEach(t => { totals[t.type] = (totals[t.type]||0) + parseFloat(t.amount); });
-
-  const spent = totals.gasto + totals.suscripcion + totals.hipoteca + totals.ahorro + totals.inversion;
-
-  // ── Classify spending by CATEGORY, separating hogar vs personal ──
-  let needsSpent = 0, wantsSpent = 0;
-  let hogarSpent = 0, personalNeedsSpent = 0, personalWantsSpent = 0;
+  // Calcular hogar info primero — se necesita en el loop de totals
   const hogarConnected = (() => { try{ const h=JSON.parse(localStorage.getItem('ft_hogar')||'{}'); return h.connected===true && !h.manuallyLeft; }catch(e){return false;} })();
-
-  // Calcular el % del hogar que le corresponde a este usuario según el modo
   const myHogarPct = (() => {
     try {
       const h = JSON.parse(localStorage.getItem('ft_hogar')||'{}');
@@ -1146,6 +1127,31 @@ function getMonthTotals() {
       return total > 0 ? myIncome/total : 0.5;
     } catch(e){ return 0.5; }
   })();
+
+  const txs = data.transactions.filter(t => {
+    if (!t.date) return false;
+    const parts = String(t.date).split(/[-T]/);
+    const y = parseInt(parts[0]);
+    const m = parseInt(parts[1]) - 1;
+    return y === curYear && m === curMonth;
+  });
+
+  const totals = { gasto:0, ingreso:0, inversion:0, ahorro:0, suscripcion:0, hipoteca:0 };
+  txs.forEach(t => {
+    const amt = parseFloat(t.amount)||0;
+    // Para ahorros del hogar, solo contar la parte proporcional del usuario
+    if(t.type === 'ahorro' && t.hogar === true && hogarConnected){
+      totals.ahorro += amt * myHogarPct;
+    } else {
+      totals[t.type] = (totals[t.type]||0) + amt;
+    }
+  });
+
+  const spent = totals.gasto + totals.suscripcion + totals.hipoteca + totals.ahorro + totals.inversion;
+
+  // ── Classify spending by CATEGORY, separating hogar vs personal ──
+  let needsSpent = 0, wantsSpent = 0;
+  let hogarSpent = 0, personalNeedsSpent = 0, personalWantsSpent = 0;
 
   txs.forEach(t => {
     if (t.type === 'gasto' || t.type === 'suscripcion' || t.type === 'hipoteca') {
