@@ -1114,7 +1114,7 @@ function getMonthTotals() {
   const curMonth = now.getMonth();
 
   // Calcular hogar info primero — se necesita en el loop de totals
-  const hogarConnected = (() => { try{ const h=JSON.parse(localStorage.getItem('ft_hogar')||'{}'); return h.connected===true && !h.manuallyLeft; }catch(e){return false;} })();
+  const hogarConnected = (() => { try{ const h=JSON.parse(localStorage.getItem('ft_hogar')||'{}'); return h.connected==true && !h.manuallyLeft; }catch(e){return false;} })();
   const myHogarPct = (() => {
     try {
       const h = JSON.parse(localStorage.getItem('ft_hogar')||'{}');
@@ -1140,7 +1140,7 @@ function getMonthTotals() {
   txs.forEach(t => {
     const amt = parseFloat(t.amount)||0;
     // Para ahorros del hogar, solo contar la parte proporcional del usuario
-    if(t.type === 'ahorro' && t.hogar === true && hogarConnected){
+    if(t.type === 'ahorro' && t.hogar == true && hogarConnected){
       totals.ahorro += amt * myHogarPct;
     } else {
       totals[t.type] = (totals[t.type]||0) + amt;
@@ -1157,7 +1157,7 @@ function getMonthTotals() {
     if (t.type === 'gasto' || t.type === 'suscripcion' || t.type === 'hipoteca') {
       const amt = parseFloat(t.amount) || 0;
       const kind = t.type === 'hipoteca' ? 'needs' : getCategoryType(t.cat);
-      if(hogarConnected && t.hogar === true){
+      if(hogarConnected && t.hogar == true){
         hogarSpent += amt;
         // Solo sumar la parte proporcional al 50/30/20 personal
         const myPart = amt * myHogarPct;
@@ -1393,7 +1393,7 @@ function renderTx(filter) {
     })
     .sort((a,b) => new Date(b.date)-new Date(a.date));
 
-  if (filter === 'hogar') txs = txs.filter(t => t.hogar === true);
+  if (filter === 'hogar') txs = txs.filter(t => t.hogar == true);
   else if (filter !== 'all') txs = txs.filter(t => t.type === filter);
 
   const el = document.getElementById('txList');
@@ -1976,7 +1976,7 @@ function toggleMiDinero(){
 }
 
 function isHogarConnected(){
-  try { const h=JSON.parse(localStorage.getItem('ft_hogar')||'{}'); return h.connected===true && !h.manuallyLeft; }
+  try { const h=JSON.parse(localStorage.getItem('ft_hogar')||'{}'); return h.connected==true && !h.manuallyLeft; }
   catch(e){ return false; }
 }
 
