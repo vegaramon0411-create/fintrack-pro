@@ -914,16 +914,12 @@ function abrirAporteModal(tipo, idx, montoSugerido){
 
 function registrarEnPresupuesto(monto, desc){
   try{
-    // Solo registrar la parte proporcional del usuario (50% en modo igual)
-    var h = loadHogar();
-    var myIncome = parseFloat(user.income)||0;
-    var partnerIncome = parseFloat(h.partnerIncome)||0;
-    var total = myIncome + partnerIncome;
-    var myPct = (h.mode==='equal'||!h.mode) ? 0.5 : (total>0 ? myIncome/total : 0.5);
-    var miParte = monto * myPct;
     var data=JSON.parse(localStorage.getItem('ft_data')||'{}');
     data.transactions=data.transactions||[];
-    data.transactions.push({id:Date.now(),type:'ahorro',desc:desc,amount:miParte,date:(function(){var n=new Date();return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0');})(),cat:'🏠 Hogar',hogar:true});
+    var n=new Date();
+    var fecha=n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0');
+    // Guardar monto completo con hogar:true — getMonthTotals hace el split x myHogarPct
+    data.transactions.push({id:Date.now(),type:'ahorro',desc:desc,amount:monto,date:fecha,cat:'🏠 Hogar',hogar:true});
     localStorage.setItem('ft_data',JSON.stringify(data));
   }catch(e){}
 }
