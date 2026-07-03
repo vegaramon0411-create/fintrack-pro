@@ -391,7 +391,7 @@ function calcHogar(myIncome, partnerIncome, mode, myExpenses, partnerExpenses, s
   const total = myIncome + partnerIncome;
   let myPct, partnerPct;
 
-  if(mode === 'equal'){ myPct = 50; partnerPct = 50; }
+  if(mode === 'equal' || mode === 'common'){ myPct = 50; partnerPct = 50; }
   else if(mode === 'proportional'){
     myPct = total > 0 ? Math.round((myIncome/total)*100) : 50;
     partnerPct = 100 - myPct;
