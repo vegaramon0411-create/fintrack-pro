@@ -1141,7 +1141,7 @@ function getMonthTotals() {
       const h = JSON.parse(localStorage.getItem('ft_hogar')||'{}');
       if(!h.connected) return 0.5;
       const mode = h.mode||'equal';
-      if(mode === 'equal') return 0.5;
+      if(mode === 'equal' || mode === 'common') return 0.5;
       const myIncome = parseFloat(user.income)||0;
       const partnerIncome = parseFloat(h.partnerIncome)||0;
       const total = myIncome + partnerIncome;
@@ -1867,7 +1867,7 @@ function updateHeroDinero(){
   const hogar = (() => { try{ return JSON.parse(localStorage.getItem('ft_hogar')||'{}'); }catch(e){ return {}; } })();
   const hogarConn = hogar.connected && !hogar.manuallyLeft;
   const persPct2 = hogarConn ? (100-(parseFloat(hogar.payPctHogar)||50)-(parseFloat(hogar.saveHogarPct)||10)) : 100;
-  const myHogarPct2 = (() => { try{ if(!hogarConn) return 0.5; const mode=hogar.mode||'equal'; if(mode==='equal') return 0.5; const total=(user.income||0)+(parseFloat(hogar.partnerIncome)||0); return total>0?(user.income||0)/total:0.5; }catch(e){ return 0.5; } })();
+  const myHogarPct2 = (() => { try{ if(!hogarConn) return 0.5; const mode=hogar.mode||'equal'; if(mode==='equal'||mode==='common') return 0.5; const total=(user.income||0)+(parseFloat(hogar.partnerIncome)||0); return total>0?(user.income||0)/total:0.5; }catch(e){ return 0.5; } })();
   const personalBudget2 = income * persPct2 / 100;
   const personalGastado2 = (totals.personalNeedsSpent||0) + (totals.personalWantsSpent||0) + (totals.hogarSpent||0)*myHogarPct2;
   const personalDisponible2 = Math.max(0, personalBudget2 - personalGastado2);
@@ -2908,7 +2908,7 @@ function renderMiDineroTab(){
   },0);
   const hogarConnected=isHogarConnected();
   const sharedSpent = hogarConnected ? (totals.hogarSpent||0) : 0;
-  const myHogarPct = (() => { try { const h=JSON.parse(localStorage.getItem('ft_hogar')||'{}'); if(!h.connected) return 0.5; const mode=h.mode||'equal'; if(mode==='equal') return 0.5; const total=(user.income||0)+(parseFloat(h.partnerIncome)||0); return total>0?(user.income||0)/total:0.5; } catch(e){ return 0.5; } })();
+  const myHogarPct = (() => { try { const h=JSON.parse(localStorage.getItem('ft_hogar')||'{}'); if(!h.connected) return 0.5; const mode=h.mode||'equal'; if(mode==='equal'||mode==='common') return 0.5; const total=(user.income||0)+(parseFloat(h.partnerIncome)||0); return total>0?(user.income||0)/total:0.5; } catch(e){ return 0.5; } })();
   const personalNeedsSpent = totals.personalNeedsSpent||0;
   const personalWantsSpent = totals.personalWantsSpent||0;
   const hogarMyPart = sharedSpent * myHogarPct;
