@@ -1108,13 +1108,34 @@ function getCategoryType(cat) {
 }
 
 function getMonthTotals() {
+  // DEBUG TEMPORAL - panel visible
+  try{
+    const _h = JSON.parse(localStorage.getItem('ft_hogar')||'{}');
+    const _d = JSON.parse(localStorage.getItem('ft_data')||'{}');
+    const _txs = (_d.transactions||[]).filter(t=>t.hogar==true||t.hogar==='true');
+    const _mode = _h.mode||'equal';
+    const _mi = parseFloat((user&&user.income)||0);
+    const _pa = parseFloat(_h.partnerIncome||0);
+    const _pct = _mode==='equal'?0.5:(_mi+_pa>0?_mi/(_mi+_pa):0.5);
+    const _div = document.createElement('div');
+    _div.style.cssText='position:fixed;bottom:80px;left:0;right:0;background:#000;color:#0f0;font-size:10px;padding:8px;z-index:9999;font-family:monospace;max-height:200px;overflow-y:auto';
+    _div.innerHTML='<b>DEBUG</b><br>'
+      +'connected: '+JSON.stringify(_h.connected)+'<br>'
+      +'manuallyLeft: '+JSON.stringify(_h.manuallyLeft)+'<br>'
+      +'mode: '+_mode+'<br>'
+      +'myHogarPct: '+_pct.toFixed(4)+'<br>'
+      +'txs con hogar=true: '+_txs.length+'<br>'
+      +_txs.map(t=>t.type+' '+t.desc+' $'+t.amount).join('<br>')
+      +'<br><button onclick="this.parentElement.remove()" style="margin-top:4px;padding:4px 8px">✕ Cerrar</button>';
+    document.body.appendChild(_div);
+  }catch(e){}
   const data = loadData();
   const now  = new Date();
   const curYear  = now.getFullYear();
   const curMonth = now.getMonth();
 
   // Calcular hogar info primero — se necesita en el loop de totals
-  const hogarConnected = (() => { try{ const h=JSON.parse(localStorage.getItem('ft_hogar')||'{}'); return h.connected==true && !h.manuallyLeft; }catch(e){return false;} })();
+  const hogarConnected = isHogarConnected();
   const myHogarPct = (() => {
     try {
       const h = JSON.parse(localStorage.getItem('ft_hogar')||'{}');
@@ -1139,9 +1160,10 @@ function getMonthTotals() {
   const totals = { gasto:0, ingreso:0, inversion:0, ahorro:0, suscripcion:0, hipoteca:0 };
   txs.forEach(t => {
     const amt = parseFloat(t.amount)||0;
-    // Para ahorros del hogar, solo contar la parte proporcional del usuario
-    if(t.type === 'ahorro' && t.hogar == true && hogarConnected){
-      totals.ahorro += amt * myHogarPct;
+    const isHogarTx = t.hogar == true || t.hogar === 'true';
+    if(isHogarTx && (t.type === 'ahorro' || t.type === 'gasto' || t.type === 'suscripcion' || t.type === 'hipoteca')){
+      // Gasto/ahorro del hogar: solo contar la parte proporcional
+      totals[t.type] = (totals[t.type]||0) + (amt * myHogarPct);
     } else {
       totals[t.type] = (totals[t.type]||0) + amt;
     }
