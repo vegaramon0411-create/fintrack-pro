@@ -1116,7 +1116,7 @@ function getMonthTotals() {
     const _mode = _h.mode||'equal';
     const _mi = parseFloat((user&&user.income)||0);
     const _pa = parseFloat(_h.partnerIncome||0);
-    const _pct = _mode==='equal'?0.5:(_mi+_pa>0?_mi/(_mi+_pa):0.5);
+    const _pct = (_mode==='equal'||_mode==='common')?0.5:(_mi+_pa>0?_mi/(_mi+_pa):0.5);
     const _div = document.createElement('div');
     _div.style.cssText='position:fixed;bottom:80px;left:0;right:0;background:#000;color:#0f0;font-size:10px;padding:8px;z-index:9999;font-family:monospace;max-height:200px;overflow-y:auto';
     _div.innerHTML='<b>DEBUG</b><br>'
