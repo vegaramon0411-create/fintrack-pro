@@ -145,9 +145,11 @@ function setLang(l){
 }
 
 function changeMonth(dir){
-  const d = new Date(selectedMonth+'-01');
-  d.setMonth(d.getMonth()+dir);
-  selectedMonth = d.toISOString().slice(0,7);
+  const parts = selectedMonth.split('-');
+  const y = parseInt(parts[0]);
+  const m = parseInt(parts[1]) - 1; // 0-indexed
+  const d = new Date(y, m + dir, 1);
+  selectedMonth = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
   render();
 }
 
