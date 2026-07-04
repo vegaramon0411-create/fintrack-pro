@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>FinTrack Pro \u00b7 Deudas</title>
+<title>FinTrack Pro · Deudas</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="premium.js"></script>
 <style>
@@ -24,7 +24,14 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
 .app{display:flex;min-height:100vh;}
 
 /* SIDEBAR */
-.sidebar{width:var(--sidebar);background:var(--white);border-right:1px solid var(--border);position:fixed;top:0;left:0;bottom:0;display:flex;flex-direction:column;z-index:50;overflow-y:auto;}
+.sidebar{width:var(--sidebar);background:var(--white);border-right:1px solid var(--border);position:fixed;top:0;left:0;bottom:0;display:flex;flex-direction:column;z-index:50;overflow-y:auto;transition:width .18s ease;}
+.sidebar.collapsed{width:64px;}
+.sidebar.collapsed .sb-name,.sidebar.collapsed .sb-tag,.sidebar.collapsed .sb-section,.sidebar.collapsed .sb-link span:last-child{display:none;}
+.sidebar.collapsed .sb-link{justify-content:center;padding:10px 0;}
+.sidebar.collapsed .sb-logo{justify-content:center;padding:0 8px;}
+.sidebar.collapsed .sb-logo>div:last-child{display:none;}
+.sb-collapse-btn{position:absolute;top:14px;right:-13px;width:26px;height:26px;border-radius:50%;background:var(--white);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;z-index:51;box-shadow:0 2px 6px rgba(0,0,0,.08);}
+.sidebar.collapsed ~ .main{margin-left:64px;}
 .sb-logo{display:flex;align-items:center;gap:10px;padding:22px 18px 18px;border-bottom:1px solid var(--border);}
 .sb-mark{width:36px;height:36px;background:linear-gradient(135deg,var(--g-dark),var(--g-main));border-radius:11px;display:grid;place-items:center;color:white;font-size:17px;}
 .sb-name{font-size:15px;font-weight:800;}.sb-tag{font-size:10px;color:var(--text3);}
@@ -174,31 +181,32 @@ input, select, textarea { font-size: 16px !important; }
 <div class="app">
 
 <!-- SIDEBAR -->
-<aside class="sidebar">
-  <div class="sb-logo"><div class="sb-mark">\ud83d\udc8e</div><div><div class="sb-name">FinTrack Pro</div><div class="sb-tag">Panel financiero</div></div></div>
+<aside class="sidebar" id="sidebar">
+  <div class="sb-collapse-btn" id="sbCollapseBtn" onclick="toggleSidebar()">◀</div>
+  <div class="sb-logo"><div class="sb-mark">💎</div><div><div class="sb-name">FinTrack Pro</div><div class="sb-tag">Panel financiero</div></div></div>
   <nav class="sb-nav">
     <div class="sb-section">Principal</div>
-    <div class="sb-link" onclick="go('dashboard.html')"><span class="sb-ico">\ud83d\udcca</span>Dashboard</div>
-    <div class="sb-link" onclick="go('dashboard.html')"><span class="sb-ico">\u2795</span>Nuevo registro</div>
-    <div class="sb-link" onclick="go('suscripciones.html')"><span class="sb-ico">\ud83d\udd04</span>Suscripciones</div>
-    <div class="sb-link" onclick="go('metas.html')"><span class="sb-ico">\ud83c\udfaf</span>Metas</div>
-    <div class="sb-link on"><span class="sb-ico">\ud83d\udcb3</span>Deudas</div>
-    <div class="sb-section">An\u00e1lisis</div>
-    <div class="sb-link" onclick="go('analisis.html')"><span class="sb-ico">\ud83d\udcc8</span>Por categor\u00eda</div>
-    <div class="sb-link" onclick="go('historial.html')"><span class="sb-ico">\ud83d\udcc5</span>Historial</div>
-    <div class="sb-link" onclick="go('inversiones.html')"><span class="sb-ico">\ud83c\udfe6</span>Inversiones</div>
-    <div class="sb-link" onclick="go('reporte.html')"><span class="sb-ico">\ud83d\udcc4</span>Reporte mensual</div>
+    <div class="sb-link" onclick="go('dashboard.html')"><span class="sb-ico">📊</span>Dashboard</div>
+    <div class="sb-link" onclick="go('dashboard.html')"><span class="sb-ico">➕</span>Nuevo registro</div>
+    <div class="sb-link" onclick="go('suscripciones.html')"><span class="sb-ico">🔄</span>Suscripciones</div>
+    <div class="sb-link" onclick="go('metas.html')"><span class="sb-ico">🎯</span>Metas</div>
+    <div class="sb-link on"><span class="sb-ico">💳</span>Deudas</div>
+    <div class="sb-section">Análisis</div>
+    <div class="sb-link" onclick="go('analisis.html')"><span class="sb-ico">📈</span>Por categoría</div>
+    <div class="sb-link" onclick="go('historial.html')"><span class="sb-ico">📅</span>Historial</div>
+    <div class="sb-link" onclick="go('inversiones.html')"><span class="sb-ico">🏦</span>Inversiones</div>
+    <div class="sb-link" onclick="go('reporte.html')"><span class="sb-ico">📄</span>Reporte mensual</div>
     <div class="sb-section">Herramientas</div>
-    <div class="sb-link" onclick="go('scanner.html')"><span class="sb-ico">\ud83d\udcf7</span>Escanear recibo</div>
-    <div class="sb-link" onclick="go('importar.html')"><span class="sb-ico">\ud83d\udce5</span>Importar CSV</div>
-    <div class="sb-link" onclick="go('emergencia.html')"><span class="sb-ico">\ud83d\udee1\ufe0f</span>Fondo emergencia</div>
-    <div class="sb-link" onclick="go('hogar.html')"><span class="sb-ico">\ud83c\udfe0</span>Hogar</div>
+    <div class="sb-link" onclick="go('scanner.html')"><span class="sb-ico">📷</span>Escanear recibo</div>
+    <div class="sb-link" onclick="go('importar.html')"><span class="sb-ico">📥</span>Importar CSV</div>
+    <div class="sb-link" onclick="go('emergencia.html')"><span class="sb-ico">🛡️</span>Fondo emergencia</div>
+    <div class="sb-link" onclick="go('hogar.html')"><span class="sb-ico">🏠</span>Hogar</div>
     <div class="sb-section">Cuenta</div>
-    <div class="sb-link" onclick="go('perfil.html')"><span class="sb-ico">\ud83d\udc64</span>Mi perfil</div>
-    <div class="sb-link" onclick="go('config.html')"><span class="sb-ico">\u2699\ufe0f</span>Configuraci\u00f3n</div>
-    <div class="sb-link" onclick="logout()"><span class="sb-ico">\ud83d\udeaa</span>Cerrar sesi\u00f3n</div>
+    <div class="sb-link" onclick="go('perfil.html')"><span class="sb-ico">👤</span>Mi perfil</div>
+    <div class="sb-link" onclick="go('config.html')"><span class="sb-ico">⚙️</span>Configuración</div>
+    <div class="sb-link" onclick="logout()"><span class="sb-ico">🚪</span>Cerrar sesión</div>
   </nav>
-  <div class="sb-footer"><div class="sb-user" onclick="go('perfil.html')"><div class="sb-avatar" id="sbAvatar">R</div><div><div class="sb-uname" id="sbName">\u2014</div><div class="sb-umail" id="sbEmail">\u2014</div></div></div></div>
+  <div class="sb-footer"><div class="sb-user" onclick="go('perfil.html')"><div class="sb-avatar" id="sbAvatar">R</div><div><div class="sb-uname" id="sbName">—</div><div class="sb-umail" id="sbEmail">—</div></div></div></div>
 </aside>
 
 <!-- MAIN -->
@@ -250,7 +258,7 @@ input, select, textarea { font-size: 16px !important; }
   <div class="modal">
     <div class="modal-header">
       <div class="modal-title" id="modalTitle">Nueva deuda</div>
-      <div class="modal-close" onclick="closeModal()">\u2715</div>
+      <div class="modal-close" onclick="closeModal()">✕</div>
     </div>
     <div class="modal-body" id="modalBody"></div>
   </div>
@@ -328,6 +336,26 @@ input, select, textarea { font-size: 16px !important; }
    Tipos: hipoteca, auto, tarjeta, personal
    Con amortizaci\u00f3n real y seguimiento
 \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550 */
+/* \u2500\u2500 SIDEBAR COLLAPSE (desktop only) \u2500\u2500 */
+function toggleSidebar(){
+  const sb = document.getElementById('sidebar');
+  const btn = document.getElementById('sbCollapseBtn');
+  if(!sb) return;
+  const collapsed = sb.classList.toggle('collapsed');
+  if(btn) btn.textContent = collapsed ? '\u25b6' : '\u25c0';
+  localStorage.setItem('ft_sidebar_collapsed', collapsed ? '1' : '0');
+}
+(function initSidebarState(){
+  if(window.innerWidth <= 860) return; // en m\u00f3vil el sidebar no aplica
+  const sb = document.getElementById('sidebar');
+  const btn = document.getElementById('sbCollapseBtn');
+  if(!sb) return;
+  if(localStorage.getItem('ft_sidebar_collapsed') === '1'){
+    sb.classList.add('collapsed');
+    if(btn) btn.textContent = '\u25b6';
+  }
+})();
+
 const DEBT_KEY = 'ft_debts';
 let lang = 'es', user = {};
 let editingId = null;
@@ -755,13 +783,14 @@ function renderForm(debt=null){
   <!-- Amort preview -->
   <div id="amortPreview" style="display:none;margin-bottom:14px"></div>
 
-  <!-- Actions -->
-  <div style="display:flex;gap:8px;margin-top:4px">
-    <button class="btn-primary" onclick="saveDebt()">${es?'Guardar deuda':'Save debt'}</button>
-    ${debt?`<button class="btn-danger" onclick="deleteDebt('${debt.id}')">\ud83d\uddd1\ufe0f</button>`:''}
-  </div>
-  <div style="height:4px"></div>
-  <button class="btn-secondary" onclick="closeModal()">${es?'Cancelar':'Cancel'}</button>`;
+  <!-- Actions (sticky al fondo del modal) -->
+  <div style="position:sticky;bottom:-20px;background:var(--white);margin:16px -22px -20px;padding:12px 22px calc(16px + env(safe-area-inset-bottom));border-top:1px solid var(--border)">
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <button class="btn-primary" onclick="saveDebt()">${es?'Guardar deuda':'Save debt'}</button>
+      ${debt?`<button class="btn-danger" onclick="deleteDebt('${debt.id}')">\ud83d\uddd1\ufe0f</button>`:''}
+    </div>
+    <button class="btn-secondary" onclick="closeModal()">${es?'Cancelar':'Cancel'}</button>
+  </div>`;
 
   // Set initial interest toggle state
   const hasInt = debt ? (parseFloat(debt.apr)||0) > 0 : cfg.hasInterest;
@@ -950,9 +979,10 @@ function updatePreview(){
     <div class="ap-title">\ud83d\udcca ${es?'An\u00e1lisis de tu deuda':'Debt analysis'}</div>
     <div class="ap-row"><span class="ap-label">${es?'Terminas de pagar':'Payoff date'}</span><span class="ap-value">${payoffDate}</span></div>
     <div class="ap-row"><span class="ap-label">${es?'Meses restantes':'Months left'}</span><span class="ap-value">${amort.months} ${es?'meses':'months'}</span></div>
-    <div class="ap-row"><span class="ap-label">${es?'Total de intereses':'Total interest'}</span><span class="ap-value">${fmtD(amort.totalInterest)}</span></div>
-    <div class="ap-row"><span class="ap-label">${es?'Total que pagar\u00e1s':'Total you\'ll pay'}</span><span class="ap-value">${fmtD(totalPaidWithPiti)}</span></div>
-    ${pitiExtra>0?`<div class="ap-row" style="border-top:1px solid rgba(230,57,70,.2);padding-top:8px;margin-top:4px"><span class="ap-label">${es?'Pago mensual (PITI)':'Monthly payment (PITI)'}</span><span class="ap-value">${fmtD(effectivePayment+pitiExtra)}</span></div>${pitiBreakdown}<div class="ap-row" style="font-size:11px;color:var(--text3)">${es?'De eso, capital+inter\u00e9s':'Of that, principal+interest'}: ${fmtD(effectivePayment)}</div>`:''}
+    <div class="ap-row"><span class="ap-label">${es?'Total de intereses (pr\u00e9stamo)':'Total interest (loan)'}</span><span class="ap-value">${fmtD(amort.totalInterest)}</span></div>
+    <div class="ap-row"><span class="ap-label">${es?'Total del pr\u00e9stamo (P+I)':'Total loan (P+I)'}</span><span class="ap-value">${fmtD(amort.totalPaid)}</span></div>
+    ${pitiExtra>0?`<div class="ap-row" style="border-top:1px solid rgba(230,57,70,.2);padding-top:8px;margin-top:4px"><span class="ap-label">${es?'Pago mensual (PITI)':'Monthly payment (PITI)'}</span><span class="ap-value">${fmtD(effectivePayment+pitiExtra)}</span></div>${pitiBreakdown}<div class="ap-row" style="font-size:11px;color:var(--text3)">${es?'De eso, capital+inter\u00e9s':'Of that, principal+interest'}: ${fmtD(effectivePayment)}</div>
+    <div class="ap-row" style="border-top:1px solid rgba(230,57,70,.2);padding-top:8px;margin-top:4px"><span class="ap-label">${es?'Costo real total (con tax/seguro)':'Real total cost (with tax/insurance)'}</span><span class="ap-value">${fmtD(totalPaidWithPiti)}</span></div>`:''}
     ${apr>0?`<div class="ap-row" style="border-top:1px solid rgba(230,57,70,.2);padding-top:8px;margin-top:4px">
       <span class="ap-label">${es?'Pago: capital / inter\u00e9s':'Payment: principal / interest'}</span>
       <span class="ap-value">${fmt(firstPrincipal)} / ${fmt(firstInterest)}</span>
