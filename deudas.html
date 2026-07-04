@@ -552,7 +552,7 @@ function openAddModal(id=null){
   editingId = id;
   currentType = null;
   const debts = loadDebts();
-  const debt = id ? debts.find(d=>d.id===id) : null;
+  const debt = id ? debts.find(d=>String(d.id)===String(id)) : null;
   if(debt) currentType = debt.type;
 
   document.getElementById('modalTitle').textContent = id
@@ -852,7 +852,7 @@ function saveDebt(){
 
   const debts = loadDebts();
   if(editingId){
-    const idx = debts.findIndex(d=>d.id===editingId);
+    const idx = debts.findIndex(d=>String(d.id)===String(editingId));
     if(idx>=0) debts[idx] = {...debts[idx], ...debt};
   } else {
     debts.push(debt);
@@ -865,7 +865,7 @@ function saveDebt(){
 
 /* \u2500\u2500 DETAIL VIEW \u2500\u2500 */
 function openDetail(id){
-  const debt = loadDebts().find(d=>d.id===id);
+  const debt = loadDebts().find(d=>String(d.id)===String(id));
   if(!debt) return;
   const cfg = TYPE_CONFIG[debt.type]||TYPE_CONFIG.personal;
   const info = cfg[lang]||cfg.es;
@@ -1044,7 +1044,7 @@ function openDetail(id){
 /* \u2500\u2500 DELETE \u2500\u2500 */
 function deleteDebt(id){
   if(!confirm(lang==='es'?'\u00bfEliminar esta deuda?':'Delete this debt?')) return;
-  const debts = loadDebts().filter(d=>d.id!==id);
+  const debts = loadDebts().filter(d=>String(d.id)!==String(id));
   saveDebts(debts);
   render();
   showToast(lang==='es'?'\ud83d\uddd1\ufe0f Eliminado':'\ud83d\uddd1\ufe0f Deleted');
@@ -1102,7 +1102,7 @@ function openAbonar(debtId){
     // Viene de la card — deuda específica
     selector.style.display = 'none';
     overlay.dataset.debtId = debtId;
-    const d = debts.find(x=>x.id===debtId);
+    const d = debts.find(x=>String(x.id)===String(debtId));
     if(d){
       document.getElementById('abonarTitle').textContent = '💳 '+(es?'Abonar a':'Pay') +' '+d.name;
       showAbonarInfo(d);
@@ -1140,7 +1140,7 @@ function showAbonarInfo(d){
 
 function updateAbonarInfo(){
   const id = document.getElementById('abonarDebtId').value;
-  const d = loadDebts().find(x=>x.id===id);
+  const d = loadDebts().find(x=>String(x.id)===String(id));
   if(d) showAbonarInfo(d);
 }
 
