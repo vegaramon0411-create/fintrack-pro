@@ -473,6 +473,15 @@ function renderDebtCard(d){
   const paidAmt = Math.max(0, original - balance);
   const paidPct = original>0 ? Math.min(Math.round((paidAmt/original)*100),100) : 0;
 
+  // Progreso del pago de ESTE MES (solo abonos tipo "nuevo")
+  const thisMonth = new Date().toISOString().slice(0,7);
+  const paidThisMonth = (d.abonos||[])
+    .filter(a => a.tipo==='nuevo' && String(a.fecha||'').startsWith(thisMonth))
+    .reduce((sum,a) => sum + (parseFloat(a.monto)||0), 0);
+  const monthPct = payment>0 ? Math.min(Math.round((paidThisMonth/payment)*100),100) : 0;
+  const monthRemaining = Math.max(0, payment - paidThisMonth);
+  const monthDone = payment>0 && paidThisMonth >= payment;
+
   // Quick amort calc
   const amort = calcAmort(balance, payment, d.apr||0, d.term||0);
 
@@ -501,6 +510,19 @@ function renderDebtCard(d){
       <span>${paidPct}% ${lang==='es'?'pagado':'paid'}</span>
       <span>${lang==='es'?'Termina':'Ends'}: ${payoffDate}</span>
     </div>
+
+    ${payment>0?`
+    <div style="background:var(--off);border-radius:10px;padding:10px 12px;margin-top:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.3px">${lang==='es'?'Este mes':'This month'}</span>
+        <span style="font-size:11px;font-weight:700;color:${monthDone?'var(--g-main)':info.color}">${monthDone?(lang==='es'?'✅ Cubierto':'✅ Covered'):(lang==='es'?`Faltan ${fmt(monthRemaining)}`:`${fmt(monthRemaining)} left`)}</span>
+      </div>
+      <div class="dc-progress" style="margin-bottom:4px">
+        <div class="dc-fill" style="width:${monthPct}%;background:${monthDone?'var(--g-main)':info.color}"></div>
+      </div>
+      <div style="font-size:10px;color:var(--text3)">${fmt(paidThisMonth)} / ${fmt(payment)}</div>
+    </div>`:''}
+
     <div class="dc-summary">
       <div class="dc-stat">
         <div class="dc-stat-val">${fmt(payment)}</div>
@@ -1144,7 +1166,8 @@ function guardarAbono(){
 
   // Registrar en historial de abonos
   if(!debts[idx].abonos) debts[idx].abonos = [];
-  debts[idx].abonos.push({ id:Date.now(), monto, fecha, nota, saldoAntes:oldBalance, saldoDespues:newBalance, tipo:abonoTipo, createdBy:user.name||'' });
+  const abonoId = Date.now();
+  let linkedTxId = null;
 
   // Solo registrar en ft_data si es abono NUEVO del mes
   if(abonoTipo === 'nuevo'){
@@ -1152,10 +1175,13 @@ function guardarAbono(){
       const data = JSON.parse(localStorage.getItem('ft_data')||'{}');
       data.transactions = data.transactions||[];
       const esHogar = d.type==='hipoteca' || d.type==='hogar';
-      data.transactions.push({ id:Date.now(), type:'gasto', desc:(es?'Abono a ':'Payment to ')+d.name, amount:monto, date:fecha, cat:'💳 Deudas', note:nota, hogar:esHogar });
+      linkedTxId = abonoId + 1;
+      data.transactions.push({ id:linkedTxId, type:'gasto', desc:(es?'Abono a ':'Payment to ')+d.name, amount:monto, date:fecha, cat:'💳 Deudas', note:nota, hogar:esHogar, createdBy:user.name||'' });
       localStorage.setItem('ft_data', JSON.stringify(data));
     } catch(e){}
   }
+
+  debts[idx].abonos.push({ id:abonoId, monto, fecha, nota, saldoAntes:oldBalance, saldoDespues:newBalance, tipo:abonoTipo, createdBy:user.name||'', txId:linkedTxId });
 
   saveDebts(debts);
   closeAbonar();
@@ -1199,13 +1225,83 @@ function openAbonoDetail(debtId, abonoId){
       <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">${es?'Saldo después':'Balance after'}</span><span style="font-weight:600">${fmtD(a.saldoDespues)}</span></div>
       ${a.nota?`<div><div style="color:var(--text3);margin-bottom:4px">${es?'Nota':'Note'}</div><div style="background:var(--off);border-radius:10px;padding:10px;font-weight:500">${a.nota}</div></div>`:''}
     </div>
-    <button onclick="deleteAbono('${debtId}',${a.id})" style="width:100%;background:var(--red-dim);color:var(--red);border:none;border-radius:12px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">🗑️ ${es?'Eliminar abono':'Delete payment'}</button>`;
+    <div style="display:flex;gap:8px">
+      <button onclick="startEditAbono('${debtId}',${a.id})" style="flex:1;background:var(--off);color:var(--text);border:none;border-radius:12px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">✏️ ${es?'Editar':'Edit'}</button>
+      <button onclick="deleteAbono('${debtId}',${a.id})" style="flex:1;background:var(--red-dim);color:var(--red);border:none;border-radius:12px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">🗑️ ${es?'Eliminar':'Delete'}</button>
+    </div>`;
 
   document.getElementById('abonoDetailOverlay').classList.add('open');
 }
 
 function closeAbonoDetail(){
   document.getElementById('abonoDetailOverlay').classList.remove('open');
+}
+
+function startEditAbono(debtId, abonoId){
+  const debts = loadDebts();
+  const debt = debts.find(d=>String(d.id)===String(debtId));
+  if(!debt||!debt.abonos) return;
+  const a = debt.abonos.find(x=>String(x.id)===String(abonoId));
+  if(!a) return;
+  const es = lang==='es';
+
+  document.getElementById('abonoDetailBox').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div style="font-size:16px;font-weight:800">${es?'Editar abono':'Edit payment'}</div>
+      <div onclick="closeAbonoDetail()" style="cursor:pointer;font-size:20px;color:var(--text3)">✕</div>
+    </div>
+    <div class="ov-field" style="margin-bottom:12px"><label style="font-size:11px;font-weight:700;color:var(--text3);display:block;margin-bottom:4px">${es?'Monto':'Amount'}</label><input id="editAbonoMonto" type="number" step="0.01" value="${a.monto}" style="width:100%;border:1.5px solid var(--border);border-radius:10px;padding:9px 10px;font-family:inherit;font-size:14px"></div>
+    <div class="ov-field" style="margin-bottom:12px"><label style="font-size:11px;font-weight:700;color:var(--text3);display:block;margin-bottom:4px">${es?'Fecha':'Date'}</label><input id="editAbonoFecha" type="date" value="${a.fecha}" style="width:100%;border:1.5px solid var(--border);border-radius:10px;padding:9px 10px;font-family:inherit;font-size:14px"></div>
+    <div class="ov-field" style="margin-bottom:16px"><label style="font-size:11px;font-weight:700;color:var(--text3);display:block;margin-bottom:4px">${es?'Nota':'Note'}</label><input id="editAbonoNota" value="${(a.nota||'').replace(/"/g,'&quot;')}" style="width:100%;border:1.5px solid var(--border);border-radius:10px;padding:9px 10px;font-family:inherit;font-size:14px"></div>
+    <div style="display:flex;gap:8px">
+      <button onclick="openAbonoDetail('${debtId}',${a.id})" style="flex:1;background:var(--off);color:var(--text);border:none;border-radius:12px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">${es?'Cancelar':'Cancel'}</button>
+      <button onclick="saveEditAbono('${debtId}',${a.id})" style="flex:1;background:var(--g-main);color:white;border:none;border-radius:12px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">${es?'Guardar':'Save'}</button>
+    </div>`;
+}
+
+function saveEditAbono(debtId, abonoId){
+  const es = lang==='es';
+  const debts = loadDebts();
+  const dIdx = debts.findIndex(d=>String(d.id)===String(debtId));
+  if(dIdx<0) return;
+  const debt = debts[dIdx];
+  const aIdx = (debt.abonos||[]).findIndex(x=>String(x.id)===String(abonoId));
+  if(aIdx<0) return;
+  const a = debt.abonos[aIdx];
+
+  const newMonto = parseFloat(document.getElementById('editAbonoMonto').value)||0;
+  const newFecha = document.getElementById('editAbonoFecha').value;
+  const newNota = document.getElementById('editAbonoNota').value.trim();
+  if(newMonto<=0||!newFecha){ showToast(es?'⚠️ Datos inválidos':'⚠️ Invalid data'); return; }
+
+  // Revertir efecto viejo y aplicar el nuevo sobre el saldo
+  const oldMonto = parseFloat(a.monto)||0;
+  debt.balance = Math.max(0, parseFloat(debt.balance||0) + oldMonto - newMonto);
+  a.monto = newMonto;
+  a.fecha = newFecha;
+  a.nota = newNota;
+  a.saldoDespues = debt.balance;
+
+  saveDebts(debts);
+
+  // Sincronizar con historial (ft_data) si el abono generó una transacción
+  if(a.txId){
+    try{
+      const data = JSON.parse(localStorage.getItem('ft_data')||'{}');
+      const tIdx = (data.transactions||[]).findIndex(t=>t.id===a.txId);
+      if(tIdx>=0){
+        data.transactions[tIdx].amount = newMonto;
+        data.transactions[tIdx].date = newFecha;
+        data.transactions[tIdx].note = newNota;
+        localStorage.setItem('ft_data', JSON.stringify(data));
+      }
+    }catch(e){}
+  }
+
+  closeAbonoDetail();
+  closeDetail();
+  render();
+  showToast(es?'✅ Abono actualizado':'✅ Payment updated');
 }
 
 function deleteAbono(debtId, abonoId){
@@ -1223,6 +1319,15 @@ function deleteAbono(debtId, abonoId){
   debt.balance = parseFloat(debt.balance||0) + parseFloat(a.monto||0);
   debt.abonos.splice(aIdx,1);
   saveDebts(debts);
+
+  // Sincronizar con historial (ft_data)
+  if(a.txId){
+    try{
+      const data = JSON.parse(localStorage.getItem('ft_data')||'{}');
+      data.transactions = (data.transactions||[]).filter(t=>t.id!==a.txId);
+      localStorage.setItem('ft_data', JSON.stringify(data));
+    }catch(e){}
+  }
 
   closeAbonoDetail();
   closeDetail();
