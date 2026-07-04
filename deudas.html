@@ -482,8 +482,11 @@ function renderDebtCard(d){
   const monthRemaining = Math.max(0, payment - paidThisMonth);
   const monthDone = payment>0 && paidThisMonth >= payment;
 
-  // Quick amort calc
-  const amort = calcAmort(balance, payment, d.apr||0, d.term||0);
+  // Quick amort calc (o totales de modo simple si aplica)
+  const isSimpleMortgage = d.type==='hipoteca' && d.mortgageMode==='simple';
+  const amort = isSimpleMortgage
+    ? { payoffPossible:true, months:d.term||0, totalInterest:d.simpleTotalInterest, totalPaid:d.simpleTotalPaid }
+    : calcAmort(balance, payment, d.apr||0, d.term||0);
 
   const payoffDate = amort.payoffPossible && amort.months < 600 ? (() => {
     const d2 = new Date(); d2.setMonth(d2.getMonth()+amort.months);
@@ -496,7 +499,7 @@ function renderDebtCard(d){
       <div class="dc-ico" style="background:${info.bg}">${info.ico}</div>
       <div class="dc-info">
         <div class="dc-name">${d.name||info.name}</div>
-        <div class="dc-meta">${info.name} \u00b7 APR ${d.apr||0}%</div>
+        <div class="dc-meta">${info.name} \u00b7 ${isSimpleMortgage?(lang==='es'?'Modo simple':'Simple mode'):`APR ${d.apr||0}%`}</div>
       </div>
       <div class="dc-amount">
         <div class="dc-balance" style="color:${info.color}">${fmt(balance)}</div>
@@ -533,7 +536,7 @@ function renderDebtCard(d){
         <div class="dc-stat-lbl">${lang==='es'?'pago/mes':'payment/mo'}</div>
       </div>
       <div class="dc-stat">
-        <div class="dc-stat-val" style="color:var(--red)">${amort.payoffPossible?fmt(amort.totalInterest):'\u221e'}</div>
+        <div class="dc-stat-val" style="color:var(--red)">${amort.payoffPossible?(amort.totalInterest==null?'\u2014':fmt(amort.totalInterest)):'\u221e'}</div>
         <div class="dc-stat-lbl">${lang==='es'?'intereses':'interest'}</div>
       </div>
       <div class="dc-stat">
@@ -645,8 +648,29 @@ function renderForm(debt=null){
     <input class="field-input" id="fLimit" type="number" min="0" placeholder="0.00" value="${debt&&debt.limit?debt.limit:''}">
   </div>`:''}
 
-  <!-- Interest toggle -->
+  ${currentType==='hipoteca'?`
+  <!-- House price (both modes) -->
   <div class="field-group">
+    <div class="field-label">${es?'Valor de la casa ($)':'House price ($)'}</div>
+    <input class="field-input" id="fHousePrice" type="number" min="0" step="0.01" placeholder="0.00" value="${debt&&debt.housePrice?debt.housePrice:''}" oninput="updatePreview()">
+  </div>
+  <div class="field-group">
+    <div class="field-label">${es?'Enganche pagado ($, opcional)':'Down payment ($, optional)'}</div>
+    <input class="field-input" id="fDownPayment" type="number" min="0" step="0.01" placeholder="0.00" value="${debt&&debt.downPayment?debt.downPayment:''}" oninput="updatePreview()">
+  </div>
+
+  <!-- Mortgage mode toggle -->
+  <div class="field-group">
+    <div class="field-label">${es?'\u00bfC\u00f3mo quieres calcularlo?':'How do you want to calculate it?'}</div>
+    <div style="display:flex;gap:8px">
+      <button onclick="setMortgageMode('simple')" id="btnModeSimple" style="flex:1;padding:10px;border-radius:10px;border:2px solid var(--border);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--off)">\ud83e\uddee ${es?'Simple':'Simple'}</button>
+      <button onclick="setMortgageMode('detallado')" id="btnModeDetallado" style="flex:1;padding:10px;border-radius:10px;border:2px solid var(--border);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--off)">\ud83d\udd0d ${es?'Detallado':'Detailed'}</button>
+    </div>
+    <div class="field-hint" id="mortgageModeHint"></div>
+  </div>`:''}
+
+  <!-- Interest toggle (oculto en modo simple) -->
+  <div id="interestToggleBlock" class="field-group">
     <div class="field-label">${es?'\u00bfTiene inter\u00e9s?':'Has interest?'}</div>
     <div style="display:flex;gap:8px">
       <button onclick="toggleInterest(true)" id="btnYesInt" style="flex:1;padding:10px;border-radius:10px;border:2px solid var(--border);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--off);transition:all .15s">${es?'S\u00ed':'Yes'}</button>
@@ -662,6 +686,30 @@ function renderForm(debt=null){
       <div class="field-hint">${currentType==='tarjeta'?'T\u00edpico: 20\u201329% \u00b7 Revisa tu estado de cuenta':'Est\u00e1 en tu contrato o estado de cuenta'}</div>
     </div>
   </div>
+
+  ${currentType==='hipoteca'?`
+  <!-- PITI extras (solo modo detallado) -->
+  <div id="pitiSection">
+    <div class="field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="field-group">
+        <div class="field-label">${es?'Impuesto predial (% anual)':'Property tax (% annual)'}</div>
+        <input class="field-input" id="fTaxPct" type="number" min="0" step="0.01" placeholder="2.1" value="${debt&&debt.taxPct?debt.taxPct:''}" oninput="updatePreview()">
+      </div>
+      <div class="field-group">
+        <div class="field-label">${es?'Seguro (% anual)':'Insurance (% annual)'}</div>
+        <input class="field-input" id="fInsurancePct" type="number" min="0" step="0.01" placeholder="0.5" value="${debt&&debt.insurancePct?debt.insurancePct:''}" oninput="updatePreview()">
+      </div>
+      <div class="field-group">
+        <div class="field-label">${es?'PMI (% anual)':'PMI (% annual)'}</div>
+        <input class="field-input" id="fPmiPct" type="number" min="0" step="0.01" placeholder="0.5" value="${debt&&debt.pmiPct?debt.pmiPct:''}" oninput="updatePreview()">
+      </div>
+      <div class="field-group">
+        <div class="field-label">${es?'HOA ($/mes)':'HOA ($/month)'}</div>
+        <input class="field-input" id="fHoa" type="number" min="0" step="0.01" placeholder="0" value="${debt&&debt.hoa?debt.hoa:''}" oninput="updatePreview()">
+      </div>
+    </div>
+    <div class="field-hint">${es?'Opcional \u2014 se suman al pago mensual sugerido (PITI)':'Optional \u2014 added to the suggested monthly payment (PITI)'}</div>
+  </div>`:''}
 
   <!-- Term (if fixed term) -->
   ${cfg.fixedTerm?`
@@ -699,6 +747,11 @@ function renderForm(debt=null){
     </div>
   </div>
 
+  <!-- Simple mode disclaimer -->
+  <div id="simpleModeWarning" style="display:none;background:var(--off);border-left:3px solid var(--text3);border-radius:8px;padding:10px 12px;font-size:11.5px;color:var(--text3);margin-bottom:14px">
+    \u26a0\ufe0f ${es?'C\u00e1lculo aproximado basado en tu pago mensual y plazo. No calcula capital vs inter\u00e9s mes a mes. Para eso, usa el modo Detallado.':'Approximate calculation based on your monthly payment and term. It does not calculate principal vs interest month by month. For that, use Detailed mode.'}
+  </div>
+
   <!-- Amort preview -->
   <div id="amortPreview" style="display:none;margin-bottom:14px"></div>
 
@@ -718,11 +771,51 @@ function renderForm(debt=null){
   const kind = debt ? (debt.kind||cfg.kind) : cfg.kind;
   setKind(kind, true);
 
+  // Mortgage mode (solo hipoteca)
+  if(currentType === 'hipoteca'){
+    const initMode = debt ? (debt.mortgageMode || 'detallado') : 'detallado';
+    setMortgageMode(initMode);
+  }
+
   updatePreview();
 }
 
 let hasInterest = true;
 let debtKind = 'needs';
+let mortgageMode = 'detallado';
+
+function setMortgageMode(mode){
+  mortgageMode = mode;
+  const es = lang==='es';
+  const simpleBtn = document.getElementById('btnModeSimple');
+  const detBtn = document.getElementById('btnModeDetallado');
+  const interestBlock = document.getElementById('interestToggleBlock');
+  const aprSection = document.getElementById('aprSection');
+  const pitiSection = document.getElementById('pitiSection');
+  const hint = document.getElementById('mortgageModeHint');
+  const warning = document.getElementById('simpleModeWarning');
+  if(!simpleBtn||!detBtn) return;
+
+  const isSimple = mode === 'simple';
+  simpleBtn.style.background = isSimple ? 'var(--g-main)' : 'var(--off)';
+  simpleBtn.style.color = isSimple ? 'white' : 'var(--text)';
+  simpleBtn.style.borderColor = isSimple ? 'var(--g-main)' : 'var(--border)';
+  detBtn.style.background = !isSimple ? 'var(--g-main)' : 'var(--off)';
+  detBtn.style.color = !isSimple ? 'white' : 'var(--text)';
+  detBtn.style.borderColor = !isSimple ? 'var(--g-main)' : 'var(--border)';
+
+  if(interestBlock) interestBlock.style.display = isSimple ? 'none' : '';
+  if(isSimple && aprSection) aprSection.style.display = 'none';
+  else if(aprSection) aprSection.style.display = hasInterest ? '' : 'none';
+  if(pitiSection) pitiSection.style.display = isSimple ? 'none' : '';
+  if(warning) warning.style.display = isSimple ? '' : 'none';
+  if(hint) hint.textContent = isSimple
+    ? (es?'Solo necesitas tu pago mensual y el plazo':'You just need your monthly payment and term')
+    : (es?'Calcula el pago real con tasa, impuestos y seguro':'Calculates the real payment with rate, taxes and insurance');
+
+  if(isSimple) hasInterest = false;
+  updatePreview();
+}
 
 function toggleInterest(val, silent=false){
   hasInterest = val;
@@ -749,22 +842,69 @@ function updatePreview(){
 
   const balance  = parseFloat(document.getElementById('fBalance')?.value)||0;
   const payment  = parseFloat(document.getElementById('fPayment')?.value)||0;
-  const apr      = hasInterest ? (parseFloat(document.getElementById('fAPR')?.value)||0) : 0;
   const term     = parseInt(document.getElementById('fTerm')?.value)||0;
+  const es = lang==='es';
+
+  // ── MODO SIMPLE (solo hipoteca) ──
+  if(currentType === 'hipoteca' && mortgageMode === 'simple'){
+    const housePrice = parseFloat(document.getElementById('fHousePrice')?.value)||0;
+    const downPayment = parseFloat(document.getElementById('fDownPayment')?.value)||0;
+
+    if(payment <= 0 || term <= 0){ preview.style.display='none'; return; }
+
+    const totalToPay = payment * term;
+    const financed = Math.max(0, housePrice - downPayment);
+    const totalInterest = housePrice > 0 ? Math.max(0, totalToPay - financed) : null;
+
+    const payoffDate = (() => {
+      const d2 = new Date(); d2.setMonth(d2.getMonth()+term);
+      return d2.toLocaleDateString(es?'es-MX':'en-US',{month:'long',year:'numeric'});
+    })();
+
+    preview.style.display='block';
+    preview.innerHTML = `<div class="amort-preview">
+      <div class="ap-title">\ud83e\uddee ${es?'C\u00e1lculo simple':'Simple calculation'}</div>
+      <div class="ap-row"><span class="ap-label">${es?'Terminas de pagar':'Payoff date'}</span><span class="ap-value">${payoffDate}</span></div>
+      <div class="ap-row"><span class="ap-label">${es?'Total que pagar\u00e1s':'Total you\'ll pay'}</span><span class="ap-value">${fmtD(totalToPay)}</span></div>
+      ${housePrice>0?`<div class="ap-row"><span class="ap-label">${es?'Total de intereses (aprox)':'Total interest (approx)'}</span><span class="ap-value">${fmtD(totalInterest)}</span></div>`
+        :`<div class="ap-row" style="color:var(--text3);font-size:11px">${es?'Agrega el valor de la casa para estimar intereses':'Add the house price to estimate interest'}</div>`}
+    </div>`;
+    return;
+  }
+
+  // ── MODO DETALLADO ──
+  const apr      = hasInterest ? (parseFloat(document.getElementById('fAPR')?.value)||0) : 0;
   const minPay   = parseFloat(document.getElementById('fMinPayment')?.value)||0;
 
   if(balance <= 0){ preview.style.display='none'; return; }
+
+  // PITI extras (solo hipoteca detallado)
+  let pitiExtra = 0, pitiBreakdown = '';
+  if(currentType === 'hipoteca'){
+    const housePrice = parseFloat(document.getElementById('fHousePrice')?.value)||0;
+    const taxPct = parseFloat(document.getElementById('fTaxPct')?.value)||0;
+    const insPct = parseFloat(document.getElementById('fInsurancePct')?.value)||0;
+    const pmiPct = parseFloat(document.getElementById('fPmiPct')?.value)||0;
+    const hoa = parseFloat(document.getElementById('fHoa')?.value)||0;
+    const base = housePrice || balance;
+    const taxM = taxPct>0 ? (base*taxPct/100)/12 : 0;
+    const insM = insPct>0 ? (base*insPct/100)/12 : 0;
+    const pmiM = pmiPct>0 ? (balance*pmiPct/100)/12 : 0;
+    pitiExtra = taxM+insM+pmiM+hoa;
+    if(pitiExtra>0){
+      pitiBreakdown = `<div class="ap-row" style="font-size:11px;color:var(--text3)">Tax ${fmt(taxM)} + ${es?'Seguro':'Ins'} ${fmt(insM)} + PMI ${fmt(pmiM)} + HOA ${fmt(hoa)}</div>`;
+    }
+  }
 
   // If term given but no payment, calc required payment
   let effectivePayment = payment;
   if(term > 0 && payment === 0 && apr > 0){
     effectivePayment = calcRequiredPayment(balance, apr, term);
     const payEl = document.getElementById('fPayment');
-    if(payEl && !payEl.value){ payEl.placeholder = fmtD(effectivePayment).replace('$',''); }
+    if(payEl && !payEl.value){ payEl.placeholder = fmtD(effectivePayment + pitiExtra).replace('$',''); }
   }
 
   const amort = calcAmort(balance, effectivePayment||payment, apr, term);
-  const es = lang==='es';
 
   if(!amort.payoffPossible){
     preview.style.display='block';
@@ -807,6 +947,7 @@ function updatePreview(){
     <div class="ap-row"><span class="ap-label">${es?'Meses restantes':'Months left'}</span><span class="ap-value">${amort.months} ${es?'meses':'months'}</span></div>
     <div class="ap-row"><span class="ap-label">${es?'Total de intereses':'Total interest'}</span><span class="ap-value">${fmtD(amort.totalInterest)}</span></div>
     <div class="ap-row"><span class="ap-label">${es?'Total que pagar\u00e1s':'Total you\'ll pay'}</span><span class="ap-value">${fmtD(amort.totalPaid)}</span></div>
+    ${pitiExtra>0?`<div class="ap-row" style="border-top:1px solid rgba(230,57,70,.2);padding-top:8px;margin-top:4px"><span class="ap-label">${es?'Pago sugerido (PITI)':'Suggested payment (PITI)'}</span><span class="ap-value">${fmtD((effectivePayment||payment)+pitiExtra)}</span></div>${pitiBreakdown}`:''}
     ${apr>0?`<div class="ap-row" style="border-top:1px solid rgba(230,57,70,.2);padding-top:8px;margin-top:4px">
       <span class="ap-label">${es?'Pago: capital / inter\u00e9s':'Payment: principal / interest'}</span>
       <span class="ap-value">${fmt(firstPrincipal)} / ${fmt(firstInterest)}</span>
@@ -850,6 +991,24 @@ function saveDebt(){
     updatedAt: new Date().toISOString(),
   };
 
+  if(currentType === 'hipoteca'){
+    debt.mortgageMode = mortgageMode;
+    debt.housePrice = parseFloat(document.getElementById('fHousePrice')?.value)||0;
+    debt.downPayment = parseFloat(document.getElementById('fDownPayment')?.value)||0;
+
+    if(mortgageMode === 'simple'){
+      debt.simpleTotalPaid = payment * term;
+      debt.simpleTotalInterest = debt.housePrice > 0
+        ? Math.max(0, debt.simpleTotalPaid - Math.max(0, debt.housePrice - debt.downPayment))
+        : null;
+    } else {
+      debt.taxPct = parseFloat(document.getElementById('fTaxPct')?.value)||0;
+      debt.insurancePct = parseFloat(document.getElementById('fInsurancePct')?.value)||0;
+      debt.pmiPct = parseFloat(document.getElementById('fPmiPct')?.value)||0;
+      debt.hoa = parseFloat(document.getElementById('fHoa')?.value)||0;
+    }
+  }
+
   const debts = loadDebts();
   if(editingId){
     const idx = debts.findIndex(d=>String(d.id)===String(editingId));
@@ -879,7 +1038,10 @@ function openDetail(id){
   const paidAmt  = Math.max(0,original-balance);
   const paidPct  = original>0?Math.min(Math.round((paidAmt/original)*100),100):0;
 
-  const amort = calcAmort(balance, payment, apr, term);
+  const isSimpleMortgage = debt.type==='hipoteca' && debt.mortgageMode==='simple';
+  const amort = isSimpleMortgage
+    ? { payoffPossible:true, months:term, totalInterest:debt.simpleTotalInterest, totalPaid:debt.simpleTotalPaid, schedule:[] }
+    : calcAmort(balance, payment, apr, term);
   const payoffDate = amort.payoffPossible && amort.months<600 ? (() => {
     const d2=new Date(); d2.setMonth(d2.getMonth()+amort.months);
     return d2.toLocaleDateString(es?'es-MX':'en-US',{month:'long',year:'numeric'});
@@ -954,7 +1116,7 @@ function openDetail(id){
         <div class="stat-lbl">${es?'pago/mes':'payment/mo'}</div>
       </div>
       <div class="stat-card">
-        <div class="stat-val" style="color:var(--red)">${amort.payoffPossible?fmt(amort.totalInterest):'\u221e'}</div>
+        <div class="stat-val" style="color:var(--red)">${amort.payoffPossible?(amort.totalInterest==null?'\u2014':fmt(amort.totalInterest)):'\u221e'}</div>
         <div class="stat-lbl">${es?'intereses totales':'total interest'}</div>
       </div>
       <div class="stat-card">
@@ -963,7 +1125,12 @@ function openDetail(id){
       </div>
     </div>
 
-    ${apr>0?`
+    ${isSimpleMortgage?`
+    <div style="background:var(--off);border-radius:10px;padding:10px 12px;font-size:11.5px;color:var(--text3);margin-bottom:14px">
+      \ud83e\uddee ${es?'Modo simple: c\u00e1lculo aproximado basado en pago \u00d7 plazo. Sin desglose capital/inter\u00e9s mensual.':'Simple mode: approximate calculation based on payment \u00d7 term. No monthly principal/interest breakdown.'}
+    </div>`:''}
+
+    ${apr>0&&!isSimpleMortgage?`
     <!-- Monthly breakdown -->
     <div style="background:var(--off);border-radius:12px;padding:14px;margin-bottom:14px">
       <div class="section-title">\ud83d\udcb8 ${es?'Desglose de tu pago mensual':'Monthly payment breakdown'}</div>
