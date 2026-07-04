@@ -40,7 +40,31 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
 .cat-chip{padding:8px 6px;border-radius:10px;border:1.5px solid var(--border);font-size:11px;font-weight:700;text-align:center;cursor:pointer;background:var(--off);color:var(--text2);transition:all .15s;}
 .cat-chip.on{border-color:var(--purple);background:var(--pur-dim);color:var(--purple);}
 /* MOBILE NAV */
-.mob-nav{display:flex;position:fixed;bottom:0;left:0;right:0;background:var(--white);border-top:1px solid var(--border);padding:8px 0 calc(8px + env(safe-area-inset-bottom));z-index:100;gap:0;}
+.app{display:flex;min-height:100vh;}
+.sidebar{width:var(--sidebar,240px);background:var(--white);border-right:1px solid var(--border);position:fixed;top:0;left:0;bottom:0;display:flex;flex-direction:column;z-index:50;overflow-y:auto;transition:width .18s ease;}
+.sidebar.collapsed{width:64px;}
+.sidebar.collapsed .sb-name,.sidebar.collapsed .sb-tag,.sidebar.collapsed .sb-section,.sidebar.collapsed .sb-link span:last-child{display:none;}
+.sidebar.collapsed .sb-link{justify-content:center;padding:10px 0;}
+.sidebar.collapsed .sb-logo{justify-content:center;padding:0 8px;}
+.sidebar.collapsed .sb-logo>div:last-child{display:none;}
+.sb-collapse-btn{position:absolute;top:14px;right:-13px;width:26px;height:26px;border-radius:50%;background:var(--white);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;z-index:51;box-shadow:0 2px 6px rgba(0,0,0,.08);}
+.sidebar.collapsed ~ .main{margin-left:64px;}
+.sb-logo{display:flex;align-items:center;gap:10px;padding:22px 18px 18px;border-bottom:1px solid var(--border);}
+.sb-mark{width:36px;height:36px;background:linear-gradient(135deg,var(--g-dark),var(--g-main));border-radius:11px;display:grid;place-items:center;color:white;font-size:17px;}
+.sb-name{font-size:15px;font-weight:800;}.sb-tag{font-size:10px;color:var(--text3);}
+.sb-nav{padding:14px 10px;flex:1;}
+.sb-section{font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);padding:10px 8px 5px;}
+.sb-link{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:10px;font-size:13px;font-weight:600;color:var(--text2);cursor:pointer;margin-bottom:2px;transition:all .15s;}
+.sb-link:hover{background:var(--off);}
+.sb-link.on{background:var(--g-light);color:var(--g-main);}
+.sb-ico{font-size:15px;width:20px;text-align:center;flex-shrink:0;}
+.sb-footer{border-top:1px solid var(--border);padding:12px 10px;}
+.sb-user{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:10px;cursor:pointer;}
+.sb-user:hover{background:var(--off);}
+.sb-avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--g-dark),var(--g-main));display:grid;place-items:center;color:white;font-size:13px;font-weight:700;}
+.sb-uname{font-size:13px;font-weight:700;}.sb-umail{font-size:10px;color:var(--text3);}
+.main{margin-left:var(--sidebar,240px);flex:1;display:flex;flex-direction:column;}
+.mob-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--white);border-top:1px solid var(--border);padding:8px 0 calc(8px + env(safe-area-inset-bottom));z-index:100;gap:0;}
 .mob-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:9px;font-weight:700;color:var(--text3);cursor:pointer;padding:4px 0;}
 .mob-item.on{color:var(--g-main);}
 .mob-ico{font-size:22px;line-height:1.2;}
@@ -55,9 +79,40 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
 .more-item span{font-size:11px;font-weight:600;color:var(--text2);text-align:center;}
 
 input, select, textarea { font-size: 16px !important; }
+@media(max-width:860px){.sidebar{display:none;}.main{margin-left:0;}.mob-nav{display:flex!important;}}
 </style>
 </head>
 <body>
+<div class="app">
+<aside class="sidebar" id="sidebar">
+  <div class="sb-collapse-btn" id="sbCollapseBtn" onclick="toggleSidebar()">◀</div>
+  <div class="sb-logo"><div class="sb-mark">💎</div><div><div class="sb-name">FinTrack Pro</div><div class="sb-tag">Panel financiero</div></div></div>
+  <nav class="sb-nav">
+    <div class="sb-section">Principal</div>
+    <div class="sb-link" onclick="go('dashboard.html')"><span class="sb-ico">📊</span><span>Dashboard</span></div>
+    <div class="sb-link" onclick="go('dashboard.html')"><span class="sb-ico">➕</span><span>Nuevo registro</span></div>
+    <div class="sb-link" onclick="go('suscripciones.html')"><span class="sb-ico">🔄</span><span>Suscripciones</span></div>
+    <div class="sb-link" onclick="go('metas.html')"><span class="sb-ico">🎯</span><span>Metas</span></div>
+    <div class="sb-link" onclick="go('deudas.html')"><span class="sb-ico">💳</span><span>Deudas</span></div>
+    <div class="sb-section">Análisis</div>
+    <div class="sb-link" onclick="go('analisis.html')"><span class="sb-ico">📈</span><span>Por categoría</span></div>
+    <div class="sb-link" onclick="go('historial.html')"><span class="sb-ico">📅</span><span>Historial</span></div>
+    <div class="sb-link" onclick="go('inversiones.html')"><span class="sb-ico">🏦</span><span>Inversiones</span></div>
+    <div class="sb-link" onclick="go('reporte.html')"><span class="sb-ico">📄</span><span>Reporte mensual</span></div>
+    <div class="sb-section">Herramientas</div>
+    <div class="sb-link" onclick="go('scanner.html')"><span class="sb-ico">📷</span><span>Escanear recibo</span></div>
+    <div class="sb-link" onclick="go('importar.html')"><span class="sb-ico">📥</span><span>Importar CSV</span></div>
+    <div class="sb-link" onclick="go('emergencia.html')"><span class="sb-ico">🛡️</span><span>Fondo emergencia</span></div>
+    <div class="sb-link on"><span class="sb-ico">💵</span><span>Ahorro libre</span></div>
+    <div class="sb-link" onclick="go('hogar.html')"><span class="sb-ico">🏠</span><span>Hogar</span></div>
+    <div class="sb-section">Cuenta</div>
+    <div class="sb-link" onclick="go('perfil.html')"><span class="sb-ico">👤</span><span>Mi perfil</span></div>
+    <div class="sb-link" onclick="go('config.html')"><span class="sb-ico">⚙️</span><span>Configuración</span></div>
+    <div class="sb-link" onclick="logout()"><span class="sb-ico">🚪</span><span>Cerrar sesión</span></div>
+  </nav>
+  <div class="sb-footer"><div class="sb-user" onclick="go('perfil.html')"><div class="sb-avatar" id="sbAvatar">R</div><div><div class="sb-uname" id="sbName">—</div><div class="sb-umail" id="sbEmail">—</div></div></div></div>
+</aside>
+<div class="main">
 
 <div class="topbar">
   <div class="topbar-title">💵 <span data-es="Ahorro Libre" data-en="Free Savings">Ahorro Libre</span></div>
@@ -127,6 +182,9 @@ input, select, textarea { font-size: 16px !important; }
 </div>
 
 <!-- MOBILE NAV -->
+</div><!-- /main -->
+</div><!-- /app -->
+
 <nav class="mob-nav">
   <div class="mob-item" onclick="go('dashboard.html')"><div class="mob-ico">📊</div><span>Inicio</span></div>
   <div class="mob-item" onclick="go('historial.html')"><div class="mob-ico">📅</div><span>Historial</span></div>
@@ -144,6 +202,26 @@ const CATS_ES=['🏖️ Vacaciones','🚗 Auto','🏠 Casa','📱 Tecnología','
 const CATS_EN=['🏖️ Vacation','🚗 Car','🏠 Home','📱 Tech','👕 Clothing','🎓 Education','💊 Health','🎁 Gifts','🍽️ Food','💰 General'];
 
 function go(url){window.location.href=url;}
+
+/* ── SIDEBAR COLLAPSE (desktop only) ── */
+function toggleSidebar(){
+  const sb = document.getElementById('sidebar');
+  const btn = document.getElementById('sbCollapseBtn');
+  if(!sb) return;
+  const collapsed = sb.classList.toggle('collapsed');
+  if(btn) btn.textContent = collapsed ? '▶' : '◀';
+  localStorage.setItem('ft_sidebar_collapsed', collapsed ? '1' : '0');
+}
+(function initSidebarState(){
+  if(window.innerWidth <= 860) return;
+  const sb = document.getElementById('sidebar');
+  const btn = document.getElementById('sbCollapseBtn');
+  if(!sb) return;
+  if(localStorage.getItem('ft_sidebar_collapsed') === '1'){
+    sb.classList.add('collapsed');
+    if(btn) btn.textContent = '▶';
+  }
+})();
 function logout(){sessionStorage.clear();['ft_user','ft_user_setup','ft_premium','ft_lang'].forEach(k=>localStorage.removeItem(k));window.location.replace('login.html');}
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.style.display='block';setTimeout(()=>t.style.display='none',3000);}
 function openMoreMenu(){document.getElementById('moreOverlay').classList.add('open');}
@@ -307,7 +385,8 @@ function fmt(n){return '$'+Math.abs(n||0).toLocaleString('en-US',{minimumFractio
   const s=localStorage.getItem('ft_user')||sessionStorage.getItem('ft_user');
   if(!s){window.location.replace('login.html');return;}
   try{user=JSON.parse(s);}catch(e){window.location.replace('login.html');return;}
-  lang=localStorage.getItem('ft_lang')||user.lang||'es';
+  
+  {const nameEl=document.getElementById('sbName'), emailEl=document.getElementById('sbEmail'), avEl=document.getElementById('sbAvatar'); if(nameEl) nameEl.textContent=user.name||'—'; if(emailEl) emailEl.textContent=user.email||'—'; if(avEl) avEl.textContent=(user.name||'?').charAt(0).toUpperCase();}lang=localStorage.getItem('ft_lang')||user.lang||'es';
   if(!sessionStorage.getItem('ft_user')) sessionStorage.setItem('ft_user',s);
   setLang(lang);
   render();

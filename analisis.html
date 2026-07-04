@@ -7,9 +7,33 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="premium.js"></script>
 <style>
-:root{--g-dark:#0F5132;--g-main:#1A7A4A;--g-light:#E8F7EF;--white:#fff;--off:#F7F8FC;--border:#E4E6F0;--text:#1A1D2E;--text2:#4A4E69;--text3:#9395A5;--red:#E63946;--red-dim:rgba(230,57,70,.1);--amber:#F4A261;--blue:#4A6CF7;--shadow:0 2px 12px rgba(0,0,0,.06);}
+:root{--g-dark:#0F5132;--g-main:#1A7A4A;--g-light:#E8F7EF;--white:#fff;--off:#F7F8FC;--border:#E4E6F0;--text:#1A1D2E;--text2:#4A4E69;--text3:#9395A5;--red:#E63946;--red-dim:rgba(230,57,70,.1);--amber:#F4A261;--blue:#4A6CF7;--shadow:0 2px 12px rgba(0,0,0,.06);--sidebar:240px;--topbar:58px;}
 *{margin:0;padding:0;box-sizing:border-box;}
-body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(--text);min-height:100vh;padding-bottom:90px;}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(--text);min-height:100vh;}
+.app{display:flex;min-height:100vh;}
+.sidebar{width:var(--sidebar);background:var(--white);border-right:1px solid var(--border);position:fixed;top:0;left:0;bottom:0;display:flex;flex-direction:column;z-index:50;overflow-y:auto;transition:width .18s ease;}
+.sidebar.collapsed{width:64px;}
+.sidebar.collapsed .sb-name,.sidebar.collapsed .sb-tag,.sidebar.collapsed .sb-section,.sidebar.collapsed .sb-link span:last-child{display:none;}
+.sidebar.collapsed .sb-link{justify-content:center;padding:10px 0;}
+.sidebar.collapsed .sb-logo{justify-content:center;padding:0 8px;}
+.sidebar.collapsed .sb-logo>div:last-child{display:none;}
+.sb-collapse-btn{position:absolute;top:14px;right:-13px;width:26px;height:26px;border-radius:50%;background:var(--white);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;z-index:51;box-shadow:0 2px 6px rgba(0,0,0,.08);}
+.sidebar.collapsed ~ .main{margin-left:64px;}
+.sb-logo{display:flex;align-items:center;gap:10px;padding:22px 18px 18px;border-bottom:1px solid var(--border);}
+.sb-mark{width:36px;height:36px;background:linear-gradient(135deg,var(--g-dark),var(--g-main));border-radius:11px;display:grid;place-items:center;color:white;font-size:17px;}
+.sb-name{font-size:15px;font-weight:800;}.sb-tag{font-size:10px;color:var(--text3);}
+.sb-nav{padding:14px 10px;flex:1;}
+.sb-section{font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);padding:10px 8px 5px;}
+.sb-link{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:10px;font-size:13px;font-weight:600;color:var(--text2);cursor:pointer;margin-bottom:2px;transition:all .15s;}
+.sb-link:hover{background:var(--off);}
+.sb-link.on{background:var(--g-light);color:var(--g-main);}
+.sb-ico{font-size:15px;width:20px;text-align:center;flex-shrink:0;}
+.sb-footer{border-top:1px solid var(--border);padding:12px 10px;}
+.sb-user{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:10px;cursor:pointer;}
+.sb-user:hover{background:var(--off);}
+.sb-avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--g-dark),var(--g-main));display:grid;place-items:center;color:white;font-size:13px;font-weight:700;}
+.sb-uname{font-size:13px;font-weight:700;}.sb-umail{font-size:10px;color:var(--text3);}
+.main{margin-left:var(--sidebar);flex:1;display:flex;flex-direction:column;padding-bottom:0;}
 .topbar{background:var(--white);border-bottom:1px solid var(--border);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
 .topbar-title{font-size:17px;font-weight:800;}
 .page{padding:16px;}
@@ -21,7 +45,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
 .cat-row:last-child{border-bottom:none;}
 .cat-bar-wrap{flex:1;height:8px;background:var(--border);border-radius:100px;overflow:hidden;}
 .cat-bar{height:100%;border-radius:100px;}
-.mob-nav{display:flex;position:fixed;bottom:0;left:0;right:0;background:var(--white);border-top:1px solid var(--border);padding:8px 0 calc(8px + env(safe-area-inset-bottom));z-index:100;gap:0;}
+.mob-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--white);border-top:1px solid var(--border);padding:8px 0 calc(8px + env(safe-area-inset-bottom));z-index:100;gap:0;}
 .mob-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:9px;font-weight:700;color:var(--text3);cursor:pointer;padding:4px 0;}
 .mob-item.on{color:var(--g-main);}
 .mob-ico{font-size:22px;line-height:1.2;}
@@ -35,9 +59,46 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
 .more-ico{width:52px;height:52px;border-radius:16px;display:grid;place-items:center;font-size:24px;}
 .more-item span{font-size:11px;font-weight:600;color:var(--text2);text-align:center;}
 #toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#1A1D2E;color:white;padding:12px 20px;border-radius:20px;font-size:13px;font-weight:600;display:none;z-index:300;}
+@media(max-width:860px){
+  .sidebar{display:none;}
+  .main{margin-left:0;padding-bottom:90px;}
+  .mob-nav{display:flex!important;}
+}
+.trend-chart{width:100%;height:140px;}
 </style>
 </head>
 <body>
+<div class="app">
+<aside class="sidebar" id="sidebar">
+  <div class="sb-collapse-btn" id="sbCollapseBtn" onclick="toggleSidebar()">◀</div>
+  <div class="sb-logo"><div class="sb-mark">💎</div><div><div class="sb-name">FinTrack Pro</div><div class="sb-tag">Panel financiero</div></div></div>
+  <nav class="sb-nav">
+    <div class="sb-section">Principal</div>
+    <div class="sb-link" onclick="go('dashboard.html')"><span class="sb-ico">📊</span><span>Dashboard</span></div>
+    <div class="sb-link" onclick="go('dashboard.html')"><span class="sb-ico">➕</span><span>Nuevo registro</span></div>
+    <div class="sb-link" onclick="go('suscripciones.html')"><span class="sb-ico">🔄</span><span>Suscripciones</span></div>
+    <div class="sb-link" onclick="go('metas.html')"><span class="sb-ico">🎯</span><span>Metas</span></div>
+    <div class="sb-link" onclick="go('deudas.html')"><span class="sb-ico">💳</span><span>Deudas</span></div>
+    <div class="sb-section">Análisis</div>
+    <div class="sb-link on"><span class="sb-ico">📈</span><span>Por categoría</span></div>
+    <div class="sb-link" onclick="go('historial.html')"><span class="sb-ico">📅</span><span>Historial</span></div>
+    <div class="sb-link" onclick="go('inversiones.html')"><span class="sb-ico">🏦</span><span>Inversiones</span></div>
+    <div class="sb-link" onclick="go('reporte.html')"><span class="sb-ico">📄</span><span>Reporte mensual</span></div>
+    <div class="sb-section">Herramientas</div>
+    <div class="sb-link" onclick="go('scanner.html')"><span class="sb-ico">📷</span><span>Escanear recibo</span></div>
+    <div class="sb-link" onclick="go('importar.html')"><span class="sb-ico">📥</span><span>Importar CSV</span></div>
+    <div class="sb-link" onclick="go('emergencia.html')"><span class="sb-ico">🛡️</span><span>Fondo emergencia</span></div>
+    <div class="sb-link" onclick="go('ahorro.html')"><span class="sb-ico">💵</span><span>Ahorro libre</span></div>
+    <div class="sb-link" onclick="go('hogar.html')"><span class="sb-ico">🏠</span><span>Hogar</span></div>
+    <div class="sb-section">Cuenta</div>
+    <div class="sb-link" onclick="go('perfil.html')"><span class="sb-ico">👤</span><span>Mi perfil</span></div>
+    <div class="sb-link" onclick="go('config.html')"><span class="sb-ico">⚙️</span><span>Configuración</span></div>
+    <div class="sb-link" onclick="logout()"><span class="sb-ico">🚪</span><span>Cerrar sesión</span></div>
+  </nav>
+  <div class="sb-footer"><div class="sb-user" onclick="go('perfil.html')"><div class="sb-avatar" id="sbAvatar">R</div><div><div class="sb-uname" id="sbName">—</div><div class="sb-umail" id="sbEmail">—</div></div></div></div>
+</aside>
+
+<div class="main">
 <div class="topbar">
   <div class="topbar-title">📊 <span data-es="Análisis" data-en="Analysis">Análisis</span></div>
   <div class="lang-toggle">
@@ -47,6 +108,8 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
 </div>
 
 <div class="page" id="content"></div>
+</div>
+</div>
 <div id="toast"></div>
 
 <div class="more-overlay" id="moreOverlay" onclick="if(event.target===this)closeMoreMenu()">
@@ -87,12 +150,89 @@ function showToast(msg){const t=document.getElementById('toast');t.textContent=m
 function openMoreMenu(){document.getElementById('moreOverlay').classList.add('open');}
 function closeMoreMenu(){document.getElementById('moreOverlay').classList.remove('open');}
 
+/* ── SIDEBAR COLLAPSE (desktop only) ── */
+function toggleSidebar(){
+  const sb = document.getElementById('sidebar');
+  const btn = document.getElementById('sbCollapseBtn');
+  if(!sb) return;
+  const collapsed = sb.classList.toggle('collapsed');
+  if(btn) btn.textContent = collapsed ? '▶' : '◀';
+  localStorage.setItem('ft_sidebar_collapsed', collapsed ? '1' : '0');
+}
+(function initSidebarState(){
+  if(window.innerWidth <= 860) return;
+  const sb = document.getElementById('sidebar');
+  const btn = document.getElementById('sbCollapseBtn');
+  if(!sb) return;
+  if(localStorage.getItem('ft_sidebar_collapsed') === '1'){
+    sb.classList.add('collapsed');
+    if(btn) btn.textContent = '▶';
+  }
+})();
+
 function setLang(l){
   lang=l;localStorage.setItem('ft_lang',l);
   document.getElementById('ltES').classList.toggle('on',l==='es');
   document.getElementById('ltEN').classList.toggle('on',l==='en');
   document.querySelectorAll('[data-es]').forEach(el=>{const v=el.getAttribute('data-'+l);if(v)el.textContent=v;});
   render();
+}
+
+function buildMonthlyTrend(data){
+  const now = new Date();
+  const months = [];
+  for(let i=5;i>=0;i--){
+    const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
+    months.push(d.toISOString().slice(0,7));
+  }
+  return months.map(m => {
+    const txs = (data.transactions||[]).filter(t=>(t.date||'').startsWith(m));
+    let income=0, expenses=0;
+    txs.forEach(t=>{
+      const a = parseFloat(t.amount)||0;
+      if(t.type==='ingreso') income+=a;
+      else if(t.type==='gasto'||t.type==='suscripcion'||t.type==='hipoteca') expenses+=a;
+    });
+    const d = new Date(m+'-02');
+    return { month:m, label:d.toLocaleDateString(lang==='es'?'es-MX':'en-US',{month:'short'}), income, expenses };
+  });
+}
+
+function renderTrendChart(trend){
+  const es = lang==='es';
+  const W=320,H=140,padL=8,padR=8,padT=10,padB=22;
+  const maxVal = Math.max(1, ...trend.map(t=>Math.max(t.income,t.expenses)));
+  const stepX = (W-padL-padR)/(trend.length-1||1);
+  const scaleY = v => H-padB - (v/maxVal)*(H-padT-padB);
+
+  const pathFor = key => trend.map((t,i)=>`${i===0?'M':'L'}${(padL+i*stepX).toFixed(1)},${scaleY(t[key]).toFixed(1)}`).join(' ');
+
+  const dots = key => trend.map((t,i)=>`<circle cx="${(padL+i*stepX).toFixed(1)}" cy="${scaleY(t[key]).toFixed(1)}" r="3" fill="${key==='income'?'#1A7A4A':'#E63946'}"/>`).join('');
+
+  const labels = trend.map((t,i)=>`<text x="${(padL+i*stepX).toFixed(1)}" y="${H-4}" font-size="9" fill="#9395A5" text-anchor="middle">${t.label}</text>`).join('');
+
+  const trendUp = trend.length>1 && trend[trend.length-1].expenses > trend[trend.length-2].expenses;
+
+  return `
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="font-size:13px;font-weight:800">📈 ${es?'Tendencia (6 meses)':'Trend (6 months)'}</div>
+      <div style="display:flex;gap:12px;font-size:10px;color:var(--text3)">
+        <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#1A7A4A;margin-right:3px"></span>${es?'Ingresos':'Income'}</span>
+        <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#E63946;margin-right:3px"></span>${es?'Gastos':'Expenses'}</span>
+      </div>
+    </div>
+    <svg class="trend-chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+      <path d="${pathFor('income')}" fill="none" stroke="#1A7A4A" stroke-width="2"/>
+      <path d="${pathFor('expenses')}" fill="none" stroke="#E63946" stroke-width="2"/>
+      ${dots('income')}${dots('expenses')}
+      ${labels}
+    </svg>
+    <div style="font-size:11px;color:var(--text3);margin-top:6px">
+      ${trendUp?(es?'⚠️ Tus gastos subieron respecto al mes pasado':'⚠️ Your expenses went up vs last month')
+              :(es?'✅ Tus gastos bajaron o se mantuvieron vs el mes pasado':'✅ Your expenses went down or stayed the same vs last month')}
+    </div>
+  </div>`;
 }
 
 function render(){
@@ -117,7 +257,10 @@ function render(){
   const cats=Object.entries(catMap).sort((a,b)=>b[1]-a[1]);
   const maxCat=cats[0]?cats[0][1]:1;
 
+  const trend = buildMonthlyTrend(data);
+
   document.getElementById('content').innerHTML=`
+    ${renderTrendChart(trend)}
     <div class="card">
       <div style="font-size:13px;font-weight:800;margin-bottom:14px">📅 ${es?'Resumen del mes':'Month summary'}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
@@ -165,6 +308,10 @@ function render(){
   try{ user=JSON.parse(s); }catch(e){ window.location.replace('login.html'); return; }
   lang=localStorage.getItem('ft_lang')||user.lang||'es';
   if(!sessionStorage.getItem('ft_user')) sessionStorage.setItem('ft_user',s);
+  const nameEl=document.getElementById('sbName'), emailEl=document.getElementById('sbEmail'), avEl=document.getElementById('sbAvatar');
+  if(nameEl) nameEl.textContent = user.name || '—';
+  if(emailEl) emailEl.textContent = user.email || '—';
+  if(avEl) avEl.textContent = (user.name||'?').charAt(0).toUpperCase();
   setLang(lang);
 })();
 </script>
