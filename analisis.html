@@ -64,7 +64,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
   .main{margin-left:0;padding-bottom:90px;}
   .mob-nav{display:flex!important;}
 }
-.trend-chart{width:100%;height:140px;}
+.trend-chart{width:100%;max-height:180px;display:block;}
 </style>
 </head>
 <body>
@@ -200,16 +200,16 @@ function buildMonthlyTrend(data){
 
 function renderTrendChart(trend){
   const es = lang==='es';
-  const W=320,H=140,padL=8,padR=8,padT=10,padB=22;
+  const W=800,H=200,padL=20,padR=20,padT=16,padB=30;
   const maxVal = Math.max(1, ...trend.map(t=>Math.max(t.income,t.expenses)));
   const stepX = (W-padL-padR)/(trend.length-1||1);
   const scaleY = v => H-padB - (v/maxVal)*(H-padT-padB);
 
   const pathFor = key => trend.map((t,i)=>`${i===0?'M':'L'}${(padL+i*stepX).toFixed(1)},${scaleY(t[key]).toFixed(1)}`).join(' ');
 
-  const dots = key => trend.map((t,i)=>`<circle cx="${(padL+i*stepX).toFixed(1)}" cy="${scaleY(t[key]).toFixed(1)}" r="3" fill="${key==='income'?'#1A7A4A':'#E63946'}"/>`).join('');
+  const dots = key => trend.map((t,i)=>`<circle cx="${(padL+i*stepX).toFixed(1)}" cy="${scaleY(t[key]).toFixed(1)}" r="4.5" fill="${key==='income'?'#1A7A4A':'#E63946'}"/>`).join('');
 
-  const labels = trend.map((t,i)=>`<text x="${(padL+i*stepX).toFixed(1)}" y="${H-4}" font-size="9" fill="#9395A5" text-anchor="middle">${t.label}</text>`).join('');
+  const labels = trend.map((t,i)=>`<text x="${(padL+i*stepX).toFixed(1)}" y="${H-8}" font-size="13" fill="#9395A5" text-anchor="middle">${t.label}</text>`).join('');
 
   const trendUp = trend.length>1 && trend[trend.length-1].expenses > trend[trend.length-2].expenses;
 
@@ -222,9 +222,9 @@ function renderTrendChart(trend){
         <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#E63946;margin-right:3px"></span>${es?'Gastos':'Expenses'}</span>
       </div>
     </div>
-    <svg class="trend-chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
-      <path d="${pathFor('income')}" fill="none" stroke="#1A7A4A" stroke-width="2"/>
-      <path d="${pathFor('expenses')}" fill="none" stroke="#E63946" stroke-width="2"/>
+    <svg class="trend-chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">
+      <path d="${pathFor('income')}" fill="none" stroke="#1A7A4A" stroke-width="3"/>
+      <path d="${pathFor('expenses')}" fill="none" stroke="#E63946" stroke-width="3"/>
       ${dots('income')}${dots('expenses')}
       ${labels}
     </svg>
