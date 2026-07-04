@@ -476,7 +476,7 @@ function renderDebtCard(d){
   // Progreso del pago de ESTE MES (solo abonos tipo "nuevo")
   const thisMonth = new Date().toISOString().slice(0,7);
   const paidThisMonth = (d.abonos||[])
-    .filter(a => a.tipo==='nuevo' && String(a.fecha||'').startsWith(thisMonth))
+    .filter(a => String(a.fecha||'').startsWith(thisMonth))
     .reduce((sum,a) => sum + (parseFloat(a.monto)||0), 0);
   const monthPct = payment>0 ? Math.min(Math.round((paidThisMonth/payment)*100),100) : 0;
   const monthRemaining = Math.max(0, payment - paidThisMonth);
