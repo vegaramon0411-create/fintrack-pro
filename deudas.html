@@ -261,6 +261,11 @@ input, select, textarea { font-size: 16px !important; }
   <div class="modal" id="detailModal"></div>
 </div>
 
+<!-- ABONO DETAIL OVERLAY -->
+<div class="overlay" id="abonoDetailOverlay" onclick="if(event.target===this)closeAbonoDetail()">
+  <div class="modal" id="abonoDetailBox" style="max-width:380px"></div>
+</div>
+
 <div id="toast"></div>
 
 <!-- MODAL ABONO -->
@@ -964,6 +969,20 @@ function openDetail(id){
       </div>
     </div>`:''}
 
+    ${debt.abonos&&debt.abonos.length?`
+    <div class="section-title">🧾 ${es?'Historial de abonos':'Payment history'}</div>
+    <div style="border-radius:10px;border:1px solid var(--border);overflow:hidden;margin-bottom:14px">
+      ${debt.abonos.slice().reverse().map(a=>`
+        <div onclick="openAbonoDetail('${id}',${a.id})" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer" onmouseover="this.style.background='var(--off)'" onmouseout="this.style.background=''">
+          <div style="width:34px;height:34px;border-radius:10px;background:var(--g-light);display:grid;place-items:center;font-size:15px;flex-shrink:0">💳</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12px;font-weight:700">${a.nota||(es?'Abono':'Payment')}</div>
+            <div style="font-size:10px;color:var(--text3)">${a.fecha||''}${a.tipo==='existente'?' · '+(es?'Ya lo tenía':'Already had it'):''}</div>
+          </div>
+          <div style="font-size:13px;font-weight:800;color:var(--g-main)">-${fmtD(a.monto)}</div>
+        </div>`).join('')}
+    </div>`:''}
+
     <!-- Amortization table -->
     ${amort.schedule&&amort.schedule.length?`
     <div class="section-title">\ud83d\udcca ${es?'Tabla de amortizaci\u00f3n':'Amortization table'}</div>
@@ -1125,7 +1144,7 @@ function guardarAbono(){
 
   // Registrar en historial de abonos
   if(!debts[idx].abonos) debts[idx].abonos = [];
-  debts[idx].abonos.push({ id:Date.now(), monto, fecha, nota, saldoAntes:oldBalance, saldoDespues:newBalance, tipo:abonoTipo });
+  debts[idx].abonos.push({ id:Date.now(), monto, fecha, nota, saldoAntes:oldBalance, saldoDespues:newBalance, tipo:abonoTipo, createdBy:user.name||'' });
 
   // Solo registrar en ft_data si es abono NUEVO del mes
   if(abonoTipo === 'nuevo'){
@@ -1146,6 +1165,69 @@ function guardarAbono(){
 
 function closeAbonar(){
   document.getElementById('abonarOverlay').classList.remove('open');
+}
+
+function openAbonoDetail(debtId, abonoId){
+  const debts = loadDebts();
+  const debt = debts.find(d=>String(d.id)===String(debtId));
+  if(!debt||!debt.abonos) return;
+  const a = debt.abonos.find(x=>String(x.id)===String(abonoId));
+  if(!a) return;
+  const es = lang==='es';
+
+  const created = new Date(a.id);
+  const hora = isNaN(created.getTime()) ? '—' : created.toLocaleTimeString(es?'es-MX':'en-US',{hour:'2-digit',minute:'2-digit'});
+  const fechaParts = String(a.fecha||'').split(/[-T]/);
+  const fechaFmt = fechaParts.length>=3 ? new Date(parseInt(fechaParts[0]),parseInt(fechaParts[1])-1,parseInt(fechaParts[2])).toLocaleDateString(es?'es-MX':'en-US',{day:'numeric',month:'long',year:'numeric'}) : (a.fecha||'—');
+  const autor = a.createdBy || (es?'Desconocido':'Unknown');
+
+  document.getElementById('abonoDetailBox').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div style="font-size:16px;font-weight:800">${es?'Detalle del abono':'Payment detail'}</div>
+      <div onclick="closeAbonoDetail()" style="cursor:pointer;font-size:20px;color:var(--text3)">✕</div>
+    </div>
+    <div style="text-align:center;margin-bottom:16px">
+      <div style="font-size:26px;font-weight:800;color:var(--g-main)">-${fmtD(a.monto)}</div>
+      ${a.tipo==='existente'?`<span style="background:var(--off);color:var(--text2);font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;display:inline-block;margin-top:4px">📦 ${es?'Ya lo tenía':'Already had it'}</span>`:''}
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;font-size:13px;margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">${es?'Deuda':'Debt'}</span><span style="font-weight:600">${debt.name}</span></div>
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">${es?'Fecha':'Date'}</span><span style="font-weight:600">${fechaFmt}</span></div>
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">${es?'Hora de registro':'Time recorded'}</span><span style="font-weight:600">${hora}</span></div>
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">${es?'Registrado por':'Recorded by'}</span><span style="font-weight:600">${autor}</span></div>
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">${es?'Saldo antes':'Balance before'}</span><span style="font-weight:600">${fmtD(a.saldoAntes)}</span></div>
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">${es?'Saldo después':'Balance after'}</span><span style="font-weight:600">${fmtD(a.saldoDespues)}</span></div>
+      ${a.nota?`<div><div style="color:var(--text3);margin-bottom:4px">${es?'Nota':'Note'}</div><div style="background:var(--off);border-radius:10px;padding:10px;font-weight:500">${a.nota}</div></div>`:''}
+    </div>
+    <button onclick="deleteAbono('${debtId}',${a.id})" style="width:100%;background:var(--red-dim);color:var(--red);border:none;border-radius:12px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">🗑️ ${es?'Eliminar abono':'Delete payment'}</button>`;
+
+  document.getElementById('abonoDetailOverlay').classList.add('open');
+}
+
+function closeAbonoDetail(){
+  document.getElementById('abonoDetailOverlay').classList.remove('open');
+}
+
+function deleteAbono(debtId, abonoId){
+  const es = lang==='es';
+  if(!confirm(es?'¿Eliminar este abono? El saldo de la deuda se revertirá.':'Delete this payment? The debt balance will be reverted.')) return;
+  const debts = loadDebts();
+  const idx = debts.findIndex(d=>String(d.id)===String(debtId));
+  if(idx<0) return;
+  const debt = debts[idx];
+  const aIdx = (debt.abonos||[]).findIndex(x=>String(x.id)===String(abonoId));
+  if(aIdx<0) return;
+  const a = debt.abonos[aIdx];
+
+  // Revertir saldo
+  debt.balance = parseFloat(debt.balance||0) + parseFloat(a.monto||0);
+  debt.abonos.splice(aIdx,1);
+  saveDebts(debts);
+
+  closeAbonoDetail();
+  closeDetail();
+  render();
+  showToast(es?'🗑️ Abono eliminado':'🗑️ Payment deleted');
 }
 
 /* \u2500\u2500 INIT \u2500\u2500 */

@@ -172,6 +172,11 @@ input, select, textarea { font-size: 16px !important; }
 
 <div id="toast"></div>
 
+<!-- INV DETAIL OVERLAY -->
+<div class="overlay" id="invDetailOverlay" onclick="if(event.target===this)closeInvDetail()">
+  <div class="modal" id="invDetailBox" style="max-width:380px"></div>
+</div>
+
 <div class="more-overlay" id="moreOverlay" onclick="if(event.target===this)closeMoreMenu()">
   <div class="more-panel">
     <div class="more-handle"></div>
@@ -305,7 +310,7 @@ function render(){
     var hogarBadge=invView==='hogar'?'<span style="background:var(--g-light);color:var(--g-dark);font-size:9px;font-weight:700;padding:2px 6px;border-radius:20px;margin-left:4px">🏠</span>':'';
     var tick=(i.ticker||'?').slice(0,4);
     var platform=i.platform&&i.platform!=='Importado'?i.platform:'';
-    return '<div class="inv-item">'
+    return '<div class="inv-item" onclick="showInvDetail(\''+i.id+'\')" style="cursor:pointer">'
       +'<div class="inv-ico">'+tick+'</div>'
       +'<div class="inv-info">'
       +'<div class="inv-name">'+tick+' '+hogarBadge+(platform?'<span style="font-size:10px;color:var(--text3);font-weight:500"> · '+platform+'</span>':'')+'</div>'
@@ -316,8 +321,8 @@ function render(){
       +'<div style="font-size:11px;color:'+(g>=0?'var(--g-main)':'var(--red)')+';font-weight:700">'+(g>=0?'+':'')+fmt(g)+'</div>'
       +'</div>'
       +'<div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;padding-left:4px">'
-      +'<div onclick="editInv(\''+i.id+'\')" style="cursor:pointer;color:var(--blue);font-size:16px;line-height:1" title="Editar">✏️</div>'
-      +'<div onclick="deleteInv(\''+i.id+'\')" style="cursor:pointer;color:var(--text3);font-size:14px;line-height:1" title="Eliminar">🗑</div>'
+      +'<div onclick="event.stopPropagation();editInv(\''+i.id+'\')" style="cursor:pointer;color:var(--blue);font-size:16px;line-height:1" title="Editar">✏️</div>'
+      +'<div onclick="event.stopPropagation();deleteInv(\''+i.id+'\')" style="cursor:pointer;color:var(--text3);font-size:14px;line-height:1" title="Eliminar">🗑</div>'
       +'</div>'
       +'</div>';
   }).join('');
@@ -387,6 +392,57 @@ function openAdd(){
   document.getElementById('invTipoPanel').style.display='';
   document.getElementById('modalTitle').textContent=lang==='es'?'Nueva inversion':'New investment';
   document.getElementById('overlay').classList.add('open');
+}
+
+function showInvDetail(id){
+  var es=lang==='es';
+  var list=invView==='hogar'?loadHogarInv():loadInv();
+  var inv=list.find(function(i){return i.id===id;});
+  if(!inv) return;
+
+  var shares=parseFloat(inv.shares)||1;
+  var avg=parseFloat(inv.avgPrice)||parseFloat(inv.amount)||0;
+  var cur=parseFloat(inv.curPrice)||avg;
+  var cost=shares*avg;
+  var val=shares*cur;
+  var g=val-cost;
+
+  var addedAt = inv.addedAt ? new Date(inv.addedAt) : null;
+  var fechaFmt = addedAt && !isNaN(addedAt.getTime()) ? addedAt.toLocaleDateString(es?'es-MX':'en-US',{day:'numeric',month:'long',year:'numeric'}) : '—';
+  var hora = addedAt && !isNaN(addedAt.getTime()) ? addedAt.toLocaleTimeString(es?'es-MX':'en-US',{hour:'2-digit',minute:'2-digit'}) : '—';
+  var autor = inv.addedBy || (es?'Desconocido':'Unknown');
+  var esHogar = invView==='hogar';
+
+  document.getElementById('invDetailBox').innerHTML=
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">'
+    +'<div style="font-size:16px;font-weight:800">'+(inv.ticker||'?')+'</div>'
+    +'<div onclick="closeInvDetail()" style="cursor:pointer;font-size:20px;color:var(--text3)">x</div>'
+    +'</div>'
+    +'<div style="text-align:center;margin-bottom:16px">'
+    +'<div style="font-size:26px;font-weight:800">'+fmt(val)+'</div>'
+    +'<div style="font-size:13px;font-weight:700;color:'+(g>=0?'var(--g-main)':'var(--red)')+'">'+(g>=0?'+':'')+fmt(g)+'</div>'
+    +(esHogar?'<span style="background:var(--g-light);color:var(--g-dark);font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;display:inline-block;margin-top:4px">🏠 '+(es?'Del hogar':'Household')+'</span>':'')
+    +'</div>'
+    +'<div style="display:flex;flex-direction:column;gap:10px;font-size:13px;margin-bottom:16px">'
+    +'<div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">'+(es?'Tipo':'Type')+'</span><span style="font-weight:600">'+(inv.type||'—')+'</span></div>'
+    +'<div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">'+(es?'Plataforma':'Platform')+'</span><span style="font-weight:600">'+(inv.platform||'—')+'</span></div>'
+    +'<div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">'+(es?'Unidades':'Shares')+'</span><span style="font-weight:600">'+fmtN(shares)+'</span></div>'
+    +'<div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">'+(es?'Precio promedio':'Avg price')+'</span><span style="font-weight:600">$'+avg.toFixed(2)+'</span></div>'
+    +'<div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">'+(es?'Precio actual':'Current price')+'</span><span style="font-weight:600">$'+cur.toFixed(2)+'</span></div>'
+    +'<div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">'+(es?'Fecha de registro':'Date recorded')+'</span><span style="font-weight:600">'+fechaFmt+'</span></div>'
+    +'<div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">'+(es?'Hora de registro':'Time recorded')+'</span><span style="font-weight:600">'+hora+'</span></div>'
+    +'<div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">'+(es?'Registrado por':'Recorded by')+'</span><span style="font-weight:600">'+autor+'</span></div>'
+    +'</div>'
+    +'<div style="display:flex;gap:8px">'
+    +'<button onclick="closeInvDetail();editInv(\''+id+'\')" style="flex:1;background:var(--off);color:var(--text);border:none;border-radius:12px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">✏️ '+(es?'Editar':'Edit')+'</button>'
+    +'<button onclick="closeInvDetail();deleteInv(\''+id+'\')" style="flex:1;background:var(--red-dim);color:var(--red);border:none;border-radius:12px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">🗑️ '+(es?'Eliminar':'Delete')+'</button>'
+    +'</div>';
+
+  document.getElementById('invDetailOverlay').classList.add('open');
+}
+
+function closeInvDetail(){
+  document.getElementById('invDetailOverlay').classList.remove('open');
 }
 
 function editInv(id){

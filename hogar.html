@@ -919,7 +919,7 @@ function registrarEnPresupuesto(monto, desc){
     var n=new Date();
     var fecha=n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0');
     // Guardar monto completo con hogar:true — getMonthTotals hace el split x myHogarPct
-    data.transactions.push({id:Date.now(),type:'ahorro',desc:desc,amount:monto,date:fecha,cat:'🏠 Hogar',hogar:true});
+    data.transactions.push({id:Date.now(),type:'ahorro',desc:desc,amount:monto,date:fecha,cat:'🏠 Hogar',hogar:true,createdBy:user.name||''});
     localStorage.setItem('ft_data',JSON.stringify(data));
   }catch(e){}
 }

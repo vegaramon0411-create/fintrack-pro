@@ -927,6 +927,21 @@ input, select, textarea { font-size: 16px !important; }
   </div>
 </div>
 
+<!-- MODAL DETALLE TRANSACCIÓN -->
+<div class="overlay" id="detailOverlay" onclick="if(event.target===this)closeTxDetail()">
+  <div class="modal" id="detailModalBox" style="max-width:400px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div style="font-size:17px;font-weight:800" id="detailTitleText">Detalle</div>
+      <div onclick="closeTxDetail()" style="width:32px;height:32px;background:var(--off);border-radius:50%;display:grid;place-items:center;cursor:pointer;font-size:18px;color:var(--text3)">✕</div>
+    </div>
+    <div id="detailBody"></div>
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button id="detailEditBtn" onclick="editFromDetail()" style="flex:1;background:var(--off);color:var(--text);border:none;border-radius:var(--r);padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit" data-es="✏️ Editar" data-en="✏️ Edit">✏️ Editar</button>
+      <button id="detailDeleteBtn" onclick="deleteFromDetail()" style="flex:1;background:var(--red-dim);color:var(--red);border:none;border-radius:var(--r);padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit" data-es="🗑️ Eliminar" data-en="🗑️ Delete">🗑️ Eliminar</button>
+    </div>
+  </div>
+</div>
+
 <script>
 /* ─── openMoreMenu universal ─── */
 function openMoreMenu(){
@@ -1108,27 +1123,6 @@ function getCategoryType(cat) {
 }
 
 function getMonthTotals() {
-  // DEBUG TEMPORAL - panel visible
-  try{
-    const _h = JSON.parse(localStorage.getItem('ft_hogar')||'{}');
-    const _d = JSON.parse(localStorage.getItem('ft_data')||'{}');
-    const _txs = (_d.transactions||[]).filter(t=>t.hogar==true||t.hogar==='true');
-    const _mode = _h.mode||'equal';
-    const _mi = parseFloat((user&&user.income)||0);
-    const _pa = parseFloat(_h.partnerIncome||0);
-    const _pct = (_mode==='equal'||_mode==='common')?0.5:(_mi+_pa>0?_mi/(_mi+_pa):0.5);
-    const _div = document.createElement('div');
-    _div.style.cssText='position:fixed;bottom:80px;left:0;right:0;background:#000;color:#0f0;font-size:10px;padding:8px;z-index:9999;font-family:monospace;max-height:200px;overflow-y:auto';
-    _div.innerHTML='<b>DEBUG</b><br>'
-      +'connected: '+JSON.stringify(_h.connected)+'<br>'
-      +'manuallyLeft: '+JSON.stringify(_h.manuallyLeft)+'<br>'
-      +'mode: '+_mode+'<br>'
-      +'myHogarPct: '+_pct.toFixed(4)+'<br>'
-      +'txs con hogar=true: '+_txs.length+'<br>'
-      +_txs.map(t=>t.type+' '+t.desc+' $'+t.amount).join('<br>')
-      +'<br><button onclick="this.parentElement.remove()" style="margin-top:4px;padding:4px 8px">✕ Cerrar</button>';
-    document.body.appendChild(_div);
-  }catch(e){}
   const data = loadData();
   const now  = new Date();
   const curYear  = now.getFullYear();
@@ -1441,7 +1435,7 @@ function renderTx(filter) {
     const dateStr = d.toLocaleDateString(lang==='es'?'es-MX':'en-US',{month:'short',day:'numeric'});
     return `
       ${i>0?'<div class="tx-sep"></div>':''}
-      <div class="tx-item" onclick="editEntry(${t.id})" style="cursor:pointer">
+      <div class="tx-item" onclick="showTxDetail(${t.id})" style="cursor:pointer">
         <div class="tx-ico" style="background:${c.bg}">${c.icon}</div>
         <div class="tx-info">
           <div class="tx-nm">${t.desc || tn}</div>
@@ -1572,7 +1566,7 @@ function guardarCheque(){
     data.transactions.push({
       id:Date.now(), type:'ingreso',
       desc:es?'Cheque recibido':'Paycheck received',
-      amount:monto, date:fecha, cat:'💰 Ingreso'
+      amount:monto, date:fecha, cat:'💰 Ingreso', createdBy: user.name||''
     });
     localStorage.setItem('ft_data',JSON.stringify(data));
   }
@@ -1961,7 +1955,7 @@ function applyDist(leftover){
   if(emergAmt > 0){
     const data = JSON.parse(localStorage.getItem('ft_data')||'{"transactions":[],"emergency":0}');
     data.emergency = (data.emergency||0) + emergAmt;
-    data.transactions.push({ id:Date.now(), type:'ahorro', desc:es?'Depósito fondo emergencia':'Emergency fund deposit', amount:emergAmt, date:new Date().toISOString().split('T')[0], cat:'🛡️ Emergencia' });
+    data.transactions.push({ id:Date.now(), type:'ahorro', desc:es?'Depósito fondo emergencia':'Emergency fund deposit', amount:emergAmt, date:new Date().toISOString().split('T')[0], cat:'🛡️ Emergencia', createdBy: user.name||'' });
     localStorage.setItem('ft_data', JSON.stringify(data));
   }
 
@@ -2121,7 +2115,7 @@ function saveEntry() {
     document.getElementById('btnSaveEntry').textContent = lang==='es' ? 'Guardar registro' : 'Save entry';
   } else {
     // CREATE new entry
-    const entry = { id: Date.now(), type:currentType, desc, amount, date, note, cat, hogar: isHogarConnected() ? isHogarTx : undefined };
+    const entry = { id: Date.now(), type:currentType, desc, amount, date, note, cat, hogar: isHogarConnected() ? isHogarTx : undefined, createdBy: user.name||'' };
     if (currentType === 'ahorro') {
       data.emergency = (data.emergency||0) + amount;
       addEmergencyHistoryEntry({ id: entry.id, amount, date, type:'deposito', note: desc });
@@ -2219,6 +2213,65 @@ function addInvestmentSyncEntry(entry) {
 function removeInvestmentSyncEntry(txId) {
   const list = loadInvestmentSync().filter(i => i.id !== ('tx_'+txId));
   saveInvestmentSync(list);
+}
+
+let detailEntryId = null;
+
+function showTxDetail(id) {
+  const data = loadData();
+  const t = data.transactions.find(x => x.id === id);
+  if (!t) return;
+  detailEntryId = id;
+  const es = lang === 'es';
+
+  const typeNames = { gasto: es?'Gasto':'Expense', ingreso: es?'Ingreso':'Income', inversion: es?'Inversión':'Investment', ahorro: es?'Ahorro':'Savings', suscripcion: es?'Suscripción':'Subscription', hipoteca: es?'Renta/Hipoteca':'Rent/Mortgage' };
+  const tn = typeNames[t.type] || t.type;
+
+  const created = new Date(t.id);
+  const hora = isNaN(created.getTime()) ? '—' : created.toLocaleTimeString(es?'es-MX':'en-US', { hour:'2-digit', minute:'2-digit' });
+
+  const parts = String(t.date||'').split(/[-T]/);
+  const fechaFmt = parts.length >= 3
+    ? new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2])).toLocaleDateString(es?'es-MX':'en-US', { day:'numeric', month:'long', year:'numeric' })
+    : (t.date || '—');
+
+  const autor = t.createdBy || (es?'Desconocido':'Unknown');
+  const esHogar = t.hogar === true;
+
+  document.getElementById('detailTitleText').textContent = t.desc || tn;
+  document.getElementById('detailBody').innerHTML = `
+    <div style="text-align:center;margin-bottom:16px">
+      <div style="font-size:28px;font-weight:800;color:${t.type==='ingreso'?'var(--g-main)':'var(--text)'}">${t.type==='ingreso'?'+':'-'}${fmtD(t.amount)}</div>
+      ${esHogar ? `<span style="background:var(--g-light);color:var(--g-dark);font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;display:inline-block;margin-top:4px">🏠 ${es?'Del hogar':'Household'}</span>` : ''}
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;font-size:13px">
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">${es?'Categoría':'Category'}</span><span style="font-weight:600">${t.cat||'—'}</span></div>
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">${es?'Tipo':'Type'}</span><span style="font-weight:600">${tn}</span></div>
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">${es?'Fecha':'Date'}</span><span style="font-weight:600">${fechaFmt}</span></div>
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">${es?'Hora de registro':'Time recorded'}</span><span style="font-weight:600">${hora}</span></div>
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">${es?'Registrado por':'Recorded by'}</span><span style="font-weight:600">${autor}</span></div>
+      ${t.note ? `<div><div style="color:var(--text3);margin-bottom:4px">${es?'Nota':'Note'}</div><div style="background:var(--off);border-radius:10px;padding:10px;font-weight:500">${t.note}</div></div>` : ''}
+    </div>`;
+
+  document.getElementById('detailOverlay').classList.add('open');
+}
+
+function closeTxDetail() {
+  document.getElementById('detailOverlay').classList.remove('open');
+  detailEntryId = null;
+}
+
+function editFromDetail() {
+  const id = detailEntryId;
+  closeTxDetail();
+  editEntry(id);
+}
+
+function deleteFromDetail() {
+  if (!detailEntryId) return;
+  editingEntryId = detailEntryId;
+  closeTxDetail();
+  deleteEntry();
 }
 
 function editEntry(id) {
@@ -2520,7 +2573,7 @@ function useShortcut(i) {
   const data = loadData();
   const entry = {
     id: Date.now(), type: s.type || 'gasto', desc: s.desc, amount: parseFloat(s.amount),
-    date: new Date().toISOString().split('T')[0], note: '', cat: s.cat || '📦 Otros'
+    date: new Date().toISOString().split('T')[0], note: '', cat: s.cat || '📦 Otros', createdBy: user.name||''
   };
 
   if (entry.type === 'ahorro') {
@@ -2653,7 +2706,8 @@ function importAllCSV(rows) {
       date: r.date,
       note: 'CSV import',
       cat: '📦 Otros',
-      source: 'csv'
+      source: 'csv',
+      createdBy: user.name||''
     });
     imported++;
   });

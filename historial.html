@@ -55,6 +55,12 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
 #toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#1A1D2E;color:white;padding:12px 20px;border-radius:20px;font-size:13px;font-weight:600;display:none;z-index:300;}
 
 input, select, textarea { font-size: 16px !important; }
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;align-items:center;justify-content:center;z-index:400;padding:16px;}
+.ov.open{display:flex;}
+.ov-box{background:var(--white);border-radius:20px;padding:20px;width:100%;max-width:400px;max-height:85vh;overflow-y:auto;}
+.ov-field{margin-bottom:12px;}
+.ov-field label{font-size:11px;font-weight:700;color:var(--text3);display:block;margin-bottom:4px;}
+.ov-field input, .ov-field textarea{width:100%;border:1.5px solid var(--border);border-radius:10px;padding:9px 10px;font-family:inherit;font-size:14px;}
 </style>
 </head>
 <body>
@@ -88,6 +94,11 @@ input, select, textarea { font-size: 16px !important; }
   </div>
 
   <div class="card" id="txList"></div>
+</div>
+
+<!-- MODAL DETALLE -->
+<div class="ov" id="detailOv" onclick="if(event.target===this)closeDetail()">
+  <div class="ov-box" id="detailBox"></div>
 </div>
 
 <div id="toast"></div>
@@ -208,21 +219,102 @@ function renderList(){
   }
 
   list.innerHTML = txs.map(t=>`
-    <div class="tx-item">
+    <div class="tx-item" onclick="showDetail(${JSON.stringify(String(t.id))})" style="cursor:pointer">
       <div class="tx-ico" style="background:${TYPE_BG[t.type]||'var(--off)'}">
-        ${t.isHogar?'🏠':(TYPE_ICO[t.type]||'📝')}
+        ${t.isHogar||t.hogar===true?'🏠':(TYPE_ICO[t.type]||'📝')}
       </div>
       <div class="tx-info">
         <div class="tx-desc">${t.desc||t.description||'—'}</div>
-        <div class="tx-meta">${t.category||t.type||'—'} · ${t.date||''}</div>
+        <div class="tx-meta">${t.category||t.cat||t.type||'—'} · ${t.date||''}</div>
       </div>
       <div class="tx-amount" style="color:${t.type==='ingreso'?'var(--g-main)':'var(--red)'}">
         ${t.type==='ingreso'?'+':'-'}${fmt(parseFloat(t.amount)||0)}
       </div>
-      <button data-tid="${t.id}" onclick="deleteTx(this.dataset.tid)"
-        style="background:var(--red-dim);color:var(--red);border:none;border-radius:8px;padding:5px 8px;font-size:12px;cursor:pointer;font-family:inherit;flex-shrink:0;margin-left:4px">🗑</button>
     </div>
   `).join('');
+}
+
+let detailId = null;
+
+function showDetail(id){
+  const data = loadData();
+  const t = (data.transactions||[]).find(x=>String(x.id)===String(id));
+  if(!t) return;
+  detailId = id;
+  const es = lang==='es';
+  const TYPE_NAMES = {gasto:es?'Gasto':'Expense', ingreso:es?'Ingreso':'Income', inversion:es?'Inversión':'Investment', ahorro:es?'Ahorro':'Savings', suscripcion:es?'Suscripción':'Subscription', hipoteca:es?'Renta/Hipoteca':'Rent/Mortgage'};
+  const tn = TYPE_NAMES[t.type]||t.type;
+  const createdMs = parseInt(id);
+  const created = new Date(createdMs);
+  const hora = isNaN(created.getTime()) ? '—' : created.toLocaleTimeString(es?'es-MX':'en-US',{hour:'2-digit',minute:'2-digit'});
+  const parts = String(t.date||'').split(/[-T]/);
+  const fechaFmt = parts.length>=3 ? new Date(parseInt(parts[0]),parseInt(parts[1])-1,parseInt(parts[2])).toLocaleDateString(es?'es-MX':'en-US',{day:'numeric',month:'long',year:'numeric'}) : (t.date||'—');
+  const autor = t.createdBy || (es?'Desconocido':'Unknown');
+  const esHogar = t.hogar===true || t.isHogar===true;
+
+  document.getElementById('detailBox').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div style="font-size:17px;font-weight:800">${t.desc||tn}</div>
+      <div onclick="closeDetail()" style="width:32px;height:32px;background:var(--off);border-radius:50%;display:grid;place-items:center;cursor:pointer;font-size:18px;color:var(--text3)">✕</div>
+    </div>
+    <div style="text-align:center;margin-bottom:16px">
+      <div style="font-size:28px;font-weight:800;color:${t.type==='ingreso'?'var(--g-main)':'var(--text)'}">${t.type==='ingreso'?'+':'-'}${fmt(t.amount)}</div>
+      ${esHogar?`<span style="background:var(--g-light);color:var(--g-dark);font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;display:inline-block;margin-top:4px">🏠 ${es?'Del hogar':'Household'}</span>`:''}
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;font-size:13px;margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">${es?'Categoría':'Category'}</span><span style="font-weight:600">${t.cat||t.category||'—'}</span></div>
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">${es?'Tipo':'Type'}</span><span style="font-weight:600">${tn}</span></div>
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">${es?'Fecha':'Date'}</span><span style="font-weight:600">${fechaFmt}</span></div>
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">${es?'Hora de registro':'Time recorded'}</span><span style="font-weight:600">${hora}</span></div>
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">${es?'Registrado por':'Recorded by'}</span><span style="font-weight:600">${autor}</span></div>
+      ${t.note?`<div><div style="color:var(--text3);margin-bottom:4px">${es?'Nota':'Note'}</div><div style="background:var(--off);border-radius:10px;padding:10px;font-weight:500">${t.note}</div></div>`:''}
+    </div>
+    <div style="display:flex;gap:8px">
+      <button onclick="startEditDetail()" style="flex:1;background:var(--off);color:var(--text);border:none;border-radius:12px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">✏️ ${es?'Editar':'Edit'}</button>
+      <button onclick="deleteTx('${id}')" style="flex:1;background:var(--red-dim);color:var(--red);border:none;border-radius:12px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">🗑️ ${es?'Eliminar':'Delete'}</button>
+    </div>`;
+
+  document.getElementById('detailOv').classList.add('open');
+}
+
+function closeDetail(){
+  document.getElementById('detailOv').classList.remove('open');
+  detailId = null;
+}
+
+function startEditDetail(){
+  const data = loadData();
+  const t = (data.transactions||[]).find(x=>String(x.id)===String(detailId));
+  if(!t) return;
+  const es = lang==='es';
+  document.getElementById('detailBox').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div style="font-size:17px;font-weight:800">${es?'Editar registro':'Edit entry'}</div>
+      <div onclick="closeDetail()" style="width:32px;height:32px;background:var(--off);border-radius:50%;display:grid;place-items:center;cursor:pointer;font-size:18px;color:var(--text3)">✕</div>
+    </div>
+    <div class="ov-field"><label>${es?'Descripción':'Description'}</label><input id="edDesc" value="${(t.desc||'').replace(/"/g,'&quot;')}"></div>
+    <div class="ov-field"><label>${es?'Monto':'Amount'}</label><input id="edAmount" type="number" step="0.01" value="${t.amount}"></div>
+    <div class="ov-field"><label>${es?'Fecha':'Date'}</label><input id="edDate" type="date" value="${t.date}"></div>
+    <div class="ov-field"><label>${es?'Nota':'Note'}</label><textarea id="edNote" rows="2">${t.note||''}</textarea></div>
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button onclick="showDetail('${detailId}')" style="flex:1;background:var(--off);color:var(--text);border:none;border-radius:12px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">${es?'Cancelar':'Cancel'}</button>
+      <button onclick="saveEditDetail()" style="flex:1;background:var(--g-main);color:white;border:none;border-radius:12px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">${es?'Guardar':'Save'}</button>
+    </div>`;
+}
+
+function saveEditDetail(){
+  const data = loadData();
+  const idx = (data.transactions||[]).findIndex(x=>String(x.id)===String(detailId));
+  if(idx<0) return;
+  const desc = document.getElementById('edDesc').value.trim();
+  const amount = parseFloat(document.getElementById('edAmount').value)||0;
+  const date = document.getElementById('edDate').value;
+  const note = document.getElementById('edNote').value.trim();
+  data.transactions[idx] = { ...data.transactions[idx], desc, amount, date, note };
+  localStorage.setItem('ft_data', JSON.stringify(data));
+  closeDetail();
+  render();
+  showToast(lang==='es'?'✅ Registro actualizado':'✅ Entry updated');
 }
 
 function deleteTx(id){
@@ -232,7 +324,9 @@ function deleteTx(id){
     const data = JSON.parse(localStorage.getItem('ft_data')||'{}');
     data.transactions = (data.transactions||[]).filter(t=>String(t.id)!==String(id));
     localStorage.setItem('ft_data',JSON.stringify(data));
+    closeDetail();
     render();
+    showToast(es?'🗑️ Registro eliminado':'🗑️ Entry deleted');
   }catch(e){}
 }
 
