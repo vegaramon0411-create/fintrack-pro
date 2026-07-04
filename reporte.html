@@ -235,6 +235,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
         <div class="lt-opt on" id="ltES" onclick="setLang('es')">ES</div>
         <div class="lt-opt"    id="ltEN" onclick="setLang('en')">EN</div>
       </div>
+      <button class="btn-dl" id="btnRefresh" onclick="manualRefresh()" style="background:var(--off);color:var(--text);border:1.5px solid var(--border)" title="Refrescar">🔄 <span data-es="Refrescar" data-en="Refresh">Refrescar</span></button>
       <button class="btn-dl" onclick="downloadPDF()">⬇️ <span data-es="Descargar PDF" data-en="Download PDF">Descargar PDF</span></button>
     </div>
   </div>
@@ -703,6 +704,19 @@ function setLang(l){
 
 function go(url){ window.location.href=url; }
 function logout(){sessionStorage.clear();localStorage.removeItem('ft_premium');window.location.replace('login.html');}
+function showToast(msg){
+  let t = document.getElementById('_reportToast');
+  if(!t){
+    t = document.createElement('div');
+    t.id = '_reportToast';
+    t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1A1D2E;color:white;padding:12px 20px;border-radius:20px;font-size:13px;font-weight:600;z-index:500;';
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.style.display = 'block';
+  clearTimeout(t._hideTimer);
+  t._hideTimer = setTimeout(()=>t.style.display='none', 2200);
+}
 
 (function init(){
   try{
@@ -724,7 +738,26 @@ function logout(){sessionStorage.clear();localStorage.removeItem('ft_premium');w
   setLang(lang);
   renderPeriodBar();
   renderReport();
+
+  // Refrescar en vivo: al volver a esta pestaña, o si otra pestaña cambió los datos
+  document.addEventListener('visibilitychange', () => {
+    if(!document.hidden){ renderPeriodBar(); renderReport(); }
+  });
+  window.addEventListener('focus', () => { renderPeriodBar(); renderReport(); });
+  window.addEventListener('storage', (e) => {
+    if(['ft_data','ft_debts','ft_subs','ft_investments','ft_hogar_inv','ft_hogar'].includes(e.key)){
+      renderPeriodBar(); renderReport();
+    }
+  });
 })();
+
+function manualRefresh(){
+  const btn = document.getElementById('btnRefresh');
+  if(btn){ btn.style.opacity='.6'; setTimeout(()=>btn.style.opacity='1',300); }
+  renderPeriodBar();
+  renderReport();
+  showToast(lang==='es'?'🔄 Reporte actualizado':'🔄 Report refreshed');
+}
 </script>
 </body>
 </html>

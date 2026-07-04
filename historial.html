@@ -308,6 +308,10 @@ function renderList(){
       <div class="tx-amount" style="color:${t.type==='ingreso'?'var(--g-main)':'var(--red)'}">
         ${t.type==='ingreso'?'+':'-'}${fmt(parseFloat(t.amount)||0)}
       </div>
+      <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;padding-left:4px">
+        <div onclick="event.stopPropagation();showDetail(${JSON.stringify(String(t.id))});startEditDetail()" style="cursor:pointer;color:var(--blue);font-size:15px;line-height:1" title="Editar">✏️</div>
+        <div onclick="event.stopPropagation();deleteTx(${JSON.stringify(String(t.id))})" style="cursor:pointer;color:var(--text3);font-size:13px;line-height:1" title="Eliminar">🗑</div>
+      </div>
     </div>
   `).join('');
 }

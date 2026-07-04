@@ -125,7 +125,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
 .hero-combined{background:linear-gradient(135deg,#1A1D2E,#2D3561);border-radius:18px;padding:22px;color:white;margin-bottom:14px;}
 .hc-label{font-size:11px;opacity:.6;margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px;}
 .hc-amount{font-size:36px;font-weight:800;letter-spacing:-.8px;margin-bottom:12px;}
-.hc-members{display:flex;gap:10px;}
+.hc-members{display:flex;gap:10px;margin-top:12px;}
 .hc-member{background:rgba(255,255,255,.1);border-radius:10px;padding:10px 14px;flex:1;}
 .hc-member-name{font-size:10px;opacity:.7;margin-bottom:2px;}
 .hc-member-amt{font-size:15px;font-weight:800;}
@@ -537,10 +537,6 @@ function renderDashboard(hogar){
   <div class="hero-combined">
     <div class="hc-label">${es?'Ingreso combinado del hogar':'Combined household income'}</div>
     <div class="hc-amount">${fmt(totalIncome)}<span style="font-size:16px;opacity:.6">/mes</span></div>
-    ${_totalAportado > 0 ? `<div style="background:rgba(255,255,255,.15);border-radius:10px;padding:8px 12px;margin-top:8px;font-size:12px">
-      <div style="opacity:.7;margin-bottom:2px">${es?'Aportado al fondo del hogar este mes':'Contributed to household fund this month'}</div>
-      <div style="font-size:20px;font-weight:800">${fmt(_totalAportado)}</div>
-    </div>` : ''}
     <div class="hc-members">
       <div class="hc-member">
         <div class="hc-member-name">${user.name||'Tú'}</div>

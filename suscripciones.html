@@ -124,12 +124,19 @@ input, select, textarea { font-size: 16px !important; }
 
 <div class="page">
   <div id="summaryCard" class="card"></div>
+  <div id="trendCard"></div>
+  <div id="upcomingCard" class="card" style="display:none"></div>
   <div class="filter-row">
     <button class="filter-btn on" onclick="setFilter('all',this)" data-es="Todas" data-en="All">Todas</button>
     <button class="filter-btn" onclick="setFilter('monthly',this)" data-es="Mensuales" data-en="Monthly">Mensuales</button>
     <button class="filter-btn" onclick="setFilter('annual',this)" data-es="Anuales" data-en="Annual">Anuales</button>
   </div>
   <div class="card" id="subList"></div>
+</div>
+
+<!-- DETAIL MODAL -->
+<div class="overlay" id="detailOverlay" onclick="if(event.target===this)closeDetail()">
+  <div class="modal" id="detailBox"></div>
 </div>
 
 <!-- MODAL -->
@@ -198,6 +205,7 @@ input, select, textarea { font-size: 16px !important; }
 <script>
 let user={},lang='es',filterMode='all';
 let editingId=null;
+let detailId=null;
 const KEY='ft_subs';
 
 function loadSubs(){ try{return JSON.parse(localStorage.getItem(KEY))||[];}catch(e){return[];} }
@@ -246,13 +254,89 @@ function setFilter(f,btn){
 
 function toMonthly(s){ if(s.freq==='annual') return (parseFloat(s.amount)||0)/12; if(s.freq==='weekly') return (parseFloat(s.amount)||0)*4.33; return parseFloat(s.amount)||0; }
 
+function nextBillingDate(s){
+  if(!s.date) return null;
+  const parts = s.date.split('-').map(Number);
+  let d = new Date(parts[0], parts[1]-1, parts[2]);
+  const today = new Date(); today.setHours(0,0,0,0);
+  const stepDays = s.freq==='annual' ? 365 : s.freq==='weekly' ? 7 : 30;
+  let guard=0;
+  while(d < today && guard<1000){
+    if(s.freq==='annual') d.setFullYear(d.getFullYear()+1);
+    else if(s.freq==='weekly') d.setDate(d.getDate()+7);
+    else d.setMonth(d.getMonth()+1);
+    guard++;
+  }
+  return d;
+}
+
+const HIST_KEY='ft_subs_history';
+function updateHistorySnapshot(totalMonthly){
+  try{
+    const hist = JSON.parse(localStorage.getItem(HIST_KEY))||{};
+    const monthKey = new Date().toISOString().slice(0,7);
+    hist[monthKey] = totalMonthly;
+    localStorage.setItem(HIST_KEY, JSON.stringify(hist));
+    return hist;
+  }catch(e){ return {}; }
+}
+function loadHistory6(){
+  let hist={};
+  try{ hist = JSON.parse(localStorage.getItem(HIST_KEY))||{}; }catch(e){}
+  const now=new Date();
+  const out=[];
+  for(let i=5;i>=0;i--){
+    const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
+    const key = d.toISOString().slice(0,7);
+    out.push({ month:key, label:d.toLocaleDateString(lang==='es'?'es-MX':'en-US',{month:'short'}), value: hist[key]!=null ? hist[key] : null });
+  }
+  return out;
+}
+
+function renderTrendChart(trend){
+  const es = lang==='es';
+  const W=800,H=180,padL=20,padR=20,padT=16,padB=30;
+  const vals = trend.map(t=>t.value).filter(v=>v!=null);
+  const maxVal = Math.max(1, ...vals);
+  const stepX = (W-padL-padR)/(trend.length-1||1);
+  const scaleY = v => H-padB - (v/maxVal)*(H-padT-padB);
+
+  const pts = trend.map((t,i)=> t.value!=null ? {x:padL+i*stepX, y:scaleY(t.value)} : null);
+  let path='';
+  pts.forEach((p,i)=>{ if(!p) return; path += (path===''?'M':'L')+p.x.toFixed(1)+','+p.y.toFixed(1)+' '; });
+
+  const dots = pts.map(p=>p?`<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4.5" fill="#4A6CF7"/>`:'').join('');
+  const labels = trend.map((t,i)=>`<text x="${(padL+i*stepX).toFixed(1)}" y="${H-8}" font-size="13" fill="#9395A5" text-anchor="middle">${t.label}</text>`).join('');
+
+  const known = trend.filter(t=>t.value!=null);
+  const trendMsg = known.length>1
+    ? (known[known.length-1].value > known[known.length-2].value
+        ? (es?'⚠️ Tu gasto en suscripciones subió vs el mes pasado':'⚠️ Your subscription spend went up vs last month')
+        : (es?'✅ Tu gasto en suscripciones bajó o se mantuvo':'✅ Your subscription spend went down or stayed the same'))
+    : (es?'Vamos guardando el histórico mes a mes':'We\'re building your monthly history');
+
+  return `
+  <div class="card">
+    <div style="font-size:13px;font-weight:800;margin-bottom:10px">📈 ${es?'Tendencia (6 meses)':'Trend (6 months)'}</div>
+    <svg style="width:100%;max-height:180px;display:block" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">
+      ${path?`<path d="${path}" fill="none" stroke="#4A6CF7" stroke-width="3"/>`:''}
+      ${dots}
+      ${labels}
+    </svg>
+    <div style="font-size:11px;color:var(--text3);margin-top:6px">${trendMsg}</div>
+  </div>`;
+}
+
 function render(){
   const subs=loadSubs();
   const es=lang==='es';
   let filtered=subs;
   if(filterMode!=='all') filtered=subs.filter(s=>s.freq===filterMode);
-  const total=filtered.reduce((sum,s)=>sum+toMonthly(s),0);
+  const active = filtered.filter(s=>!s.paused);
+  const total=active.reduce((sum,s)=>sum+toMonthly(s),0);
   const annual=total*12;
+
+  updateHistorySnapshot(subs.filter(s=>!s.paused).reduce((sum,s)=>sum+toMonthly(s),0));
 
   document.getElementById('summaryCard').innerHTML=`
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
@@ -260,20 +344,50 @@ function render(){
       <div style="text-align:center"><div style="font-size:22px;font-weight:800;color:var(--red)">${fmt(annual)}</div><div style="font-size:11px;color:var(--text3)">${es?'al año':'per year'}</div></div>
     </div>`;
 
+  document.getElementById('trendCard').innerHTML = renderTrendChart(loadHistory6());
+
+  // Próximas a pagar (no pausadas, ordenadas por fecha más cercana)
+  const upcoming = active
+    .map(s=>({ s, next: nextBillingDate(s) }))
+    .filter(x=>x.next)
+    .sort((a,b)=>a.next-b.next)
+    .slice(0,5);
+
+  const upcomingCard = document.getElementById('upcomingCard');
+  if(upcoming.length){
+    upcomingCard.style.display='';
+    upcomingCard.innerHTML = `
+      <div style="font-size:13px;font-weight:800;margin-bottom:10px">⏰ ${es?'Próximas a pagar':'Upcoming payments'}</div>
+      ${upcoming.map(({s,next})=>{
+        const days = Math.ceil((next-new Date().setHours(0,0,0,0))/86400000);
+        const soon = days<=3;
+        return `<div onclick="openDetail('${s.id}')" style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--off);cursor:pointer">
+          <div style="width:36px;height:36px;border-radius:10px;background:var(--blu-dim);display:grid;place-items:center;font-size:16px">🔄</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12px;font-weight:700">${s.name}</div>
+            <div style="font-size:10px;color:${soon?'var(--red)':'var(--text3)'}">${next.toLocaleDateString(es?'es-MX':'en-US',{day:'numeric',month:'short'})} · ${days===0?(es?'hoy':'today'):days+'d'}</div>
+          </div>
+          <div style="font-size:13px;font-weight:800">${fmt(parseFloat(s.amount)||0)}</div>
+        </div>`;
+      }).join('')}
+    `;
+  } else {
+    upcomingCard.style.display='none';
+  }
+
   const list=document.getElementById('subList');
   if(!filtered.length){ list.innerHTML=`<p style="color:var(--text3);font-size:13px;text-align:center;padding:30px 0">${es?'Sin suscripciones':'No subscriptions'}</p>`; return; }
 
   const FREQ_LABEL={monthly:es?'Mensual':'Monthly',annual:es?'Anual':'Annual',weekly:es?'Semanal':'Weekly'};
   list.innerHTML=filtered.map(s=>`
-    <div class="sub-item">
+    <div class="sub-item" onclick="openDetail('${s.id}')" style="cursor:pointer;${s.paused?'opacity:.5':''}">
       <div class="sub-ico">🔄</div>
       <div class="sub-info">
-        <div class="sub-name">${s.name||'Suscripción'}</div>
+        <div class="sub-name">${s.name||'Suscripción'} ${s.paused?`<span style="font-size:9px;background:var(--off);color:var(--text3);padding:2px 6px;border-radius:20px;font-weight:700;margin-left:4px">${es?'PAUSADA':'PAUSED'}</span>`:''}</div>
         <div class="sub-meta">${FREQ_LABEL[s.freq]||s.freq} · ${s.cat||''} ${s.date?'· '+s.date:''}</div>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
         <div class="sub-amount">${fmt(parseFloat(s.amount)||0)}</div>
-        <div onclick="deleteSub('${s.id}')" style="cursor:pointer;color:var(--text3)">🗑️</div>
       </div>
     </div>`).join('');
 }
@@ -282,9 +396,74 @@ function openAdd(){
   editingId=null;
   ['fName','fAmount'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('fDate').value=new Date().toISOString().slice(0,10);
+  document.getElementById('fFreq').value='monthly';
+  document.getElementById('fCat').value='Entretenimiento';
+  document.getElementById('modalTitle').textContent = lang==='es'?'Nueva suscripción':'New subscription';
   document.getElementById('overlay').classList.add('open');
 }
 function closeModal(){ document.getElementById('overlay').classList.remove('open'); }
+
+function openDetail(id){
+  const s = loadSubs().find(x=>String(x.id)===String(id));
+  if(!s) return;
+  const es = lang==='es';
+  detailId = id;
+  const FREQ_LABEL={monthly:es?'Mensual':'Monthly',annual:es?'Anual':'Annual',weekly:es?'Semanal':'Weekly'};
+  const next = nextBillingDate(s);
+
+  document.getElementById('detailBox').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div style="font-size:16px;font-weight:800">${s.name}</div>
+      <div onclick="closeDetail()" style="cursor:pointer;font-size:20px;color:var(--text3)">✕</div>
+    </div>
+    <div style="text-align:center;margin-bottom:16px">
+      <div style="font-size:28px;font-weight:800;color:var(--blue)">${fmt(parseFloat(s.amount)||0)}</div>
+      ${s.paused?`<span style="background:var(--off);color:var(--text3);font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;display:inline-block;margin-top:4px">${es?'⏸️ Pausada':'⏸️ Paused'}</span>`:''}
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;font-size:13px;margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">${es?'Frecuencia':'Frequency'}</span><span style="font-weight:600">${FREQ_LABEL[s.freq]||s.freq}</span></div>
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">${es?'Categoría':'Category'}</span><span style="font-weight:600">${s.cat||'—'}</span></div>
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">${es?'Equivalente mensual':'Monthly equivalent'}</span><span style="font-weight:600">${fmt(toMonthly(s))}</span></div>
+      ${next&&!s.paused?`<div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">${es?'Próximo cobro':'Next charge'}</span><span style="font-weight:600">${next.toLocaleDateString(es?'es-MX':'en-US',{day:'numeric',month:'long',year:'numeric'})}</span></div>`:''}
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <button onclick="startEditSub('${s.id}')" style="flex:1;background:var(--off);color:var(--text);border:none;border-radius:12px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">✏️ ${es?'Editar':'Edit'}</button>
+      <button onclick="togglePause('${s.id}')" style="flex:1;background:var(--amb-dim);color:var(--amber);border:none;border-radius:12px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">${s.paused?(es?'▶️ Reanudar':'▶️ Resume'):(es?'⏸️ Pausar':'⏸️ Pause')}</button>
+    </div>
+    <button onclick="deleteSub('${s.id}')" style="width:100%;background:var(--red-dim);color:var(--red);border:none;border-radius:12px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">🗑️ ${es?'Eliminar':'Delete'}</button>`;
+
+  document.getElementById('detailOverlay').classList.add('open');
+}
+
+function closeDetail(){
+  document.getElementById('detailOverlay').classList.remove('open');
+  detailId = null;
+}
+
+function startEditSub(id){
+  const s = loadSubs().find(x=>String(x.id)===String(id));
+  if(!s) return;
+  closeDetail();
+  editingId = id;
+  document.getElementById('fName').value = s.name||'';
+  document.getElementById('fAmount').value = s.amount||'';
+  document.getElementById('fFreq').value = s.freq||'monthly';
+  document.getElementById('fDate').value = s.date||new Date().toISOString().slice(0,10);
+  document.getElementById('fCat').value = s.cat||'Entretenimiento';
+  document.getElementById('modalTitle').textContent = lang==='es'?'Editar suscripción':'Edit subscription';
+  document.getElementById('overlay').classList.add('open');
+}
+
+function togglePause(id){
+  const subs = loadSubs();
+  const idx = subs.findIndex(x=>String(x.id)===String(id));
+  if(idx<0) return;
+  subs[idx].paused = !subs[idx].paused;
+  saveSubs(subs);
+  closeDetail();
+  render();
+  showToast(subs[idx].paused ? (lang==='es'?'⏸️ Pausada':'⏸️ Paused') : (lang==='es'?'▶️ Reanudada':'▶️ Resumed'));
+}
 
 function saveSub(){
   const name=document.getElementById('fName').value.trim();
@@ -294,7 +473,12 @@ function saveSub(){
   const cat=document.getElementById('fCat').value;
   if(!name||!amount){ showToast('⚠️ '+(lang==='es'?'Llena todos los campos':'Fill all fields')); return; }
   const subs=loadSubs();
-  subs.push({id:'s_'+Date.now(),name,amount,freq,date,cat});
+  if(editingId){
+    const idx = subs.findIndex(x=>String(x.id)===String(editingId));
+    if(idx>=0) subs[idx] = {...subs[idx], name, amount, freq, date, cat};
+  } else {
+    subs.push({id:'s_'+Date.now(),name,amount,freq,date,cat,paused:false});
+  }
   saveSubs(subs);
   closeModal();
   render();
@@ -303,7 +487,8 @@ function saveSub(){
 
 function deleteSub(id){
   if(!confirm(lang==='es'?'¿Eliminar?':'Delete?')) return;
-  saveSubs(loadSubs().filter(s=>s.id!==id));
+  saveSubs(loadSubs().filter(s=>String(s.id)!==String(id)));
+  closeDetail();
   render();
 }
 
