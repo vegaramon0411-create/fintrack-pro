@@ -419,7 +419,7 @@ function getSharedExpenses(){
   const thisMonth = new Date().toISOString().slice(0,7);
   return (data.transactions||[]).filter(t =>
     t.date && t.date.startsWith(thisMonth) &&
-    t.type === 'gasto' &&
+    (t.type === 'gasto' || t.type === 'ahorro' || t.type === 'suscripcion' || t.type === 'hipoteca') &&
     t.hogar === true
   );
 }
@@ -508,7 +508,7 @@ function renderDashboard(hogar){
   const personalTotal = personalTxs.reduce((a,t)=>a+(t.amount||0),0);
 
   const partnerSharedTxs = partnerProfile && partnerProfile.data && partnerProfile.data.transactions
-    ? (partnerProfile.data.transactions||[]).filter(t=>t.hogar===true && t.type==='gasto')
+    ? (partnerProfile.data.transactions||[]).filter(t=>t.hogar===true && (t.type==='gasto'||t.type==='ahorro'||t.type==='suscripcion'||t.type==='hipoteca'))
     : [];
   const partnerPersonalTotal = partnerProfile && partnerProfile.data
     ? (partnerProfile.data.transactions||[]).filter(t=>t.hogar!==true && t.type==='gasto').reduce((a,t)=>a+(t.amount||0),0)
