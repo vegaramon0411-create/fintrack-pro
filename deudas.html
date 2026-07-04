@@ -502,6 +502,10 @@ function renderDebtCard(d){
         <div class="dc-balance" style="color:${info.color}">${fmt(balance)}</div>
         <div class="dc-label">${lang==='es'?'saldo actual':'current balance'}</div>
       </div>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-left:6px">
+        <div onclick="event.stopPropagation();openAddModal('${d.id}')" style="cursor:pointer;font-size:15px;color:var(--text3)" title="Editar">✏️</div>
+        <div onclick="event.stopPropagation();deleteDebt('${d.id}')" style="cursor:pointer;font-size:13px;color:var(--text3)" title="Eliminar">🗑</div>
+      </div>
     </div>
     <div class="dc-progress">
       <div class="dc-fill" style="width:${paidPct}%;background:${info.color}"></div>
