@@ -908,7 +908,6 @@ input, select, textarea { font-size: 16px !important; }
         </div>
         <div id="hogarToggleHint" style="font-size:10px;color:var(--text3);margin-top:5px;text-align:center"></div>
       </div>
-      <div id="hogarDebug" style="font-size:9px;color:red;word-break:break-all;margin-bottom:8px"></div>
 
       <button class="btn-save" id="btnSaveEntry" onclick="saveEntry()" data-es="Guardar registro" data-en="Save entry">Guardar registro</button>
       <button id="btnDeleteEntry" onclick="deleteEntry()" style="display:none;width:100%;background:var(--red-dim);color:var(--red);border:none;border-radius:var(--r);padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:8px">🗑️ Eliminar registro</button>
@@ -2026,28 +2025,24 @@ function autoDetectHogar(cat){
 }
 
 function showHogarToggle(type){
-  requestAnimationFrame(() => {
-    const field = document.getElementById('hogarToggleField');
-    if(!field) return;
-    // Mostrar para gastos, inversiones y ahorros cuando hogar está conectado
-    const show = isHogarConnected() && ['gasto','suscripcion','hipoteca','inversion','ahorro'].includes(type);
-    field.style.display = show ? '' : 'none';
-    const dbg = document.getElementById('hogarDebug');
-    if(dbg) dbg.textContent = 'type:'+type+' conn:'+isHogarConnected()+' raw:'+localStorage.getItem('ft_hogar');
-    // Actualizar el hint según el tipo
-    const hint = document.getElementById('hogarToggleHint');
-    if(hint && show){
-      if(type==='inversion'){
-        hint.textContent = isHogarTx
-          ? (lang==='es'?'Se guardará en inversiones del hogar · visible para tu pareja':'Saved to household investments · visible to partner')
-          : (lang==='es'?'Se guardará en tus inversiones personales · privado':'Saved to your personal investments · private');
-      } else if(type==='ahorro'){
-        hint.textContent = isHogarTx
-          ? (lang==='es'?'Ahorro compartido del hogar · visible para tu pareja':'Shared household savings · visible to partner')
-          : (lang==='es'?'Tu ahorro personal · privado':'Your personal savings · private');
-      }
+  const field = document.getElementById('hogarToggleField');
+  if(!field) return;
+  // Mostrar para gastos, inversiones y ahorros cuando hogar está conectado
+  const show = isHogarConnected() && ['gasto','suscripcion','hipoteca','inversion','ahorro'].includes(type);
+  field.style.display = show ? '' : 'none';
+  // Actualizar el hint según el tipo
+  const hint = document.getElementById('hogarToggleHint');
+  if(hint && show){
+    if(type==='inversion'){
+      hint.textContent = isHogarTx
+        ? (lang==='es'?'Se guardará en inversiones del hogar · visible para tu pareja':'Saved to household investments · visible to partner')
+        : (lang==='es'?'Se guardará en tus inversiones personales · privado':'Saved to your personal investments · private');
+    } else if(type==='ahorro'){
+      hint.textContent = isHogarTx
+        ? (lang==='es'?'Ahorro compartido del hogar · visible para tu pareja':'Shared household savings · visible to partner')
+        : (lang==='es'?'Tu ahorro personal · privado':'Your personal savings · private');
     }
-  });
+  }
 }
 
 function openModal() {
@@ -2605,7 +2600,6 @@ function deleteShortcut(i) {
 /* Inline form to create a new shortcut (with category) */
 function showQuickForm() {
   document.getElementById('quickForm').style.display = '';
-  document.getElementById('addShortcutBtn').style.display = 'none';
   document.getElementById('qsDesc').value = '';
   document.getElementById('qsAmount').value = '';
   document.getElementById('qsType').value = 'gasto';
@@ -2614,7 +2608,6 @@ function showQuickForm() {
 
 function cancelQuickForm() {
   document.getElementById('quickForm').style.display = 'none';
-  document.getElementById('addShortcutBtn').style.display = '';
 }
 
 function confirmAddShortcut() {
