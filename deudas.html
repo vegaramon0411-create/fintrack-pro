@@ -972,8 +972,6 @@ function updatePreview(){
     }
   }
 
-  const totalPaidWithPiti = amort.totalPaid + (pitiExtra * amort.months);
-
   preview.style.display='block';
   preview.innerHTML = `<div class="amort-preview">
     <div class="ap-title">\ud83d\udcca ${es?'An\u00e1lisis de tu deuda':'Debt analysis'}</div>
@@ -982,7 +980,7 @@ function updatePreview(){
     <div class="ap-row"><span class="ap-label">${es?'Total de intereses (pr\u00e9stamo)':'Total interest (loan)'}</span><span class="ap-value">${fmtD(amort.totalInterest)}</span></div>
     <div class="ap-row"><span class="ap-label">${es?'Total del pr\u00e9stamo (P+I)':'Total loan (P+I)'}</span><span class="ap-value">${fmtD(amort.totalPaid)}</span></div>
     ${pitiExtra>0?`<div class="ap-row" style="border-top:1px solid rgba(230,57,70,.2);padding-top:8px;margin-top:4px"><span class="ap-label">${es?'Pago mensual (PITI)':'Monthly payment (PITI)'}</span><span class="ap-value">${fmtD(effectivePayment+pitiExtra)}</span></div>${pitiBreakdown}<div class="ap-row" style="font-size:11px;color:var(--text3)">${es?'De eso, capital+inter\u00e9s':'Of that, principal+interest'}: ${fmtD(effectivePayment)}</div>
-    <div class="ap-row" style="border-top:1px solid rgba(230,57,70,.2);padding-top:8px;margin-top:4px"><span class="ap-label">${es?'Costo real total (con tax/seguro)':'Real total cost (with tax/insurance)'}</span><span class="ap-value">${fmtD(totalPaidWithPiti)}</span></div>`:''}
+    <div class="ap-row" style="font-size:10.5px;color:var(--text3)">${es?'Tax y seguro no desaparecen al terminar el pr\u00e9stamo \u2014 siguen mientras tengas la casa.':'Tax and insurance don\'t go away when the loan ends \u2014 they continue as long as you own the house.'}</div>`:''}
     ${apr>0?`<div class="ap-row" style="border-top:1px solid rgba(230,57,70,.2);padding-top:8px;margin-top:4px">
       <span class="ap-label">${es?'Pago: capital / inter\u00e9s':'Payment: principal / interest'}</span>
       <span class="ap-value">${fmt(firstPrincipal)} / ${fmt(firstInterest)}</span>
