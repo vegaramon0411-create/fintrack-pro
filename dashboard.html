@@ -2025,24 +2025,26 @@ function autoDetectHogar(cat){
 }
 
 function showHogarToggle(type){
-  const field = document.getElementById('hogarToggleField');
-  if(!field) return;
-  // Mostrar para gastos, inversiones y ahorros cuando hogar está conectado
-  const show = isHogarConnected() && ['gasto','suscripcion','hipoteca','inversion','ahorro'].includes(type);
-  field.style.display = show ? '' : 'none';
-  // Actualizar el hint según el tipo
-  const hint = document.getElementById('hogarToggleHint');
-  if(hint && show){
-    if(type==='inversion'){
-      hint.textContent = isHogarTx
-        ? (lang==='es'?'Se guardará en inversiones del hogar · visible para tu pareja':'Saved to household investments · visible to partner')
-        : (lang==='es'?'Se guardará en tus inversiones personales · privado':'Saved to your personal investments · private');
-    } else if(type==='ahorro'){
-      hint.textContent = isHogarTx
-        ? (lang==='es'?'Ahorro compartido del hogar · visible para tu pareja':'Shared household savings · visible to partner')
-        : (lang==='es'?'Tu ahorro personal · privado':'Your personal savings · private');
+  requestAnimationFrame(() => {
+    const field = document.getElementById('hogarToggleField');
+    if(!field) return;
+    // Mostrar para gastos, inversiones y ahorros cuando hogar está conectado
+    const show = isHogarConnected() && ['gasto','suscripcion','hipoteca','inversion','ahorro'].includes(type);
+    field.style.display = show ? '' : 'none';
+    // Actualizar el hint según el tipo
+    const hint = document.getElementById('hogarToggleHint');
+    if(hint && show){
+      if(type==='inversion'){
+        hint.textContent = isHogarTx
+          ? (lang==='es'?'Se guardará en inversiones del hogar · visible para tu pareja':'Saved to household investments · visible to partner')
+          : (lang==='es'?'Se guardará en tus inversiones personales · privado':'Saved to your personal investments · private');
+      } else if(type==='ahorro'){
+        hint.textContent = isHogarTx
+          ? (lang==='es'?'Ahorro compartido del hogar · visible para tu pareja':'Shared household savings · visible to partner')
+          : (lang==='es'?'Tu ahorro personal · privado':'Your personal savings · private');
+      }
     }
-  }
+  });
 }
 
 function openModal() {
