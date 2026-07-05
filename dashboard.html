@@ -355,6 +355,9 @@ body {
 
 .field { margin-bottom:14px; }
 .field label { display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text3);margin-bottom:6px; }
+.info-i{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;margin-left:4px;color:var(--text3);opacity:.6;font-size:12px;cursor:pointer;text-transform:none;letter-spacing:0;font-weight:400;vertical-align:middle;}
+.info-i:hover{opacity:1;}
+.info-tip-bubble{position:absolute;max-width:220px;background:var(--text);color:white;font-size:11px;font-weight:500;padding:8px 10px;border-radius:8px;z-index:600;line-height:1.4;box-shadow:0 4px 12px rgba(0,0,0,.2);text-transform:none;letter-spacing:0;}
 .field input, .field select {
   width:100%;background:var(--off);border:1.5px solid var(--border);
   border-radius:var(--r);padding:11px 14px;font-size:14px;font-weight:500;
@@ -870,15 +873,16 @@ input, select, textarea { font-size: 16px !important; }
         <button class="type-btn on" onclick="setType('gasto')" data-es="💸 Gasto" data-en="💸 Expense">💸 Gasto</button>
         <button class="type-btn" onclick="setType('ingreso')" data-es="💰 Ingreso" data-en="💰 Income">💰 Ingreso</button>
         <button class="type-btn" onclick="setType('inversion')" data-es="📈 Inversión" data-en="📈 Investment">📈 Inversión</button>
-        <button class="type-btn" onclick="setType('ahorro')" data-es="🛡️ Ahorro" data-en="🛡️ Savings">🛡️ Ahorro</button>
+        <button class="type-btn" onclick="setType('ahorro');setSavingsDest('emergencia')" data-es="🛡️ Emergencia" data-en="🛡️ Emergency">🛡️ Emergencia</button>
+        <button class="type-btn" onclick="setType('ahorro');setSavingsDest('libre')" data-es="💵 Ahorro libre" data-en="💵 Free savings">💵 Ahorro libre</button>
         <button class="type-btn" onclick="setType('suscripcion')" data-es="🔄 Suscripción" data-en="🔄 Subscription">🔄 Suscripción</button>
         <button class="type-btn" onclick="setType('hipoteca')" data-es="🏠 Renta/Hipoteca" data-en="🏠 Rent/Mortgage">🏠 Renta/Hipoteca</button>
         <button class="type-btn" onclick="closeModal();openDebtAbonarModal()" style="grid-column:span 3;background:var(--red-dim);color:var(--red);border-color:var(--red)" data-es="💳 Abonar a deuda" data-en="💳 Pay a debt">💳 Abonar a deuda</button>
       </div>
 
       <div class="field">
-        <label data-es="Descripción" data-en="Description">Descripción</label>
-        <input type="text" id="mDesc" placeholder="" data-ph-es="Ej. Supermercado, gasolina, Netflix..." data-ph-en="E.g. Groceries, gas, Netflix...">
+        <label><span data-es="Descripción" data-en="Description">Descripción</span><span class="info-i" onclick="toggleInfoTip(this)" data-tip-es="Ej. Supermercado, gasolina, Netflix..." data-tip-en="E.g. Groceries, gas, Netflix...">ⓘ</span></label>
+        <input type="text" id="mDesc" placeholder="">
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div class="field">
@@ -895,8 +899,8 @@ input, select, textarea { font-size: 16px !important; }
         <select id="mCat" onchange="autoDetectHogar(this.value)"></select>
       </div>
       <div class="field">
-        <label data-es="Nota (opcional)" data-en="Note (optional)">Nota (opcional)</label>
-        <input type="text" id="mNote" placeholder="" data-ph-es="Detalle extra, si quieres" data-ph-en="Extra detail, if you want">
+        <label><span data-es="Nota (opcional)" data-en="Note (optional)">Nota (opcional)</span><span class="info-i" onclick="toggleInfoTip(this)" data-tip-es="Detalle extra, si quieres" data-tip-en="Extra detail, if you want">ⓘ</span></label>
+        <input type="text" id="mNote" placeholder="">
       </div>
 
       <!-- DESTINO DE AHORRO (solo tipo ahorro) -->
@@ -978,7 +982,7 @@ function openMoreMenu(){
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px 8px;">
       ${links.map(k=>`<div onclick="window.location.href='${k.u}'" style="display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;">
         <div style="width:52px;height:52px;background:#f5f5f7;border-radius:14px;display:grid;place-items:center;font-size:24px;">${k.ico}</div>
-        <span style="font-size:10px;font-weight:600;color:#4A4E69;text-align:center;">${k.l}</span>
+        <span style="font-size:10px;font-weight:600;color:#4A4E69;text-align:center;">${lang==='es'?k.es:k.en}</span>
       </div>`).join('')}
     </div>
   </div>`;
@@ -1059,10 +1063,6 @@ function setLang(l) {
   document.querySelectorAll('[data-es]').forEach(el => {
     const v = el.getAttribute('data-'+l);
     if (v) el.textContent = v;
-  });
-  document.querySelectorAll('[data-ph-es]').forEach(el => {
-    const v = el.getAttribute('data-ph-'+l);
-    if (v) el.placeholder = v;
   });
   if (document.getElementById('mCat')) { document.getElementById('mCat').innerHTML=''; populateCategorySelect(); }
   renderDashboard();
@@ -2011,6 +2011,32 @@ function isHogarConnected(){
   catch(e){ return false; }
 }
 
+function toggleInfoTip(el){
+  const existing = document.querySelector('.info-tip-bubble');
+  if(existing){
+    const wasSameTarget = existing._owner === el;
+    existing.remove();
+    if(wasSameTarget) return;
+  }
+  const text = el.getAttribute(lang==='es' ? 'data-tip-es' : 'data-tip-en');
+  const bubble = document.createElement('div');
+  bubble.className = 'info-tip-bubble';
+  bubble._owner = el;
+  bubble.textContent = text;
+  document.body.appendChild(bubble);
+  const rect = el.getBoundingClientRect();
+  bubble.style.top = (rect.bottom + window.scrollY + 6) + 'px';
+  bubble.style.left = Math.max(8, rect.left + window.scrollX - 80) + 'px';
+  setTimeout(() => {
+    document.addEventListener('click', function closeTip(e){
+      if(!bubble.contains(e.target) && e.target !== el){
+        bubble.remove();
+        document.removeEventListener('click', closeTip);
+      }
+    });
+  }, 0);
+}
+
 function setSavingsDest(val){
   savingsDest = val;
   const btnE = document.getElementById('btnDestEmerg');
@@ -2034,10 +2060,11 @@ function setSavingsDest(val){
 }
 
 function showSavingsDestField(show){
+  // El destino ahora se elige directo en los botones de tipo (Emergencia / Ahorro libre),
+  // así que el toggle visual ya no hace falta — solo mantenemos el estado interno.
   const field = document.getElementById('savingsDestField');
   if(!field) return;
-  field.style.display = show ? '' : 'none';
-  if(show) setSavingsDest(savingsDest);
+  field.style.display = 'none';
 }
 
 function setHogarFlag(val, silent=false){
