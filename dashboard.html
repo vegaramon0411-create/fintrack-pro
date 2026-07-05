@@ -805,11 +805,11 @@ input, select, textarea { font-size: 16px !important; }
 .goal-prev-empty-btn{display:inline-block;margin-top:10px;background:var(--g-dim);color:var(--g-main);font-size:12px;font-weight:700;padding:7px 16px;border-radius:20px;cursor:pointer;border:none;font-family:inherit;}
 </style>
 <nav class="mob-nav">
-  <div class="mob-item on" onclick="window.scrollTo(0,0)"><div class="mob-ico">📊</div><span>Inicio</span></div>
-  <div class="mob-item" onclick="go('historial.html')"><div class="mob-ico">📅</div><span>Historial</span></div>
+  <div class="mob-item on" onclick="window.scrollTo(0,0)"><div class="mob-ico">📊</div><span data-es="Inicio" data-en="Home">Inicio</span></div>
+  <div class="mob-item" onclick="go('historial.html')"><div class="mob-ico">📅</div><span data-es="Historial" data-en="History">Historial</span></div>
   <div class="mob-item mob-center"><button class="mob-add" onclick="openModal()">＋</button></div>
-  <div class="mob-item" onclick="go('hogar.html')"><div class="mob-ico">🏠</div><span>Hogar</span></div>
-  <div class="mob-item" onclick="openMoreMenu()"><div class="mob-ico">☰</div><span>Más</span></div>
+  <div class="mob-item" onclick="go('hogar.html')"><div class="mob-ico">🏠</div><span data-es="Hogar" data-en="Household">Hogar</span></div>
+  <div class="mob-item" onclick="openMoreMenu()"><div class="mob-ico">☰</div><span data-es="Más" data-en="More">Más</span></div>
 </nav>
 
 <!-- MORE MENU PANEL (mobile) -->
@@ -878,7 +878,7 @@ input, select, textarea { font-size: 16px !important; }
 
       <div class="field">
         <label data-es="Descripción" data-en="Description">Descripción</label>
-        <input type="text" id="mDesc" placeholder="">
+        <input type="text" id="mDesc" placeholder="" data-ph-es="Ej. Supermercado, gasolina, Netflix..." data-ph-en="E.g. Groceries, gas, Netflix...">
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div class="field">
@@ -896,7 +896,17 @@ input, select, textarea { font-size: 16px !important; }
       </div>
       <div class="field">
         <label data-es="Nota (opcional)" data-en="Note (optional)">Nota (opcional)</label>
-        <input type="text" id="mNote" placeholder="">
+        <input type="text" id="mNote" placeholder="" data-ph-es="Detalle extra, si quieres" data-ph-en="Extra detail, if you want">
+      </div>
+
+      <!-- DESTINO DE AHORRO (solo tipo ahorro) -->
+      <div id="savingsDestField" style="display:none;margin-bottom:14px">
+        <label style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:8px" data-es="¿A dónde va este ahorro?" data-en="Where does this savings go?">¿A dónde va este ahorro?</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <button id="btnDestEmerg" onclick="setSavingsDest('emergencia')" type="button" style="padding:11px;border-radius:10px;border:2px solid var(--border);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--off)">🛡️ Emergencia</button>
+          <button id="btnDestLibre" onclick="setSavingsDest('libre')" type="button" style="padding:11px;border-radius:10px;border:2px solid var(--border);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--off)">💵 Ahorro libre</button>
+        </div>
+        <div id="savingsDestHint" style="font-size:10px;color:var(--text3);margin-top:5px;text-align:center"></div>
       </div>
 
       <!-- HOGAR TOGGLE -->
@@ -947,17 +957,17 @@ input, select, textarea { font-size: 16px !important; }
 function openMoreMenu(){
   if(document.getElementById('_moreOv')) return;
   const links=[
-    {ico:'📈',l:'Análisis',    u:'analisis.html'},
-    {ico:'🎯',l:'Metas',       u:'metas.html'},
-    {ico:'💳',l:'Deudas',      u:'deudas.html'},
-    {ico:'🏦',l:'Inversiones', u:'inversiones.html'},
-    {ico:'📷',l:'Escanear',    u:'scanner.html'},
-    {ico:'📥',l:'Importar CSV',u:'importar.html'},
-    {ico:'🛡️',l:'Emergencia',  u:'emergencia.html'},
-    {ico:'💵',l:'Ahorro libre', u:'ahorro.html'},
-    {ico:'🔄',l:'Suscripciones',u:'suscripciones.html'},
-    {ico:'⚙️',l:'Config',      u:'config.html'},
-    {ico:'👤',l:'Perfil',      u:'perfil.html'},
+    {ico:'📈',es:'Análisis',en:'Analysis',u:'analisis.html'},
+    {ico:'🎯',es:'Metas',en:'Goals',u:'metas.html'},
+    {ico:'💳',es:'Deudas',en:'Debts',u:'deudas.html'},
+    {ico:'🏦',es:'Inversiones',en:'Investments',u:'inversiones.html'},
+    {ico:'📷',es:'Escanear',en:'Scan',u:'scanner.html'},
+    {ico:'📥',es:'Importar CSV',en:'Import CSV',u:'importar.html'},
+    {ico:'🛡️',es:'Emergencia',en:'Emergency',u:'emergencia.html'},
+    {ico:'💵',es:'Ahorro libre',en:'Free savings',u:'ahorro.html'},
+    {ico:'🔄',es:'Suscripciones',en:'Subscriptions',u:'suscripciones.html'},
+    {ico:'⚙️',es:'Config',en:'Settings',u:'config.html'},
+    {ico:'👤',es:'Perfil',en:'Profile',u:'perfil.html'},
   ];
   const ov=document.createElement('div');
   ov.id='_moreOv';
@@ -1049,6 +1059,10 @@ function setLang(l) {
   document.querySelectorAll('[data-es]').forEach(el => {
     const v = el.getAttribute('data-'+l);
     if (v) el.textContent = v;
+  });
+  document.querySelectorAll('[data-ph-es]').forEach(el => {
+    const v = el.getAttribute('data-ph-'+l);
+    if (v) el.placeholder = v;
   });
   if (document.getElementById('mCat')) { document.getElementById('mCat').innerHTML=''; populateCategorySelect(); }
   renderDashboard();
@@ -1821,6 +1835,7 @@ function renderGoalsPreview() {
 ══════════════════════════════════════════ */
 let currentType = 'gasto';
 let isHogarTx = false; // true = del hogar, false = personal
+let savingsDest = 'emergencia'; // 'emergencia' | 'libre'
 
 // Categories that auto-detect as hogar
 const AUTO_HOGAR_CATS = ['🏠 Renta / Hipoteca','🛒 Supermercado','⛽ Gasolina','💊 Salud','📱 Teléfono/Internet','🔧 Mantenimiento'];
@@ -1996,6 +2011,35 @@ function isHogarConnected(){
   catch(e){ return false; }
 }
 
+function setSavingsDest(val){
+  savingsDest = val;
+  const btnE = document.getElementById('btnDestEmerg');
+  const btnL = document.getElementById('btnDestLibre');
+  const hint = document.getElementById('savingsDestHint');
+  if(!btnE||!btnL) return;
+
+  const isLibre = val === 'libre';
+  btnE.style.background = !isLibre ? 'var(--amb-dim)' : 'var(--off)';
+  btnE.style.borderColor = !isLibre ? 'var(--amber)' : 'var(--border)';
+  btnE.style.color = !isLibre ? 'var(--amber)' : '';
+  btnL.style.background = isLibre ? 'var(--g-light)' : 'var(--off)';
+  btnL.style.borderColor = isLibre ? 'var(--g-main)' : 'var(--border)';
+  btnL.style.color = isLibre ? 'var(--g-dark)' : '';
+
+  if(hint){
+    hint.textContent = isLibre
+      ? (lang==='es'?'Se guarda en tu Ahorro libre · para lo que quieras':'Goes to your Free savings · for anything you want')
+      : (lang==='es'?'Se guarda en tu Fondo de emergencia':'Goes to your Emergency fund');
+  }
+}
+
+function showSavingsDestField(show){
+  const field = document.getElementById('savingsDestField');
+  if(!field) return;
+  field.style.display = show ? '' : 'none';
+  if(show) setSavingsDest(savingsDest);
+}
+
 function setHogarFlag(val, silent=false){
   isHogarTx = val;
   const btnH = document.getElementById('btnHogar');
@@ -2094,18 +2138,26 @@ function saveEntry() {
     const idx = data.transactions.findIndex(t => t.id === editingEntryId);
     if (idx >= 0) {
       const old = data.transactions[idx];
-      // Reverse old emergency contribution if it was savings
+      // Reverse old contribution if it was savings
       if (old.type === 'ahorro') {
-        data.emergency = Math.max(0, (data.emergency||0) - parseFloat(old.amount));
-        removeEmergencyHistoryEntry(old.id);
+        if (old.dest === 'libre') {
+          reverseFreeSavingsEntry(old.id);
+        } else {
+          data.emergency = Math.max(0, (data.emergency||0) - parseFloat(old.amount));
+          removeEmergencyHistoryEntry(old.id);
+        }
       }
       // Reverse old investment sync if it was an investment
       if (old.type === 'inversion') removeInvestmentSyncEntry(old.id);
       // Apply new values
-      data.transactions[idx] = { ...old, type:currentType, desc, amount, date, note, cat, hogar: isHogarConnected() ? isHogarTx : undefined };
+      data.transactions[idx] = { ...old, type:currentType, desc, amount, date, note, cat, hogar: isHogarConnected() ? isHogarTx : undefined, dest: currentType==='ahorro' ? savingsDest : undefined };
       if (currentType === 'ahorro') {
-        data.emergency = (data.emergency||0) + amount;
-        addEmergencyHistoryEntry({ id: old.id, amount, date, type:'deposito', note: desc });
+        if (savingsDest === 'libre') {
+          addFreeSavingsEntry({ id: old.id, amount, date, note: desc });
+        } else {
+          data.emergency = (data.emergency||0) + amount;
+          addEmergencyHistoryEntry({ id: old.id, amount, date, type:'deposito', note: desc });
+        }
       }
       if (currentType === 'inversion') {
         addInvestmentSyncEntry({ id: old.id, name: desc, amount, date, note });
@@ -2115,10 +2167,14 @@ function saveEntry() {
     document.getElementById('btnSaveEntry').textContent = lang==='es' ? 'Guardar registro' : 'Save entry';
   } else {
     // CREATE new entry
-    const entry = { id: Date.now(), type:currentType, desc, amount, date, note, cat, hogar: isHogarConnected() ? isHogarTx : undefined, createdBy: user.name||'' };
+    const entry = { id: Date.now(), type:currentType, desc, amount, date, note, cat, hogar: isHogarConnected() ? isHogarTx : undefined, createdBy: user.name||'', dest: currentType==='ahorro' ? savingsDest : undefined };
     if (currentType === 'ahorro') {
-      data.emergency = (data.emergency||0) + amount;
-      addEmergencyHistoryEntry({ id: entry.id, amount, date, type:'deposito', note: desc });
+      if (savingsDest === 'libre') {
+        addFreeSavingsEntry({ id: entry.id, amount, date, note: desc });
+      } else {
+        data.emergency = (data.emergency||0) + amount;
+        addEmergencyHistoryEntry({ id: entry.id, amount, date, type:'deposito', note: desc });
+      }
     }
     if (currentType === 'inversion') {
       if (isHogarConnected() && isHogarTx) {
@@ -2174,6 +2230,39 @@ function addEmergencyHistoryEntry(entry) {
 function removeEmergencyHistoryEntry(txId) {
   const hist = loadEmergencyHistory().filter(h => h.id !== ('tx_'+txId));
   saveEmergencyHistory(hist);
+}
+
+/* ══════════════════════════════════════════
+   FREE SAVINGS SYNC ('Ahorro libre')
+   Keeps ft_available_savings / ft_savings_hist (used by ahorro.html)
+   in sync with "ahorro"-type entries whose destino is 'libre'.
+══════════════════════════════════════════ */
+const FREE_SAVINGS_KEY = 'ft_available_savings';
+const FREE_SAVINGS_HIST_KEY = 'ft_savings_hist';
+
+function loadFreeSavingsHist() {
+  try { return JSON.parse(localStorage.getItem(FREE_SAVINGS_HIST_KEY)) || []; } catch(e) { return []; }
+}
+function saveFreeSavingsHist(h) { localStorage.setItem(FREE_SAVINGS_HIST_KEY, JSON.stringify(h)); }
+
+function addFreeSavingsEntry(entry) {
+  const cur = parseFloat(localStorage.getItem(FREE_SAVINGS_KEY)||'0');
+  localStorage.setItem(FREE_SAVINGS_KEY, (cur + parseFloat(entry.amount)).toFixed(2));
+  const hist = loadFreeSavingsHist();
+  hist.push({ id: 'tx_'+entry.id, tipo:'deposito', monto: entry.amount, fecha: entry.date, nota: entry.note, cat:'' });
+  saveFreeSavingsHist(hist);
+}
+
+function reverseFreeSavingsEntry(txId) {
+  const hist = loadFreeSavingsHist();
+  const idx = hist.findIndex(h => h.id === ('tx_'+txId));
+  if (idx >= 0) {
+    const item = hist[idx];
+    const cur = parseFloat(localStorage.getItem(FREE_SAVINGS_KEY)||'0');
+    localStorage.setItem(FREE_SAVINGS_KEY, Math.max(0, cur - parseFloat(item.monto)).toFixed(2));
+    hist.splice(idx, 1);
+    saveFreeSavingsHist(hist);
+  }
 }
 
 /* ══════════════════════════════════════════
@@ -2292,6 +2381,7 @@ function editEntry(id) {
   document.getElementById('mNote').value   = t.note || '';
   setType(t.type);
   setCategory(t.cat);
+  if (t.type === 'ahorro') setSavingsDest(t.dest === 'libre' ? 'libre' : 'emergencia');
 
   document.getElementById('modalTitleText').textContent = lang==='es' ? 'Editar registro' : 'Edit entry';
   document.getElementById('btnSaveEntry').textContent = lang==='es' ? 'Guardar cambios' : 'Save changes';
@@ -2308,8 +2398,12 @@ function deleteEntry() {
   if (idx >= 0) {
     const old = data.transactions[idx];
     if (old.type === 'ahorro') {
-      data.emergency = Math.max(0, (data.emergency||0) - parseFloat(old.amount));
-      removeEmergencyHistoryEntry(old.id);
+      if (old.dest === 'libre') {
+        reverseFreeSavingsEntry(old.id);
+      } else {
+        data.emergency = Math.max(0, (data.emergency||0) - parseFloat(old.amount));
+        removeEmergencyHistoryEntry(old.id);
+      }
     }
     if (old.type === 'inversion') removeInvestmentSyncEntry(old.id);
     data.transactions.splice(idx, 1);
@@ -2374,6 +2468,8 @@ function setType(type) {
 
   // Show/hide hogar toggle
   showHogarToggle(type);
+  // Show/hide destino de ahorro
+  showSavingsDestField(type === 'ahorro');
 }
 
 function setCategory(catValue) {

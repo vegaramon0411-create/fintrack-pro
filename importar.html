@@ -17,23 +17,24 @@ function setLang(l){
 function openMoreMenu(){
   if(document.getElementById('_moreOv')) return;
   const links=[
-    {ico:'📈',l:'An\u00e1lisis',    u:'analisis.html'},
-    {ico:'🎯',l:'Metas',       u:'metas.html'},
-    {ico:'💳',l:'Deudas',      u:'deudas.html'},
-    {ico:'🏦',l:'Inversiones', u:'inversiones.html'},
-    {ico:'📷',l:'Escanear',    u:'scanner.html'},
-    {ico:'📥',l:'Importar CSV',u:'importar.html'},
-    {ico:'🛡\ufe0f',l:'Emergencia',  u:'emergencia.html'},
-    {ico:'🔄',l:'Suscripciones',u:'suscripciones.html'},
-    {ico:'\u2699\ufe0f',l:'Config',      u:'config.html'},
-    {ico:'👤',l:'Perfil',      u:'perfil.html'},
+    {ico:'📈',es:'An\u00e1lisis',en:'An\u00e1lisis',u:'analisis.html'},
+    {ico:'🎯',es:'Metas',en:'Goals',u:'metas.html'},
+    {ico:'💳',es:'Deudas',en:'Debts',u:'deudas.html'},
+    {ico:'🏦',es:'Inversiones',en:'Investments',u:'inversiones.html'},
+    {ico:'📷',es:'Escanear',en:'Scan',u:'scanner.html'},
+    {ico:'📥',es:'Importar CSV',en:'Import CSV',u:'importar.html'},
+    {ico:'🛡\ufe0f',es:'Emergencia',en:'Emergency',u:'emergencia.html'},
+    {ico:'💵',es:'Ahorro libre',en:'Free savings',u:'ahorro.html'},
+    {ico:'🔄',es:'Suscripciones',en:'Subscriptions',u:'suscripciones.html'},
+    {ico:'\u2699\ufe0f',es:'Config',en:'Settings',u:'config.html'},
+    {ico:'👤',es:'Perfil',en:'Profile',u:'perfil.html'},
   ];
   const ov=document.createElement('div');
   ov.id='_moreOv';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:300;display:flex;align-items:flex-end;';
   ov.addEventListener('click',function(e){if(e.target===ov)ov.remove();});
   ov.innerHTML='<div style="background:white;border-radius:24px 24px 0 0;padding:16px 20px calc(20px + env(safe-area-inset-bottom));width:100%;"><div style="width:36px;height:4px;background:#ddd;border-radius:100px;margin:0 auto 16px;"></div><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px 8px;">'+
-    links.map(function(k){return '<div onclick="window.location.href=\''+k.u+'\'" style="display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;"><div style="width:52px;height:52px;background:#f5f5f7;border-radius:14px;display:grid;place-items:center;font-size:24px;">'+k.ico+'</div><span style="font-size:10px;font-weight:600;color:#4A4E69;text-align:center;">'+k.l+'</span></div>';}).join('')+
+    links.map(function(k){return '<div onclick="window.location.href=\''+k.u+'\'" style="display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;"><div style="width:52px;height:52px;background:#f5f5f7;border-radius:14px;display:grid;place-items:center;font-size:24px;">'+k.ico+'</div><span style="font-size:10px;font-weight:600;color:#4A4E69;text-align:center;">'+(lang==='es'?k.es:k.en)+'</span></div>';}).join('')+
     '</div></div>';
   document.body.appendChild(ov);
 }
@@ -187,25 +188,25 @@ input, select, textarea { font-size: 16px !important; }
   <nav class="sb-nav">
     <div class="sb-section">Principal</div>
     <div class="sb-link" onclick="go('dashboard.html')"><span class="sb-ico">📊</span><span>Dashboard</span></div>
-    <div class="sb-link" onclick="go('dashboard.html')"><span class="sb-ico">➕</span><span>Nuevo registro</span></div>
-    <div class="sb-link" onclick="go('suscripciones.html')"><span class="sb-ico">🔄</span><span>Suscripciones</span></div>
-    <div class="sb-link" onclick="go('metas.html')"><span class="sb-ico">🎯</span><span>Metas</span></div>
-    <div class="sb-link" onclick="go('deudas.html')"><span class="sb-ico">💳</span><span>Deudas</span></div>
+    <div class="sb-link" onclick="go('dashboard.html')"><span class="sb-ico">➕</span><span data-es="Nuevo registro" data-en="New entry">Nuevo registro</span></div>
+    <div class="sb-link" onclick="go('suscripciones.html')"><span class="sb-ico">🔄</span><span data-es="Suscripciones" data-en="Subscriptions">Suscripciones</span></div>
+    <div class="sb-link" onclick="go('metas.html')"><span class="sb-ico">🎯</span><span data-es="Metas" data-en="Goals">Metas</span></div>
+    <div class="sb-link" onclick="go('deudas.html')"><span class="sb-ico">💳</span><span data-es="Deudas" data-en="Debts">Deudas</span></div>
     <div class="sb-section">Análisis</div>
-    <div class="sb-link" onclick="go('analisis.html')"><span class="sb-ico">📈</span><span>Por categoría</span></div>
-    <div class="sb-link" onclick="go('historial.html')"><span class="sb-ico">📅</span><span>Historial</span></div>
-    <div class="sb-link" onclick="go('inversiones.html')"><span class="sb-ico">🏦</span><span>Inversiones</span></div>
-    <div class="sb-link" onclick="go('reporte.html')"><span class="sb-ico">📄</span><span>Reporte mensual</span></div>
+    <div class="sb-link" onclick="go('analisis.html')"><span class="sb-ico">📈</span><span data-es="Por categoría" data-en="By category">Por categoría</span></div>
+    <div class="sb-link" onclick="go('historial.html')"><span class="sb-ico">📅</span><span data-es="Historial" data-en="History">Historial</span></div>
+    <div class="sb-link" onclick="go('inversiones.html')"><span class="sb-ico">🏦</span><span data-es="Inversiones" data-en="Investments">Inversiones</span></div>
+    <div class="sb-link" onclick="go('reporte.html')"><span class="sb-ico">📄</span><span data-es="Reporte mensual" data-en="Monthly report">Reporte mensual</span></div>
     <div class="sb-section">Herramientas</div>
-    <div class="sb-link" onclick="go('scanner.html')"><span class="sb-ico">📷</span><span>Escanear recibo</span></div>
-    <div class="sb-link on"><span class="sb-ico">📥</span><span>Importar CSV</span></div>
-    <div class="sb-link" onclick="go('emergencia.html')"><span class="sb-ico">🛡️</span><span>Fondo emergencia</span></div>
-    <div class="sb-link" onclick="go('ahorro.html')"><span class="sb-ico">💵</span><span>Ahorro libre</span></div>
-    <div class="sb-link" onclick="go('hogar.html')"><span class="sb-ico">🏠</span><span>Hogar</span></div>
+    <div class="sb-link" onclick="go('scanner.html')"><span class="sb-ico">📷</span><span data-es="Escanear recibo" data-en="Scan receipt">Escanear recibo</span></div>
+    <div class="sb-link on"><span class="sb-ico">📥</span><span data-es="Importar CSV" data-en="Import CSV">Importar CSV</span></div>
+    <div class="sb-link" onclick="go('emergencia.html')"><span class="sb-ico">🛡️</span><span data-es="Fondo emergencia" data-en="Emergency fund">Fondo emergencia</span></div>
+    <div class="sb-link" onclick="go('ahorro.html')"><span class="sb-ico">💵</span><span data-es="Ahorro libre" data-en="Free savings">Ahorro libre</span></div>
+    <div class="sb-link" onclick="go('hogar.html')"><span class="sb-ico">🏠</span><span data-es="Hogar" data-en="Household">Hogar</span></div>
     <div class="sb-section">Cuenta</div>
-    <div class="sb-link" onclick="go('perfil.html')"><span class="sb-ico">👤</span><span>Mi perfil</span></div>
-    <div class="sb-link" onclick="go('config.html')"><span class="sb-ico">⚙️</span><span>Configuración</span></div>
-    <div class="sb-link" onclick="logout()"><span class="sb-ico">🚪</span><span>Cerrar sesión</span></div>
+    <div class="sb-link" onclick="go('perfil.html')"><span class="sb-ico">👤</span><span data-es="Mi perfil" data-en="My profile">Mi perfil</span></div>
+    <div class="sb-link" onclick="go('config.html')"><span class="sb-ico">⚙️</span><span data-es="Configuración" data-en="Settings">Configuración</span></div>
+    <div class="sb-link" onclick="logout()"><span class="sb-ico">🚪</span><span data-es="Cerrar sesión" data-en="Log out">Cerrar sesión</span></div>
   </nav>
   <div class="sb-footer"><div class="sb-user" onclick="go('perfil.html')"><div class="sb-avatar" id="sbAvatar">R</div><div><div class="sb-uname" id="sbName">—</div><div class="sb-umail" id="sbEmail">—</div></div></div></div>
 </aside>
@@ -275,11 +276,11 @@ input, select, textarea { font-size: 16px !important; }
 </div><!-- /app -->
 
 <nav class="mob-nav">
-  <div class="mob-item " onclick="go('dashboard.html')"><div class="mob-ico">📊</div><span>Inicio</span></div>
-  <div class="mob-item " onclick="go('historial.html')"><div class="mob-ico">📅</div><span>Historial</span></div>
+  <div class="mob-item " onclick="go('dashboard.html')"><div class="mob-ico">📊</div><span data-es="Inicio" data-en="Home">Inicio</span></div>
+  <div class="mob-item " onclick="go('historial.html')"><div class="mob-ico">📅</div><span data-es="Historial" data-en="History">Historial</span></div>
   <div class="mob-item mob-center"><button class="mob-add" onclick="go('dashboard.html')" onclick="openModal()">＋</button></div>
-  <div class="mob-item " onclick="go('hogar.html')"><div class="mob-ico">🏠</div><span>Hogar</span></div>
-  <div class="mob-item on" onclick="openMoreMenu()"><div class="mob-ico">☰</div><span>Más</span></div>
+  <div class="mob-item " onclick="go('hogar.html')"><div class="mob-ico">🏠</div><span data-es="Hogar" data-en="Household">Hogar</span></div>
+  <div class="mob-item on" onclick="openMoreMenu()"><div class="mob-ico">☰</div><span data-es="Más" data-en="More">Más</span></div>
 </nav>
 
 <div id="toast"></div>

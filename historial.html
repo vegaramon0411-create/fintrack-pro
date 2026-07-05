@@ -96,25 +96,25 @@ input, select, textarea { font-size: 16px !important; }
   <nav class="sb-nav">
     <div class="sb-section">Principal</div>
     <div class="sb-link" onclick="go('dashboard.html')"><span class="sb-ico">📊</span><span>Dashboard</span></div>
-    <div class="sb-link" onclick="go('dashboard.html')"><span class="sb-ico">➕</span><span>Nuevo registro</span></div>
-    <div class="sb-link" onclick="go('suscripciones.html')"><span class="sb-ico">🔄</span><span>Suscripciones</span></div>
-    <div class="sb-link" onclick="go('metas.html')"><span class="sb-ico">🎯</span><span>Metas</span></div>
-    <div class="sb-link" onclick="go('deudas.html')"><span class="sb-ico">💳</span><span>Deudas</span></div>
+    <div class="sb-link" onclick="go('dashboard.html')"><span class="sb-ico">➕</span><span data-es="Nuevo registro" data-en="New entry">Nuevo registro</span></div>
+    <div class="sb-link" onclick="go('suscripciones.html')"><span class="sb-ico">🔄</span><span data-es="Suscripciones" data-en="Subscriptions">Suscripciones</span></div>
+    <div class="sb-link" onclick="go('metas.html')"><span class="sb-ico">🎯</span><span data-es="Metas" data-en="Goals">Metas</span></div>
+    <div class="sb-link" onclick="go('deudas.html')"><span class="sb-ico">💳</span><span data-es="Deudas" data-en="Debts">Deudas</span></div>
     <div class="sb-section">Análisis</div>
-    <div class="sb-link" onclick="go('analisis.html')"><span class="sb-ico">📈</span><span>Por categoría</span></div>
-    <div class="sb-link on"><span class="sb-ico">📅</span><span>Historial</span></div>
-    <div class="sb-link" onclick="go('inversiones.html')"><span class="sb-ico">🏦</span><span>Inversiones</span></div>
-    <div class="sb-link" onclick="go('reporte.html')"><span class="sb-ico">📄</span><span>Reporte mensual</span></div>
+    <div class="sb-link" onclick="go('analisis.html')"><span class="sb-ico">📈</span><span data-es="Por categoría" data-en="By category">Por categoría</span></div>
+    <div class="sb-link on"><span class="sb-ico">📅</span><span data-es="Historial" data-en="History">Historial</span></div>
+    <div class="sb-link" onclick="go('inversiones.html')"><span class="sb-ico">🏦</span><span data-es="Inversiones" data-en="Investments">Inversiones</span></div>
+    <div class="sb-link" onclick="go('reporte.html')"><span class="sb-ico">📄</span><span data-es="Reporte mensual" data-en="Monthly report">Reporte mensual</span></div>
     <div class="sb-section">Herramientas</div>
-    <div class="sb-link" onclick="go('scanner.html')"><span class="sb-ico">📷</span><span>Escanear recibo</span></div>
-    <div class="sb-link" onclick="go('importar.html')"><span class="sb-ico">📥</span><span>Importar CSV</span></div>
-    <div class="sb-link" onclick="go('emergencia.html')"><span class="sb-ico">🛡️</span><span>Fondo emergencia</span></div>
-    <div class="sb-link" onclick="go('ahorro.html')"><span class="sb-ico">💵</span><span>Ahorro libre</span></div>
-    <div class="sb-link" onclick="go('hogar.html')"><span class="sb-ico">🏠</span><span>Hogar</span></div>
+    <div class="sb-link" onclick="go('scanner.html')"><span class="sb-ico">📷</span><span data-es="Escanear recibo" data-en="Scan receipt">Escanear recibo</span></div>
+    <div class="sb-link" onclick="go('importar.html')"><span class="sb-ico">📥</span><span data-es="Importar CSV" data-en="Import CSV">Importar CSV</span></div>
+    <div class="sb-link" onclick="go('emergencia.html')"><span class="sb-ico">🛡️</span><span data-es="Fondo emergencia" data-en="Emergency fund">Fondo emergencia</span></div>
+    <div class="sb-link" onclick="go('ahorro.html')"><span class="sb-ico">💵</span><span data-es="Ahorro libre" data-en="Free savings">Ahorro libre</span></div>
+    <div class="sb-link" onclick="go('hogar.html')"><span class="sb-ico">🏠</span><span data-es="Hogar" data-en="Household">Hogar</span></div>
     <div class="sb-section">Cuenta</div>
-    <div class="sb-link" onclick="go('perfil.html')"><span class="sb-ico">👤</span><span>Mi perfil</span></div>
-    <div class="sb-link" onclick="go('config.html')"><span class="sb-ico">⚙️</span><span>Configuración</span></div>
-    <div class="sb-link" onclick="logout()"><span class="sb-ico">🚪</span><span>Cerrar sesión</span></div>
+    <div class="sb-link" onclick="go('perfil.html')"><span class="sb-ico">👤</span><span data-es="Mi perfil" data-en="My profile">Mi perfil</span></div>
+    <div class="sb-link" onclick="go('config.html')"><span class="sb-ico">⚙️</span><span data-es="Configuración" data-en="Settings">Configuración</span></div>
+    <div class="sb-link" onclick="logout()"><span class="sb-ico">🚪</span><span data-es="Cerrar sesión" data-en="Log out">Cerrar sesión</span></div>
   </nav>
   <div class="sb-footer"><div class="sb-user" onclick="go('perfil.html')"><div class="sb-avatar" id="sbAvatar">R</div><div><div class="sb-uname" id="sbName">—</div><div class="sb-umail" id="sbEmail">—</div></div></div></div>
 </aside>
@@ -163,16 +163,16 @@ input, select, textarea { font-size: 16px !important; }
   <div class="more-panel">
     <div class="more-handle"></div>
     <div class="more-grid">
-      <div class="more-item" onclick="go('analisis.html')"><div class="more-ico" style="background:var(--g-light)">📈</div><span>Análisis</span></div>
-      <div class="more-item" onclick="go('metas.html')"><div class="more-ico" style="background:var(--amb-dim)">🎯</div><span>Metas</span></div>
-      <div class="more-item" onclick="go('deudas.html')"><div class="more-ico" style="background:var(--red-dim)">💳</div><span>Deudas</span></div>
-      <div class="more-item" onclick="go('inversiones.html')"><div class="more-ico" style="background:var(--blu-dim)">🏦</div><span>Inversiones</span></div>
-      <div class="more-item" onclick="go('scanner.html')"><div class="more-ico" style="background:rgba(123,94,167,.1)">📷</div><span>Escanear</span></div>
-      <div class="more-item" onclick="go('importar.html')"><div class="more-ico" style="background:var(--blu-dim)">📥</div><span>Importar CSV</span></div>
-      <div class="more-item" onclick="go('emergencia.html')"><div class="more-ico" style="background:var(--amb-dim)">🛡️</div><span>Emergencia</span></div>
-      <div class="more-item" onclick="go('suscripciones.html')"><div class="more-ico" style="background:rgba(123,94,167,.1)">🔄</div><span>Suscripciones</span></div>
-      <div class="more-item" onclick="go('config.html')"><div class="more-ico" style="background:var(--off)">⚙️</div><span>Config</span></div>
-      <div class="more-item" onclick="go('perfil.html')"><div class="more-ico" style="background:var(--blu-dim)">👤</div><span>Perfil</span></div>
+      <div class="more-item" onclick="go('analisis.html')"><div class="more-ico" style="background:var(--g-light)">📈</div><span data-es="Análisis" data-en="Analysis">Análisis</span></div>
+      <div class="more-item" onclick="go('metas.html')"><div class="more-ico" style="background:var(--amb-dim)">🎯</div><span data-es="Metas" data-en="Goals">Metas</span></div>
+      <div class="more-item" onclick="go('deudas.html')"><div class="more-ico" style="background:var(--red-dim)">💳</div><span data-es="Deudas" data-en="Debts">Deudas</span></div>
+      <div class="more-item" onclick="go('inversiones.html')"><div class="more-ico" style="background:var(--blu-dim)">🏦</div><span data-es="Inversiones" data-en="Investments">Inversiones</span></div>
+      <div class="more-item" onclick="go('scanner.html')"><div class="more-ico" style="background:rgba(123,94,167,.1)">📷</div><span data-es="Escanear" data-en="Scan">Escanear</span></div>
+      <div class="more-item" onclick="go('importar.html')"><div class="more-ico" style="background:var(--blu-dim)">📥</div><span data-es="Importar CSV" data-en="Import CSV">Importar CSV</span></div>
+      <div class="more-item" onclick="go('emergencia.html')"><div class="more-ico" style="background:var(--amb-dim)">🛡️</div><span data-es="Emergencia" data-en="Emergency">Emergencia</span></div>
+      <div class="more-item" onclick="go('suscripciones.html')"><div class="more-ico" style="background:rgba(123,94,167,.1)">🔄</div><span data-es="Suscripciones" data-en="Subscriptions">Suscripciones</span></div>
+      <div class="more-item" onclick="go('config.html')"><div class="more-ico" style="background:var(--off)">⚙️</div><span data-es="Config" data-en="Settings">Config</span></div>
+      <div class="more-item" onclick="go('perfil.html')"><div class="more-ico" style="background:var(--blu-dim)">👤</div><span data-es="Perfil" data-en="Profile">Perfil</span></div>
     </div>
   </div>
 </div>
@@ -181,11 +181,11 @@ input, select, textarea { font-size: 16px !important; }
 </div><!-- /app -->
 
 <nav class="mob-nav">
-  <div class="mob-item" onclick="go('dashboard.html')"><div class="mob-ico">📊</div><span>Inicio</span></div>
-  <div class="mob-item on"><div class="mob-ico">📅</div><span>Historial</span></div>
+  <div class="mob-item" onclick="go('dashboard.html')"><div class="mob-ico">📊</div><span data-es="Inicio" data-en="Home">Inicio</span></div>
+  <div class="mob-item on"><div class="mob-ico">📅</div><span data-es="Historial" data-en="History">Historial</span></div>
   <div class="mob-item" onclick="go('dashboard.html')"><div class="mob-plus">＋</div></div>
-  <div class="mob-item" onclick="go('hogar.html')"><div class="mob-ico">🏠</div><span>Hogar</span></div>
-  <div class="mob-item" onclick="openMoreMenu()"><div class="mob-ico">☰</div><span>Más</span></div>
+  <div class="mob-item" onclick="go('hogar.html')"><div class="mob-ico">🏠</div><span data-es="Hogar" data-en="Household">Hogar</span></div>
+  <div class="mob-item" onclick="openMoreMenu()"><div class="mob-ico">☰</div><span data-es="Más" data-en="More">Más</span></div>
 </nav>
 
 <script>

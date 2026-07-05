@@ -11,23 +11,24 @@
 function openMoreMenu(){
   if(document.getElementById('_moreOv')) return;
   const links=[
-    {ico:'📈',l:'An\u00e1lisis',    u:'analisis.html'},
-    {ico:'🎯',l:'Metas',       u:'metas.html'},
-    {ico:'💳',l:'Deudas',      u:'deudas.html'},
-    {ico:'🏦',l:'Inversiones', u:'inversiones.html'},
-    {ico:'📷',l:'Escanear',    u:'scanner.html'},
-    {ico:'📥',l:'Importar CSV',u:'importar.html'},
-    {ico:'🛡\ufe0f',l:'Emergencia',  u:'emergencia.html'},
-    {ico:'🔄',l:'Suscripciones',u:'suscripciones.html'},
-    {ico:'\u2699\ufe0f',l:'Config',      u:'config.html'},
-    {ico:'👤',l:'Perfil',      u:'perfil.html'},
+    {ico:'📈',es:'An\u00e1lisis',en:'An\u00e1lisis',u:'analisis.html'},
+    {ico:'🎯',es:'Metas',en:'Goals',u:'metas.html'},
+    {ico:'💳',es:'Deudas',en:'Debts',u:'deudas.html'},
+    {ico:'🏦',es:'Inversiones',en:'Investments',u:'inversiones.html'},
+    {ico:'📷',es:'Escanear',en:'Scan',u:'scanner.html'},
+    {ico:'📥',es:'Importar CSV',en:'Import CSV',u:'importar.html'},
+    {ico:'🛡\ufe0f',es:'Emergencia',en:'Emergency',u:'emergencia.html'},
+    {ico:'💵',es:'Ahorro libre',en:'Free savings',u:'ahorro.html'},
+    {ico:'🔄',es:'Suscripciones',en:'Subscriptions',u:'suscripciones.html'},
+    {ico:'\u2699\ufe0f',es:'Config',en:'Settings',u:'config.html'},
+    {ico:'👤',es:'Perfil',en:'Profile',u:'perfil.html'},
   ];
   const ov=document.createElement('div');
   ov.id='_moreOv';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:300;display:flex;align-items:flex-end;';
   ov.addEventListener('click',function(e){if(e.target===ov)ov.remove();});
   ov.innerHTML='<div style="background:white;border-radius:24px 24px 0 0;padding:16px 20px calc(20px + env(safe-area-inset-bottom));width:100%;"><div style="width:36px;height:4px;background:#ddd;border-radius:100px;margin:0 auto 16px;"></div><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px 8px;">'+
-    links.map(function(k){return '<div onclick="window.location.href=\''+k.u+'\'" style="display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;"><div style="width:52px;height:52px;background:#f5f5f7;border-radius:14px;display:grid;place-items:center;font-size:24px;">'+k.ico+'</div><span style="font-size:10px;font-weight:600;color:#4A4E69;text-align:center;">'+k.l+'</span></div>';}).join('')+
+    links.map(function(k){return '<div onclick="window.location.href=\''+k.u+'\'" style="display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;"><div style="width:52px;height:52px;background:#f5f5f7;border-radius:14px;display:grid;place-items:center;font-size:24px;">'+k.ico+'</div><span style="font-size:10px;font-weight:600;color:#4A4E69;text-align:center;">'+(lang==='es'?k.es:k.en)+'</span></div>';}).join('')+
     '</div></div>';
   document.body.appendChild(ov);
 }
@@ -240,6 +241,7 @@ input, select, textarea { font-size: 16px !important; }
     <div class="sb-link" onclick="go('scanner.html')"><span class="sb-ico">📷</span> Escanear recibo</div>
     <div class="sb-link" onclick="go('importar.html')"><span class="sb-ico">📥</span> Importar CSV</div>
     <div class="sb-link" onclick="go('emergencia.html')"><span class="sb-ico">🛡️</span> Fondo emergencia</div>
+    <div class="sb-link" onclick="go('ahorro.html')"><span class="sb-ico">💵</span> Ahorro libre</div>
     <div class="sb-link on"><span class="sb-ico">🏠</span> Hogar</div>
     <div class="sb-section">Cuenta</div>
     <div class="sb-link" onclick="go('perfil.html')"><span class="sb-ico">👤</span> Mi perfil</div>
@@ -273,11 +275,11 @@ input, select, textarea { font-size: 16px !important; }
 <div class="page" id="page"></div>
 
 <nav class="mob-nav">
-  <div class="mob-item " onclick="go('dashboard.html')"><div class="mob-ico">📊</div><span>Inicio</span></div>
-  <div class="mob-item " onclick="go('historial.html')"><div class="mob-ico">📅</div><span>Historial</span></div>
+  <div class="mob-item " onclick="go('dashboard.html')"><div class="mob-ico">📊</div><span data-es="Inicio" data-en="Home">Inicio</span></div>
+  <div class="mob-item " onclick="go('historial.html')"><div class="mob-ico">📅</div><span data-es="Historial" data-en="History">Historial</span></div>
   <div class="mob-item mob-center"><button class="mob-add" onclick="go('dashboard.html')" onclick="openModal()">＋</button></div>
-  <div class="mob-item on" onclick="go('hogar.html')"><div class="mob-ico">🏠</div><span>Hogar</span></div>
-  <div class="mob-item " onclick="openMoreMenu()"><div class="mob-ico">☰</div><span>Más</span></div>
+  <div class="mob-item on" onclick="go('hogar.html')"><div class="mob-ico">🏠</div><span data-es="Hogar" data-en="Household">Hogar</span></div>
+  <div class="mob-item " onclick="openMoreMenu()"><div class="mob-ico">☰</div><span data-es="Más" data-en="More">Más</span></div>
 </nav>
 
 <div id="toast"></div>
@@ -1664,6 +1666,7 @@ function setLang(l){
   localStorage.setItem('ft_lang',l);
   document.getElementById('ltES').classList.toggle('on',l==='es');
   document.getElementById('ltEN').classList.toggle('on',l==='en');
+  document.querySelectorAll('[data-es]').forEach(el=>{const v=el.getAttribute('data-'+l);if(v)el.textContent=v;});
   render();
 }
 
