@@ -2152,7 +2152,13 @@ function saveEntry() {
   const amount = parseFloat(document.getElementById('mAmount').value);
   const date   = document.getElementById('mDate').value;
   const note   = document.getElementById('mNote').value.trim();
-  const cat    = document.getElementById('mCat').value;
+  const catRaw = document.getElementById('mCat').value;
+  let cat;
+  if (['gasto','suscripcion','hipoteca'].includes(currentType)) cat = catRaw;
+  else if (currentType === 'ingreso') cat = '💰 Ingreso';
+  else if (currentType === 'ahorro') cat = savingsDest === 'libre' ? '💵 Ahorro' : '🛡️ Emergencia';
+  else if (currentType === 'inversion') cat = '📈 Inversión';
+  else cat = editingEntryId ? undefined : catRaw;
 
   if (!desc || !amount || !date) {
     const f = !desc ? 'mDesc' : !amount ? 'mAmount' : 'mDate';
@@ -2180,7 +2186,7 @@ function saveEntry() {
       // Reverse old investment sync if it was an investment
       if (old.type === 'inversion') removeInvestmentSyncEntry(old.id);
       // Apply new values
-      data.transactions[idx] = { ...old, type:currentType, desc, amount, date, note, cat, hogar: isHogarConnected() ? isHogarTx : undefined, dest: currentType==='ahorro' ? savingsDest : undefined };
+      data.transactions[idx] = { ...old, type:currentType, desc, amount, date, note, cat: cat!==undefined ? cat : old.cat, hogar: isHogarConnected() ? isHogarTx : undefined, dest: currentType==='ahorro' ? savingsDest : undefined };
       if (currentType === 'ahorro') {
         if (savingsDest === 'libre') {
           addFreeSavingsEntry({ id: old.id, amount, date, note: desc });
