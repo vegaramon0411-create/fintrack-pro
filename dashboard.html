@@ -3086,14 +3086,22 @@ function renderMiDineroTab(){
   const personalNeedsSpent = totals.personalNeedsSpent||0;
   const personalWantsSpent = totals.personalWantsSpent||0;
   const hogarMyPart = sharedSpent * myHogarPct;
-  const personalSpent = personalNeedsSpent + personalWantsSpent + hogarMyPart;
+  const personalSpent = personalNeedsSpent + personalWantsSpent;
   const leftover = income + extraIncome - sharedSpent - (personalNeedsSpent + personalWantsSpent);
 
-  // Disponible personal = 40% del ingreso - lo que ya gasté personal este mes
+  // Presupuesto del hogar: un solo bote compartido (necesidades + ahorro casa),
+  // no se reparte entre personas — se descuenta completo de este presupuesto.
   const hogar = (() => { try{ return JSON.parse(localStorage.getItem('ft_hogar')||'{}'); }catch(e){ return {}; } })();
-  const persPct = hogarConnected ? (100 - (parseFloat(hogar.payPctHogar)||50) - (parseFloat(hogar.saveHogarPct)||10)) : 100;
+  const hogarPctTotal = hogarConnected ? ((parseFloat(hogar.payPctHogar)||50) + (parseFloat(hogar.saveHogarPct)||10)) : 0;
+  const householdBudget = income * hogarPctTotal / 100;
+  const householdSpent = sharedSpent;
+  const householdLeft = Math.max(0, householdBudget - householdSpent);
+  const householdPct = householdBudget > 0 ? Math.min((householdSpent/householdBudget)*100, 100) : 0;
+
+  // Disponible personal = 40% del ingreso - lo que ya gasté personal este mes (sin incluir hogar)
+  const persPct = hogarConnected ? (100 - hogarPctTotal) : 100;
   const personalBudget = income * persPct / 100;
-  const personalGastado = personalNeedsSpent + personalWantsSpent + hogarMyPart;
+  const personalGastado = personalNeedsSpent + personalWantsSpent;
   const personalDisponible = Math.max(0, personalBudget - personalGastado);
   const personalGastadoPct = personalBudget > 0 ? Math.min((personalGastado/personalBudget)*100, 100) : 0;
 
@@ -3142,6 +3150,24 @@ function renderMiDineroTab(){
   <div class="card" style="margin-bottom:14px">
     <div class="card-hd">💎 ${es?'Mi patrimonio personal':'My personal assets'}</div>
     <div style="font-size:11px;color:var(--text3);margin-top:-10px;margin-bottom:14px">🔒 ${es?'Privado — nadie más lo ve':'Private — nobody else sees this'}</div>
+
+    <!-- PRESUPUESTO DEL HOGAR (bote compartido, no se reparte por persona) -->
+    ${hogarConnected ? `<div style="background:var(--off);border-radius:14px;padding:16px;margin-bottom:10px;border:1.5px solid var(--border)">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:10px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">🏠 ${es?`Presupuesto del hogar (${hogarPctTotal}%)`:`Household budget (${hogarPctTotal}%)`}<span class="info-i" onclick="toggleInfoTip(this)" data-tip-es="Un solo bote compartido para gastos y ahorro de la casa. Se descuenta completo aquí, no de tu 40% personal." data-tip-en="One shared pool for household spending and savings. Deducted here in full, not from your personal 40%.">ⓘ</span></div>
+          <div style="font-size:24px;font-weight:800;color:var(--text)">${fmt(householdLeft)}</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:2px">${es?`De ${fmt(householdBudget)} · gastado ${fmt(householdSpent)}`:`Of ${fmt(householdBudget)} · spent ${fmt(householdSpent)}`}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-size:18px;font-weight:800;color:${householdPct>=90?'var(--red)':'var(--text)'}">${Math.round(householdPct)}%</div>
+          <div style="font-size:9px;color:var(--text3)">${es?'usado':'used'}</div>
+        </div>
+      </div>
+      <div style="height:6px;background:rgba(0,0,0,.08);border-radius:100px;overflow:hidden;margin-top:10px">
+        <div style="height:100%;width:${householdPct.toFixed(0)}%;background:${householdPct>=90?'var(--red)':'var(--text3)'};border-radius:100px;transition:width .4s"></div>
+      </div>
+    </div>` : ''}
 
     <!-- DISPONIBLE PERSONAL ESTE MES (40%) -->
     ${hogarConnected ? `<div style="background:var(--g-light);border-radius:14px;padding:16px;margin-bottom:10px">

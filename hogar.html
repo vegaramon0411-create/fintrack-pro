@@ -544,12 +544,13 @@ function renderDashboard(hogar){
         <div class="hc-member-name">${user.name||'Tú'}</div>
         <div class="hc-member-amt">${fmt(myIncome)}</div>
         <div class="hc-member-pct">${calc.myPct}% ${es?'del total':'of total'}</div>
-        ${_miAportado > 0 ? `<div style="font-size:10px;opacity:.7;margin-top:2px">${es?'Aportado':'Contributed'}: ${fmt(_miAportado)}</div>` : ''}
+        ${sharedTotal > 0 ? `<div style="font-size:10px;opacity:.7;margin-top:2px">${es?'Aportado':'Contributed'}: ${fmt(sharedTotal)}</div>` : ''}
       </div>
       <div class="hc-member">
         <div class="hc-member-name">${partnerName}</div>
         <div class="hc-member-amt">${fmt(partnerIncome)}</div>
         <div class="hc-member-pct">${calc.partnerPct}% ${es?'del total':'of total'}</div>
+        ${partnerSharedTxs.length ? `<div style="font-size:10px;opacity:.7;margin-top:2px">${es?'Aportado':'Contributed'}: ${fmt(partnerSharedTxs.reduce((a,t)=>a+(t.amount||0),0))}</div>` : ''}
       </div>
     </div>
   </div>

@@ -279,7 +279,7 @@ input, select, textarea { font-size: 16px !important; }
 
 <!-- MODAL ABONO -->
 <div class="overlay" id="abonarOverlay" onclick="if(event.target===this)closeAbonar()">
-  <div class="modal" style="max-width:420px">
+  <div class="modal" style="max-width:min(420px, calc(100vw - 32px))">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
       <div style="font-size:16px;font-weight:800" id="abonarTitle">💳 Registrar abono</div>
       <div onclick="closeAbonar()" style="cursor:pointer;font-size:20px;color:var(--text3)">✕</div>
@@ -291,21 +291,21 @@ input, select, textarea { font-size: 16px !important; }
     </div>
     <!-- Info de la deuda seleccionada -->
     <div id="abonarDebtInfo" style="background:var(--off);border-radius:10px;padding:12px;margin-bottom:14px;display:none">
-      <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Saldo actual</div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:4px" data-es="Saldo actual" data-en="Current balance">Saldo actual</div>
       <div style="font-size:22px;font-weight:800" id="abonarSaldoActual">$0</div>
     </div>
 
     <!-- NUEVO / YA LO TENÍA -->
     <div style="margin-bottom:14px">
-      <label style="display:block;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Tipo de abono</label>
+      <label style="display:block;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px" data-es="Tipo de abono" data-en="Payment type">Tipo de abono</label>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
         <button id="abonarBtnNuevo" onclick="setAbonoTipo('nuevo')" type="button"
           style="padding:10px;border-radius:10px;border:2px solid var(--g-main);background:var(--g-light);color:var(--g-dark);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;line-height:1.5">
-          💸 Nuevo abono<br><span style="font-size:9px;font-weight:400">Se descuenta del mes</span>
+          <span data-es="💸 Nuevo abono" data-en="💸 New payment">💸 Nuevo abono</span><br><span style="font-size:9px;font-weight:400" data-es="Se descuenta del mes" data-en="Deducted from this month">Se descuenta del mes</span>
         </button>
         <button id="abonarBtnYaTenia" onclick="setAbonoTipo('existente')" type="button"
           style="padding:10px;border-radius:10px;border:2px solid var(--border);background:var(--off);color:var(--text2);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;line-height:1.5">
-          📦 Ya lo tenía<br><span style="font-size:9px;font-weight:400">Solo registrar</span>
+          <span data-es="📦 Ya lo tenía" data-en="📦 Already had it">📦 Ya lo tenía</span><br><span style="font-size:9px;font-weight:400" data-es="Solo registrar" data-en="Just record it">Solo registrar</span>
         </button>
       </div>
     </div>
@@ -315,7 +315,7 @@ input, select, textarea { font-size: 16px !important; }
     </div>
     <!-- Sugerencia pago mínimo -->
     <div id="abonarSugerencia" style="display:none;background:var(--g-light);border-radius:10px;padding:10px;margin-bottom:14px">
-      <div style="font-size:11px;color:var(--g-dark);font-weight:700;margin-bottom:6px">💡 Sugerencias rápidas</div>
+      <div style="font-size:11px;color:var(--g-dark);font-weight:700;margin-bottom:6px" data-es="💡 Sugerencias rápidas" data-en="💡 Quick suggestions">💡 Sugerencias rápidas</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap" id="abonarChips"></div>
     </div>
     <div style="margin-bottom:14px">
