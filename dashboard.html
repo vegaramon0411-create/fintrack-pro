@@ -1259,7 +1259,7 @@ function renderDashboard() {
   setTimeout(() => { document.getElementById('heroFill').style.width = spentPct+'%'; }, 200);
 
   document.getElementById('chipIncome').textContent   = fmt(income);
-  document.getElementById('chipSavings').textContent  = fmt(Math.max(0, income - spent));
+  document.getElementById('chipSavings').textContent  = fmt(Math.max(0, income - (totals.personalNeedsSpent||0) - (totals.personalWantsSpent||0)));
 
   // ── KPIs ──
   document.getElementById('kpiIncome').textContent      = fmt(income);
@@ -1272,7 +1272,9 @@ function renderDashboard() {
   const needsSpent  = totals.needsSpent;
   const wantsSpent  = totals.wantsSpent;
   // Inversiones cuentan en el 20% ahorro (métrica) Y en el gasto del mes
-  const savingsSpent = totals.ahorro + totals.inversion;
+  // El ahorro del hogar (metas/fondo compartido) no cuenta aquí — es presupuesto de hogar, no personal
+  const personalAhorro = (totals.txs||[]).filter(t=>t.type==='ahorro' && !(t.hogar==true)).reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
+  const savingsSpent = personalAhorro + totals.inversion;
 
   const nPct = needs   > 0 ? Math.min((needsSpent/needs)*100,  100) : 0;
   const wPct = wants   > 0 ? Math.min((wantsSpent/wants)*100,  100) : 0;
@@ -1660,7 +1662,8 @@ function renderAporteMes(totals){
   const personalPorCheque = (income * 40/100) / checksPerMonth;
 
   // Cuánto ya depositó al hogar este mes (gastos marcados hogar + ahorros hogar)
-  const yaDepositado = (totals.hogarSpent||0) + ((totals.ahorro||0));
+  const hogarAhorroMes = (totals.txs||[]).filter(t=>t.type==='ahorro' && t.hogar==true).reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
+  const yaDepositado = (totals.hogarSpent||0) + hogarAhorroMes;
   const falta = Math.max(0, aporteTotal - yaDepositado);
   const depositadoPct = aporteTotal > 0 ? Math.min((yaDepositado/aporteTotal)*100,100) : 0;
 
