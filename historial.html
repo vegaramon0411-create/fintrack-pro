@@ -282,7 +282,7 @@ function renderList(){
   let txs = (data.transactions||[]).filter(t=>(t.date||'').startsWith(selectedMonth));
 
   if(activeFilter === 'hogar'){
-    txs = txs.filter(t=>t.isHogar);
+    txs = txs.filter(t=>t.isHogar||t.hogar==true);
   } else if(activeFilter !== 'all'){
     txs = txs.filter(t=>t.type===activeFilter);
   }
@@ -299,7 +299,7 @@ function renderList(){
   list.innerHTML = txs.map(t=>`
     <div class="tx-item" onclick="showDetail(${JSON.stringify(String(t.id))})" style="cursor:pointer">
       <div class="tx-ico" style="background:${TYPE_BG[t.type]||'var(--off)'}">
-        ${t.isHogar||t.hogar===true?'🏠':(TYPE_ICO[t.type]||'📝')}
+        ${t.isHogar||t.hogar==true?'🏠':(TYPE_ICO[t.type]||'📝')}
       </div>
       <div class="tx-info">
         <div class="tx-desc">${t.desc||t.description||'—'}</div>
@@ -332,7 +332,7 @@ function showDetail(id){
   const parts = String(t.date||'').split(/[-T]/);
   const fechaFmt = parts.length>=3 ? new Date(parseInt(parts[0]),parseInt(parts[1])-1,parseInt(parts[2])).toLocaleDateString(es?'es-MX':'en-US',{day:'numeric',month:'long',year:'numeric'}) : (t.date||'—');
   const autor = t.createdBy || (es?'Desconocido':'Unknown');
-  const esHogar = t.hogar===true || t.isHogar===true;
+  const esHogar = t.hogar==true || t.isHogar==true;
 
   document.getElementById('detailBox').innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">

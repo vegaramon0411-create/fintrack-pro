@@ -506,17 +506,24 @@ function renderDashboard(hogar){
   // Calculate shared expenses from my transactions tagged as hogar:true
   const sharedTxs = getSharedExpenses();
   const personalTxs = getPersonalExpenses();
-  const sharedTotal = sharedTxs.reduce((a,t)=>a+(t.amount||0),0);
   const personalTotal = personalTxs.reduce((a,t)=>a+(t.amount||0),0);
 
+  const _nowY = new Date().getFullYear(), _nowM = new Date().getMonth();
   const partnerSharedTxs = partnerProfile && partnerProfile.data && partnerProfile.data.transactions
-    ? (partnerProfile.data.transactions||[]).filter(t=>t.hogar===true && (t.type==='gasto'||t.type==='ahorro'||t.type==='suscripcion'||t.type==='hipoteca'))
+    ? (partnerProfile.data.transactions||[]).filter(t=>{
+        if(!t.date || t.hogar!==true) return false;
+        if(!(t.type==='gasto'||t.type==='ahorro'||t.type==='suscripcion'||t.type==='hipoteca')) return false;
+        const p = String(t.date).split(/[-T]/);
+        return parseInt(p[0])===_nowY && (parseInt(p[1])-1)===_nowM;
+      })
     : [];
+  const sharedTotal = sharedTxs.reduce((a,t)=>a+(t.amount||0),0) + partnerSharedTxs.reduce((a,t)=>a+(t.amount||0),0);
+  const personalPart = personalTotal;
   const partnerPersonalTotal = partnerProfile && partnerProfile.data
     ? (partnerProfile.data.transactions||[]).filter(t=>t.hogar!==true && t.type==='gasto').reduce((a,t)=>a+(t.amount||0),0)
     : 0;
 
-  const calc = calcHogar(myIncome, partnerIncome, mode, personalTotal, partnerPersonalTotal, sharedTxs);
+  const calc = calcHogar(myIncome, partnerIncome, mode, personalTotal, partnerPersonalTotal, [...sharedTxs, ...partnerSharedTxs]);
   const totalIncome = myIncome + partnerIncome;
 
   const modeLabels = {
@@ -591,6 +598,14 @@ function switchTab(tab){
   const sharedTxs = getSharedExpenses();
   const personalTotal = getPersonalExpenses().reduce((a,t)=>a+(t.amount||0),0);
   const _n=new Date(),_y2=_n.getFullYear(),_m2=_n.getMonth();
+  const partnerSharedTxs = partnerProfile && partnerProfile.data && partnerProfile.data.transactions
+    ? (partnerProfile.data.transactions||[]).filter(t=>{
+        if(!t.date || t.hogar!==true) return false;
+        if(!(t.type==='gasto'||t.type==='ahorro'||t.type==='suscripcion'||t.type==='hipoteca')) return false;
+        const p = String(t.date).split(/[-T]/);
+        return parseInt(p[0])===_y2 && (parseInt(p[1])-1)===_m2;
+      })
+    : [];
   const partnerPersonalTotal = partnerProfile&&partnerProfile.data
     ? (partnerProfile.data.transactions||[]).filter(t=>{
         if(!t.date||t.hogar===true) return false;
@@ -598,7 +613,7 @@ function switchTab(tab){
         return parseInt(_p[0])===_y2&&parseInt(_p[1])-1===_m2&&
           (t.type==='gasto'||t.type==='inversion'||(t.type==='ahorro'&&t.hogar!==true));
       }).reduce((a,t)=>a+(parseFloat(t.amount)||0),0) : 0;
-  const calc = calcHogar(myIncome, partnerIncome, mode, personalTotal, partnerPersonalTotal, sharedTxs);
+  const calc = calcHogar(myIncome, partnerIncome, mode, personalTotal, partnerPersonalTotal, [...sharedTxs, ...partnerSharedTxs]);
   const totalIncome = myIncome + partnerIncome;
 
   document.querySelectorAll('.tab-btn').forEach((b,i)=>{

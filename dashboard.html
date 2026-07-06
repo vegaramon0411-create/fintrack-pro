@@ -517,6 +517,7 @@ input, select, textarea { font-size: 16px !important; }
         </div>
         <div class="hero-amount" id="heroAmount">$0</div>
         <div class="hero-note" id="heroNote" data-es="gastados este mes" data-en="spent this month">gastados este mes</div>
+        <div id="heroBreakdown" style="display:none;font-size:12px;opacity:.85;margin-top:2px;margin-bottom:4px;gap:14px"></div>
         <div class="hero-bar-wrap">
           <div class="hero-bar-lbl">
             <span id="heroBarLeft">$0 gastados</span>
@@ -1168,13 +1169,7 @@ function getMonthTotals() {
   const totals = { gasto:0, ingreso:0, inversion:0, ahorro:0, suscripcion:0, hipoteca:0 };
   txs.forEach(t => {
     const amt = parseFloat(t.amount)||0;
-    const isHogarTx = t.hogar == true || t.hogar === 'true';
-    if(isHogarTx && (t.type === 'ahorro' || t.type === 'gasto' || t.type === 'suscripcion' || t.type === 'hipoteca')){
-      // Gasto/ahorro del hogar: solo contar la parte proporcional
-      totals[t.type] = (totals[t.type]||0) + (amt * myHogarPct);
-    } else {
-      totals[t.type] = (totals[t.type]||0) + amt;
-    }
+    totals[t.type] = (totals[t.type]||0) + amt;
   });
 
   const spent = totals.gasto + totals.suscripcion + totals.hipoteca + totals.ahorro + totals.inversion;
@@ -1189,9 +1184,7 @@ function getMonthTotals() {
       const kind = t.type === 'hipoteca' ? 'needs' : getCategoryType(t.cat);
       if(hogarConnected && t.hogar == true){
         hogarSpent += amt;
-        // Solo sumar la parte proporcional al 50/30/20 personal
-        const myPart = amt * myHogarPct;
-        if(kind === 'needs') needsSpent += myPart; else wantsSpent += myPart;
+        // El gasto de hogar sale del presupuesto del hogar, no del 50/30/20 personal
       } else {
         if(kind === 'needs'){ needsSpent += amt; personalNeedsSpent += amt; }
         else { wantsSpent += amt; personalWantsSpent += amt; }
@@ -1246,6 +1239,14 @@ function renderDashboard() {
   // ── HERO ──
   document.getElementById('heroGreeting').textContent = greeting();
   document.getElementById('heroAmount').textContent   = fmtD(spent);
+  const heroBreakdown = document.getElementById('heroBreakdown');
+  if(totals.hogarConnected && totals.hogarSpent > 0){
+    const personalOnly = spent - totals.hogarSpent;
+    heroBreakdown.style.display = 'flex';
+    heroBreakdown.innerHTML = `<span>🏠 ${lang==='es'?'Hogar':'Household'}: ${fmt(totals.hogarSpent)}</span><span>👤 ${lang==='es'?'Personal':'Personal'}: ${fmt(personalOnly)}</span>`;
+  } else {
+    heroBreakdown.style.display = 'none';
+  }
   const daysLeft = daysLeftInMonth();
   const dailyLeft = income > 0 && daysLeft > 0 ? Math.max(0,(income-spent)/daysLeft) : 0;
 
@@ -1416,12 +1417,10 @@ const typeNames = {
 function renderTx(filter) {
   const data = loadData();
   const now  = new Date();
+  const nowKey = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
   let txs = data.transactions
-    .filter(t => {
-      const d = new Date(t.date);
-      return d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear();
-    })
-    .sort((a,b) => new Date(b.date)-new Date(a.date));
+    .filter(t => String(t.date||'').startsWith(nowKey))
+    .sort((a,b) => (b.date||'').localeCompare(a.date||''));
 
   if (filter === 'hogar') txs = txs.filter(t => t.hogar == true);
   else if (filter !== 'all') txs = txs.filter(t => t.type === filter);
@@ -1445,7 +1444,8 @@ function renderTx(filter) {
     const tn = (typeNames[lang]||typeNames.es)[t.type] || t.type;
     const isPositive = t.type === 'ingreso';
     const sign = isPositive ? '+' : '-';
-    const d = new Date(t.date);
+    const dp = String(t.date||'').split('-').map(Number);
+    const d = dp.length===3 ? new Date(dp[0], dp[1]-1, dp[2]) : new Date(t.date);
     const dateStr = d.toLocaleDateString(lang==='es'?'es-MX':'en-US',{month:'short',day:'numeric'});
     return `
       ${i>0?'<div class="tx-sep"></div>':''}
@@ -1878,7 +1878,7 @@ function updateHeroDinero(){
   const persPct2 = hogarConn ? (100-(parseFloat(hogar.payPctHogar)||50)-(parseFloat(hogar.saveHogarPct)||10)) : 100;
   const myHogarPct2 = (() => { try{ if(!hogarConn) return 0.5; const mode=hogar.mode||'equal'; if(mode==='equal'||mode==='common') return 0.5; const total=(user.income||0)+(parseFloat(hogar.partnerIncome)||0); return total>0?(user.income||0)/total:0.5; }catch(e){ return 0.5; } })();
   const personalBudget2 = income * persPct2 / 100;
-  const personalGastado2 = (totals.personalNeedsSpent||0) + (totals.personalWantsSpent||0) + (totals.hogarSpent||0)*myHogarPct2;
+  const personalGastado2 = (totals.personalNeedsSpent||0) + (totals.personalWantsSpent||0);
   const personalDisponible2 = Math.max(0, personalBudget2 - personalGastado2);
   const patrimony = availSavings + emergency + totalInvested + (hogarConn ? personalDisponible2 : 0);
 
@@ -3081,20 +3081,30 @@ function renderMiDineroTab(){
     return a+val;
   },0);
   const hogarConnected=isHogarConnected();
-  const sharedSpent = hogarConnected ? (totals.hogarSpent||0) : 0;
+  const myHogarSpent = hogarConnected ? (totals.hogarSpent||0) : 0;
+  const partnerHogarTxs = (() => {
+    try{ return JSON.parse(localStorage.getItem('ft_partner_hogar_txs')||'[]'); }catch(e){ return []; }
+  })();
+  const _now2 = new Date();
+  const _mesActual = _now2.getFullYear()+'-'+String(_now2.getMonth()+1).padStart(2,'0');
+  const partnerHogarSpent = hogarConnected
+    ? partnerHogarTxs.filter(t=>String(t.date||'').startsWith(_mesActual) && (t.type==='gasto'||t.type==='ahorro'||t.type==='suscripcion'||t.type==='hipoteca')).reduce((a,t)=>a+(parseFloat(t.amount)||0),0)
+    : 0;
+  const sharedSpent = myHogarSpent; // lo mío, para la card personal (Este mes)
+  const householdSharedTotal = myHogarSpent + partnerHogarSpent; // el bote combinado, para Presupuesto del hogar
   const myHogarPct = (() => { try { const h=JSON.parse(localStorage.getItem('ft_hogar')||'{}'); if(!h.connected) return 0.5; const mode=h.mode||'equal'; if(mode==='equal'||mode==='common') return 0.5; const total=(user.income||0)+(parseFloat(h.partnerIncome)||0); return total>0?(user.income||0)/total:0.5; } catch(e){ return 0.5; } })();
   const personalNeedsSpent = totals.personalNeedsSpent||0;
   const personalWantsSpent = totals.personalWantsSpent||0;
-  const hogarMyPart = sharedSpent * myHogarPct;
   const personalSpent = personalNeedsSpent + personalWantsSpent;
   const leftover = income + extraIncome - sharedSpent - (personalNeedsSpent + personalWantsSpent);
 
-  // Presupuesto del hogar: un solo bote compartido (necesidades + ahorro casa),
+  // Presupuesto del hogar: un solo bote compartido (necesidades + ahorro casa) entre los dos,
   // no se reparte entre personas — se descuenta completo de este presupuesto.
   const hogar = (() => { try{ return JSON.parse(localStorage.getItem('ft_hogar')||'{}'); }catch(e){ return {}; } })();
   const hogarPctTotal = hogarConnected ? ((parseFloat(hogar.payPctHogar)||50) + (parseFloat(hogar.saveHogarPct)||10)) : 0;
-  const householdBudget = income * hogarPctTotal / 100;
-  const householdSpent = sharedSpent;
+  const partnerIncome = hogarConnected ? (parseFloat(hogar.partnerIncome)||0) : 0;
+  const householdBudget = (income + partnerIncome) * hogarPctTotal / 100;
+  const householdSpent = householdSharedTotal;
   const householdLeft = Math.max(0, householdBudget - householdSpent);
   const householdPct = householdBudget > 0 ? Math.min((householdSpent/householdBudget)*100, 100) : 0;
 
@@ -3102,11 +3112,15 @@ function renderMiDineroTab(){
   const persPct = hogarConnected ? (100 - hogarPctTotal) : 100;
   const personalBudget = income * persPct / 100;
   const personalGastado = personalNeedsSpent + personalWantsSpent;
-  const personalDisponible = Math.max(0, personalBudget - personalGastado);
+  const personalDisponibleRaw = personalBudget - personalGastado; // puede ser negativo
+  const personalOverspend = Math.max(0, -personalDisponibleRaw); // lo que se pasó del 40%
+  const personalDisponible = Math.max(0, personalDisponibleRaw);
   const personalGastadoPct = personalBudget > 0 ? Math.min((personalGastado/personalBudget)*100, 100) : 0;
+  // El sobregiro sale de tu Ahorro libre (patrimonio), no queda "flotando"
+  const availSavingsAfterOverspend = availSavings - personalOverspend;
 
   const abonosDelMes = getAbonosDelMes();
-  const totalPatrimony = availSavings + emergencyFund + totalInvested + personalDisponible - abonosDelMes;
+  const totalPatrimony = availSavingsAfterOverspend + emergencyFund + totalInvested + personalDisponible - abonosDelMes;
 
   const container=document.getElementById('miDineroContent');
   if(!container) return;
@@ -3185,6 +3199,7 @@ function renderMiDineroTab(){
       <div style="height:6px;background:rgba(0,0,0,.1);border-radius:100px;overflow:hidden;margin-top:10px">
         <div style="height:100%;width:${personalGastadoPct.toFixed(0)}%;background:${personalGastadoPct>=90?'var(--red)':'var(--g-main)'};border-radius:100px;transition:width .4s"></div>
       </div>
+      ${personalOverspend>0?`<div style="font-size:10.5px;color:var(--red);font-weight:700;margin-top:8px">⚠️ ${es?`Te pasaste ${fmt(personalOverspend)} de tu 40% — se descuenta de tu Ahorro libre`:`You went ${fmt(personalOverspend)} over your 40% — deducted from your Free savings`}</div>`:''}
     </div>` : ''}
 
     <!-- AHORRO LIBRE -->
@@ -3192,7 +3207,7 @@ function renderMiDineroTab(){
       <div style="flex:1;min-width:0">
         <div style="font-size:10px;color:var(--purple);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">💵 ${es?'Ahorro libre':'Free savings'}</div>
         <div style="font-size:24px;font-weight:800;color:var(--purple)">${fmt(availSavings)}</div>
-        <div style="font-size:10px;color:var(--purple);opacity:.7;margin-top:2px">${es?'Sin restricciones · úsalo cuando quieras':'No restrictions · use anytime'}</div>
+        <div style="font-size:10px;color:var(--purple);opacity:.7;margin-top:2px">${personalOverspend>0?(es?`⚠️ ${fmt(personalOverspend)} ya comprometido por sobregiro personal`:`⚠️ ${fmt(personalOverspend)} already committed from personal overspend`):(es?'Sin restricciones · úsalo cuando quieras':'No restrictions · use anytime')}</div>
       </div>
       <button onclick="go('ahorro.html')" style="background:var(--purple);color:white;border:none;border-radius:10px;padding:8px 14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0">→ ${es?'Ver':'View'}</button>
     </div>

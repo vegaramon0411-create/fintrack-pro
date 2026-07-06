@@ -299,9 +299,10 @@ function getAvailablePeriods(){
   const data = loadData();
   const seen = {};
   (data.transactions||[]).forEach(t=>{
-    const d = new Date(t.date);
-    const key = d.getFullYear()+'-'+d.getMonth();
-    seen[key] = { year:d.getFullYear(), month:d.getMonth(), key };
+    const p = String(t.date||'').split('-').map(Number);
+    if(p.length<2) return;
+    const key = p[0]+'-'+(p[1]-1);
+    seen[key] = { year:p[0], month:p[1]-1, key };
   });
   return Object.values(seen).sort((a,b)=>b.year-a.year || b.month-a.month);
 }
@@ -310,8 +311,9 @@ function getAvailablePeriods(){
 function getTxForPeriod(year, month){
   const data = loadData();
   return (data.transactions||[]).filter(t=>{
-    const d = new Date(t.date);
-    return d.getFullYear()===year && d.getMonth()===month;
+    const p = String(t.date||'').split('-').map(Number);
+    if(p.length<2) return false;
+    return p[0]===year && (p[1]-1)===month;
   });
 }
 
