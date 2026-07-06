@@ -489,6 +489,19 @@ function renderPending(hogar){
 }
 
 /* ── MAIN DASHBOARD ── */
+function deleteMyIncomeTx(id){
+  const es = lang==='es';
+  if(!confirm(es?'¿Eliminar este depósito?':'Delete this deposit?')) return;
+  try{
+    const data = loadMyData();
+    data.transactions = (data.transactions||[]).filter(t=>String(t.id)!==String(id));
+    localStorage.setItem('ft_data', JSON.stringify(data));
+    const cheques = JSON.parse(localStorage.getItem('ft_cheques')||'[]').filter(c=>String(c.id)!==String(id));
+    localStorage.setItem('ft_cheques', JSON.stringify(cheques));
+  }catch(e){}
+  render();
+}
+
 function renderDashboard(hogar){
   const es = lang==='es';
   const partnerProfile = loadPartnerProfile();
@@ -538,6 +551,19 @@ function renderDashboard(hogar){
   const totalIncomeReceived = myIncomeReceived + partnerIncomeReceived;
   const incomeReceivedPct = totalIncome>0 ? Math.min(100, Math.round((totalIncomeReceived/totalIncome)*100)) : 0;
   const botesReal = Math.max(0, totalIncomeReceived - sharedTotal);
+  const hogarPctChk = (parseFloat(hogar.payPctHogar)||50) + (parseFloat(hogar.saveHogarPct)||10);
+
+  const _mesKeyChk = _nowY+'-'+String(_nowM+1).padStart(2,'0');
+  const myIncomeTxs = (loadMyData().transactions||[])
+    .filter(t=>t.type==='ingreso' && String(t.date||'').startsWith(_mesKeyChk))
+    .map(t=>({id:t.id, amount:parseFloat(t.amount)||0, date:t.date}))
+    .sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const partnerIncomeTxs = partnerProfile && partnerProfile.data && partnerProfile.data.transactions
+    ? (partnerProfile.data.transactions||[])
+        .filter(t=>t.type==='ingreso' && String(t.date||'').startsWith(_mesKeyChk))
+        .map(t=>({id:t.id, amount:parseFloat(t.amount)||0, date:t.date}))
+        .sort((a,b)=>(b.date||'').localeCompare(a.date||''))
+    : [];
 
   const modeLabels = {
     equal: es?'⚖️ 50/50 Estricto':'⚖️ 50/50 Equal',
@@ -583,6 +609,36 @@ function renderDashboard(hogar){
       </div>
       <div style="font-size:10px;opacity:.6;margin-top:6px">${es?'Bote real en cuenta (recibido − gastado hogar)':'Real balance (received − household spent)'}: <b style="opacity:1">${fmt(botesReal)}</b></div>
     </div>
+  </div>
+
+  <!-- DEPOSITOS DEL MES CON DESGLOSE 60/40 -->
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-title">💰 ${es?'Depósitos de este mes':'Deposits this month'}</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:10px">${es?`${hogarPctChk}% al presupuesto del hogar · ${100-hogarPctChk}% a cuenta personal`:`${hogarPctChk}% to household budget · ${100-hogarPctChk}% to personal account`}</div>
+    ${(myIncomeTxs.length+partnerIncomeTxs.length)?`
+    <div style="display:flex;flex-direction:column;gap:8px">
+      ${myIncomeTxs.map(t=>{
+        const hogarPart=t.amount*hogarPctChk/100, persPart=t.amount-hogarPart;
+        return `<div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--off);border-radius:10px">
+          <div style="width:34px;height:34px;border-radius:10px;background:var(--g-light);display:grid;place-items:center;font-size:15px;flex-shrink:0">💵</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12px;font-weight:700">${user.name||'Tú'} · ${fmt(t.amount)}</div>
+            <div style="font-size:10px;color:var(--text3)">${t.date} · 🏠 ${fmt(hogarPart)} · 👤 ${fmt(persPart)}</div>
+          </div>
+          <div onclick="deleteMyIncomeTx('${t.id}')" style="cursor:pointer;color:var(--text3);font-size:13px;flex-shrink:0" title="${es?'Eliminar':'Delete'}">🗑</div>
+        </div>`;
+      }).join('')}
+      ${partnerIncomeTxs.map(t=>{
+        const hogarPart=t.amount*hogarPctChk/100, persPart=t.amount-hogarPart;
+        return `<div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--off);border-radius:10px">
+          <div style="width:34px;height:34px;border-radius:10px;background:var(--blu-dim);display:grid;place-items:center;font-size:15px;flex-shrink:0">💵</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12px;font-weight:700">${partnerName} · ${fmt(t.amount)}</div>
+            <div style="font-size:10px;color:var(--text3)">${t.date} · 🏠 ${fmt(hogarPart)} · 👤 ${fmt(persPart)}</div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`:`<div style="text-align:center;padding:16px;color:var(--text3);font-size:12px">${es?'Sin depósitos registrados este mes':'No deposits recorded this month'}</div>`}
   </div>
 
   <!-- MODE BADGE -->
