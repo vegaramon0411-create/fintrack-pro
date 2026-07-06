@@ -526,6 +526,19 @@ function renderDashboard(hogar){
   const calc = calcHogar(myIncome, partnerIncome, mode, personalTotal, partnerPersonalTotal, [...sharedTxs, ...partnerSharedTxs]);
   const totalIncome = myIncome + partnerIncome;
 
+  // Dinero real recibido este mes (ambos) vs bote actual real en cuenta
+  const myIncomeReceived = (loadMyData().transactions||[]).filter(t=>t.type==='ingreso' && String(t.date||'').startsWith(_nowY+'-'+String(_nowM+1).padStart(2,'0'))).reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
+  const partnerIncomeReceived = partnerProfile && partnerProfile.data && partnerProfile.data.transactions
+    ? (partnerProfile.data.transactions||[]).filter(t=>{
+        if(!t.date || t.type!=='ingreso') return false;
+        const p = String(t.date).split(/[-T]/);
+        return parseInt(p[0])===_nowY && (parseInt(p[1])-1)===_nowM;
+      }).reduce((a,t)=>a+(parseFloat(t.amount)||0),0)
+    : 0;
+  const totalIncomeReceived = myIncomeReceived + partnerIncomeReceived;
+  const incomeReceivedPct = totalIncome>0 ? Math.min(100, Math.round((totalIncomeReceived/totalIncome)*100)) : 0;
+  const botesReal = Math.max(0, totalIncomeReceived - sharedTotal);
+
   const modeLabels = {
     equal: es?'⚖️ 50/50 Estricto':'⚖️ 50/50 Equal',
     proportional: es?'📊 Proporcional':'📊 Proportional',
@@ -559,6 +572,16 @@ function renderDashboard(hogar){
         <div class="hc-member-pct">${calc.partnerPct}% ${es?'del total':'of total'}</div>
         ${partnerSharedTxs.length ? `<div style="font-size:10px;opacity:.7;margin-top:2px">${es?'Aportado':'Contributed'}: ${fmt(partnerSharedTxs.reduce((a,t)=>a+(t.amount||0),0))}</div>` : ''}
       </div>
+    </div>
+    <div style="margin-top:14px;background:rgba(255,255,255,.08);border-radius:10px;padding:10px 12px">
+      <div style="display:flex;justify-content:space-between;font-size:11px;opacity:.8;margin-bottom:6px">
+        <span>💵 ${es?'Recibido este mes':'Received this month'}</span>
+        <span>${fmt(totalIncomeReceived)} / ${fmt(totalIncome)}</span>
+      </div>
+      <div style="height:6px;background:rgba(255,255,255,.15);border-radius:100px;overflow:hidden">
+        <div style="height:100%;width:${incomeReceivedPct}%;background:#fff;border-radius:100px"></div>
+      </div>
+      <div style="font-size:10px;opacity:.6;margin-top:6px">${es?'Bote real en cuenta (recibido − gastado hogar)':'Real balance (received − household spent)'}: <b style="opacity:1">${fmt(botesReal)}</b></div>
     </div>
   </div>
 

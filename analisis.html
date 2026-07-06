@@ -7,7 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="premium.js"></script>
 <style>
-:root{--g-dark:#0F5132;--g-main:#1A7A4A;--g-light:#E8F7EF;--white:#fff;--off:#F7F8FC;--border:#E4E6F0;--text:#1A1D2E;--text2:#4A4E69;--text3:#9395A5;--red:#E63946;--red-dim:rgba(230,57,70,.1);--amber:#F4A261;--blue:#4A6CF7;--shadow:0 2px 12px rgba(0,0,0,.06);--sidebar:240px;--topbar:58px;}
+:root{--g-dark:#0F5132;--g-main:#1A7A4A;--g-light:#E8F7EF;--white:#fff;--off:#F7F8FC;--border:#E4E6F0;--text:#1A1D2E;--text2:#4A4E69;--text3:#9395A5;--red:#E63946;--red-dim:rgba(230,57,70,.1);--amber:#F4A261;--blue:#4A6CF7;--blu-dim:rgba(74,108,247,.1);--shadow:0 2px 12px rgba(0,0,0,.06);--sidebar:240px;--topbar:58px;}
 *{margin:0;padding:0;box-sizing:border-box;}
 body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(--text);min-height:100vh;}
 .app{display:flex;min-height:100vh;}
@@ -242,11 +242,12 @@ function render(){
   const month=now.toISOString().slice(0,7);
   const txs=(data.transactions||[]).filter(t=>(t.date||'').startsWith(month));
 
-  let income=0,expenses=0;
+  let income=0,expenses=0,invested=0;
   const catMap={};
   txs.forEach(t=>{
     const a=parseFloat(t.amount)||0;
     if(t.type==='ingreso'){ income+=a; return; }
+    if(t.type==='inversion'){ invested+=a; return; }
     if(t.type==='gasto'||t.type==='suscripcion'||t.type==='hipoteca'){
       expenses+=a;
       const cat=t.category||t.cat||t.type||'Otro';
@@ -263,14 +264,18 @@ function render(){
     ${renderTrendChart(trend)}
     <div class="card">
       <div style="font-size:13px;font-weight:800;margin-bottom:14px">📅 ${es?'Resumen del mes':'Month summary'}</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
         <div style="background:var(--g-light);border-radius:12px;padding:12px;text-align:center">
-          <div style="font-size:18px;font-weight:800;color:var(--g-main)">${fmt(income)}</div>
+          <div style="font-size:16px;font-weight:800;color:var(--g-main)">${fmt(income)}</div>
           <div style="font-size:10px;color:var(--g-dark)">${es?'Ingresos':'Income'}</div>
         </div>
         <div style="background:var(--red-dim);border-radius:12px;padding:12px;text-align:center">
-          <div style="font-size:18px;font-weight:800;color:var(--red)">${fmt(expenses)}</div>
+          <div style="font-size:16px;font-weight:800;color:var(--red)">${fmt(expenses)}</div>
           <div style="font-size:10px;color:var(--red)">${es?'Gastos':'Expenses'}</div>
+        </div>
+        <div style="background:var(--blu-dim);border-radius:12px;padding:12px;text-align:center">
+          <div style="font-size:16px;font-weight:800;color:var(--blue)">${fmt(invested)}</div>
+          <div style="font-size:10px;color:var(--blue)">${es?'Inversiones':'Investments'}</div>
         </div>
       </div>
       ${income>0?`

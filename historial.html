@@ -297,7 +297,7 @@ function renderList(){
   }
 
   list.innerHTML = txs.map(t=>`
-    <div class="tx-item" onclick="showDetail(${JSON.stringify(String(t.id))})" style="cursor:pointer">
+    <div class="tx-item" onclick="showDetail('${t.id}')" style="cursor:pointer">
       <div class="tx-ico" style="background:${TYPE_BG[t.type]||'var(--off)'}">
         ${t.isHogar||t.hogar==true?'🏠':(TYPE_ICO[t.type]||'📝')}
       </div>
@@ -309,8 +309,8 @@ function renderList(){
         ${t.type==='ingreso'?'+':'-'}${fmt(parseFloat(t.amount)||0)}
       </div>
       <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;padding-left:4px">
-        <div onclick="event.stopPropagation();showDetail(${JSON.stringify(String(t.id))});startEditDetail()" style="cursor:pointer;color:var(--blue);font-size:15px;line-height:1" title="Editar">✏️</div>
-        <div onclick="event.stopPropagation();deleteTx(${JSON.stringify(String(t.id))})" style="cursor:pointer;color:var(--text3);font-size:13px;line-height:1" title="Eliminar">🗑</div>
+        <div onclick="event.stopPropagation();showDetail('${t.id}');startEditDetail()" style="cursor:pointer;color:var(--blue);font-size:15px;line-height:1" title="Editar">✏️</div>
+        <div onclick="event.stopPropagation();deleteTx('${t.id}')" style="cursor:pointer;color:var(--text3);font-size:13px;line-height:1" title="Eliminar">🗑</div>
       </div>
     </div>
   `).join('');
