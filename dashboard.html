@@ -562,6 +562,7 @@ input, select, textarea { font-size: 16px !important; }
           <div class="hero-chip" id="chipPersonalWrap" style="display:none">
             <div data-es="👤 Disponible personal" data-en="👤 Personal available">👤 Disponible personal</div>
             <div class="hc-val" id="chipPersonalDisp">$0</div>
+            <div style="font-size:9px;opacity:.65" data-es="de lo ya recibido" data-en="of what's been received">de lo ya recibido</div>
           </div>
         </div>
         <div style="margin-top:10px;background:rgba(255,255,255,.12);border-radius:12px;padding:10px">
@@ -633,6 +634,7 @@ input, select, textarea { font-size: 16px !important; }
           📐 <span data-es="Regla 50 / 30 / 20" data-en="50 / 30 / 20 Rule">Regla 50 / 30 / 20</span>
           <span class="card-act" onclick="go('analisis.html')" data-es="Ver detalle" data-en="Details">Ver detalle →</span>
         </div>
+        <div style="font-size:10.5px;color:var(--text3);margin-top:-8px;margin-bottom:10px" data-es="Meta del mes completo — no baja con cada cheque" data-en="Full-month target — doesn't change with each paycheck">Meta del mes completo — no baja con cada cheque</div>
 
         <!-- NEEDS -->
         <div class="rule-item" onclick="go('analisis.html?bucket=needs')" style="cursor:pointer">
@@ -1218,9 +1220,13 @@ function renderDashboard() {
   }
 
   const income   = user.income  || 0;
-  const needs    = user.needs   || Math.round(income*.50);
-  const wants    = user.wants   || Math.round(income*.30);
-  const savings  = user.savings || Math.round(income*.20);
+  const _hogarChk = (() => { try{ return JSON.parse(localStorage.getItem('ft_hogar')||'{}'); }catch(e){ return {}; } })();
+  const _hogarConnChk = _hogarChk.connected && !_hogarChk.manuallyLeft;
+  const _persPctChk = _hogarConnChk ? (100-(parseFloat(_hogarChk.payPctHogar)||50)-(parseFloat(_hogarChk.saveHogarPct)||10)) : 100;
+  const personalBase = _hogarConnChk ? income * _persPctChk/100 : income;
+  const needs    = user.needs   || Math.round(personalBase*.50);
+  const wants    = user.wants   || Math.round(personalBase*.30);
+  const savings  = user.savings || Math.round(personalBase*.20);
 
   const totals   = getMonthTotals();
   const spent    = totals.spent;
@@ -1876,18 +1882,27 @@ function updateHeroDinero(){
   const income = user.income||0;
   const extraIncome = totals.ingreso||0;
   const sharedSpent = isHogarConnected() ? (totals.hogarSpent||0) : 0;
-  const personalSpent = (totals.personalNeedsSpent||0) + (totals.wantsSpent||0);
-  const leftover = Math.max(0, income + extraIncome - sharedSpent - personalSpent);
+  const personalSpent = (totals.personalNeedsSpent||0) + (totals.personalWantsSpent||0);
   const es = lang==='es';
 
   const hogar = (() => { try{ return JSON.parse(localStorage.getItem('ft_hogar')||'{}'); }catch(e){ return {}; } })();
   const hogarConn = hogar.connected && !hogar.manuallyLeft;
   const persPct2 = hogarConn ? (100-(parseFloat(hogar.payPctHogar)||50)-(parseFloat(hogar.saveHogarPct)||10)) : 100;
-  const myHogarPct2 = (() => { try{ if(!hogarConn) return 0.5; const mode=hogar.mode||'equal'; if(mode==='equal'||mode==='common') return 0.5; const total=(user.income||0)+(parseFloat(hogar.partnerIncome)||0); return total>0?(user.income||0)/total:0.5; }catch(e){ return 0.5; } })();
-  const personalBudget2 = income * persPct2 / 100;
-  const personalGastado2 = (totals.personalNeedsSpent||0) + (totals.personalWantsSpent||0);
-  const personalDisponible2 = Math.max(0, personalBudget2 - personalGastado2);
-  const patrimony = availSavings + emergency + totalInvested + (hogarConn ? personalDisponible2 : 0);
+
+  // Ingreso REAL recibido este mes (no el sueldo mensual completo) — cheques ya cobrados
+  const _mesKey2 = new Date().toISOString().slice(0,7);
+  const myIncomeReceivedNow = (loadData().transactions||[])
+    .filter(t=>t.type==='ingreso' && String(t.date||'').startsWith(_mesKey2))
+    .reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
+
+  // "Disponible personal" = 40% de lo YA recibido, menos lo gastado — puede ir negativo
+  const personalBudget2 = hogarConn ? (myIncomeReceivedNow * persPct2/100) : income;
+  const personalGastado2 = personalSpent;
+  const personalDisponible2 = personalBudget2 - personalGastado2; // puede ser negativo
+  const patrimony = availSavings + emergency + totalInvested + (hogarConn ? personalDisponible2 : Math.max(0,personalDisponible2));
+
+  // "Sobró este mes" solo si el disponible real es positivo
+  const leftover = Math.max(0, personalDisponible2);
 
   const el = id => document.getElementById(id);
   if(el('heroPatrimony'))    el('heroPatrimony').textContent    = fmt(patrimony);
@@ -1895,7 +1910,10 @@ function updateHeroDinero(){
   if(el('chipEmergency'))    el('chipEmergency').textContent    = fmt(emergency);
   if(el('chipInvested'))     el('chipInvested').textContent     = fmt(totalInvested);
   if(el('chipPersonalWrap')) el('chipPersonalWrap').style.display = hogarConn ? '' : 'none';
-  if(el('chipPersonalDisp')) el('chipPersonalDisp').textContent = fmt(hogarConn ? personalDisponible2 : 0);
+  if(el('chipPersonalDisp')) {
+    el('chipPersonalDisp').textContent = (personalDisponible2<0?'-':'') + fmt(personalDisponible2);
+    el('chipPersonalDisp').style.color = personalDisponible2 < 0 ? 'var(--red,#E63946)' : '';
+  }
 
   const sobroEl = el('heroSobro');
   const btnsEl  = el('heroDistBtns');
@@ -3123,13 +3141,17 @@ function renderMiDineroTab(){
   const householdLeft = Math.max(0, householdBudget - householdSpent);
   const householdPct = householdBudget > 0 ? Math.min((householdSpent/householdBudget)*100, 100) : 0;
 
-  // Disponible personal = 40% del ingreso - lo que ya gasté personal este mes (sin incluir hogar)
+  // Disponible personal = 40% de lo YA recibido este mes - lo que ya gasté personal (sin incluir hogar)
   const persPct = hogarConnected ? (100 - hogarPctTotal) : 100;
-  const personalBudget = income * persPct / 100;
+  const _mesActualR = _mesActual;
+  const myIncomeReceivedTab = (loadData().transactions||[])
+    .filter(t=>t.type==='ingreso' && String(t.date||'').startsWith(_mesActualR))
+    .reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
+  const personalBudget = hogarConnected ? (myIncomeReceivedTab * persPct/100) : income;
   const personalGastado = personalNeedsSpent + personalWantsSpent;
   const personalDisponibleRaw = personalBudget - personalGastado; // puede ser negativo
   const personalOverspend = Math.max(0, -personalDisponibleRaw); // lo que se pasó del 40%
-  const personalDisponible = Math.max(0, personalDisponibleRaw);
+  const personalDisponible = personalDisponibleRaw; // se muestra tal cual, puede ser negativo
   const personalGastadoPct = personalBudget > 0 ? Math.min((personalGastado/personalBudget)*100, 100) : 0;
   // El sobregiro sale de tu Ahorro libre (patrimonio), no queda "flotando"
   const availSavingsAfterOverspend = availSavings - personalOverspend;
@@ -3198,13 +3220,13 @@ function renderMiDineroTab(){
       </div>
     </div>` : ''}
 
-    <!-- DISPONIBLE PERSONAL ESTE MES (40%) -->
+    <!-- DISPONIBLE PERSONAL ESTE MES (40% de lo recibido) -->
     ${hogarConnected ? `<div style="background:var(--g-light);border-radius:14px;padding:16px;margin-bottom:10px">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
         <div style="flex:1;min-width:0">
-          <div style="font-size:10px;color:var(--g-dark);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">👤 ${es?`Personal disponible (${persPct}%)`:`Personal available (${persPct}%)`}</div>
-          <div style="font-size:24px;font-weight:800;color:var(--g-main)">${fmt(personalDisponible)}</div>
-          <div style="font-size:10px;color:var(--g-dark);opacity:.7;margin-top:2px">${es?`De ${fmt(personalBudget)} · gastado ${fmt(personalGastado)}`:`Of ${fmt(personalBudget)} · spent ${fmt(personalGastado)}`}</div>
+          <div style="font-size:10px;color:var(--g-dark);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">👤 ${es?`Personal disponible (${persPct}% de lo recibido)`:`Personal available (${persPct}% of received)`}</div>
+          <div style="font-size:24px;font-weight:800;color:${personalDisponible<0?'var(--red)':'var(--g-main)'}">${personalDisponible<0?'-':''}${fmt(personalDisponible)}</div>
+          <div style="font-size:10px;color:var(--g-dark);opacity:.7;margin-top:2px">${es?`De ${fmt(personalBudget)} recibido · gastado ${fmt(personalGastado)}`:`Of ${fmt(personalBudget)} received · spent ${fmt(personalGastado)}`}</div>
         </div>
         <div style="text-align:right;flex-shrink:0">
           <div style="font-size:18px;font-weight:800;color:${personalGastadoPct>=90?'var(--red)':'var(--g-main)'}">${Math.round(personalGastadoPct)}%</div>
@@ -3254,7 +3276,7 @@ function renderMiDineroTab(){
         <div style="font-size:28px;font-weight:800">${fmt(totalPatrimony)}</div>
       </div>
       <div style="text-align:right;opacity:.7;font-size:11px">
-        ${hogarConnected?`<div>👤 ${fmt(personalDisponible)} ${es?'disponible':'available'}</div>`:''}
+        ${hogarConnected?`<div>👤 ${personalDisponible<0?'-':''}${fmt(personalDisponible)} ${es?'disponible':'available'}</div>`:''}
         <div>💵 ${fmt(availSavings)} ${es?'ahorro libre':'free savings'}</div>
         <div>🛡️ ${fmt(emergencyFund)} ${es?'emergencia':'emergency'}</div>
         <div>📈 ${fmt(totalInvested)} ${es?'inversiones':'investments'}</div>
