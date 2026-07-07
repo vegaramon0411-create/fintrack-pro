@@ -531,7 +531,7 @@ input, select, textarea { font-size: 16px !important; }
             <div id="chipIncomeLabel" data-es="Ingreso mensual" data-en="Monthly income">Ingreso mensual</div>
             <div class="hc-val" id="chipIncome">$0</div>
           </div>
-          <div class="hero-chip">
+          <div class="hero-chip" onclick="event.stopPropagation();explainCalc('savings')" style="cursor:pointer">
             <div id="chipSavingsLabel" data-es="Disponible para ahorro" data-en="Available for savings">Disponible para ahorro</div>
             <div class="hc-val" id="chipSavings">$0</div>
           </div>
@@ -637,7 +637,7 @@ input, select, textarea { font-size: 16px !important; }
         <div style="font-size:10.5px;color:var(--text3);margin-top:-8px;margin-bottom:10px" data-es="Meta del mes completo — no baja con cada cheque" data-en="Full-month target — doesn't change with each paycheck">Meta del mes completo — no baja con cada cheque</div>
 
         <!-- NEEDS -->
-        <div class="rule-item" onclick="go('analisis.html?bucket=needs')" style="cursor:pointer">
+        <div class="rule-item" onclick="explainCalc('needs')" style="cursor:pointer">
           <div class="rule-header">
             <div class="rule-name-wrap">
               <div class="rule-dot" style="background:var(--g-main)"></div>
@@ -653,7 +653,7 @@ input, select, textarea { font-size: 16px !important; }
           <div class="rule-track"><div class="rule-fill" id="needsFill" style="width:0%;background:var(--g-main)"></div></div>
           <div id="hogarNeedsInfo" style="display:none;margin-top:4px"></div>
         </div>
-        <div class="rule-item" onclick="go('analisis.html?bucket=wants')" style="cursor:pointer">
+        <div class="rule-item" onclick="explainCalc('wants')" style="cursor:pointer">
           <div class="rule-header">
             <div class="rule-name-wrap">
               <div class="rule-dot" style="background:var(--blue)"></div>
@@ -670,7 +670,7 @@ input, select, textarea { font-size: 16px !important; }
         </div>
 
         <!-- SAVINGS -->
-        <div class="rule-item" onclick="go('analisis.html?bucket=savings')" style="cursor:pointer">
+        <div class="rule-item" onclick="explainCalc('savings-bucket')" style="cursor:pointer">
           <div class="rule-header">
             <div class="rule-name-wrap">
               <div class="rule-dot" style="background:var(--amber)"></div>
@@ -1224,9 +1224,9 @@ function renderDashboard() {
   const _hogarConnChk = _hogarChk.connected && !_hogarChk.manuallyLeft;
   const _persPctChk = _hogarConnChk ? (100-(parseFloat(_hogarChk.payPctHogar)||50)-(parseFloat(_hogarChk.saveHogarPct)||10)) : 100;
   const personalBase = _hogarConnChk ? income * _persPctChk/100 : income;
-  const needs    = user.needs   || Math.round(personalBase*.50);
-  const wants    = user.wants   || Math.round(personalBase*.30);
-  const savings  = user.savings || Math.round(personalBase*.20);
+  const needs    = _hogarConnChk ? Math.round(personalBase*.50) : (user.needs   || Math.round(personalBase*.50));
+  const wants    = _hogarConnChk ? Math.round(personalBase*.30) : (user.wants   || Math.round(personalBase*.30));
+  const savings  = _hogarConnChk ? Math.round(personalBase*.20) : (user.savings || Math.round(personalBase*.20));
 
   const totals   = getMonthTotals();
   const spent    = totals.spent;
@@ -1269,7 +1269,7 @@ function renderDashboard() {
   setTimeout(() => { document.getElementById('heroFill').style.width = spentPct+'%'; }, 200);
 
   document.getElementById('chipIncome').textContent   = fmt(income);
-  document.getElementById('chipSavings').textContent  = fmt(Math.max(0, income - (totals.personalNeedsSpent||0) - (totals.personalWantsSpent||0)));
+  document.getElementById('chipSavings').textContent  = (personalBase - (totals.personalNeedsSpent||0) - (totals.personalWantsSpent||0) < 0 ? '-' : '') + fmt(personalBase - (totals.personalNeedsSpent||0) - (totals.personalWantsSpent||0));
 
   // ── KPIs ──
   document.getElementById('kpiIncome').textContent      = fmt(income);
@@ -2037,6 +2037,68 @@ function isHogarConnected(){
   try { const h=JSON.parse(localStorage.getItem('ft_hogar')||'{}'); return h.connected==true && !h.manuallyLeft; }
   catch(e){ return false; }
 }
+
+function explainCalc(kind){
+  const es = lang==='es';
+  const totals = getMonthTotals();
+  const income = user.income||0;
+  const hogar = (() => { try{ return JSON.parse(localStorage.getItem('ft_hogar')||'{}'); }catch(e){ return {}; } })();
+  const hogarConn = hogar.connected && !hogar.manuallyLeft;
+  const persPct = hogarConn ? (100-(parseFloat(hogar.payPctHogar)||50)-(parseFloat(hogar.saveHogarPct)||10)) : 100;
+  const personalBase = hogarConn ? income*persPct/100 : income;
+  const needsSpent = totals.personalNeedsSpent||0;
+  const wantsSpent = totals.personalWantsSpent||0;
+  const personalAhorro = (totals.txs||[]).filter(t=>t.type==='ahorro' && !(t.hogar==true)).reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
+  const invested = totals.inversion||0;
+
+  let title, rows;
+  if(kind==='savings'){
+    title = es?'¿De dónde sale este número?':'Where does this number come from?';
+    rows = [
+      [es?(hogarConn?`40% de tu sueldo ($${fmt2(income)} × ${persPct}%)`:'Tu ingreso mensual'):(hogarConn?`40% of your paycheck ($${fmt2(income)} × ${persPct}%)`:'Your monthly income'), '+'+fmt2(personalBase)],
+      [es?'− Necesidades personales gastadas':'− Personal needs spent', '-'+fmt2(needsSpent)],
+      [es?'− Gustos personales gastados':'− Personal wants spent', '-'+fmt2(wantsSpent)],
+    ];
+  } else if(kind==='needs'){
+    title = es?'Necesidades — de dónde sale':'Needs — breakdown';
+    rows = [
+      [es?`Base personal (${persPct}% del sueldo)`:`Personal base (${persPct}% of paycheck)`, fmt2(personalBase)],
+      [es?'× 50% (límite necesidades)':'× 50% (needs limit)', fmt2(personalBase*0.5)],
+      [es?'Gastado hasta hoy':'Spent so far', '-'+fmt2(needsSpent)],
+    ];
+  } else if(kind==='wants'){
+    title = es?'Gustos — de dónde sale':'Wants — breakdown';
+    rows = [
+      [es?`Base personal (${persPct}% del sueldo)`:`Personal base (${persPct}% of paycheck)`, fmt2(personalBase)],
+      [es?'× 30% (límite gustos)':'× 30% (wants limit)', fmt2(personalBase*0.3)],
+      [es?'Gastado hasta hoy':'Spent so far', '-'+fmt2(wantsSpent)],
+    ];
+  } else if(kind==='savings-bucket'){
+    title = es?'Ahorro — de dónde sale':'Savings — breakdown';
+    rows = [
+      [es?`Base personal (${persPct}% del sueldo)`:`Personal base (${persPct}% of paycheck)`, fmt2(personalBase)],
+      [es?'× 20% (meta ahorro)':'× 20% (savings goal)', fmt2(personalBase*0.2)],
+      [es?'Ahorrado (personal, sin contar hogar)':'Saved (personal, excludes household)', '+'+fmt2(personalAhorro)],
+      [es?'Invertido este mes':'Invested this month', '+'+fmt2(invested)],
+    ];
+  } else { return; }
+
+  const ov = document.createElement('div');
+  ov.id = '_explainOv';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:600;display:flex;align-items:center;justify-content:center;padding:20px';
+  ov.onclick = (e)=>{ if(e.target===ov) ov.remove(); };
+  ov.innerHTML = `<div style="background:white;border-radius:16px;padding:20px;max-width:340px;width:100%">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div style="font-size:15px;font-weight:800">${title}</div>
+      <div onclick="document.getElementById('_explainOv').remove()" style="cursor:pointer;font-size:18px;color:var(--text3)">✕</div>
+    </div>
+    ${rows.map(r=>`<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--off);font-size:13px">
+      <span style="color:var(--text2)">${r[0]}</span><span style="font-weight:700">${r[1]}</span>
+    </div>`).join('')}
+  </div>`;
+  document.body.appendChild(ov);
+}
+function fmt2(n){ return (n<0?'-':'')+'$'+Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0}); }
 
 function toggleInfoTip(el){
   const existing = document.querySelector('.info-tip-bubble');
