@@ -532,7 +532,7 @@ input, select, textarea { font-size: 16px !important; }
             <div class="hc-val" id="chipIncome">$0</div>
           </div>
           <div class="hero-chip" onclick="event.stopPropagation();explainCalc('savings')" style="cursor:pointer">
-            <div id="chipSavingsLabel" data-es="Disponible para ahorro" data-en="Available for savings">Disponible para ahorro</div>
+            <div id="chipSavingsLabel" data-es="🎯 Meta de ahorro del mes" data-en="🎯 Monthly savings target">🎯 Meta de ahorro del mes<span class="info-i" onclick="event.stopPropagation();toggleInfoTip(this)" style="color:rgba(255,255,255,.7)" data-tip-es="Basado en tu sueldo fijo mensual — no cambia con cheques ni ingresos extra. Es tu plan, no tu efectivo real." data-tip-en="Based on your fixed monthly paycheck — doesn't change with paychecks or extra income. This is your plan, not your real cash.">ⓘ</span></div>
             <div class="hc-val" id="chipSavings">$0</div>
           </div>
         </div>
@@ -562,7 +562,7 @@ input, select, textarea { font-size: 16px !important; }
           <div class="hero-chip" id="chipPersonalWrap" style="display:none">
             <div data-es="👤 Disponible personal" data-en="👤 Personal available">👤 Disponible personal</div>
             <div class="hc-val" id="chipPersonalDisp">$0</div>
-            <div style="font-size:9px;opacity:.65" data-es="de lo ya recibido" data-en="of what's been received">de lo ya recibido</div>
+            <div style="font-size:9px;opacity:.85;margin-top:2px"><span style="background:rgba(255,255,255,.25);padding:2px 6px;border-radius:20px;font-weight:700" data-es="💵 Real" data-en="💵 Real">💵 Real</span> <span data-es="de lo ya recibido" data-en="of what's been received">de lo ya recibido</span></div>
           </div>
         </div>
         <div style="margin-top:10px;background:rgba(255,255,255,.12);border-radius:12px;padding:10px">
@@ -3387,7 +3387,7 @@ function renderMiDineroTab(){
     ${hogarConnected ? `<div style="background:var(--g-light);border-radius:14px;padding:16px;margin-bottom:10px">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
         <div style="flex:1;min-width:0">
-          <div style="font-size:10px;color:var(--g-dark);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">👤 ${es?`Personal disponible (${persPct}% de lo recibido)`:`Personal available (${persPct}% of received)`}</div>
+          <div style="font-size:10px;color:var(--g-dark);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">👤 ${es?`Personal disponible (${persPct}% de lo recibido)`:`Personal available (${persPct}% of received)`} <span style="background:rgba(0,0,0,.08);color:var(--g-dark);padding:2px 6px;border-radius:20px;font-weight:700;text-transform:none;letter-spacing:0">${es?'💵 Real':'💵 Real'}</span></div>
           <div style="font-size:24px;font-weight:800;color:${personalDisponible<0?'var(--red)':'var(--g-main)'}">${personalDisponible<0?'-':''}${fmt(personalDisponible)}</div>
           <div style="font-size:10px;color:var(--g-dark);opacity:.7;margin-top:2px">${es?`De ${fmt(personalBudget)} recibido · gastado ${fmt(personalGastado)}`:`Of ${fmt(personalBudget)} received · spent ${fmt(personalGastado)}`}</div>
         </div>
