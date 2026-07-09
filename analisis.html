@@ -191,7 +191,7 @@ function buildMonthlyTrend(data){
     txs.forEach(t=>{
       const a = parseFloat(t.amount)||0;
       if(t.type==='ingreso') income+=a;
-      else if(t.type==='gasto'||t.type==='suscripcion'||t.type==='hipoteca') expenses+=a;
+      else if((t.type==='gasto'||t.type==='suscripcion'||t.type==='hipoteca') && !(t.hogar==true)) expenses+=a;
     });
     const d = new Date(m+'-02');
     return { month:m, label:d.toLocaleDateString(lang==='es'?'es-MX':'en-US',{month:'short'}), income, expenses };
@@ -242,13 +242,19 @@ function render(){
   const month=now.toISOString().slice(0,7);
   const txs=(data.transactions||[]).filter(t=>(t.date||'').startsWith(month));
 
-  let income=0,expenses=0,invested=0;
+  let income=0,expenses=0,invested=0,hogarExpenses=0,personalAhorro=0,extraIncome=0,chequeIncome=0;
   const catMap={};
   txs.forEach(t=>{
     const a=parseFloat(t.amount)||0;
-    if(t.type==='ingreso'){ income+=a; return; }
+    if(t.type==='ingreso'){
+      income+=a;
+      if(t.incomeKind==='extra') extraIncome+=a; else chequeIncome+=a;
+      return;
+    }
     if(t.type==='inversion'){ invested+=a; return; }
+    if(t.type==='ahorro'){ if(!(t.hogar==true)) personalAhorro+=a; return; }
     if(t.type==='gasto'||t.type==='suscripcion'||t.type==='hipoteca'){
+      if(t.hogar==true){ hogarExpenses+=a; return; } // gasto del hogar — no cuenta en tu análisis personal
       expenses+=a;
       const cat=t.category||t.cat||t.type||'Otro';
       catMap[cat]=(catMap[cat]||0)+a;
@@ -260,10 +266,88 @@ function render(){
 
   const trend = buildMonthlyTrend(data);
 
+  // ── Contexto de hogar: cuánto de tu sueldo se va al hogar ──
+  const hogar = (() => { try{ return JSON.parse(localStorage.getItem('ft_hogar')||'{}'); }catch(e){ return {}; } })();
+  const hogarConn = hogar.connected && !hogar.manuallyLeft;
+  const hogarPct = hogarConn ? ((parseFloat(hogar.payPctHogar)||50) + (parseFloat(hogar.saveHogarPct)||10)) : 0;
+  const persPct = hogarConn ? (100-hogarPct) : 100;
+  const monthlyIncome = user.income||0;
+  const personalBudget = hogarConn ? (chequeIncome*persPct/100 + extraIncome) : monthlyIncome;
+  const personalLeft = personalBudget - expenses - personalAhorro - invested;
+
+  const dayOfMonth = now.getDate();
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
+  const dailyRate = dayOfMonth>0 ? expenses/dayOfMonth : 0;
+  const projectedTotal = dailyRate * daysInMonth;
+  const willOverspend = personalBudget>0 && projectedTotal > personalBudget;
+
+  const hogarExplainCard = hogarConn ? `
+    <div class="card">
+      <div style="font-size:13px;font-weight:800;margin-bottom:10px">🏠 ${es?'Cómo se reparte tu sueldo':'How your paycheck splits'}</div>
+      <div style="font-size:12px;color:var(--text2);line-height:1.5;margin-bottom:10px">
+        ${es
+          ? `De cada cheque, <b>${hogarPct}%</b> se va al presupuesto del hogar (modo "${hogar.mode==='common'?'fondo común':hogar.mode||'equal'}") y <b>${persPct}%</b> es tuyo, personal. El dinero extra (bonos, freelance, etc.) no se reparte — es 100% tuyo.`
+          : `From each paycheck, <b>${hogarPct}%</b> goes to the household budget (mode "${hogar.mode==='common'?'common fund':hogar.mode||'equal'}") and <b>${persPct}%</b> is yours. Extra income (bonuses, freelance, etc.) isn't split — it's 100% yours.`}
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;padding:8px 0;border-top:1px solid var(--off)">
+        <span style="color:var(--text3)">${es?'Gastado del hogar este mes':'Household spent this month'}</span>
+        <span style="font-weight:700">${fmt(hogarExpenses)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;padding:8px 0;border-top:1px solid var(--off)">
+        <span style="color:var(--text3)">${es?'Gastado personal este mes':'Personal spent this month'}</span>
+        <span style="font-weight:700">${fmt(expenses)}</span>
+      </div>
+      ${extraIncome>0?`<div style="display:flex;justify-content:space-between;font-size:12px;padding:8px 0;border-top:1px solid var(--off)">
+        <span style="color:var(--text3)">${es?'Ingreso extra recibido este mes':'Extra income received this month'}</span>
+        <span style="font-weight:700;color:var(--g-main)">+${fmt(extraIncome)}</span>
+      </div>`:''}
+      <div style="font-size:10px;color:var(--text3);margin-top:6px">${es?'Lo del hogar nunca cuenta en tu análisis personal de abajo.':'Household spending never counts toward your personal analysis below.'}</div>
+    </div>` : '';
+
+  // ── Diagnóstico honesto: cómo vas, y por qué ──
+  let diagnosisMsg = '';
+  if(hogarConn && personalBudget>0){
+    if(extraIncome>0 && expenses>personalBudget-extraIncome){
+      diagnosisMsg = es
+        ? `Este mes gastaste más de lo normal, pero recibiste <b>${fmt(extraIncome)}</b> extra — por eso no estás en números rojos. Sin ese ingreso extra, ya habrías pasado tu presupuesto personal.`
+        : `You spent more than usual this month, but you received <b>${fmt(extraIncome)}</b> extra — that's why you're not in the red. Without that extra income, you'd already be over your personal budget.`;
+    } else if(willOverspend){
+      diagnosisMsg = es
+        ? `Estás gastando más rápido de lo que tu presupuesto aguanta. No es solo este mes — si es un patrón que se repite, conviene ajustar el presupuesto o el gasto, no solo taparlo con ingresos extra cuando lleguen.`
+        : `You're spending faster than your budget can handle. If this repeats month after month, it's worth adjusting your budget or your spending — not just patching it with extra income when it shows up.`;
+    } else {
+      diagnosisMsg = es
+        ? `Vas dentro de tu presupuesto personal. Sigue así.`
+        : `You're within your personal budget. Keep it up.`;
+    }
+  }
+
+  const statusCard = hogarConn && personalBudget>0 ? `
+    <div class="card" style="background:${willOverspend?'var(--red-dim)':'var(--g-light)'}">
+      <div style="font-size:13px;font-weight:800;margin-bottom:8px;color:${willOverspend?'var(--red)':'var(--g-dark)'}">${willOverspend?'⚠️':'✅'} ${es?'¿Cómo vas este mes?':'How are you doing this month?'}</div>
+      <div style="font-size:12px;color:var(--text2);line-height:1.6">
+        ${es
+          ? `Llevas gastados <b>${fmt(expenses)}</b> de tu presupuesto personal de <b>${fmt(personalBudget)}</b> (${persPct}% de tu cheque${extraIncome>0?' + tu ingreso extra':''}).`
+          : `You've spent <b>${fmt(expenses)}</b> of your personal budget of <b>${fmt(personalBudget)}</b> (${persPct}% of your paycheck${extraIncome>0?' + your extra income':''}).`}
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:800;margin-top:10px;padding-top:10px;border-top:1px solid rgba(0,0,0,.08)">
+        <span>${es?'Te queda este mes':'Left this month'}</span>
+        <span style="color:${personalLeft<0?'var(--red)':'var(--g-main)'}">${personalLeft<0?'-':''}${fmt(personalLeft)}</span>
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-top:10px">
+        ${willOverspend
+          ? (es?`Si sigues gastando a este ritmo ($${Math.round(dailyRate)}/día), vas a terminar el mes en <b>${fmt(projectedTotal)}</b> — <b style="color:var(--red)">${fmt(projectedTotal-personalBudget)} por encima</b> de tu presupuesto.`:`If you keep spending at this rate ($${Math.round(dailyRate)}/day), you'll end the month at <b>${fmt(projectedTotal)}</b> — <b style="color:var(--red)">${fmt(projectedTotal-personalBudget)} over</b> your budget.`)
+          : (es?`A este ritmo ($${Math.round(dailyRate)}/día) terminarías el mes en ${fmt(projectedTotal)}, dentro de tu presupuesto.`:`At this rate ($${Math.round(dailyRate)}/day) you'd end the month at ${fmt(projectedTotal)}, within budget.`)}
+      </div>
+      ${diagnosisMsg?`<div style="font-size:11.5px;color:var(--text2);margin-top:10px;padding-top:10px;border-top:1px solid rgba(0,0,0,.08);line-height:1.5">💬 ${diagnosisMsg}</div>`:''}
+    </div>` : '';
+
   document.getElementById('content').innerHTML=`
     ${renderTrendChart(trend)}
+    ${hogarExplainCard}
+    ${statusCard}
     <div class="card">
-      <div style="font-size:13px;font-weight:800;margin-bottom:14px">📅 ${es?'Resumen del mes':'Month summary'}</div>
+      <div style="font-size:13px;font-weight:800;margin-bottom:14px">📅 ${es?'Resumen del mes (personal)':'Month summary (personal)'}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
         <div style="background:var(--g-light);border-radius:12px;padding:12px;text-align:center">
           <div style="font-size:16px;font-weight:800;color:var(--g-main)">${fmt(income)}</div>
@@ -292,7 +376,8 @@ function render(){
 
     ${cats.length?`
     <div class="card">
-      <div style="font-size:13px;font-weight:800;margin-bottom:14px">🏷️ ${es?'Gastos por categoría':'Expenses by category'}</div>
+      <div style="font-size:13px;font-weight:800;margin-bottom:4px">🏷️ ${es?'Gastos por categoría (personal)':'Expenses by category (personal)'}</div>
+      <div style="font-size:10px;color:var(--text3);margin-bottom:10px">${es?'No incluye gastos marcados "del hogar"':'Excludes expenses tagged "household"'}</div>
       ${cats.map(([cat,amt],i)=>`
       <div class="cat-row">
         <div style="font-size:12px;font-weight:600;width:90px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${cat}</div>

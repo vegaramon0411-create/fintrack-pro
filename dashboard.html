@@ -911,6 +911,30 @@ input, select, textarea { font-size: 16px !important; }
       </div>
 
       <!-- DESTINO DE AHORRO (solo tipo ahorro) -->
+      <!-- TIPO DE INGRESO: cheque normal vs extra -->
+      <div id="incomeKindField" style="display:none;margin-bottom:14px">
+        <label style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:8px" data-es="¿Qué tipo de ingreso es?" data-en="What kind of income is this?">¿Qué tipo de ingreso es?</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <button id="btnIncomeCheque" onclick="setIncomeKind('cheque')" type="button" style="padding:10px;border-radius:10px;border:2px solid var(--border);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--off);line-height:1.4">
+            <span data-es="💼 Cheque de sueldo" data-en="💼 Paycheck">💼 Cheque de sueldo</span>
+          </button>
+          <button id="btnIncomeExtra" onclick="setIncomeKind('extra')" type="button" style="padding:10px;border-radius:10px;border:2px solid var(--border);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--off);line-height:1.4">
+            <span data-es="🎁 Dinero extra" data-en="🎁 Extra money">🎁 Dinero extra</span>
+          </button>
+        </div>
+        <div id="incomeKindHint" style="font-size:10px;color:var(--text3);margin-top:6px"></div>
+      </div>
+
+      <!-- REPARTO AUTOMÁTICO (solo aparece para dinero extra, y APAGADO por default) -->
+      <div id="autoDistField" style="display:none;margin-bottom:14px;background:var(--off);border-radius:10px;padding:11px">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;font-weight:600" onclick="event.preventDefault();document.getElementById('autoDistCheck').click()">
+          <input type="checkbox" id="autoDistCheck" style="width:16px;height:16px" onclick="event.stopPropagation()">
+          <span data-es="Repartirlo automático ahora" data-en="Distribute it automatically now">Repartirlo automático ahora</span>
+        </label>
+        <div id="autoDistHint" style="font-size:10px;color:var(--text3);margin-top:4px;margin-left:24px"></div>
+        <div style="font-size:10px;color:var(--text3);margin-top:6px;margin-left:24px" data-es="Si no marcas esto, el dinero queda libre para que decidas después." data-en="If you leave this unchecked, the money stays free for you to decide later.">Si no marcas esto, el dinero queda libre para que decidas después.</div>
+      </div>
+
       <div id="savingsDestField" style="display:none;margin-bottom:14px">
         <label style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:8px" data-es="¿A dónde va este ahorro?" data-en="Where does this savings go?">¿A dónde va este ahorro?</label>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
@@ -1269,7 +1293,9 @@ function renderDashboard() {
   setTimeout(() => { document.getElementById('heroFill').style.width = spentPct+'%'; }, 200);
 
   document.getElementById('chipIncome').textContent   = fmt(income);
-  document.getElementById('chipSavings').textContent  = (personalBase - (totals.personalNeedsSpent||0) - (totals.personalWantsSpent||0) < 0 ? '-' : '') + fmt(personalBase - (totals.personalNeedsSpent||0) - (totals.personalWantsSpent||0));
+  const _personalAhorroChip = (totals.txs||[]).filter(t=>t.type==='ahorro' && !(t.hogar==true)).reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
+  const _availForSavings = personalBase - (totals.personalNeedsSpent||0) - (totals.personalWantsSpent||0) - _personalAhorroChip - (totals.inversion||0);
+  document.getElementById('chipSavings').textContent  = (_availForSavings < 0 ? '-' : '') + fmt(_availForSavings);
 
   // ── KPIs ──
   document.getElementById('kpiIncome').textContent      = fmt(income);
@@ -1849,6 +1875,7 @@ function renderGoalsPreview() {
 let currentType = 'gasto';
 let isHogarTx = false; // true = del hogar, false = personal
 let savingsDest = 'emergencia'; // 'emergencia' | 'libre'
+let incomeKind = 'cheque'; // 'cheque' | 'extra'
 
 // Categories that auto-detect as hogar
 const AUTO_HOGAR_CATS = ['🏠 Renta / Hipoteca','🛒 Supermercado','⛽ Gasolina','💊 Salud','📱 Teléfono/Internet','🔧 Mantenimiento'];
@@ -1889,14 +1916,14 @@ function updateHeroDinero(){
   const hogarConn = hogar.connected && !hogar.manuallyLeft;
   const persPct2 = hogarConn ? (100-(parseFloat(hogar.payPctHogar)||50)-(parseFloat(hogar.saveHogarPct)||10)) : 100;
 
-  // Ingreso REAL recibido este mes (no el sueldo mensual completo) — cheques ya cobrados
+  // Ingreso REAL recibido este mes — separar cheque de sueldo (se reparte 60/40) de dinero extra (100% tuyo)
   const _mesKey2 = new Date().toISOString().slice(0,7);
-  const myIncomeReceivedNow = (loadData().transactions||[])
-    .filter(t=>t.type==='ingreso' && String(t.date||'').startsWith(_mesKey2))
-    .reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
+  const _incomeTxsNow = (loadData().transactions||[]).filter(t=>t.type==='ingreso' && String(t.date||'').startsWith(_mesKey2));
+  const myChequeReceivedNow = _incomeTxsNow.filter(t=>t.incomeKind!=='extra').reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
+  const myExtraReceivedNow = _incomeTxsNow.filter(t=>t.incomeKind==='extra').reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
 
-  // "Disponible personal" = 40% de lo YA recibido, menos lo gastado — puede ir negativo
-  const personalBudget2 = hogarConn ? (myIncomeReceivedNow * persPct2/100) : income;
+  // "Disponible personal" = 40% del cheque + 100% del dinero extra, menos lo gastado — puede ir negativo
+  const personalBudget2 = hogarConn ? (myChequeReceivedNow * persPct2/100 + myExtraReceivedNow) : income;
   const personalGastado2 = personalSpent;
   const personalDisponible2 = personalBudget2 - personalGastado2; // puede ser negativo
   const patrimony = availSavings + emergency + totalInvested + (hogarConn ? personalDisponible2 : Math.max(0,personalDisponible2));
@@ -1981,15 +2008,26 @@ function adjDist(key, delta, leftover){
   updateHeroDinero();
 }
 
-function applyDist(leftover){
+function applyDist(leftover, opts){
+  opts = opts || {};
   const dist = JSON.parse(localStorage.getItem('ft_dist_pcts')||'null') || { ahorro:50, emergencia:25, inversion:25 };
   const es = lang==='es';
+  const silent = !!opts.silent;
+  const note = opts.note || (es?'Distribución del sobrante':'Leftover distribution');
 
   // Ahorro disponible
   const ahorroAmt = Math.round(leftover * dist.ahorro/100);
   if(ahorroAmt > 0){
     const cur = parseFloat(localStorage.getItem('ft_available_savings')||'0');
     localStorage.setItem('ft_available_savings', (cur+ahorroAmt).toFixed(2));
+    const hist = JSON.parse(localStorage.getItem('ft_savings_hist')||'[]');
+    const txId = Date.now();
+    hist.push({ id:'tx_'+txId, tipo:'deposito', monto:ahorroAmt, fecha:new Date().toISOString().split('T')[0], nota:note, cat:'' });
+    localStorage.setItem('ft_savings_hist', JSON.stringify(hist));
+    const data0 = JSON.parse(localStorage.getItem('ft_data')||'{"transactions":[],"emergency":0}');
+    data0.transactions = data0.transactions||[];
+    data0.transactions.push({ id:txId, type:'ahorro', desc:(es?'Ahorro libre — ':'Free savings — ')+note, amount:ahorroAmt, date:new Date().toISOString().split('T')[0], cat:'💰 Ahorro', dest:'libre', createdBy:user.name||'' });
+    localStorage.setItem('ft_data', JSON.stringify(data0));
   }
 
   // Emergencia
@@ -1997,21 +2035,27 @@ function applyDist(leftover){
   if(emergAmt > 0){
     const data = JSON.parse(localStorage.getItem('ft_data')||'{"transactions":[],"emergency":0}');
     data.emergency = (data.emergency||0) + emergAmt;
-    data.transactions.push({ id:Date.now(), type:'ahorro', desc:es?'Depósito fondo emergencia':'Emergency fund deposit', amount:emergAmt, date:new Date().toISOString().split('T')[0], cat:'🛡️ Emergencia', createdBy: user.name||'' });
+    data.transactions.push({ id:Date.now()+1, type:'ahorro', desc:es?'Depósito fondo emergencia':'Emergency fund deposit', amount:emergAmt, date:new Date().toISOString().split('T')[0], cat:'🛡️ Emergencia', createdBy: user.name||'' });
     localStorage.setItem('ft_data', JSON.stringify(data));
   }
 
-  // Inversión → redirige a inversiones para que lo agreguen
+  // Inversión → se aparta como sugerencia, tú la registras en Inversiones
   const invAmt = Math.round(leftover * dist.inversion/100);
+  if(invAmt > 0){
+    const cur = parseFloat(localStorage.getItem('ft_invest_suggest')||'0');
+    localStorage.setItem('ft_invest_suggest', (cur+invAmt).toFixed(2));
+  }
 
-  showToast(es
-    ? `✅ Distribuido: ${fmt(ahorroAmt)} ahorro · ${fmt(emergAmt)} emergencia${invAmt>0?' · '+fmt(invAmt)+' para invertir':''}`
-    : `✅ Distributed: ${fmt(ahorroAmt)} savings · ${fmt(emergAmt)} emergency${invAmt>0?' · '+fmt(invAmt)+' to invest':''}`,
-    '', '', 4000);
+  if(!silent){
+    showToast(es
+      ? `✅ Distribuido: ${fmt(ahorroAmt)} ahorro · ${fmt(emergAmt)} emergencia${invAmt>0?` · aparta ${fmt(invAmt)} y regístrala en Inversiones`:''}`
+      : `✅ Distributed: ${fmt(ahorroAmt)} savings · ${fmt(emergAmt)} emergency${invAmt>0?` · set aside ${fmt(invAmt)}, add it in Investments`:''}`,
+      '', '', 4000);
+  }
 
-  if(invAmt > 0) localStorage.setItem('ft_invest_suggest', invAmt);
   updateHeroDinero();
   renderDashboard();
+  return { ahorroAmt, emergAmt, invAmt };
 }
 
 let miDineroVisible = false;
@@ -2058,6 +2102,8 @@ function explainCalc(kind){
       [es?(hogarConn?`40% de tu sueldo ($${fmt2(income)} × ${persPct}%)`:'Tu ingreso mensual'):(hogarConn?`40% of your paycheck ($${fmt2(income)} × ${persPct}%)`:'Your monthly income'), '+'+fmt2(personalBase)],
       [es?'− Necesidades personales gastadas':'− Personal needs spent', '-'+fmt2(needsSpent)],
       [es?'− Gustos personales gastados':'− Personal wants spent', '-'+fmt2(wantsSpent)],
+      [es?'− Ya ahorrado este mes':'− Already saved this month', '-'+fmt2(personalAhorro)],
+      [es?'− Ya invertido este mes':'− Already invested this month', '-'+fmt2(invested)],
     ];
   } else if(kind==='needs'){
     title = es?'Necesidades — de dónde sale':'Needs — breakdown';
@@ -2124,6 +2170,50 @@ function toggleInfoTip(el){
       }
     });
   }, 0);
+}
+
+function setIncomeKind(kind){
+  incomeKind = kind;
+  const es = lang==='es';
+  const btnCheque = document.getElementById('btnIncomeCheque');
+  const btnExtra = document.getElementById('btnIncomeExtra');
+  const hint = document.getElementById('incomeKindHint');
+  if(!btnCheque||!btnExtra) return;
+
+  const isExtra = kind === 'extra';
+  btnCheque.style.background = !isExtra ? 'var(--g-light)' : 'var(--off)';
+  btnCheque.style.borderColor = !isExtra ? 'var(--g-main)' : 'var(--border)';
+  btnExtra.style.background = isExtra ? 'var(--g-light)' : 'var(--off)';
+  btnExtra.style.borderColor = isExtra ? 'var(--g-main)' : 'var(--border)';
+
+  if(hint){
+    hint.textContent = isExtra
+      ? (es?'No se reparte solo — tú decides qué hacer con él':'Not distributed automatically — you decide what to do with it')
+      : (es?'Sigue tu regla del hogar (60% hogar / 40% personal)':'Follows your household rule (60% household / 40% personal)');
+  }
+
+  showAutoDistField(isExtra);
+}
+
+function showAutoDistField(show){
+  const field = document.getElementById('autoDistField');
+  if(!field) return;
+  field.style.display = show ? '' : 'none';
+  if(show){
+    const dist = JSON.parse(localStorage.getItem('ft_dist_pcts')||'null') || { ahorro:50, emergencia:25, inversion:25 };
+    const hint = document.getElementById('autoDistHint');
+    if(hint) hint.textContent = (lang==='es'?`Usaría: ${dist.ahorro}% ahorro · ${dist.emergencia}% emergencia · ${dist.inversion}% inversión`:`Would use: ${dist.ahorro}% savings · ${dist.emergencia}% emergency · ${dist.inversion}% investment`);
+    const chk = document.getElementById('autoDistCheck');
+    if(chk) chk.checked = false; // apagado por default siempre
+  }
+}
+
+function showIncomeKindField(show){
+  const field = document.getElementById('incomeKindField');
+  if(!field) return;
+  field.style.display = show ? '' : 'none';
+  if(show) setIncomeKind('cheque');
+  else showAutoDistField(false);
 }
 
 function setSavingsDest(val){
@@ -2254,6 +2344,7 @@ function saveEntry() {
   }
 
   const data = loadData();
+  const wasEditing = !!editingEntryId;
 
   if (editingEntryId) {
     // EDIT existing entry
@@ -2289,7 +2380,7 @@ function saveEntry() {
     document.getElementById('btnSaveEntry').textContent = lang==='es' ? 'Guardar registro' : 'Save entry';
   } else {
     // CREATE new entry
-    const entry = { id: Date.now(), type:currentType, desc, amount, date, note, cat, hogar: isHogarConnected() ? isHogarTx : undefined, createdBy: user.name||'', dest: currentType==='ahorro' ? savingsDest : undefined };
+    const entry = { id: Date.now(), type:currentType, desc, amount, date, note, cat, hogar: isHogarConnected() ? isHogarTx : undefined, createdBy: user.name||'', dest: currentType==='ahorro' ? savingsDest : undefined, incomeKind: currentType==='ingreso' ? incomeKind : undefined };
     if (currentType === 'ahorro') {
       if (savingsDest === 'libre') {
         addFreeSavingsEntry({ id: entry.id, amount, date, note: desc });
@@ -2318,6 +2409,15 @@ function saveEntry() {
   renderDashboard();
 
   showToast('✅', lang==='es'?'Registro guardado':'Entry saved', desc+' — '+fmtD(amount), 'var(--g-main)');
+
+  // Reparto automático: SOLO si es ingreso extra Y el usuario marcó la casilla.
+  // El cheque de sueldo nunca se reparte solo — sigue tu regla de hogar normal.
+  if (!wasEditing && currentType === 'ingreso' && incomeKind === 'extra') {
+    const autoChk = document.getElementById('autoDistCheck');
+    if (autoChk && autoChk.checked && amount > 0) {
+      applyDist(amount, { silent:false, note: desc || (lang==='es'?'Ingreso extra':'Extra income') });
+    }
+  }
 
   // Sync to GAS if it's a hogar transaction
   if(isHogarConnected() && isHogarTx && ['gasto','suscripcion','hipoteca'].includes(currentType)){
@@ -2592,6 +2692,7 @@ function setType(type) {
   showHogarToggle(type);
   // Show/hide destino de ahorro
   showSavingsDestField(type === 'ahorro');
+  showIncomeKindField(type === 'ingreso');
 }
 
 function setCategory(catValue) {

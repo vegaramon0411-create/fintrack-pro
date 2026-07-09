@@ -641,6 +641,26 @@ function renderDashboard(hogar){
     </div>`:`<div style="text-align:center;padding:16px;color:var(--text3);font-size:12px">${es?'Sin depósitos registrados este mes':'No deposits recorded this month'}</div>`}
   </div>
 
+  <!-- HISTORIAL DE GASTOS DEL HOGAR (mío + pareja, combinado) -->
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-title">🧾 ${es?'Historial de gastos del hogar':'Household expense history'}</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:10px">${es?'Solo lo marcado como \u201cdel hogar\u201d \u2014 de ambos':'Only items tagged \u201chousehold\u201d \u2014 from both of you'}</div>
+    ${(sharedTxs.length+partnerSharedTxs.length)?`
+    <div style="display:flex;flex-direction:column;gap:8px">
+      ${[...sharedTxs.map(t=>({...t,_who:user.name||(es?'Tú':'You'),_mine:true})), ...partnerSharedTxs.map(t=>({...t,_who:partnerName,_mine:false}))]
+        .sort((a,b)=>(b.date||'').localeCompare(a.date||''))
+        .map(t=>`
+        <div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--off);border-radius:10px">
+          <div style="width:34px;height:34px;border-radius:10px;background:${t._mine?'var(--g-light)':'var(--blu-dim)'};display:grid;place-items:center;font-size:15px;flex-shrink:0">🏠</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12px;font-weight:700">${t.desc||t.description||(es?'Gasto':'Expense')}</div>
+            <div style="font-size:10px;color:var(--text3)">${t._who} · ${t.date||''} · ${t.cat||t.category||''}</div>
+          </div>
+          <div style="font-size:13px;font-weight:800;color:var(--red)">-${fmt(t.amount||0)}</div>
+        </div>`).join('')}
+    </div>`:`<div style="text-align:center;padding:16px;color:var(--text3);font-size:12px">${es?'Sin gastos del hogar registrados este mes':'No household expenses recorded this month'}</div>`}
+  </div>
+
   <!-- MODE BADGE -->
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
     <span style="background:var(--g-light);color:var(--g-dark);font-size:11px;font-weight:700;padding:5px 12px;border-radius:20px">${modeLabels[mode]||mode}</span>
@@ -1125,8 +1145,8 @@ function renderDistribucion(calc, partnerName, totalIncome, mode, partnerIncome)
   const hogarBudget = totalIncome * payPct / 100;
   const hogarSurplus = Math.max(0, hogarBudget - calc.sharedTotal);
 
-  const myPart = mode==='common' ? leftover/2 : calc.myLeftover;
-  const partnerPart = mode==='common' ? leftover/2 : calc.partnerLeftover;
+  const myPart = (user.income||0) * personalPct/100;
+  const partnerPart = partnerInc * personalPct/100;
 
   const rows = [
     { label: es?'Ingreso combinado':'Combined income', val: fmt(totalIncome), color:'var(--g-main)', pct:100 },
@@ -1210,12 +1230,12 @@ function renderDistribucion(calc, partnerName, totalIncome, mode, partnerIncome)
     <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px">👤 ${es?'Personal este mes':'Personal this month'}</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
       <div style="background:var(--g-light);border-radius:12px;padding:14px;text-align:center">
-        <div style="font-size:10px;color:var(--g-dark);margin-bottom:4px">${user.name||'Tú'} (${calc.myPct}%)</div>
+        <div style="font-size:10px;color:var(--g-dark);margin-bottom:4px">${user.name||'Tú'} (${personalPct}%)</div>
         <div style="font-size:22px;font-weight:800;color:var(--g-main)">${fmt(Math.max(0,myPart))}</div>
         <div style="font-size:10px;color:var(--text3);margin-top:2px">${es?'para gustos personales':'for personal spending'}</div>
       </div>
       <div style="background:var(--blu-dim);border-radius:12px;padding:14px;text-align:center">
-        <div style="font-size:10px;color:var(--blue);margin-bottom:4px">${partnerName} (${calc.partnerPct}%)</div>
+        <div style="font-size:10px;color:var(--blue);margin-bottom:4px">${partnerName} (${personalPct}%)</div>
         <div style="font-size:22px;font-weight:800;color:var(--blue)">${fmt(Math.max(0,partnerPart))}</div>
         <div style="font-size:10px;color:var(--text3);margin-top:2px">${es?'para gustos personales':'for personal spending'}</div>
       </div>
