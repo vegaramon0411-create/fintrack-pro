@@ -259,18 +259,25 @@ function render(){
   const data = loadData();
   const txs = (data.transactions||[]).filter(t=>(t.date||'').startsWith(selectedMonth));
 
-  let income=0, expense=0, invest=0;
+  let income=0, expense=0, invest=0, expenseHogar=0, expensePersonal=0;
   txs.forEach(t=>{
     const a = parseFloat(t.amount)||0;
     if(t.type==='ingreso') income+=a;
     else if(t.type==='inversion') invest+=a;
-    else if(t.type==='gasto'||t.type==='suscripcion'||t.type==='hipoteca') expense+=a;
+    else if(t.type==='gasto'||t.type==='suscripcion'||t.type==='hipoteca'){
+      expense+=a;
+      if(t.isHogar||t.hogar==true) expenseHogar+=a; else expensePersonal+=a;
+    }
   });
 
   const es = lang==='es';
   document.getElementById('sumGrid').innerHTML = `
     <div class="sum-card"><div class="sum-val" style="color:var(--g-main)">${fmt(income)}</div><div class="sum-lbl">${es?'Ingresos':'Income'}</div></div>
-    <div class="sum-card"><div class="sum-val" style="color:var(--red)">${fmt(expense)}</div><div class="sum-lbl">${es?'Gastos':'Expenses'}</div></div>
+    <div class="sum-card">
+      <div class="sum-val" style="color:var(--red)">${fmt(expense)}</div>
+      <div class="sum-lbl">${es?'Gastos':'Expenses'}</div>
+      <div style="font-size:9.5px;color:var(--text3);margin-top:3px;white-space:nowrap">🏠 ${fmt(expenseHogar)} · 👤 ${fmt(expensePersonal)}</div>
+    </div>
     <div class="sum-card"><div class="sum-val" style="color:var(--blue)">${fmt(invest)}</div><div class="sum-lbl">${es?'Inversiones':'Investments'}</div></div>
   `;
 
