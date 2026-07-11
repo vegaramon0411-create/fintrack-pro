@@ -359,13 +359,19 @@ function computeHealthScore(stats){
 /* ── RENDER ── */
 function render(){
   const es = lang==='es';
+  const isPremiumUser = (() => {
+    try {
+      const p = JSON.parse(localStorage.getItem('ft_premium')||sessionStorage.getItem('ft_premium')||'{}');
+      return p.plan === 'premium';
+    } catch(e){ return false; }
+  })();
   const stats = computeStats();
   const achievements = getAchievements(stats);
   const health = computeHealthScore(stats);
   const unlockedCount = achievements.filter(a=>a.unlocked).length;
 
   const T = lang==='es' ? {
-    memberSince:'Miembro desde', freePlan:'Plan Gratuito',
+    memberSince:'Miembro desde', freePlan:'Plan Gratuito', premiumPlan:'Plan Premium',
     statSaved:'Total ahorrado', statMonths:'Meses activo', statTx:'Registros totales', statDays:'Días con actividad',
     achievements:'Logros', unlockedOf:'de', achieved:'desbloqueados',
     healthTitle:'Salud financiera', editAvatar:'Cambiar avatar',
@@ -385,7 +391,7 @@ function render(){
     copyCode:'Copiar código', codeCopied:'¡Código copiado!',
     cancelInvite:'Cancelar invitación'
   } : {
-    memberSince:'Member since', freePlan:'Free Plan',
+    memberSince:'Member since', freePlan:'Free Plan', premiumPlan:'Premium Plan',
     statSaved:'Total saved', statMonths:'Months active', statTx:'Total entries', statDays:'Days with activity',
     achievements:'Achievements', unlockedOf:'of', achieved:'unlocked',
     healthTitle:'Financial health', editAvatar:'Change avatar',
@@ -473,7 +479,7 @@ function render(){
       <div class="profile-name">${user.name||''}</div>
       <div class="profile-email">${user.email||''}</div>
       <div class="profile-since">📅 ${T.memberSince} ${since}</div>
-      <div class="profile-tier">⭐ ${T.freePlan}</div>
+      <div class="profile-tier">${isPremiumUser?'💎':'⭐'} ${isPremiumUser?T.premiumPlan:T.freePlan}</div>
     </div>
   </div>
 

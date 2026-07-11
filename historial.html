@@ -166,6 +166,7 @@ input, select, textarea { font-size: 16px !important; }
       <div class="more-item" onclick="go('analisis.html')"><div class="more-ico" style="background:var(--g-light)">📈</div><span data-es="Análisis" data-en="Analysis">Análisis</span></div>
       <div class="more-item" onclick="go('metas.html')"><div class="more-ico" style="background:var(--amb-dim)">🎯</div><span data-es="Metas" data-en="Goals">Metas</span></div>
       <div class="more-item" onclick="go('deudas.html')"><div class="more-ico" style="background:var(--red-dim)">💳</div><span data-es="Deudas" data-en="Debts">Deudas</span></div>
+      <div class="more-item" onclick="go('ahorro.html')"><div class="more-ico" style="background:var(--pur-dim,rgba(123,94,167,.1))">💵</div><span data-es="Ahorro libre" data-en="Free savings">Ahorro libre</span></div>
       <div class="more-item" onclick="go('inversiones.html')"><div class="more-ico" style="background:var(--blu-dim)">🏦</div><span data-es="Inversiones" data-en="Investments">Inversiones</span></div>
       <div class="more-item" onclick="go('scanner.html')"><div class="more-ico" style="background:rgba(123,94,167,.1)">📷</div><span data-es="Escanear" data-en="Scan">Escanear</span></div>
       <div class="more-item" onclick="go('importar.html')"><div class="more-ico" style="background:var(--blu-dim)">📥</div><span data-es="Importar CSV" data-en="Import CSV">Importar CSV</span></div>
@@ -258,20 +259,45 @@ function render(){
 
   const data = loadData();
   const txs = (data.transactions||[]).filter(t=>(t.date||'').startsWith(selectedMonth));
+  const es = lang==='es';
 
-  let income=0, expense=0, invest=0;
+  // ── Personal (excluye todo lo marcado "del hogar") ──
+  let pIncome=0, pExpense=0, pInvest=0;
+  // ── Del hogar (solo lo marcado hogar:true) ──
+  let hAportado=0, hGastado=0, hIngreso=0;
+
   txs.forEach(t=>{
     const a = parseFloat(t.amount)||0;
-    if(t.type==='ingreso') income+=a;
-    else if(t.type==='inversion') invest+=a;
-    else if(t.type==='gasto'||t.type==='suscripcion'||t.type==='hipoteca') expense+=a;
+    const esHogarTx = t.isHogar||t.hogar==true;
+    if(t.type==='ingreso'){
+      if(esHogarTx) hIngreso+=a; else pIncome+=a;
+    } else if(t.type==='inversion'){
+      pInvest+=a; // las inversiones siempre son personales en este modelo
+    } else if(t.type==='ahorro'){
+      if(esHogarTx) hAportado+=a;
+    } else if(t.type==='gasto'||t.type==='suscripcion'||t.type==='hipoteca'){
+      if(esHogarTx) hGastado+=a; else pExpense+=a;
+    }
   });
 
-  const es = lang==='es';
+  const totalIncome = pIncome + hIngreso;
+  const totalExpense = pExpense + hGastado;
+
   document.getElementById('sumGrid').innerHTML = `
-    <div class="sum-card"><div class="sum-val" style="color:var(--g-main)">${fmt(income)}</div><div class="sum-lbl">${es?'Ingresos':'Income'}</div></div>
-    <div class="sum-card"><div class="sum-val" style="color:var(--red)">${fmt(expense)}</div><div class="sum-lbl">${es?'Gastos':'Expenses'}</div></div>
-    <div class="sum-card"><div class="sum-val" style="color:var(--blue)">${fmt(invest)}</div><div class="sum-lbl">${es?'Inversiones':'Investments'}</div></div>
+    <div style="grid-column:1/-1;font-size:10px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">👤 ${es?'Personal':'Personal'}</div>
+    <div class="sum-card"><div class="sum-val" style="color:var(--g-main)">${fmt(pIncome)}</div><div class="sum-lbl">${es?'Ingresos':'Income'}</div></div>
+    <div class="sum-card"><div class="sum-val" style="color:var(--red)">${fmt(pExpense)}</div><div class="sum-lbl">${es?'Gastos':'Expenses'}</div></div>
+    <div class="sum-card"><div class="sum-val" style="color:var(--blue)">${fmt(pInvest)}</div><div class="sum-lbl">${es?'Inversiones':'Investments'}</div></div>
+
+    <div style="grid-column:1/-1;font-size:10px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-top:12px;margin-bottom:2px">🏠 ${es?'Del hogar':'Household'}</div>
+    <div class="sum-card"><div class="sum-val" style="color:var(--g-main)">${fmt(hAportado)}</div><div class="sum-lbl">${es?'Aportado':'Contributed'}</div></div>
+    <div class="sum-card"><div class="sum-val" style="color:var(--red)">${fmt(hGastado)}</div><div class="sum-lbl">${es?'Gastos':'Expenses'}</div></div>
+    <div class="sum-card"><div class="sum-val" style="color:var(--blue)">${fmt(hIngreso)}</div><div class="sum-lbl">${es?'Ingreso':'Income'}</div></div>
+
+    <div style="grid-column:1/-1;display:flex;justify-content:space-between;font-size:10.5px;color:var(--text3);margin-top:10px;padding-top:8px;border-top:1px solid var(--off)">
+      <span>${es?'Total combinado':'Combined total'}</span>
+      <span style="font-weight:700">${es?'Ingresos':'Income'} ${fmt(totalIncome)} · ${es?'Gastos':'Expenses'} ${fmt(totalExpense)}</span>
+    </div>
   `;
 
   renderList();
