@@ -259,25 +259,18 @@ function render(){
   const data = loadData();
   const txs = (data.transactions||[]).filter(t=>(t.date||'').startsWith(selectedMonth));
 
-  let income=0, expense=0, invest=0, expenseHogar=0, expensePersonal=0;
+  let income=0, expense=0, invest=0;
   txs.forEach(t=>{
     const a = parseFloat(t.amount)||0;
     if(t.type==='ingreso') income+=a;
     else if(t.type==='inversion') invest+=a;
-    else if(t.type==='gasto'||t.type==='suscripcion'||t.type==='hipoteca'){
-      expense+=a;
-      if(t.isHogar||t.hogar==true) expenseHogar+=a; else expensePersonal+=a;
-    }
+    else if(t.type==='gasto'||t.type==='suscripcion'||t.type==='hipoteca') expense+=a;
   });
 
   const es = lang==='es';
   document.getElementById('sumGrid').innerHTML = `
     <div class="sum-card"><div class="sum-val" style="color:var(--g-main)">${fmt(income)}</div><div class="sum-lbl">${es?'Ingresos':'Income'}</div></div>
-    <div class="sum-card">
-      <div class="sum-val" style="color:var(--red)">${fmt(expense)}</div>
-      <div class="sum-lbl">${es?'Gastos':'Expenses'}</div>
-      <div style="font-size:9.5px;color:var(--text3);margin-top:3px;white-space:nowrap">🏠 ${fmt(expenseHogar)} · 👤 ${fmt(expensePersonal)}</div>
-    </div>
+    <div class="sum-card"><div class="sum-val" style="color:var(--red)">${fmt(expense)}</div><div class="sum-lbl">${es?'Gastos':'Expenses'}</div></div>
     <div class="sum-card"><div class="sum-val" style="color:var(--blue)">${fmt(invest)}</div><div class="sum-lbl">${es?'Inversiones':'Investments'}</div></div>
   `;
 
@@ -305,6 +298,19 @@ function renderList(){
 
   list.innerHTML = txs.map(t=>{
     const esHogarTx = t.isHogar||t.hogar==true;
+    let tagLabel, tagColor;
+    if(t.type==='ingreso'){
+      if(t.incomeKind==='extra'){
+        tagLabel = lang==='es' ? '🎁 Extra (100% tuyo)' : '🎁 Extra (100% yours)';
+        tagColor = 'var(--g-main)';
+      } else {
+        tagLabel = lang==='es' ? '🏠+👤 Cheque (se reparte)' : '🏠+👤 Paycheck (split)';
+        tagColor = 'var(--amber)';
+      }
+    } else {
+      tagLabel = esHogarTx ? (lang==='es'?'🏠 Hogar':'🏠 Household') : (lang==='es'?'👤 Personal':'👤 Personal');
+      tagColor = esHogarTx ? 'var(--g-main)' : 'var(--text3)';
+    }
     return `
     <div class="tx-item" onclick="showDetail('${t.id}')" style="cursor:pointer">
       <div class="tx-ico" style="background:${TYPE_BG[t.type]||'var(--off)'}">
@@ -312,7 +318,7 @@ function renderList(){
       </div>
       <div class="tx-info">
         <div class="tx-desc">${t.desc||t.description||'—'}</div>
-        <div class="tx-meta">${t.category||t.cat||t.type||'—'} · ${t.date||''} · <span style="font-weight:700;color:${esHogarTx?'var(--g-main)':'var(--text3)'}">${esHogarTx?(lang==='es'?'🏠 Hogar':'🏠 Household'):(lang==='es'?'👤 Personal':'👤 Personal')}</span></div>
+        <div class="tx-meta">${t.category||t.cat||t.type||'—'} · ${t.date||''} · <span style="font-weight:700;color:${tagColor}">${tagLabel}</span></div>
       </div>
       <div class="tx-amount" style="color:${t.type==='ingreso'?'var(--g-main)':'var(--red)'}">
         ${t.type==='ingreso'?'+':'-'}${fmt(parseFloat(t.amount)||0)}
