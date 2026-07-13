@@ -510,6 +510,49 @@ function render(){
     </div>
   </div>
 
+  <!-- PLAN DE PRESUPUESTO (50/30/20 y alternativas) -->
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-hd">🎯 ${es?'Tu plan de presupuesto':'Your budget plan'}</div>
+    <div style="font-size:11.5px;color:var(--text3);margin-bottom:14px">${es?'Cómo se reparte tu 40% personal (o tu ingreso completo si no tienes hogar conectado) entre necesidades, gustos y ahorro.':'How your personal 40% (or full income if no household connected) splits between needs, wants and savings.'}</div>
+
+    <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:800;background:var(--off);border-radius:10px;padding:10px 14px;margin-bottom:14px">
+      <span>${es?'Actual':'Current'}</span>
+      <span id="planCurrentSummary">—</span>
+    </div>
+
+    <label style="font-size:11px;font-weight:700;color:var(--text3);display:block;margin-bottom:6px">${es?'GASTOS FIJOS APROX. AL MES ($, opcional)':'APPROX. FIXED EXPENSES PER MONTH ($, optional)'}</label>
+    <div style="display:flex;gap:8px;margin-bottom:6px">
+      <input type="number" id="fixedExpensesInput" placeholder="${es?'Renta, comida, servicios...':'Rent, food, utilities...'}" min="0" step="50"
+        style="flex:1;padding:11px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;font-family:inherit;box-sizing:border-box">
+      <button onclick="recomputePlanRecommendation()" style="background:var(--g-main);color:white;border:none;border-radius:10px;padding:0 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">${es?'Calcular':'Calculate'}</button>
+    </div>
+    <div id="planRecommendation" style="display:none;font-size:12px;background:var(--g-light);color:var(--g-dark);border-radius:10px;padding:10px 12px;margin-bottom:14px;line-height:1.5"></div>
+
+    <label style="font-size:11px;font-weight:700;color:var(--text3);display:block;margin-bottom:8px">${es?'ELIGE UNA ESTRATEGIA':'CHOOSE A STRATEGY'}</label>
+    <div id="planPresets" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px"></div>
+
+    <div id="planCustomWrap" style="display:none;margin-bottom:10px">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">
+        <div>
+          <label style="font-size:10px;font-weight:700;color:var(--text3);display:block;margin-bottom:4px">${es?'Necesidades %':'Needs %'}</label>
+          <input type="number" id="planNeedsPct" min="0" max="100" style="width:100%;padding:9px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;text-align:center;box-sizing:border-box" oninput="updatePlanCustomPreview()">
+        </div>
+        <div>
+          <label style="font-size:10px;font-weight:700;color:var(--text3);display:block;margin-bottom:4px">${es?'Gustos %':'Wants %'}</label>
+          <input type="number" id="planWantsPct" min="0" max="100" style="width:100%;padding:9px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;text-align:center;box-sizing:border-box" oninput="updatePlanCustomPreview()">
+        </div>
+        <div>
+          <label style="font-size:10px;font-weight:700;color:var(--text3);display:block;margin-bottom:4px">${es?'Ahorro %':'Savings %'}</label>
+          <input type="number" id="planSavingsPct" min="0" max="100" style="width:100%;padding:9px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;text-align:center;box-sizing:border-box" oninput="updatePlanCustomPreview()">
+        </div>
+      </div>
+      <div id="planCustomWarning" style="display:none;font-size:11.5px;color:var(--amber);background:var(--amb-dim);border-radius:8px;padding:8px 10px;margin-bottom:8px"></div>
+      <div id="planCustomPreview" style="font-size:12px;color:var(--text2);margin-bottom:10px"></div>
+    </div>
+
+    <button onclick="savePlanChoice()" style="width:100%;background:var(--g-main);color:white;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">✅ ${es?'Guardar plan':'Save plan'}</button>
+  </div>
+
   <div class="grid-2">
 
     <!-- ACHIEVEMENTS -->
@@ -577,6 +620,7 @@ function render(){
     ${buildRecentActivity(T)}
   </div>
   `;
+  initPlanSection();
 }
 
 /* ══════════════════════════════════════════
@@ -999,6 +1043,156 @@ function saveIncome(){
 }
 function go(url){window.location.href=url;}
 function logout(){sessionStorage.clear();localStorage.removeItem('ft_premium');window.location.replace('login.html');}
+
+/* ══════════════════════════════════════════
+   PLAN DE PRESUPUESTO — presets reales + recomendación
+   Fuentes: 50/30/20 (E. Warren, "All Your Worth", 2005),
+   70/20/10, 60/20/20, 80/20 (John Hancock, PocketGuard, US Bank)
+══════════════════════════════════════════ */
+const BUDGET_PRESETS = [
+  { id:'50-30-20', needs:50, wants:30, savings:20, es:'50/30/20 Clásico', en:'50/30/20 Classic', descEs:'El más estudiado. Buen punto de partida si no sabes por dónde empezar.', descEn:'The most studied. Good starting point if you\'re not sure.' },
+  { id:'70-20-10', needs:70, wants:20, savings:10, es:'70/20/10', en:'70/20/10', descEs:'Más margen para lo esencial. Bueno si tus gastos fijos son altos o tu ciudad es cara.', descEn:'More room for essentials. Good for high-cost areas or high fixed costs.' },
+  { id:'60-20-20', needs:60, wants:20, savings:20, es:'60/20/20', en:'60/20/20', descEs:'Estructura balanceada. Bueno para ingresos duales o quien quiere orden sin sentirse encerrado.', descEn:'Balanced structure. Good for dual incomes or those wanting order without feeling boxed in.' },
+  { id:'80-20', needs:80, wants:0, savings:20, es:'80/20 Simple', en:'80/20 Simple', descEs:'Solo separas el 20% de ahorro; el resto lo gastas sin dividir por categoría.', descEn:'Just set aside 20% for savings; spend the rest without splitting into categories.' },
+];
+
+let planSelectedPreset = null;
+let planRecommendedId = null;
+
+function getPlanBase(){
+  const hogar = (() => { try{ return JSON.parse(localStorage.getItem('ft_hogar')||'{}'); }catch(e){ return {}; } })();
+  const hogarConn = hogar.connected && !hogar.manuallyLeft;
+  const persPct = hogarConn ? (100-(parseFloat(hogar.payPctHogar)||50)-(parseFloat(hogar.saveHogarPct)||10)) : 100;
+  const income = user.income||0;
+  return hogarConn ? income*persPct/100 : income;
+}
+
+function recomputePlanRecommendation(){
+  const es = lang==='es';
+  const base = getPlanBase();
+  const fixedInp = document.getElementById('fixedExpensesInput');
+  const fixed = parseFloat(fixedInp.value)||0;
+  const box = document.getElementById('planRecommendation');
+
+  if(fixed <= 0 || base <= 0){
+    box.style.display = 'none';
+    planRecommendedId = null;
+    renderPlanPresets();
+    return;
+  }
+
+  const fixedPct = Math.min(100, (fixed/base)*100);
+  let rec;
+  if(fixedPct > 65) rec = BUDGET_PRESETS[1]; // 70/20/10
+  else if(fixedPct > 50) rec = BUDGET_PRESETS[2]; // 60/20/20
+  else rec = BUDGET_PRESETS[0]; // 50/30/20
+
+  planRecommendedId = rec.id;
+  box.style.display = 'block';
+  box.innerHTML = `💡 ${es?`Tus gastos fijos son ~${Math.round(fixedPct)}% de tu base personal. Te recomendamos`:`Your fixed costs are ~${Math.round(fixedPct)}% of your personal base. We recommend`} <b>${es?rec.es:rec.en}</b>.`;
+  renderPlanPresets();
+}
+
+function renderPlanPresets(){
+  const es = lang==='es';
+  const cont = document.getElementById('planPresets');
+  if(!cont) return;
+  let html = BUDGET_PRESETS.map(p => {
+    const isRec = p.id === planRecommendedId;
+    const isSel = p.id === planSelectedPreset;
+    return `<button onclick="choosePlanPreset('${p.id}')" style="text-align:left;padding:10px;border-radius:10px;border:2px solid ${isSel?'var(--g-main)':'var(--border)'};background:${isSel?'var(--g-light)':'var(--off)'};cursor:pointer;font-family:inherit;position:relative">
+      ${isRec?`<div style="position:absolute;top:-8px;right:8px;background:var(--g-main);color:white;font-size:8.5px;font-weight:800;padding:2px 6px;border-radius:20px">${es?'RECOMENDADO':'RECOMMENDED'}</div>`:''}
+      <div style="font-size:12.5px;font-weight:800;margin-bottom:2px">${es?p.es:p.en}</div>
+      <div style="font-size:9.5px;color:var(--text3);margin-bottom:4px">${p.needs}/${p.wants}/${p.savings}</div>
+      <div style="font-size:9.5px;color:var(--text2);line-height:1.3">${es?p.descEs:p.descEn}</div>
+    </button>`;
+  }).join('');
+  html += `<button onclick="choosePlanPreset('custom')" style="text-align:left;padding:10px;border-radius:10px;border:2px solid ${planSelectedPreset==='custom'?'var(--g-main)':'var(--border)'};background:${planSelectedPreset==='custom'?'var(--g-light)':'var(--off)'};cursor:pointer;font-family:inherit;grid-column:span 2">
+    <div style="font-size:12.5px;font-weight:800;margin-bottom:2px">✏️ ${es?'Personalizado':'Custom'}</div>
+    <div style="font-size:9.5px;color:var(--text2)">${es?'Tú pones los números':'You set the numbers'}</div>
+  </button>`;
+  cont.innerHTML = html;
+  document.getElementById('planCustomWrap').style.display = planSelectedPreset==='custom' ? '' : 'none';
+}
+
+function choosePlanPreset(id){
+  planSelectedPreset = id;
+  if(id === 'custom'){
+    const base = getPlanBase();
+    document.getElementById('planNeedsPct').value = base>0 ? Math.round((user.needs||base*0.5)/base*100) : 50;
+    document.getElementById('planWantsPct').value = base>0 ? Math.round((user.wants||base*0.3)/base*100) : 30;
+    document.getElementById('planSavingsPct').value = base>0 ? Math.round((user.savings||base*0.2)/base*100) : 20;
+    updatePlanCustomPreview();
+  }
+  renderPlanPresets();
+}
+
+function updatePlanCustomPreview(){
+  const es = lang==='es';
+  const n = parseFloat(document.getElementById('planNeedsPct').value)||0;
+  const w = parseFloat(document.getElementById('planWantsPct').value)||0;
+  const s = parseFloat(document.getElementById('planSavingsPct').value)||0;
+  const total = n+w+s;
+  const warnEl = document.getElementById('planCustomWarning');
+  const previewEl = document.getElementById('planCustomPreview');
+  const base = getPlanBase();
+
+  let warnings = [];
+  if(total !== 100) warnings.push(es?`⚠️ Suma ${total}%, no 100%. Ajusta antes de guardar.`:`⚠️ Adds up to ${total}%, not 100%. Adjust before saving.`);
+  if(s > 0 && s < 5) warnings.push(es?'⚠️ Tu ahorro es muy bajo (<5%). Puedes seguir, pero considera subirlo si puedes.':'⚠️ Your savings is very low (<5%). You can proceed, but consider raising it if possible.');
+
+  if(warnings.length){
+    warnEl.style.display = 'block';
+    warnEl.innerHTML = warnings.join('<br>');
+  } else {
+    warnEl.style.display = 'none';
+  }
+
+  previewEl.textContent = base>0
+    ? (es?`Necesidades: ${fmt(base*n/100)} · Gustos: ${fmt(base*w/100)} · Ahorro: ${fmt(base*s/100)}`:`Needs: ${fmt(base*n/100)} · Wants: ${fmt(base*w/100)} · Savings: ${fmt(base*s/100)}`)
+    : '';
+}
+
+function savePlanChoice(){
+  const es = lang==='es';
+  const base = getPlanBase();
+  if(base <= 0){ showToast(es?'⚠️ Primero configura tu ingreso':'⚠️ Set your income first'); return; }
+
+  let n, w, s;
+  if(planSelectedPreset === 'custom'){
+    n = parseFloat(document.getElementById('planNeedsPct').value)||0;
+    w = parseFloat(document.getElementById('planWantsPct').value)||0;
+    s = parseFloat(document.getElementById('planSavingsPct').value)||0;
+    if(n+w+s !== 100){ showToast(es?'⚠️ Los porcentajes deben sumar 100%':'⚠️ Percentages must add up to 100%'); return; }
+  } else {
+    const preset = BUDGET_PRESETS.find(p=>p.id===planSelectedPreset);
+    if(!preset){ showToast(es?'⚠️ Elige una estrategia':'⚠️ Choose a strategy'); return; }
+    n = preset.needs; w = preset.wants; s = preset.savings;
+  }
+
+  user.needs = Math.round(base*n/100);
+  user.wants = Math.round(base*w/100);
+  user.savings = Math.round(base*s/100);
+  user.budgetPlan = planSelectedPreset;
+  const str = JSON.stringify(user);
+  localStorage.setItem('ft_user', str);
+  sessionStorage.setItem('ft_user', str);
+  showToast(es?'✅ Plan guardado':'✅ Plan saved');
+  render();
+}
+
+function initPlanSection(){
+  const base = getPlanBase();
+  const es = lang==='es';
+  planSelectedPreset = user.budgetPlan || null;
+  const summaryEl = document.getElementById('planCurrentSummary');
+  if(summaryEl){
+    summaryEl.textContent = base>0
+      ? `${fmt(user.needs||0)} / ${fmt(user.wants||0)} / ${fmt(user.savings||0)}`
+      : (es?'Sin configurar':'Not set');
+  }
+  renderPlanPresets();
+}
 
 (function init(){
   try {
