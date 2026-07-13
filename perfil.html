@@ -512,8 +512,27 @@ function render(){
 
   <!-- PLAN DE PRESUPUESTO (50/30/20 y alternativas) -->
   <div class="card" style="margin-bottom:14px">
+    ${_hogarConn ? `
+    <div style="margin-bottom:18px;padding-bottom:18px;border-bottom:1px solid var(--off)">
+      <div class="card-hd" style="margin-bottom:6px">🏠 ${es?'¿Cuánto va a la casa?':'How much goes to the household?'}</div>
+      <div style="font-size:11.5px;color:var(--text3);margin-bottom:12px">${es?'De cada cheque de sueldo (no de ingresos extra). El resto es tu 40% personal.':'From each paycheck (not extra income). The rest is your personal share.'}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">
+        <div>
+          <label style="font-size:10px;font-weight:700;color:var(--text3);display:block;margin-bottom:4px">${es?'Necesidades del hogar %':'Household needs %'}</label>
+          <input type="number" id="hogarPayPct" min="0" max="100" value="${_hogar.payPctHogar||50}" style="width:100%;padding:9px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;text-align:center;box-sizing:border-box" oninput="updateHogarPctPreview()">
+        </div>
+        <div>
+          <label style="font-size:10px;font-weight:700;color:var(--text3);display:block;margin-bottom:4px">${es?'Ahorro del hogar %':'Household savings %'}</label>
+          <input type="number" id="hogarSavePct" min="0" max="100" value="${_hogar.saveHogarPct||10}" style="width:100%;padding:9px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;text-align:center;box-sizing:border-box" oninput="updateHogarPctPreview()">
+        </div>
+      </div>
+      <div id="hogarPctPreview" style="font-size:11.5px;color:var(--text2);margin-bottom:8px"></div>
+      <div id="hogarPctWarning" style="display:none;font-size:11.5px;color:var(--amber);background:var(--amb-dim);border-radius:8px;padding:8px 10px;margin-bottom:8px"></div>
+      <button onclick="saveHogarPct()" style="width:100%;background:var(--off);border:1.5px solid var(--border);color:var(--text);border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">${es?'Guardar % de hogar':'Save household %'}</button>
+    </div>` : ''}
+
     <div class="card-hd">🎯 ${es?'Tu plan de presupuesto':'Your budget plan'}</div>
-    <div style="font-size:11.5px;color:var(--text3);margin-bottom:14px">${es?'Cómo se reparte tu 40% personal (o tu ingreso completo si no tienes hogar conectado) entre necesidades, gustos y ahorro.':'How your personal 40% (or full income if no household connected) splits between needs, wants and savings.'}</div>
+    <div style="font-size:11.5px;color:var(--text3);margin-bottom:14px">${es?'Cómo se reparte tu 40% personal (o tu ingreso completo si no tienes hogar conectado) entre necesidades, gustos y ahorro. Se aplica automático cada vez que registras un cheque — al estilo "págate primero".':'How your personal 40% (or full income if no household connected) splits between needs, wants and savings. Applied automatically each time you register a paycheck — "pay yourself first" style.'}</div>
 
     <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:800;background:var(--off);border-radius:10px;padding:10px 14px;margin-bottom:14px">
       <span>${es?'Actual':'Current'}</span>
@@ -1041,6 +1060,39 @@ function saveIncome(){
   showToast(lang==='es'?'✅ Ingreso actualizado':'✅ Income updated');
   render();
 }
+function updateHogarPctPreview(){
+  const es = lang==='es';
+  const pay = parseFloat(document.getElementById('hogarPayPct').value)||0;
+  const save = parseFloat(document.getElementById('hogarSavePct').value)||0;
+  const hogarTotal = pay+save;
+  const persTotal = 100-hogarTotal;
+  const income = user.income||0;
+
+  const warnEl = document.getElementById('hogarPctWarning');
+  let warnings = [];
+  if(hogarTotal >= 100) warnings.push(es?'⚠️ No te dejaría nada personal. Baja el % de hogar.':'⚠️ This would leave you nothing personal. Lower the household %.');
+  if(persTotal > 0 && persTotal < 15) warnings.push(es?'⚠️ Tu parte personal quedaría muy baja (<15%).':'⚠️ Your personal share would be very low (<15%).');
+  if(warnings.length){ warnEl.style.display='block'; warnEl.innerHTML = warnings.join('<br>'); }
+  else warnEl.style.display = 'none';
+
+  document.getElementById('hogarPctPreview').textContent = income>0
+    ? (es?`De cada $${income.toLocaleString()}: ${fmt(income*hogarTotal/100)} al hogar · ${fmt(income*persTotal/100)} personal`:`From each $${income.toLocaleString()}: ${fmt(income*hogarTotal/100)} household · ${fmt(income*persTotal/100)} personal`)
+    : '';
+}
+
+function saveHogarPct(){
+  const es = lang==='es';
+  const pay = parseFloat(document.getElementById('hogarPayPct').value)||0;
+  const save = parseFloat(document.getElementById('hogarSavePct').value)||0;
+  if(pay+save >= 100){ showToast(es?'⚠️ El total debe ser menor a 100%':'⚠️ Total must be less than 100%'); return; }
+  const hogar = (() => { try{ return JSON.parse(localStorage.getItem('ft_hogar')||'{}'); }catch(e){ return {}; } })();
+  hogar.payPctHogar = pay;
+  hogar.saveHogarPct = save;
+  localStorage.setItem('ft_hogar', JSON.stringify(hogar));
+  showToast(es?'✅ % de hogar guardado':'✅ Household % saved');
+  render();
+}
+
 function go(url){window.location.href=url;}
 function logout(){sessionStorage.clear();localStorage.removeItem('ft_premium');window.location.replace('login.html');}
 
@@ -1173,6 +1225,9 @@ function savePlanChoice(){
   user.needs = Math.round(base*n/100);
   user.wants = Math.round(base*w/100);
   user.savings = Math.round(base*s/100);
+  user.needsPct = n;
+  user.wantsPct = w;
+  user.savingsPct = s;
   user.budgetPlan = planSelectedPreset;
   const str = JSON.stringify(user);
   localStorage.setItem('ft_user', str);

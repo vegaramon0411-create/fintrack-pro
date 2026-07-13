@@ -1612,21 +1612,38 @@ function guardarCheque(){
   localStorage.setItem('ft_cheques',JSON.stringify(cheques));
 
   // Si es pago nuevo → registrar como ingreso en ft_data
+  let autoSavedAmt = 0;
   if(chequeType==='nuevo'){
     const data = JSON.parse(localStorage.getItem('ft_data')||'{}');
     data.transactions = data.transactions||[];
     data.transactions.push({
       id:Date.now(), type:'ingreso',
       desc:es?'Cheque recibido':'Paycheck received',
-      amount:monto, date:fecha, cat:'💰 Ingreso', createdBy: user.name||''
+      amount:monto, date:fecha, cat:'💰 Ingreso', incomeKind:'cheque', createdBy: user.name||''
     });
     localStorage.setItem('ft_data',JSON.stringify(data));
+
+    // "Págate primero": aparta tu % de ahorro personal AL MOMENTO, no al final del mes
+    const savingsPct = user.savingsPct!=null ? user.savingsPct : 20;
+    autoSavedAmt = Math.round(personalAmt * savingsPct/100);
+    if(autoSavedAmt > 0){
+      const cur = parseFloat(localStorage.getItem('ft_available_savings')||'0');
+      localStorage.setItem('ft_available_savings', (cur+autoSavedAmt).toFixed(2));
+      const hist = JSON.parse(localStorage.getItem('ft_savings_hist')||'[]');
+      const savId = Date.now()+1;
+      hist.push({ id:'tx_'+savId, tipo:'deposito', monto:autoSavedAmt, fecha, nota: es?'Págate primero (automático del cheque)':'Pay yourself first (automatic from paycheck)', cat:'' });
+      localStorage.setItem('ft_savings_hist', JSON.stringify(hist));
+      const data2 = JSON.parse(localStorage.getItem('ft_data')||'{}');
+      data2.transactions = data2.transactions||[];
+      data2.transactions.push({ id:savId, type:'ahorro', desc:es?'Ahorro automático del cheque':'Automatic paycheck savings', amount:autoSavedAmt, date:fecha, cat:'💰 Ahorro', dest:'libre', createdBy:user.name||'' });
+      localStorage.setItem('ft_data', JSON.stringify(data2));
+    }
   }
 
   closeChequeModal();
   showToast(es
-    ?`✅ $${monto.toFixed(2)} registrado · $${personalAmt.toFixed(2)} a tu cuenta personal`
-    :`✅ $${monto.toFixed(2)} registered · $${personalAmt.toFixed(2)} to personal account`);
+    ?`✅ $${monto.toFixed(2)} registrado · $${personalAmt.toFixed(2)} a tu cuenta personal${autoSavedAmt>0?` · $${autoSavedAmt.toFixed(2)} a Ahorro libre`:''}`
+    :`✅ $${monto.toFixed(2)} registered · $${personalAmt.toFixed(2)} to personal account${autoSavedAmt>0?` · $${autoSavedAmt.toFixed(2)} to Free savings`:''}`);
   renderDashboard();
 }
 
@@ -1922,10 +1939,11 @@ function updateHeroDinero(){
   const myChequeReceivedNow = _incomeTxsNow.filter(t=>t.incomeKind!=='extra').reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
   const myExtraReceivedNow = _incomeTxsNow.filter(t=>t.incomeKind==='extra').reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
 
-  // "Disponible personal" = 40% del cheque + 100% del dinero extra, menos lo gastado — puede ir negativo
+  // "Disponible personal" = 40% del cheque + 100% del dinero extra, menos lo gastado y lo ya apartado (págate primero) — puede ir negativo
   const personalBudget2 = hogarConn ? (myChequeReceivedNow * persPct2/100 + myExtraReceivedNow) : income;
   const personalGastado2 = personalSpent;
-  const personalDisponible2 = personalBudget2 - personalGastado2; // puede ser negativo
+  const _personalAhorroNow = (totals.txs||[]).filter(t=>t.type==='ahorro' && !(t.hogar==true)).reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
+  const personalDisponible2 = personalBudget2 - personalGastado2 - _personalAhorroNow - (totals.inversion||0); // puede ser negativo
   const patrimony = availSavings + emergency + totalInvested + (hogarConn ? personalDisponible2 : Math.max(0,personalDisponible2));
 
   // "Sobró este mes" solo si el disponible real es positivo
@@ -3304,15 +3322,16 @@ function renderMiDineroTab(){
   const householdLeft = Math.max(0, householdBudget - householdSpent);
   const householdPct = householdBudget > 0 ? Math.min((householdSpent/householdBudget)*100, 100) : 0;
 
-  // Disponible personal = 40% de lo YA recibido este mes - lo que ya gasté personal (sin incluir hogar)
+  // Disponible personal = 40% del cheque + 100% del extra - gastado - ya apartado (págate primero)
   const persPct = hogarConnected ? (100 - hogarPctTotal) : 100;
   const _mesActualR = _mesActual;
-  const myIncomeReceivedTab = (loadData().transactions||[])
-    .filter(t=>t.type==='ingreso' && String(t.date||'').startsWith(_mesActualR))
-    .reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
-  const personalBudget = hogarConnected ? (myIncomeReceivedTab * persPct/100) : income;
+  const _incomeTxsTab = (loadData().transactions||[]).filter(t=>t.type==='ingreso' && String(t.date||'').startsWith(_mesActualR));
+  const myChequeReceivedTab = _incomeTxsTab.filter(t=>t.incomeKind!=='extra').reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
+  const myExtraReceivedTab = _incomeTxsTab.filter(t=>t.incomeKind==='extra').reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
+  const personalBudget = hogarConnected ? (myChequeReceivedTab * persPct/100 + myExtraReceivedTab) : income;
   const personalGastado = personalNeedsSpent + personalWantsSpent;
-  const personalDisponibleRaw = personalBudget - personalGastado; // puede ser negativo
+  const _personalAhorroTab = (totals.txs||[]).filter(t=>t.type==='ahorro' && !(t.hogar==true)).reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
+  const personalDisponibleRaw = personalBudget - personalGastado - _personalAhorroTab - (totals.inversion||0); // puede ser negativo
   const personalOverspend = Math.max(0, -personalDisponibleRaw); // lo que se pasó del 40%
   const personalDisponible = personalDisponibleRaw; // se muestra tal cual, puede ser negativo
   const personalGastadoPct = personalBudget > 0 ? Math.min((personalGastado/personalBudget)*100, 100) : 0;
