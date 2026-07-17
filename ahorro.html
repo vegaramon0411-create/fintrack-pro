@@ -155,6 +155,20 @@ input, select, textarea { font-size: 16px !important; }
       <label data-es="Fecha" data-en="Date">Fecha</label>
       <input type="date" id="mDate">
     </div>
+    <div class="field" id="ahorroRecurrenteField" style="background:var(--off);border-radius:10px;padding:12px">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12.5px;font-weight:700" onclick="event.preventDefault();document.getElementById('ahorroRecurrenteCheck').click()">
+        <input type="checkbox" id="ahorroRecurrenteCheck" style="width:16px;height:16px" onclick="event.stopPropagation();toggleAhorroRecurrenteFreq()">
+        <span data-es="🔄 Hacer este depósito recurrente" data-en="🔄 Make this deposit recurring">🔄 Hacer este depósito recurrente</span>
+      </label>
+      <div id="ahorroRecurrenteFreqWrap" style="display:none;margin-top:10px">
+        <select id="ahorroRecurrenteFreq" style="width:100%;padding:9px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit">
+          <option value="weekly" data-es="Cada semana" data-en="Every week">Cada semana</option>
+          <option value="biweekly" data-es="Cada quincena" data-en="Every two weeks">Cada quincena</option>
+          <option value="monthly" selected data-es="Cada mes" data-en="Every month">Cada mes</option>
+        </select>
+        <div style="font-size:10.5px;color:var(--text3);margin-top:6px" data-es="Se aplicará solo, sin que tengas que volver a entrar." data-en="Applies automatically, no need to come back and confirm.">Se aplicará solo, sin que tengas que volver a entrar.</div>
+      </div>
+    </div>
     <button class="btn btn-primary" onclick="saveEntry()" style="width:100%;margin-bottom:8px" id="btnSave" data-es="Guardar" data-en="Save">Guardar</button>
     <button class="btn" onclick="closeModal()" style="width:100%;background:var(--off);border:1.5px solid var(--border)" data-es="Cancelar" data-en="Cancel">Cancelar</button>
   </div>
@@ -342,6 +356,9 @@ function setModalTab(tab){
   const catField=document.getElementById('catGrid').parentElement;
   catField.style.display=isDep?'':'none';
   if(isDep) renderCats();
+  document.getElementById('ahorroRecurrenteField').style.display = isDep ? '' : 'none';
+  document.getElementById('ahorroRecurrenteCheck').checked = false;
+  document.getElementById('ahorroRecurrenteFreqWrap').style.display = 'none';
 }
 
 function renderCats(){
@@ -353,6 +370,11 @@ function renderCats(){
 function selectCat(c){
   selectedCat=c;
   renderCats();
+}
+
+function toggleAhorroRecurrenteFreq(){
+  const chk = document.getElementById('ahorroRecurrenteCheck');
+  document.getElementById('ahorroRecurrenteFreqWrap').style.display = chk.checked ? '' : 'none';
 }
 
 function saveEntry(){
@@ -374,8 +396,24 @@ function saveEntry(){
   hist.push({id:Date.now(),tipo:modalTab,monto:amt,nota,fecha,cat:isRet?'':selectedCat});
   saveHist(hist);
 
+  // Crear recurrente si el usuario lo pidió (solo para depósitos)
+  const wantsRecurrente = !isRet && document.getElementById('ahorroRecurrenteCheck')?.checked;
+  if(wantsRecurrente){
+    const freq = document.getElementById('ahorroRecurrenteFreq').value;
+    const nextDate = (function(freq, fromDateStr){
+      const dt = new Date(fromDateStr+'T00:00:00');
+      if(freq==='weekly') dt.setDate(dt.getDate()+7);
+      else if(freq==='biweekly') dt.setDate(dt.getDate()+14);
+      else dt.setMonth(dt.getMonth()+1);
+      return dt.toISOString().split('T')[0];
+    })(freq, fecha);
+    const recurring = JSON.parse(localStorage.getItem('ft_recurring')||'[]');
+    recurring.push({ id:'rec_'+Date.now(), kind:'ahorro', desc:nota||(es?'Ahorro libre':'Free savings'), amount:amt, freq, hogar:false, dest:'libre', nextDate, active:true, createdBy:(JSON.parse(localStorage.getItem('ft_user')||'{}').name)||'' });
+    localStorage.setItem('ft_recurring', JSON.stringify(recurring));
+  }
+
   closeModal();
-  showToast(isRet?(es?`✅ -${fmt(amt)} retirado`:`✅ -${fmt(amt)} withdrawn`):(es?`✅ +${fmt(amt)} depositado`:`✅ +${fmt(amt)} deposited`));
+  showToast(isRet?(es?`✅ -${fmt(amt)} retirado`:`✅ -${fmt(amt)} withdrawn`):(es?`✅ +${fmt(amt)} depositado${wantsRecurrente?' · 🔄 recurrente activado':''}`:`✅ +${fmt(amt)} deposited${wantsRecurrente?' · 🔄 recurring enabled':''}`));
   render();
 }
 

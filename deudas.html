@@ -326,6 +326,20 @@ input, select, textarea { font-size: 16px !important; }
       <label style="display:block;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px" data-es="Nota (opcional)" data-en="Note (optional)">Nota (opcional)</label>
       <input type="text" id="abonarNota" placeholder="" style="width:100%;background:var(--off);border:1.5px solid var(--border);border-radius:10px;padding:11px 13px;font-size:14px;font-family:inherit;outline:none">
     </div>
+    <div style="margin-bottom:16px;background:var(--off);border-radius:10px;padding:12px">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12.5px;font-weight:700" onclick="event.preventDefault();document.getElementById('abonarRecurrenteCheck').click()">
+        <input type="checkbox" id="abonarRecurrenteCheck" style="width:16px;height:16px" onclick="event.stopPropagation();toggleAbonoRecurrenteFreq()">
+        <span data-es="🔄 Hacer este abono recurrente" data-en="🔄 Make this payment recurring">🔄 Hacer este abono recurrente</span>
+      </label>
+      <div id="abonoRecurrenteFreqWrap" style="display:none;margin-top:10px">
+        <select id="abonoRecurrenteFreq" style="width:100%;padding:9px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit">
+          <option value="weekly" data-es="Cada semana" data-en="Every week">Cada semana</option>
+          <option value="biweekly" data-es="Cada quincena" data-en="Every two weeks">Cada quincena</option>
+          <option value="monthly" selected data-es="Cada mes" data-en="Every month">Cada mes</option>
+        </select>
+        <div style="font-size:10.5px;color:var(--text3);margin-top:6px" data-es="Se aplicará solo, sin que tengas que volver a entrar." data-en="Applies automatically, no need to come back and confirm.">Se aplicará solo, sin que tengas que volver a entrar.</div>
+      </div>
+    </div>
     <button onclick="guardarAbono()" style="width:100%;background:var(--g-main);color:white;border:none;border-radius:12px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:8px" data-es="✅ Registrar abono" data-en="✅ Register payment">✅ Registrar abono</button>
     <button onclick="closeAbonar()" style="width:100%;background:var(--off);border:1.5px solid var(--border);border-radius:12px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit" data-es="Cancelar" data-en="Cancel">Cancelar</button>
   </div>
@@ -1345,6 +1359,11 @@ function updateAbonarInfo(){
   if(d) showAbonarInfo(d);
 }
 
+function toggleAbonoRecurrenteFreq(){
+  const chk = document.getElementById('abonarRecurrenteCheck');
+  document.getElementById('abonoRecurrenteFreqWrap').style.display = chk.checked ? '' : 'none';
+}
+
 function guardarAbono(){
   const es = lang==='es';
   const overlay = document.getElementById('abonarOverlay');
@@ -1389,8 +1408,26 @@ function guardarAbono(){
   debts[idx].abonos.push({ id:abonoId, monto, fecha, nota, saldoAntes:oldBalance, saldoDespues:newBalance, tipo:abonoTipo, createdBy:user.name||'', txId:linkedTxId });
 
   saveDebts(debts);
+
+  // Crear recurrente si el usuario lo pidió
+  const wantsRecurrente = document.getElementById('abonarRecurrenteCheck')?.checked;
+  if(wantsRecurrente){
+    const freq = document.getElementById('abonoRecurrenteFreq').value;
+    const esHogarRec = d.type==='hipoteca' || d.type==='hogar';
+    const nextDate = (function(freq, fromDateStr){
+      const dt = new Date(fromDateStr+'T00:00:00');
+      if(freq==='weekly') dt.setDate(dt.getDate()+7);
+      else if(freq==='biweekly') dt.setDate(dt.getDate()+14);
+      else dt.setMonth(dt.getMonth()+1);
+      return dt.toISOString().split('T')[0];
+    })(freq, fecha);
+    const recurring = JSON.parse(localStorage.getItem('ft_recurring')||'[]');
+    recurring.push({ id:'rec_'+Date.now(), kind:'debt', debtId:d.id, amount:monto, freq, hogar:esHogarRec, nextDate, active:true, createdBy:user.name||'' });
+    localStorage.setItem('ft_recurring', JSON.stringify(recurring));
+  }
+
   closeAbonar();
-  showToast(es?`✅ Abono de ${fmt(monto)} registrado · Nuevo saldo: ${fmt(newBalance)}`:`✅ Payment of ${fmt(monto)} registered · New balance: ${fmt(newBalance)}`, 4000);
+  showToast(es?`✅ Abono de ${fmt(monto)} registrado · Nuevo saldo: ${fmt(newBalance)}${wantsRecurrente?' · 🔄 recurrente activado':''}`:`✅ Payment of ${fmt(monto)} registered · New balance: ${fmt(newBalance)}${wantsRecurrente?' · 🔄 recurring enabled':''}`, 4000);
   render();
 }
 

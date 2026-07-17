@@ -610,14 +610,23 @@ function saveInv(){
       }catch(e){}
     }
 
-    // Si es recurrente → guardar en ft_inv_recurrentes
+    // Si es recurrente → auto-aplica solo (motor unificado ft_recurring), ya no solo un recordatorio
     if(esRecurrente){
       try{
-        var recs=JSON.parse(localStorage.getItem('ft_inv_recurrentes')||'[]');
-        recs.push({id:'r_'+Date.now(),ticker:ticker,type:type,amount:amount,platform:platform,freq:invFreq,activo:true,addedAt:new Date().toISOString()});
-        localStorage.setItem('ft_inv_recurrentes',JSON.stringify(recs));
+        const freqMap = {semanal:'weekly', quincenal:'biweekly', mensual:'monthly', weekly:'weekly', biweekly:'biweekly', monthly:'monthly'};
+        const freqKey = freqMap[invFreq] || 'monthly';
+        const nextDate = (function(freq, fromDateStr){
+          const dt = new Date(fromDateStr+'T00:00:00');
+          if(freq==='weekly') dt.setDate(dt.getDate()+7);
+          else if(freq==='biweekly') dt.setDate(dt.getDate()+14);
+          else dt.setMonth(dt.getMonth()+1);
+          return dt.toISOString().split('T')[0];
+        })(freqKey, new Date().toISOString().split('T')[0]);
+        const recurring = JSON.parse(localStorage.getItem('ft_recurring')||'[]');
+        recurring.push({ id:'rec_'+Date.now(), kind:'inversion', desc:ticker, amount:amount, freq:freqKey, hogar:invIsHogar&&isHogarConnected(), nextDate, active:true, createdBy:user.name||'' });
+        localStorage.setItem('ft_recurring', JSON.stringify(recurring));
       }catch(e){}
-      showToast(lang==='es'?('Inversion guardada + recordatorio '+invFreq):'Investment saved + reminder set');
+      showToast(lang==='es'?('🔄 Inversión recurrente activada — se aplicará sola cada '+invFreq):'🔄 Recurring investment enabled — applies automatically each '+invFreq);
     } else {
       showToast(lang==='es'?(invModo==='nueva'?'Nueva inversion registrada':'Inversion capturada'):(invModo==='nueva'?'Investment registered':'Investment captured'));
     }

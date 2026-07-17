@@ -3170,15 +3170,23 @@ document.getElementById('chequeGuardarBtn').addEventListener('click', guardarChe
 document.getElementById('chequeMonto').addEventListener('input', updateChequePreview);
 document.getElementById('chequeModal').addEventListener('click', function(e){ if(e.target===this) closeChequeModal(); });
 
-// Auto-registro si es día de pago y está activado
+// Auto-registro si es día de pago y está activado — se registra solo, sin pedir confirmación
 (function checkAutoPayday(){
   if(!user.payAuto) return;
   if(!isPayDay()) return;
-  const mes = new Date().getFullYear()+'-'+String(new Date().getMonth()+1).padStart(2,'0');
   const hoy = new Date().toISOString().split('T')[0];
   const cheques = JSON.parse(localStorage.getItem('ft_cheques')||'[]');
   const yaHoy = cheques.some(c=>c.fecha===hoy);
-  if(!yaHoy) setTimeout(()=>openChequeModal(), 1000);
+  if(yaHoy) return;
+  setTimeout(()=>{
+    const freq = user.payFreq||'weekly';
+    const checks = freq==='weekly'?4:freq==='biweekly'?2:1;
+    const expected = (user.income||0) / checks;
+    if(expected <= 0) return; // sin ingreso configurado, no se puede auto-registrar
+    document.getElementById('chequeMonto').value = expected.toFixed(2);
+    chequeType = 'nuevo';
+    guardarCheque();
+  }, 800);
 })();
 
 // Auto-sync profile to GAS if user is part of a household

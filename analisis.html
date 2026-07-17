@@ -343,10 +343,38 @@ function render(){
       ${diagnosisMsg?`<div style="font-size:11.5px;color:var(--text2);margin-top:10px;padding-top:10px;border-top:1px solid rgba(0,0,0,.08);line-height:1.5">💬 ${diagnosisMsg}</div>`:''}
     </div>` : '';
 
+  // ── Actividad recurrente automática este mes ──
+  const autoTxs = txs.filter(t=>t.autoRecurring===true).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const autoTotal = autoTxs.reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
+  const recurringCard = autoTxs.length ? `
+    <div class="card">
+      <div style="font-size:13px;font-weight:800;margin-bottom:4px">🔄 ${es?'Automático este mes':'Automatic this month'}</div>
+      <div style="font-size:10.5px;color:var(--text3);margin-bottom:12px">${es?'Esto se aplicó solo, sin que tuvieras que entrar — así vas a ir todo el mes.':'This applied automatically, without you having to check in — this is how it goes all month.'}</div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;background:var(--off);border-radius:10px;padding:10px 12px;margin-bottom:10px">
+        <span>${es?'Total automático':'Automatic total'}</span>
+        <span>${fmt(autoTotal)}</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        ${autoTxs.map(t=>{
+          const kindIco = t.type==='gasto'?'💳':t.type==='ahorro'?'💰':t.type==='inversion'?'📈':'📝';
+          const hogarTag = t.hogar==true ? '🏠' : '👤';
+          return `<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--off)">
+            <div style="font-size:16px;flex-shrink:0">${kindIco}</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:12px;font-weight:700">${t.desc||''}</div>
+              <div style="font-size:10px;color:var(--text3)">${hogarTag} ${t.hogar==true?(es?'Hogar':'Household'):(es?'Personal':'Personal')} · ${t.date||''}</div>
+            </div>
+            <div style="font-size:12.5px;font-weight:800;color:${t.type==='ingreso'?'var(--g-main)':'var(--red)'};flex-shrink:0">${t.type==='ingreso'?'+':'-'}${fmt(t.amount||0)}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>` : '';
+
   document.getElementById('content').innerHTML=`
     ${renderTrendChart(trend)}
     ${hogarExplainCard}
     ${statusCard}
+    ${recurringCard}
     <div class="card">
       <div style="font-size:13px;font-weight:800;margin-bottom:14px">📅 ${es?'Resumen del mes (personal)':'Month summary (personal)'}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
