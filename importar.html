@@ -1397,6 +1397,18 @@ function renderStep3(){
       <div class="rf-chip" onclick="setFilter('exclude',this)">🔴 ${lang==='es'?'Excluidas':'Excluded'} (${excluded})</div>
     </div>
 
+    <div style="background:var(--off);border-radius:10px;padding:10px;margin-bottom:10px">
+      <div style="font-size:10.5px;font-weight:700;color:var(--text3);margin-bottom:6px">📅 ${lang==='es'?'Filtrar por fecha':'Filter by date'}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        <input type="date" id="dateFilterFrom" style="padding:8px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-family:inherit" onchange="renderTxList()">
+        <input type="date" id="dateFilterTo" style="padding:8px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-family:inherit" onchange="renderTxList()">
+      </div>
+      <div style="display:flex;gap:8px">
+        <button onclick="toggleSelectAll(true,true)" class="btn-secondary" style="flex:1;padding:7px;font-size:10.5px">✅ ${lang==='es'?'Seleccionar rango visible':'Select visible range'}</button>
+        <button onclick="clearDateFilter()" class="btn-secondary" style="flex:1;padding:7px;font-size:10.5px">✕ ${lang==='es'?'Quitar filtro':'Clear filter'}</button>
+      </div>
+    </div>
+
     <div id="txList"></div>
 
     <div style="display:flex;gap:8px;margin-top:12px;border-top:1px solid var(--border);padding-top:12px">
@@ -1423,7 +1435,11 @@ function setFilter(f, el){
 
 function renderTxList(){
   const isFid = importMode === 'fidelity';
+  const dFrom = document.getElementById('dateFilterFrom')?.value || '';
+  const dTo = document.getElementById('dateFilterTo')?.value || '';
   const filtered = reviewRows.filter(r=>{
+    if(dFrom && r.date < dFrom) return false;
+    if(dTo && r.date > dTo) return false;
     if(activeFilter==='all') return true;
     if(activeFilter==='include') return r.selected;
     if(activeFilter==='decide') return r.status==='decide'||r.status==='pending';
@@ -1524,8 +1540,25 @@ function toggleRow(idx){
   renderTxList();
 }
 
-function toggleSelectAll(val){
-  reviewRows.forEach(r=>{ if(r.status!=='exclude') r.selected=val; });
+function toggleSelectAll(val, onlyVisible){
+  const dFrom = document.getElementById('dateFilterFrom')?.value || '';
+  const dTo = document.getElementById('dateFilterTo')?.value || '';
+  reviewRows.forEach(r=>{
+    if(r.status==='exclude') return;
+    if(onlyVisible){
+      if(dFrom && r.date < dFrom) return;
+      if(dTo && r.date > dTo) return;
+    }
+    r.selected=val;
+  });
+  renderTxList();
+}
+
+function clearDateFilter(){
+  const f = document.getElementById('dateFilterFrom');
+  const t = document.getElementById('dateFilterTo');
+  if(f) f.value = '';
+  if(t) t.value = '';
   renderTxList();
 }
 

@@ -540,10 +540,11 @@ function renderDashboard(hogar){
   const totalIncome = myIncome + partnerIncome;
 
   // Dinero real recibido este mes (ambos) vs bote actual real en cuenta
-  const myIncomeReceived = (loadMyData().transactions||[]).filter(t=>t.type==='ingreso' && String(t.date||'').startsWith(_nowY+'-'+String(_nowM+1).padStart(2,'0'))).reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
+  // Excluye "ingreso extra" — ese es 100% personal, nunca se reparte con el hogar
+  const myIncomeReceived = (loadMyData().transactions||[]).filter(t=>t.type==='ingreso' && t.incomeKind!=='extra' && String(t.date||'').startsWith(_nowY+'-'+String(_nowM+1).padStart(2,'0'))).reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
   const partnerIncomeReceived = partnerProfile && partnerProfile.data && partnerProfile.data.transactions
     ? (partnerProfile.data.transactions||[]).filter(t=>{
-        if(!t.date || t.type!=='ingreso') return false;
+        if(!t.date || t.type!=='ingreso' || t.incomeKind==='extra') return false;
         const p = String(t.date).split(/[-T]/);
         return parseInt(p[0])===_nowY && (parseInt(p[1])-1)===_nowM;
       }).reduce((a,t)=>a+(parseFloat(t.amount)||0),0)
@@ -555,12 +556,12 @@ function renderDashboard(hogar){
 
   const _mesKeyChk = _nowY+'-'+String(_nowM+1).padStart(2,'0');
   const myIncomeTxs = (loadMyData().transactions||[])
-    .filter(t=>t.type==='ingreso' && String(t.date||'').startsWith(_mesKeyChk))
+    .filter(t=>t.type==='ingreso' && t.incomeKind!=='extra' && String(t.date||'').startsWith(_mesKeyChk))
     .map(t=>({id:t.id, amount:parseFloat(t.amount)||0, date:t.date}))
     .sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   const partnerIncomeTxs = partnerProfile && partnerProfile.data && partnerProfile.data.transactions
     ? (partnerProfile.data.transactions||[])
-        .filter(t=>t.type==='ingreso' && String(t.date||'').startsWith(_mesKeyChk))
+        .filter(t=>t.type==='ingreso' && t.incomeKind!=='extra' && String(t.date||'').startsWith(_mesKeyChk))
         .map(t=>({id:t.id, amount:parseFloat(t.amount)||0, date:t.date}))
         .sort((a,b)=>(b.date||'').localeCompare(a.date||''))
     : [];
