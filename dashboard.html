@@ -1946,9 +1946,6 @@ function updateHeroDinero(){
   const personalDisponible2 = personalBudget2 - personalGastado2 - _personalAhorroNow - (totals.inversion||0); // puede ser negativo
   const patrimony = availSavings + emergency + totalInvested + (hogarConn ? personalDisponible2 : Math.max(0,personalDisponible2));
 
-  // "Sobró este mes" solo si el disponible real es positivo
-  const leftover = Math.max(0, personalDisponible2);
-
   const el = id => document.getElementById(id);
   if(el('heroPatrimony'))    el('heroPatrimony').textContent    = fmt(patrimony);
   if(el('chipAvailSavings')) el('chipAvailSavings').textContent = fmt(availSavings);
@@ -1964,8 +1961,17 @@ function updateHeroDinero(){
   const btnsEl  = el('heroDistBtns');
   if(!sobroEl || !btnsEl) return;
 
+  if(personalDisponible2 < 0){
+    sobroEl.innerHTML = es
+      ? `⚠️ Te pasaste <b style="color:var(--red,#E63946)">${fmt(-personalDisponible2)}</b> de tu disponible personal este mes`
+      : `⚠️ You're <b style="color:var(--red,#E63946)">${fmt(-personalDisponible2)}</b> over your personal available this month`;
+    btnsEl.innerHTML = '';
+    return;
+  }
+
+  const leftover = personalDisponible2;
   if(leftover <= 0){
-    sobroEl.textContent = es ? 'Este mes no sobró — sigue así 💪' : 'Nothing left this month 💪';
+    sobroEl.textContent = es ? 'Justo en cero este mes — bien administrado 👌' : 'Right at zero this month — well managed 👌';
     btnsEl.innerHTML = '';
     return;
   }

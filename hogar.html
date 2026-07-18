@@ -973,6 +973,16 @@ function abrirAporteModal(tipo, idx, montoSugerido){
       +'<div id="_presBanner" style="background:#E8F7EF;border-radius:10px;padding:10px;margin-bottom:14px;font-size:12px;color:#0F5132;display:none">Se descontara del presupuesto mensual</div>'
       +'<label style="font-size:11px;font-weight:700;color:#9395A5;display:block;margin-bottom:6px">FECHA</label>'
       +'<input type="date" id="_aporteFecha" style="width:100%;padding:11px;border:1.5px solid #E4E6F0;border-radius:10px;font-size:14px;font-family:inherit;margin-bottom:14px;box-sizing:border-box">'
+      +'<div style="background:#F7F8FC;border-radius:10px;padding:12px;margin-bottom:14px">'
+      +'<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12.5px;font-weight:700"><input type="checkbox" id="_aporteRecurrenteCheck" style="width:16px;height:16px">'+(es?'🔄 Hacer este aporte recurrente':'🔄 Make this deposit recurring')+'</label>'
+      +'<div id="_aporteRecurrenteFreqWrap" style="display:none;margin-top:10px">'
+      +'<select id="_aporteRecurrenteFreq" style="width:100%;padding:9px;border:1.5px solid #E4E6F0;border-radius:8px;font-size:13px;font-family:inherit">'
+      +'<option value="weekly">'+(es?'Cada semana':'Every week')+'</option>'
+      +'<option value="biweekly">'+(es?'Cada quincena':'Every two weeks')+'</option>'
+      +'<option value="monthly" selected>'+(es?'Cada mes':'Every month')+'</option>'
+      +'</select>'
+      +'<div style="font-size:10.5px;color:#9395A5;margin-top:6px">'+(es?'Se aplicará solo, sin que tengas que volver a entrar.':'Applies automatically, no need to come back and confirm.')+'</div>'
+      +'</div></div>'
       +'<button id="_btnGuardarAporte" style="width:100%;background:#1A7A4A;color:white;border:none;border-radius:12px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:8px">Guardar</button>'
       +'<button id="_btnCerrarAporte" style="width:100%;background:#F7F8FC;border:1.5px solid #E4E6F0;border-radius:12px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">Cancelar</button>'
       +'</div>';
@@ -990,6 +1000,9 @@ function abrirAporteModal(tipo, idx, montoSugerido){
     }
     document.getElementById('_btnNuevo').addEventListener('click',function(){ _desdePres=true; updateBtns(); });
     document.getElementById('_btnYaHecho').addEventListener('click',function(){ _desdePres=false; updateBtns(); });
+    document.getElementById('_aporteRecurrenteCheck').addEventListener('click',function(){
+      document.getElementById('_aporteRecurrenteFreqWrap').style.display = this.checked ? 'block' : 'none';
+    });
     document.getElementById('_btnGuardarAporte').addEventListener('click',function(){
       var monto=parseFloat(document.getElementById('_aporteMonto').value);
       var fecha=document.getElementById('_aporteFecha').value;
@@ -1007,6 +1020,24 @@ function abrirAporteModal(tipo, idx, montoSugerido){
           if(_desdePres) registrarEnPresupuesto(monto,meta.nombre||'Meta hogar'); }
       }
       saveFondos(f);
+
+      // Crear recurrente si el usuario lo pidió
+      var wantsRec = document.getElementById('_aporteRecurrenteCheck').checked;
+      if(wantsRec){
+        var freq = document.getElementById('_aporteRecurrenteFreq').value;
+        var descRec = _aporteCtx.tipo==='emerg' ? (lang==='es'?'Fondo emergencia hogar':'Household emergency fund') : ((f.metas[_aporteCtx.idx]&&f.metas[_aporteCtx.idx].nombre)||'Meta hogar');
+        var nextDate = (function(fr, fromStr){
+          var dt = new Date(fromStr+'T00:00:00');
+          if(fr==='weekly') dt.setDate(dt.getDate()+7);
+          else if(fr==='biweekly') dt.setDate(dt.getDate()+14);
+          else dt.setMonth(dt.getMonth()+1);
+          return dt.toISOString().split('T')[0];
+        })(freq, fecha);
+        var recurring = JSON.parse(localStorage.getItem('ft_recurring')||'[]');
+        recurring.push({ id:'rec_'+Date.now(), kind:'meta', metaTipo:_aporteCtx.tipo, metaIdx:_aporteCtx.idx, desc:descRec, amount:monto, freq:freq, hogar:true, desdePres:_desdePres, nextDate:nextDate, active:true, createdBy:user.name||'' });
+        localStorage.setItem('ft_recurring', JSON.stringify(recurring));
+      }
+
       document.getElementById('_aporteModal').style.display='none';
       showToast(lang==='es'?'Aporte guardado':'Deposit saved');
       render();
@@ -1021,6 +1052,8 @@ function abrirAporteModal(tipo, idx, montoSugerido){
   document.getElementById('_presBanner').style.display='none';
   document.getElementById('_btnNuevo').style.borderColor='#E4E6F0'; document.getElementById('_btnNuevo').style.background='#F7F8FC';
   document.getElementById('_btnYaHecho').style.borderColor='#E4E6F0'; document.getElementById('_btnYaHecho').style.background='#F7F8FC';
+  document.getElementById('_aporteRecurrenteCheck').checked = false;
+  document.getElementById('_aporteRecurrenteFreqWrap').style.display = 'none';
   var titulo = tipo==='emerg'?(es?'Depositar al fondo de emergencia':'Deposit to emergency fund'):(fondos.metas[idx]?'Depositar a '+fondos.metas[idx].nombre:'Depositar');
   document.getElementById('_aporteTitle').textContent=titulo;
   document.getElementById('_aporteModal').style.display='flex';
