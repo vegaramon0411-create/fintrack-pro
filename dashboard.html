@@ -3572,6 +3572,54 @@ async function loadPartnerHogarTxs(){
     }
   } catch(e){}
 })();
+
+/* ══════════════════════════════════════════
+   SYNC EN SEGUNDO PLANO — mantiene fresco el perfil de tu pareja
+   sin importar en qué pantalla estés. COMBINA con lo que ya había
+   en caché en vez de reemplazar, para que un pull incompleto/viejo
+   de Sheets no borre transacciones que ya tenías vistas.
+══════════════════════════════════════════ */
+(function backgroundSyncPartner(){
+  try {
+    const _bgHogar = JSON.parse(localStorage.getItem('ft_hogar')||'{}');
+    if(!_bgHogar.connected || !_bgHogar.partnerEmail || _bgHogar.manuallyLeft) return;
+    const _bgGasUrl = 'https://script.google.com/macros/s/AKfycbwITyU4qld-IOEVKyLU9XHI46T8g_LjJaNp3nlQgler8-nMeIlztMmG_lZMVMm9cBkP/exec';
+    const _bgKey = 'profile_'+_bgHogar.partnerEmail.replace(/[^a-z0-9]/gi,'_');
+
+    function _bgMergeById(oldArr, newArr){
+      oldArr = oldArr||[]; newArr = newArr||[];
+      const byId = {};
+      oldArr.forEach(x=>{ if(x && x.id!=null) byId[x.id]=x; });
+      newArr.forEach(x=>{ if(x && x.id!=null) byId[x.id]=x; }); // lo nuevo pisa lo viejo si coincide el id
+      return Object.values(byId);
+    }
+
+    fetch(`${_bgGasUrl}?action=getProfile&email=${encodeURIComponent(_bgHogar.partnerEmail)}`)
+      .then(r=>r.json())
+      .then(data=>{
+        if(!data || !data.success) return;
+        let _bgNewData = {transactions:[],emergency:0,subscriptions:[],sharedDebts:[],hogarInv:[]};
+        try{ _bgNewData = JSON.parse(data.dataJson||'{}'); }catch(e){}
+
+        let _bgOld = null;
+        try{ _bgOld = JSON.parse(localStorage.getItem(_bgKey)||'null'); }catch(e){}
+        const _bgOldData = (_bgOld && _bgOld.data) || {};
+
+        const _bgMergedData = {
+          transactions: _bgMergeById(_bgOldData.transactions, _bgNewData.transactions),
+          emergency: (_bgNewData.emergency!=null ? _bgNewData.emergency : _bgOldData.emergency) || 0,
+          subscriptions: _bgMergeById(_bgOldData.subscriptions, _bgNewData.subscriptions),
+          sharedDebts: _bgMergeById(_bgOldData.sharedDebts, _bgNewData.sharedDebts),
+          hogarInv: _bgMergeById(_bgOldData.hogarInv, _bgNewData.hogarInv)
+        };
+
+        const _bgPp = { name:data.name||(_bgOld&&_bgOld.name)||'', email:data.email||_bgHogar.partnerEmail, income:parseFloat(data.income)||0, needs:parseFloat(data.needs)||0, wants:parseFloat(data.wants)||0, savings:parseFloat(data.savings)||0, data:_bgMergedData };
+        localStorage.setItem(_bgKey, JSON.stringify(_bgPp));
+        localStorage.setItem('ft_profile_B', JSON.stringify(_bgPp));
+      }).catch(()=>{});
+  } catch(e){}
+})();
+
 </script>
 </body>
 </html>

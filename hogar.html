@@ -376,6 +376,35 @@ async function checkPartnerFromGAS(){
   } catch(e){ return null; }
 }
 
+function mergePartnerDataById(oldArr, newArr){
+  oldArr = oldArr||[]; newArr = newArr||[];
+  const byId = {};
+  oldArr.forEach(x=>{ if(x && x.id!=null) byId[x.id]=x; });
+  newArr.forEach(x=>{ if(x && x.id!=null) byId[x.id]=x; });
+  return Object.values(byId);
+}
+
+function savePartnerProfileMerged(partnerEmail, pp){
+  const k = 'profile_'+partnerEmail.replace(/[^a-z0-9]/gi,'_');
+  let old = null;
+  try{ old = JSON.parse(localStorage.getItem(k)||'null'); }catch(e){}
+  const oldData = (old && old.data) || {};
+  const newData = pp.data || {};
+  const merged = {
+    ...pp,
+    data: {
+      transactions: mergePartnerDataById(oldData.transactions, newData.transactions),
+      emergency: newData.emergency!=null ? newData.emergency : (oldData.emergency||0),
+      subscriptions: mergePartnerDataById(oldData.subscriptions, newData.subscriptions),
+      sharedDebts: mergePartnerDataById(oldData.sharedDebts, newData.sharedDebts),
+      hogarInv: mergePartnerDataById(oldData.hogarInv, newData.hogarInv)
+    }
+  };
+  localStorage.setItem(k, JSON.stringify(merged));
+  localStorage.setItem('ft_profile_B', JSON.stringify(merged));
+  return merged;
+}
+
 async function loadPartnerProfileFromGAS(partnerEmail){
   try {
     if(!partnerEmail) return null;
@@ -1756,9 +1785,7 @@ async function acceptCode(){
     // Load partner profile from GAS
     const partnerProfile = await loadPartnerProfileFromGAS(data.partnerEmail||'');
     if(partnerProfile){
-      const key = 'profile_'+(data.partnerEmail||'').replace(/[^a-z0-9]/gi,'_');
-      localStorage.setItem(key, JSON.stringify(partnerProfile));
-      localStorage.setItem('ft_profile_B', JSON.stringify(partnerProfile));
+      savePartnerProfileMerged(data.partnerEmail||'', partnerProfile);
     }
 
     showToast(`🏠 ${lang==='es'?'¡Conectado!':'Connected!'} ${data.partnerName||''}`, 4000);
@@ -1798,7 +1825,7 @@ function startPartnerPolling(){
         saveHogar(h);
         showToast(`🏠 ${data.partnerName||'Tu pareja'} ${lang==='es'?'se unió al hogar':'joined the household'}`, 4000);
         const pp = await loadPartnerProfileFromGAS(data.partnerEmail);
-        if(pp){ const k='profile_'+data.partnerEmail.replace(/[^a-z0-9]/gi,'_'); localStorage.setItem(k,JSON.stringify(pp)); localStorage.setItem('ft_profile_B',JSON.stringify(pp)); }
+        if(pp){ savePartnerProfileMerged(data.partnerEmail, pp); }
         render();
       }
     } catch(e){}
@@ -1861,9 +1888,7 @@ function setLang(l){
   if(hogar.connected && hogar.partnerEmail){
     loadPartnerProfileFromGAS(hogar.partnerEmail).then(pp=>{
       if(pp){
-        const k='profile_'+hogar.partnerEmail.replace(/[^a-z0-9]/gi,'_');
-        localStorage.setItem(k,JSON.stringify(pp));
-        localStorage.setItem('ft_profile_B',JSON.stringify(pp));
+        savePartnerProfileMerged(hogar.partnerEmail, pp);
         render(); // re-render with fresh data
       }
     }).catch(()=>{});
@@ -1884,7 +1909,7 @@ function setLang(l){
     }
     if(gasData.partnerEmail){
       const pp = await loadPartnerProfileFromGAS(gasData.partnerEmail);
-      if(pp){ const k='profile_'+gasData.partnerEmail.replace(/[^a-z0-9]/gi,'_'); localStorage.setItem(k,JSON.stringify(pp)); localStorage.setItem('ft_profile_B',JSON.stringify(pp)); render(); }
+      if(pp){ savePartnerProfileMerged(gasData.partnerEmail, pp); render(); }
     }
   });
 })();
