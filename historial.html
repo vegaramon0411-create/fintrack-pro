@@ -195,6 +195,21 @@ let selectedMonth = null;
 let activeFilter = 'all';
 
 function loadData(){ try{return JSON.parse(localStorage.getItem('ft_data'))||{transactions:[],emergency:0,subscriptions:[]};}catch(e){return{transactions:[],emergency:0,subscriptions:[]};} }
+function loadHogar(){ try{return JSON.parse(localStorage.getItem('ft_hogar'))||{};}catch(e){return {};} }
+function loadPartnerProfile(){
+  try {
+    const hogar = loadHogar();
+    if(!hogar.partnerEmail) return null;
+    const key = 'profile_'+hogar.partnerEmail.replace(/[^a-z0-9]/gi,'_');
+    const byKey = localStorage.getItem(key);
+    const bySlot = localStorage.getItem('ft_profile_B');
+    const fromKey = byKey ? JSON.parse(byKey) : null;
+    const fromSlot = bySlot ? JSON.parse(bySlot) : null;
+    if(fromKey && (fromKey.income||0) > 0) return fromKey;
+    if(fromSlot && (fromSlot.income||0) > 0) return fromSlot;
+    return fromKey || fromSlot;
+  } catch(e){ return null; }
+}
 function fmt(n){ return '$'+Math.abs(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 function go(url){ window.location.href=url; }
 
@@ -261,9 +276,15 @@ function render(){
   const txs = (data.transactions||[]).filter(t=>(t.date||'').startsWith(selectedMonth));
   const es = lang==='es';
 
+  // Transacciones de hogar de la pareja (solo lo marcado hogar:true, para no mezclar su vida personal)
+  const partnerProfile = loadPartnerProfile();
+  const partnerHogarTxs = partnerProfile && partnerProfile.data && partnerProfile.data.transactions
+    ? (partnerProfile.data.transactions||[]).filter(t=>(t.isHogar||t.hogar==true) && (t.date||'').startsWith(selectedMonth))
+    : [];
+
   // ── Personal (excluye todo lo marcado "del hogar") ──
   let pIncome=0, pExpense=0, pInvest=0;
-  // ── Del hogar (solo lo marcado hogar:true) ──
+  // ── Del hogar (solo lo marcado hogar:true) — mío + de mi pareja ──
   let hAportado=0, hGastado=0, hIngreso=0;
 
   txs.forEach(t=>{
@@ -278,6 +299,13 @@ function render(){
     } else if(t.type==='gasto'||t.type==='suscripcion'||t.type==='hipoteca'){
       if(esHogarTx) hGastado+=a; else pExpense+=a;
     }
+  });
+
+  partnerHogarTxs.forEach(t=>{
+    const a = parseFloat(t.amount)||0;
+    if(t.type==='ingreso') hIngreso+=a;
+    else if(t.type==='ahorro') hAportado+=a;
+    else if(t.type==='gasto'||t.type==='suscripcion'||t.type==='hipoteca') hGastado+=a;
   });
 
   const totalIncome = pIncome + hIngreso;
@@ -309,6 +337,14 @@ function renderList(){
 
   if(activeFilter === 'hogar'){
     txs = txs.filter(t=>t.isHogar||t.hogar==true);
+    const partnerProfile = loadPartnerProfile();
+    const partnerName = loadHogar().partnerName || (lang==='es'?'Tu pareja':'Your partner');
+    if(partnerProfile && partnerProfile.data && partnerProfile.data.transactions){
+      const partnerHogarTxs = (partnerProfile.data.transactions||[])
+        .filter(t=>(t.isHogar||t.hogar==true) && (t.date||'').startsWith(selectedMonth))
+        .map(t=>({...t, _partner:true, createdBy:t.createdBy||partnerName}));
+      txs = [...txs, ...partnerHogarTxs].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    }
   } else if(activeFilter !== 'all'){
     txs = txs.filter(t=>t.type===activeFilter);
   }
@@ -324,6 +360,7 @@ function renderList(){
 
   list.innerHTML = txs.map(t=>{
     const esHogarTx = t.isHogar||t.hogar==true;
+    const esDePareja = t._partner === true;
     let tagLabel, tagColor;
     if(t.type==='ingreso'){
       if(t.incomeKind==='extra'){
@@ -337,8 +374,9 @@ function renderList(){
       tagLabel = esHogarTx ? (lang==='es'?'🏠 Hogar':'🏠 Household') : (lang==='es'?'👤 Personal':'👤 Personal');
       tagColor = esHogarTx ? 'var(--g-main)' : 'var(--text3)';
     }
+    if(esDePareja && t.createdBy) tagLabel += ` · ${t.createdBy}`;
     return `
-    <div class="tx-item" onclick="showDetail('${t.id}')" style="cursor:pointer">
+    <div class="tx-item" onclick="${esDePareja?'':`showDetail('${t.id}')`}" style="cursor:${esDePareja?'default':'pointer'}">
       <div class="tx-ico" style="background:${TYPE_BG[t.type]||'var(--off)'}">
         ${esHogarTx?'🏠':(TYPE_ICO[t.type]||'📝')}
       </div>
@@ -350,8 +388,9 @@ function renderList(){
         ${t.type==='ingreso'?'+':'-'}${fmt(parseFloat(t.amount)||0)}
       </div>
       <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;padding-left:4px">
+        ${esDePareja ? '' : `
         <div onclick="event.stopPropagation();showDetail('${t.id}');startEditDetail()" style="cursor:pointer;color:var(--blue);font-size:15px;line-height:1" title="Editar">✏️</div>
-        <div onclick="event.stopPropagation();deleteTx('${t.id}')" style="cursor:pointer;color:var(--text3);font-size:13px;line-height:1" title="Eliminar">🗑</div>
+        <div onclick="event.stopPropagation();deleteTx('${t.id}')" style="cursor:pointer;color:var(--text3);font-size:13px;line-height:1" title="Eliminar">🗑</div>`}
       </div>
     </div>
   `;}).join('');
@@ -463,6 +502,31 @@ function deleteTx(id){
   selectedMonth = new Date().toISOString().slice(0,7);
   setLang(lang);
 })();
+
+/* ══════════════════════════════════════════
+   SYNC EN SEGUNDO PLANO — mantiene fresco el perfil de tu pareja
+   sin importar en qué pantalla estés, para que Hogar/Historial
+   no se sientan desactualizados al entrar.
+══════════════════════════════════════════ */
+(function backgroundSyncPartner(){
+  try {
+    const _bgHogar = JSON.parse(localStorage.getItem('ft_hogar')||'{}');
+    if(!_bgHogar.connected || !_bgHogar.partnerEmail || _bgHogar.manuallyLeft) return;
+    const _bgGasUrl = 'https://script.google.com/macros/s/AKfycbwITyU4qld-IOEVKyLU9XHI46T8g_LjJaNp3nlQgler8-nMeIlztMmG_lZMVMm9cBkP/exec';
+    fetch(`${_bgGasUrl}?action=getProfile&email=${encodeURIComponent(_bgHogar.partnerEmail)}`)
+      .then(r=>r.json())
+      .then(data=>{
+        if(!data || !data.success) return;
+        let _bgParsedData = {transactions:[],emergency:0,subscriptions:[]};
+        try{ _bgParsedData = JSON.parse(data.dataJson||'{}'); }catch(e){}
+        const _bgPp = { name:data.name||'', email:data.email||_bgHogar.partnerEmail, income:parseFloat(data.income)||0, needs:parseFloat(data.needs)||0, wants:parseFloat(data.wants)||0, savings:parseFloat(data.savings)||0, data:_bgParsedData };
+        const _bgKey = 'profile_'+_bgHogar.partnerEmail.replace(/[^a-z0-9]/gi,'_');
+        localStorage.setItem(_bgKey, JSON.stringify(_bgPp));
+        localStorage.setItem('ft_profile_B', JSON.stringify(_bgPp));
+      }).catch(()=>{});
+  } catch(e){}
+})();
+
 </script>
 </body>
 </html>

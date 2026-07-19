@@ -1279,6 +1279,31 @@ function initPlanSection(){
   setLang(lang);
   render();
 })();
+
+/* ══════════════════════════════════════════
+   SYNC EN SEGUNDO PLANO — mantiene fresco el perfil de tu pareja
+   sin importar en qué pantalla estés, para que Hogar/Historial
+   no se sientan desactualizados al entrar.
+══════════════════════════════════════════ */
+(function backgroundSyncPartner(){
+  try {
+    const _bgHogar = JSON.parse(localStorage.getItem('ft_hogar')||'{}');
+    if(!_bgHogar.connected || !_bgHogar.partnerEmail || _bgHogar.manuallyLeft) return;
+    const _bgGasUrl = 'https://script.google.com/macros/s/AKfycbwITyU4qld-IOEVKyLU9XHI46T8g_LjJaNp3nlQgler8-nMeIlztMmG_lZMVMm9cBkP/exec';
+    fetch(`${_bgGasUrl}?action=getProfile&email=${encodeURIComponent(_bgHogar.partnerEmail)}`)
+      .then(r=>r.json())
+      .then(data=>{
+        if(!data || !data.success) return;
+        let _bgParsedData = {transactions:[],emergency:0,subscriptions:[]};
+        try{ _bgParsedData = JSON.parse(data.dataJson||'{}'); }catch(e){}
+        const _bgPp = { name:data.name||'', email:data.email||_bgHogar.partnerEmail, income:parseFloat(data.income)||0, needs:parseFloat(data.needs)||0, wants:parseFloat(data.wants)||0, savings:parseFloat(data.savings)||0, data:_bgParsedData };
+        const _bgKey = 'profile_'+_bgHogar.partnerEmail.replace(/[^a-z0-9]/gi,'_');
+        localStorage.setItem(_bgKey, JSON.stringify(_bgPp));
+        localStorage.setItem('ft_profile_B', JSON.stringify(_bgPp));
+      }).catch(()=>{});
+  } catch(e){}
+})();
+
 </script>
 <div id="toast" style="display:none;position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#1A1D2E;color:white;padding:12px 20px;border-radius:20px;font-size:13px;font-weight:600;z-index:300;white-space:nowrap;align-items:center;gap:8px"></div>
 </body>
