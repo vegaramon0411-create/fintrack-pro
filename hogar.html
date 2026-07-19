@@ -1303,11 +1303,14 @@ function renderHogarInversiones(){
   const es=lang==='es';
   let invs=[];
   try{invs=JSON.parse(localStorage.getItem('ft_hogar_inv')||'[]');}catch(e){invs=[];}
+  const partnerProfile = loadPartnerProfile();
+  const partnerInvs = (partnerProfile && partnerProfile.data && partnerProfile.data.hogarInv) || [];
   const fmt2=function(n){return '$'+Math.abs(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});};
   const fmtN2=function(n){return Math.abs(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});};
 
+  const allInvs = [...invs, ...partnerInvs];
   let totalCost=0,totalValue=0;
-  invs.forEach(function(i){
+  allInvs.forEach(function(i){
     var shares=parseFloat(i.shares)||1;
     var avg=parseFloat(i.avgPrice)||parseFloat(i.amount)||0;
     var cur=parseFloat(i.curPrice)||avg;
@@ -1326,14 +1329,14 @@ function renderHogarInversiones(){
     +'<button onclick="window.location.href=\'inversiones.html\'" style="background:linear-gradient(135deg,var(--g-dark),var(--g-main));color:white;border:none;border-radius:12px;padding:10px 20px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">'
     +(es?'+ Agregar inversión al Hogar':'+ Add Household Investment')+'</button></div>';
 
-  if(!invs.length) return '<div class="card">'
+  if(!allInvs.length) return '<div class="card">'
     +'<div style="text-align:center;padding:30px 0">'
     +'<div style="font-size:36px;margin-bottom:10px">📈</div>'
     +'<div style="font-size:15px;font-weight:800;margin-bottom:6px">'+(es?'Sin inversiones del hogar':'No household investments')+'</div>'
     +'<div style="font-size:12px;color:var(--text3);margin-bottom:18px">'+(es?'Agrega ETFs, ahorros o fondos compartidos':'Add ETFs, savings or shared funds')+'</div>'
     +addBtn+'</div></div>';
 
-  var list=invs.map(function(i){
+  var list=allInvs.map(function(i){
     var shares=parseFloat(i.shares)||1;
     var avg=parseFloat(i.avgPrice)||parseFloat(i.amount)||0;
     var cur=parseFloat(i.curPrice)||avg;
@@ -1361,6 +1364,11 @@ function renderDeudas(partnerName){
   const myDebts = debts.filter(d=>!d.owner||d.owner==='me');
   const debtIco = {hipoteca:'🏠',auto:'🚗',tarjeta:'💳',personal:'📦'};
   const debtColor = {hipoteca:'var(--red)',auto:'var(--blue)',tarjeta:'var(--amber)',personal:'var(--purple)'};
+
+  // Deudas que tu pareja marcó como compartidas (solo lectura, viene de su perfil sincronizado)
+  const partnerProfile = loadPartnerProfile();
+  const partnerSharedDebts = (partnerProfile && partnerProfile.data && partnerProfile.data.sharedDebts) || [];
+  const partnerSharedTotal = partnerSharedDebts.reduce((a,d)=>a+(parseFloat(d.balance)||0),0);
 
   const debtCard = (d, shared) => {
     const ico = debtIco[d.type]||'📦';
@@ -1403,12 +1411,28 @@ function renderDeudas(partnerName){
       <div class="card-title">👥 ${es?'Deudas compartidas':'Shared debts'}</div>
       <span style="font-size:11px;font-weight:700;color:var(--red)">${fmt(totalShared)}</span>
     </div>${sharedDebts.map(d=>debtCard(d,true)).join('')}</div>`:''}
+  ${partnerSharedDebts.length?`<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div class="card-title">🔗 ${es?`Deudas que ${partnerName} marcó como compartidas`:`Debts ${partnerName} marked as shared`}</div>
+      <span style="font-size:11px;font-weight:700;color:var(--red)">${fmt(partnerSharedTotal)}</span>
+    </div>
+    <div style="font-size:10.5px;color:var(--text3);margin-bottom:10px">${es?'Solo lectura — no puedes editarlas desde aquí':'Read-only — you can\'t edit these from here'}</div>
+    ${partnerSharedDebts.map(d=>`
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--off)">
+        <div style="width:34px;height:34px;border-radius:10px;background:${(debtColor[d.type]||'var(--text)')}22;display:grid;place-items:center;font-size:15px;flex-shrink:0">${debtIco[d.type]||'📦'}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12.5px;font-weight:700">${d.name||'—'}</div>
+          <div style="font-size:10px;color:var(--text3)">${fmt(d.payment||0)}/mes</div>
+        </div>
+        <div style="font-size:13px;font-weight:800;color:${debtColor[d.type]||'var(--text)'}">${fmt(d.balance)}</div>
+      </div>`).join('')}
+  </div>`:''}
   ${myDebts.length?`<div class="card">
     <div class="card-title" style="margin-bottom:4px">👤 ${es?'Mis deudas':'My debts'}</div>
     <div class="card-sub">${es?'Toca "Compartir" para incluirla en el hogar':'Tap "Share" to include it in household'}</div>
     ${myDebts.map(d=>debtCard(d,false)).join('')}
   </div>`:''}
-  ${!debts.length?`<div class="card" style="text-align:center;padding:40px 20px">
+  ${!debts.length && !partnerSharedDebts.length?`<div class="card" style="text-align:center;padding:40px 20px">
     <div style="font-size:40px;margin-bottom:12px">💳</div>
     <div style="font-size:14px;font-weight:700;margin-bottom:8px">${es?'Sin deudas registradas':'No debts recorded'}</div>
     <button class="btn-primary" onclick="go('deudas.html')">${es?'+ Agregar deuda':'+ Add debt'}</button>
