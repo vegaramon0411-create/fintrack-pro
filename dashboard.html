@@ -1222,7 +1222,29 @@ function getMonthTotals() {
     }
   });
 
-  return { ...totals, spent, needsSpent, wantsSpent, hogarSpent, personalNeedsSpent, personalWantsSpent, hogarConnected, txs };
+  return { ...totals, spent, needsSpent, wantsSpent, hogarSpent, personalNeedsSpent, personalWantsSpent, hogarConnected, txs, hogarSpentCombined: hogarSpent + getPartnerHogarSpentThisMonth() };
+}
+
+// El gasto hogar de mi pareja este mes (para que "Hogar: $X" en el Dashboard
+// muestre lo real combinado, no solo mi parte — si es del hogar es de los dos)
+function getPartnerHogarSpentThisMonth(){
+  try {
+    const hogar = JSON.parse(localStorage.getItem('ft_hogar')||'{}');
+    if(!hogar.connected || !hogar.partnerEmail) return 0;
+    const k = 'profile_'+hogar.partnerEmail.replace(/[^a-z0-9]/gi,'_');
+    const pp = JSON.parse(localStorage.getItem(k)||'null');
+    if(!pp || !pp.data || !pp.data.transactions) return 0;
+    const now = new Date();
+    const y = now.getFullYear(), m = now.getMonth();
+    return pp.data.transactions
+      .filter(t=>{
+        if(!t.date || t.hogar!==true) return false;
+        if(!(t.type==='gasto'||t.type==='suscripcion'||t.type==='hipoteca')) return false;
+        const parts = String(t.date).split(/[-T]/);
+        return parseInt(parts[0])===y && (parseInt(parts[1])-1)===m;
+      })
+      .reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
+  } catch(e){ return 0; }
 }
 
 /* ══════════════════════════════════════════
@@ -1274,10 +1296,10 @@ function renderDashboard() {
   document.getElementById('heroGreeting').textContent = greeting();
   document.getElementById('heroAmount').textContent   = fmtD(spent);
   const heroBreakdown = document.getElementById('heroBreakdown');
-  if(totals.hogarConnected && totals.hogarSpent > 0){
+  if(totals.hogarConnected && totals.hogarSpentCombined > 0){
     const personalOnly = spent - totals.hogarSpent;
     heroBreakdown.style.display = 'flex';
-    heroBreakdown.innerHTML = `<span>🏠 ${lang==='es'?'Hogar':'Household'}: ${fmt(totals.hogarSpent)}</span><span>👤 ${lang==='es'?'Personal':'Personal'}: ${fmt(personalOnly)}</span>`;
+    heroBreakdown.innerHTML = `<span>🏠 ${lang==='es'?'Hogar':'Household'}: ${fmt(totals.hogarSpentCombined)}</span><span>👤 ${lang==='es'?'Personal':'Personal'}: ${fmt(personalOnly)}</span>`;
   } else {
     heroBreakdown.style.display = 'none';
   }
@@ -1331,9 +1353,9 @@ function renderDashboard() {
   // Show hogar breakdown if connected
   const hogarInfoEl = document.getElementById('hogarNeedsInfo');
   if(hogarInfoEl){
-    if(totals.hogarConnected && totals.hogarSpent > 0){
+    if(totals.hogarConnected && totals.hogarSpentCombined > 0){
       hogarInfoEl.style.display='block';
-      hogarInfoEl.innerHTML = `<span style="color:var(--g-main);font-size:10px">🏠 ${fmt(totals.hogarSpent)} ${lang==='es'?'del hogar':'household'} · 👤 ${fmt(totals.personalNeedsSpent)} ${lang==='es'?'personal':'personal'}</span>`;
+      hogarInfoEl.innerHTML = `<span style="color:var(--g-main);font-size:10px">🏠 ${fmt(totals.hogarSpentCombined)} ${lang==='es'?'del hogar':'household'} · 👤 ${fmt(totals.personalNeedsSpent)} ${lang==='es'?'personal':'personal'}</span>`;
     } else {
       hogarInfoEl.style.display='none';
     }
@@ -3201,6 +3223,121 @@ document.getElementById('chequeModal').addEventListener('click', function(e){ if
   }, 800);
 })();
 
+/* ══════════════════════════════════════════
+   MOTOR DE RECURRENTES — aplica solo los aportes/abonos/inversiones
+   programados (ft_recurring) cuya nextDate ya llegó, sin pedir
+   confirmación. Corre una vez al cargar el dashboard. Si la app
+   estuvo cerrada varias semanas, aplica todos los periodos vencidos
+   (catch-up) en vez de solo el más reciente.
+══════════════════════════════════════════ */
+function _advanceRecDate(freq, fromStr){
+  const dt = new Date(fromStr+'T00:00:00');
+  if(freq==='weekly') dt.setDate(dt.getDate()+7);
+  else if(freq==='biweekly') dt.setDate(dt.getDate()+14);
+  else dt.setMonth(dt.getMonth()+1);
+  return dt.toISOString().split('T')[0];
+}
+
+function _applyRecurringMeta(rec, hoyStr){
+  try{
+    const f = JSON.parse(localStorage.getItem('ft_hogar_fondos')||'null') || { emerg:{meta:0,actual:0,fecha:'',hist:[]}, metas:[] };
+    const entry = { id:'d_'+Date.now()+'_'+Math.floor(Math.random()*1000), monto:rec.amount, fecha:hoyStr, desdePres:rec.desdePres, auto:true };
+    if(rec.metaTipo==='emerg'){
+      f.emerg.hist = f.emerg.hist||[]; f.emerg.hist.push(entry);
+      f.emerg.actual = f.emerg.hist.reduce((a,h)=>a+(h.monto||0),0);
+    } else {
+      const meta = f.metas[rec.metaIdx];
+      if(!meta) return false; // la meta fue borrada — no se puede aplicar
+      meta.hist = meta.hist||[]; meta.hist.push(entry);
+      meta.actual = meta.hist.reduce((a,h)=>a+(h.monto||0),0);
+    }
+    localStorage.setItem('ft_hogar_fondos', JSON.stringify(f));
+    if(rec.desdePres){
+      const data = JSON.parse(localStorage.getItem('ft_data')||'{"transactions":[]}');
+      data.transactions = data.transactions||[];
+      data.transactions.push({ id:Date.now(), type:'ahorro', desc:rec.desc, amount:rec.amount, date:hoyStr, cat:'🏠 Hogar', hogar:true, createdBy:user.name||'', auto:true });
+      localStorage.setItem('ft_data', JSON.stringify(data));
+    }
+    return true;
+  } catch(e){ return false; }
+}
+
+function _applyRecurringAhorro(rec, hoyStr){
+  try{
+    addFreeSavingsEntry({ id: Date.now(), amount: rec.amount, date: hoyStr, note: rec.desc });
+    return true;
+  } catch(e){ return false; }
+}
+
+function _applyRecurringInversion(rec, hoyStr){
+  try{
+    addInvestmentSyncEntry({ id: Date.now(), name: rec.desc, amount: rec.amount, date: hoyStr, note: '' });
+    return true;
+  } catch(e){ return false; }
+}
+
+function _applyRecurringDebt(rec, hoyStr){
+  try{
+    const debts = JSON.parse(localStorage.getItem('ft_debts')||'[]');
+    const idx = debts.findIndex(d=>String(d.id)===String(rec.debtId));
+    if(idx<0) return false; // la deuda fue borrada — no se puede aplicar
+    const d = debts[idx];
+    const oldBalance = parseFloat(d.balance)||0;
+    const newBalance = Math.max(0, oldBalance - rec.amount);
+    debts[idx].balance = newBalance;
+    debts[idx].updatedAt = new Date().toISOString();
+    if(!debts[idx].abonos) debts[idx].abonos = [];
+    const abonoId = Date.now();
+    let linkedTxId = null;
+    try {
+      const data = JSON.parse(localStorage.getItem('ft_data')||'{}');
+      data.transactions = data.transactions||[];
+      linkedTxId = abonoId + 1;
+      data.transactions.push({ id:linkedTxId, type:'gasto', desc:(lang==='es'?'Abono a ':'Payment to ')+d.name, amount:rec.amount, date:hoyStr, cat:'💳 Deudas', hogar:rec.hogar, createdBy:user.name||'', auto:true });
+      localStorage.setItem('ft_data', JSON.stringify(data));
+    } catch(e){}
+    debts[idx].abonos.push({ id:abonoId, monto:rec.amount, fecha:hoyStr, nota:'', saldoAntes:oldBalance, saldoDespues:newBalance, tipo:'nuevo', createdBy:user.name||'', txId:linkedTxId, auto:true });
+    localStorage.setItem('ft_debts', JSON.stringify(debts));
+    return true;
+  } catch(e){ return false; }
+}
+
+function applyDueRecurring(){
+  try {
+    let recurring = JSON.parse(localStorage.getItem('ft_recurring')||'[]');
+    if(!recurring.length) return;
+    const hoy = new Date();
+    const hoyStr = hoy.getFullYear()+'-'+String(hoy.getMonth()+1).padStart(2,'0')+'-'+String(hoy.getDate()).padStart(2,'0');
+    let appliedCount = 0, appliedTotal = 0;
+
+    recurring.forEach(rec=>{
+      if(!rec.active || !rec.nextDate) return;
+      let guard = 0; // máx 60 periodos de catch-up por seguridad, evita loop infinito
+      while(rec.nextDate && rec.nextDate <= hoyStr && guard < 60){
+        let ok = false;
+        if(rec.kind==='meta') ok = _applyRecurringMeta(rec, rec.nextDate);
+        else if(rec.kind==='ahorro') ok = _applyRecurringAhorro(rec, rec.nextDate);
+        else if(rec.kind==='inversion') ok = _applyRecurringInversion(rec, rec.nextDate);
+        else if(rec.kind==='debt') ok = _applyRecurringDebt(rec, rec.nextDate);
+        if(!ok){ rec.active = false; break; } // referencia rota (meta/deuda borrada) — desactivar en vez de reintentar infinito
+        appliedCount++; appliedTotal += (rec.amount||0);
+        rec.nextDate = _advanceRecDate(rec.freq, rec.nextDate);
+        guard++;
+      }
+    });
+
+    localStorage.setItem('ft_recurring', JSON.stringify(recurring));
+
+    if(appliedCount > 0){
+      showToast('🔄', lang==='es'?'Automático este mes':'Automatic this month',
+        lang==='es' ? `${appliedCount} aporte(s) recurrente(s) aplicados · ${fmt(appliedTotal)}` : `${appliedCount} recurring deposit(s) applied · ${fmt(appliedTotal)}`,
+        'var(--g-main)');
+      renderDashboard();
+    }
+  } catch(e){}
+}
+applyDueRecurring();
+
 // Auto-sync profile to GAS if user is part of a household
 (function syncProfileToGAS(){
   try {
@@ -3215,12 +3352,20 @@ document.getElementById('chequeModal').addEventListener('click', function(e){ if
       .map(d=>({ id:d.id, name:d.name, balance:d.balance, type:d.type, payment:d.payment, payDay:d.payDay }));
     let hogarInv = [];
     try{ hogarInv = JSON.parse(localStorage.getItem('ft_hogar_inv')||'[]'); }catch(e){}
+    let fondos = null;
+    try{ fondos = JSON.parse(localStorage.getItem('ft_hogar_fondos')||'null'); }catch(e){}
+    // Sube lo del mes actual que le importa al hogar: gastos/ahorros marcados hogar:true
+    // + todos los ingresos (cheques), sin depender de cuántas transacciones tenga el usuario.
+    const _thisMonth = new Date().toISOString().slice(0,7); // "2026-07"
     const limited = {
-      transactions: (data.transactions||[]).slice(-30),
+      transactions: (data.transactions||[]).filter(t =>
+        String(t.date||'').startsWith(_thisMonth) && (t.hogar===true || t.type==='ingreso')
+      ),
       emergency: data.emergency||0,
       subscriptions: (data.subscriptions||[]).slice(-10),
       sharedDebts: sharedDebts.slice(-20),
-      hogarInv: hogarInv.slice(-20)
+      hogarInv: hogarInv.slice(-20),
+      fondos: fondos
     };
 
     // Use GET — more reliable with GAS CORS restrictions
@@ -3622,6 +3767,47 @@ async function loadPartnerHogarTxs(){
         const _bgPp = { name:data.name||(_bgOld&&_bgOld.name)||'', email:data.email||_bgHogar.partnerEmail, income:parseFloat(data.income)||0, needs:parseFloat(data.needs)||0, wants:parseFloat(data.wants)||0, savings:parseFloat(data.savings)||0, data:_bgMergedData };
         localStorage.setItem(_bgKey, JSON.stringify(_bgPp));
         localStorage.setItem('ft_profile_B', JSON.stringify(_bgPp));
+
+        // Fusionar metas del hogar igual que en hogar.html — si es del hogar es de los dos
+        if(_bgNewData.fondos){
+          try{
+            function _bgHistKey(h){ return h.id!=null ? ('id:'+h.id) : ('k:'+h.monto+'|'+h.fecha+'|'+!!h.desdePres); }
+            function _bgMergeHist(a,b){
+              a=a||[]; b=b||[];
+              const byKey={};
+              a.forEach(h=>{ byKey[_bgHistKey(h)]=h; });
+              b.forEach(h=>{ byKey[_bgHistKey(h)]=h; });
+              return Object.values(byKey);
+            }
+            let _bgMyFondos = null;
+            try{ _bgMyFondos = JSON.parse(localStorage.getItem('ft_hogar_fondos')||'null'); }catch(e){}
+            if(!_bgMyFondos) _bgMyFondos = { emerg:{meta:0,actual:0,fecha:'',hist:[]}, metas:[] };
+            const _bgPartnerFondos = _bgNewData.fondos;
+
+            const _bgEmergHist = _bgMergeHist(_bgMyFondos.emerg && _bgMyFondos.emerg.hist, _bgPartnerFondos.emerg && _bgPartnerFondos.emerg.hist);
+            const _bgEmerg = {
+              meta: (_bgMyFondos.emerg && _bgMyFondos.emerg.meta) || (_bgPartnerFondos.emerg && _bgPartnerFondos.emerg.meta) || 0,
+              fecha: (_bgMyFondos.emerg && _bgMyFondos.emerg.fecha) || (_bgPartnerFondos.emerg && _bgPartnerFondos.emerg.fecha) || '',
+              hist: _bgEmergHist,
+              actual: _bgEmergHist.reduce((a,h)=>a+(h.monto||0),0)
+            };
+
+            const _bgMetasById = {};
+            (_bgMyFondos.metas||[]).forEach(m=>{ if(m && m.id!=null) _bgMetasById[m.id]={...m}; });
+            (_bgPartnerFondos.metas||[]).forEach(m=>{
+              if(!m || m.id==null) return;
+              if(_bgMetasById[m.id]){
+                const mine=_bgMetasById[m.id];
+                const hist=_bgMergeHist(mine.hist, m.hist);
+                _bgMetasById[m.id] = {...mine, ...m, nombre:mine.nombre||m.nombre, hist, actual:hist.reduce((a,h)=>a+(h.monto||0),0)};
+              } else {
+                _bgMetasById[m.id] = {...m};
+              }
+            });
+
+            localStorage.setItem('ft_hogar_fondos', JSON.stringify({ emerg:_bgEmerg, metas:Object.values(_bgMetasById) }));
+          }catch(e){}
+        }
       }).catch(()=>{});
   } catch(e){}
 })();

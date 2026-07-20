@@ -335,16 +335,19 @@ function renderList(){
   const data = loadData();
   let txs = (data.transactions||[]).filter(t=>(t.date||'').startsWith(selectedMonth));
 
+  // Combinar siempre lo hogar de mi pareja (mío + suyo) — si es del hogar es
+  // de los dos, debe verse en la lista sin activar el filtro "Hogar" a mano.
+  const partnerProfile = loadPartnerProfile();
+  const partnerName = loadHogar().partnerName || (lang==='es'?'Tu pareja':'Your partner');
+  if(partnerProfile && partnerProfile.data && partnerProfile.data.transactions){
+    const partnerHogarTxs = (partnerProfile.data.transactions||[])
+      .filter(t=>(t.isHogar||t.hogar==true) && (t.date||'').startsWith(selectedMonth))
+      .map(t=>({...t, _partner:true, createdBy:t.createdBy||partnerName}));
+    txs = [...txs, ...partnerHogarTxs];
+  }
+
   if(activeFilter === 'hogar'){
     txs = txs.filter(t=>t.isHogar||t.hogar==true);
-    const partnerProfile = loadPartnerProfile();
-    const partnerName = loadHogar().partnerName || (lang==='es'?'Tu pareja':'Your partner');
-    if(partnerProfile && partnerProfile.data && partnerProfile.data.transactions){
-      const partnerHogarTxs = (partnerProfile.data.transactions||[])
-        .filter(t=>(t.isHogar||t.hogar==true) && (t.date||'').startsWith(selectedMonth))
-        .map(t=>({...t, _partner:true, createdBy:t.createdBy||partnerName}));
-      txs = [...txs, ...partnerHogarTxs].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-    }
   } else if(activeFilter !== 'all'){
     txs = txs.filter(t=>t.type===activeFilter);
   }

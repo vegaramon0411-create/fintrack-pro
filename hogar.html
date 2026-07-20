@@ -384,6 +384,48 @@ function mergePartnerDataById(oldArr, newArr){
   return Object.values(byId);
 }
 
+// Clave de respaldo para depósitos viejos sin id (antes del fix de sync de metas)
+function _histKey(h){ return h.id!=null ? ('id:'+h.id) : ('k:'+h.monto+'|'+h.fecha+'|'+!!h.desdePres); }
+
+function mergeHist(histA, histB){
+  histA = histA||[]; histB = histB||[];
+  const byKey = {};
+  histA.forEach(h=>{ byKey[_histKey(h)] = h; });
+  histB.forEach(h=>{ byKey[_histKey(h)] = h; });
+  return Object.values(byKey);
+}
+
+// Fusiona mis metas del hogar con las de mi pareja (por id de meta) y dentro
+// de cada una, fusiona los depósitos (hist) para no perder ni duplicar aportes
+// hechos desde cualquiera de los dos teléfonos.
+function mergeFondos(myFondos, partnerFondos){
+  myFondos = myFondos || { emerg:{meta:0,actual:0,fecha:'',hist:[]}, metas:[] };
+  if(!partnerFondos) return myFondos;
+
+  const emergHist = mergeHist(myFondos.emerg && myFondos.emerg.hist, partnerFondos.emerg && partnerFondos.emerg.hist);
+  const emerg = {
+    meta: (myFondos.emerg && myFondos.emerg.meta) || (partnerFondos.emerg && partnerFondos.emerg.meta) || 0,
+    fecha: (myFondos.emerg && myFondos.emerg.fecha) || (partnerFondos.emerg && partnerFondos.emerg.fecha) || '',
+    hist: emergHist,
+    actual: emergHist.reduce((a,h)=>a+(h.monto||0),0)
+  };
+
+  const metasById = {};
+  (myFondos.metas||[]).forEach(m=>{ if(m && m.id!=null) metasById[m.id] = {...m}; });
+  (partnerFondos.metas||[]).forEach(m=>{
+    if(!m || m.id==null) return;
+    if(metasById[m.id]){
+      const mine = metasById[m.id];
+      const hist = mergeHist(mine.hist, m.hist);
+      metasById[m.id] = { ...mine, ...m, nombre: mine.nombre||m.nombre, hist, actual: hist.reduce((a,h)=>a+(h.monto||0),0) };
+    } else {
+      metasById[m.id] = {...m};
+    }
+  });
+
+  return { emerg, metas: Object.values(metasById) };
+}
+
 function savePartnerProfileMerged(partnerEmail, pp){
   const k = 'profile_'+partnerEmail.replace(/[^a-z0-9]/gi,'_');
   let old = null;
@@ -402,6 +444,17 @@ function savePartnerProfileMerged(partnerEmail, pp){
   };
   localStorage.setItem(k, JSON.stringify(merged));
   localStorage.setItem('ft_profile_B', JSON.stringify(merged));
+
+  // Las metas del hogar (Wedding, fondo emergencia, etc.) son de los dos —
+  // fusionar lo que trajo mi pareja con mi copia local, para que ambos
+  // vean el mismo progreso sin importar quién depositó desde qué teléfono.
+  if(newData.fondos){
+    try{
+      const mergedFondos = mergeFondos(loadFondos(), newData.fondos);
+      saveFondos(mergedFondos);
+    }catch(e){}
+  }
+
   return merged;
 }
 
@@ -1033,19 +1086,22 @@ function abrirAporteModal(tipo, idx, montoSugerido){
       document.getElementById('_aporteRecurrenteFreqWrap').style.display = this.checked ? 'block' : 'none';
     });
     document.getElementById('_btnGuardarAporte').addEventListener('click',function(){
+      if(this.disabled) return; // evita doble-submit (doble-tap duplicaba el aporte en el presupuesto)
       var monto=parseFloat(document.getElementById('_aporteMonto').value);
       var fecha=document.getElementById('_aporteFecha').value;
       if(!monto||monto<=0){showToast(lang==='es'?'Ingresa un monto valido':'Enter a valid amount');return;}
       if(!fecha){showToast(lang==='es'?'Selecciona una fecha':'Select a date');return;}
+      this.disabled = true;
       var f=loadFondos();
-      var entry={monto:monto,fecha:fecha,desdePres:_desdePres};
+      var entry={id:'d_'+Date.now(),monto:monto,fecha:fecha,desdePres:_desdePres};
       if(_aporteCtx.tipo==='emerg'){
-        f.emerg.actual=(f.emerg.actual||0)+monto;
         f.emerg.hist=f.emerg.hist||[]; f.emerg.hist.push(entry);
+        f.emerg.actual = f.emerg.hist.reduce((a,h)=>a+(h.monto||0),0);
         if(_desdePres) registrarEnPresupuesto(monto,lang==='es'?'Fondo emergencia hogar':'Household emergency fund');
       } else if(_aporteCtx.tipo==='meta'){
         var meta=f.metas[_aporteCtx.idx];
-        if(meta){ meta.actual=(meta.actual||0)+monto; meta.hist=meta.hist||[]; meta.hist.push(entry);
+        if(meta){ meta.hist=meta.hist||[]; meta.hist.push(entry);
+          meta.actual = meta.hist.reduce((a,h)=>a+(h.monto||0),0);
           if(_desdePres) registrarEnPresupuesto(monto,meta.nombre||'Meta hogar'); }
       }
       saveFondos(f);
@@ -1069,11 +1125,13 @@ function abrirAporteModal(tipo, idx, montoSugerido){
 
       document.getElementById('_aporteModal').style.display='none';
       showToast(lang==='es'?'Aporte guardado':'Deposit saved');
+      this.disabled = false;
       render();
     });
     document.getElementById('_btnCerrarAporte').addEventListener('click',function(){ document.getElementById('_aporteModal').style.display='none'; });
   }
   // Reset
+  document.getElementById('_btnGuardarAporte').disabled = false;
   document.getElementById('_aporteMonto').value = montoSugerido||'';
   const _hoy = new Date();
   const _fechaHoy = _hoy.getFullYear()+'-'+String(_hoy.getMonth()+1).padStart(2,'0')+'-'+String(_hoy.getDate()).padStart(2,'0');
@@ -1171,10 +1229,10 @@ function eliminarMovFondo(tipo, histIdx, metaIdx){
   var fondos=loadFondos();
   if(tipo==='emerg'){
     var mov=fondos.emerg.hist[histIdx];
-    if(mov){ fondos.emerg.actual=Math.max(0,(fondos.emerg.actual||0)-mov.monto); fondos.emerg.hist.splice(histIdx,1); }
+    if(mov){ fondos.emerg.hist.splice(histIdx,1); fondos.emerg.actual = fondos.emerg.hist.reduce((a,h)=>a+(h.monto||0),0); }
   } else if(tipo==='meta' && metaIdx!==null && metaIdx!==undefined){
     var meta=fondos.metas[metaIdx];
-    if(meta){ var m=meta.hist[histIdx]; if(m){ meta.actual=Math.max(0,(meta.actual||0)-m.monto); meta.hist.splice(histIdx,1); } }
+    if(meta){ var m=meta.hist[histIdx]; if(m){ meta.hist.splice(histIdx,1); meta.actual = meta.hist.reduce((a,h)=>a+(h.monto||0),0); } }
   }
   saveFondos(fondos);
   render();
@@ -1895,6 +1953,40 @@ function setLang(l){
   } else if(hogar.pendingInvite){
     startPartnerPolling();
   }
+
+  // Sube mi propio perfil a GAS también desde hogar.html — antes solo pasaba
+  // al cargar dashboard.html, así que si el usuario entraba directo a Hogar
+  // su pareja se quedaba con una copia vieja de mis datos.
+  (function syncProfileToGAS(){
+    try {
+      if(!hogar.connected || !user.email || hogar.manuallyLeft) return;
+      const GAS = 'https://script.google.com/macros/s/AKfycbwITyU4qld-IOEVKyLU9XHI46T8g_LjJaNp3nlQgler8-nMeIlztMmG_lZMVMm9cBkP/exec';
+      const data = JSON.parse(localStorage.getItem('ft_data')||'{"transactions":[],"emergency":0,"subscriptions":[]}');
+      let myDebts = [];
+      try{ myDebts = JSON.parse(localStorage.getItem('ft_debts')||'[]'); }catch(e){}
+      const sharedDebts = myDebts.filter(d=>d.owner==='both' || d.type==='hipoteca' || d.type==='hogar')
+        .map(d=>({ id:d.id, name:d.name, balance:d.balance, type:d.type, payment:d.payment, payDay:d.payDay }));
+      let hogarInv = [];
+      try{ hogarInv = JSON.parse(localStorage.getItem('ft_hogar_inv')||'[]'); }catch(e){}
+      const _thisMonth = new Date().toISOString().slice(0,7);
+      const limited = {
+        transactions: (data.transactions||[]).filter(t =>
+          String(t.date||'').startsWith(_thisMonth) && (t.hogar===true || t.type==='ingreso')
+        ),
+        emergency: data.emergency||0,
+        subscriptions: (data.subscriptions||[]).slice(-10),
+        sharedDebts: sharedDebts.slice(-20),
+        hogarInv: hogarInv.slice(-20),
+        fondos: loadFondos()
+      };
+      const params = new URLSearchParams({
+        action: 'saveProfile', email: user.email, name: user.name||'',
+        income: user.income||0, needs: user.needs||0, wants: user.wants||0,
+        savings: user.savings||0, dataJson: JSON.stringify(limited)
+      });
+      fetch(`${GAS}?${params.toString()}`).catch(()=>{});
+    } catch(e){}
+  })();
 
   // Check GAS for updates
   checkPartnerFromGAS().then(async gasData=>{
