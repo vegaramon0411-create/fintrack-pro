@@ -713,7 +713,7 @@ function renderDashboard(hogar){
     <button class="btn-secondary" onclick="leaveHousehold()" style="color:var(--red)">${es?'Salir del hogar':'Leave household'}</button>
   </div>`;
 
-  renderTab(calc, sharedTxs, partnerName, partnerIncome, mode, totalIncome);
+  renderTab(calc, [...sharedTxs, ...partnerSharedTxs], partnerName, partnerIncome, mode, totalIncome);
 }
 
 function switchTab(tab){
@@ -750,7 +750,7 @@ function switchTab(tab){
     b.classList.toggle('on', tabs[i]===tab);
   });
 
-  renderTab(calc, sharedTxs, partnerName, partnerIncome, mode, totalIncome);
+  renderTab(calc, [...sharedTxs, ...partnerSharedTxs], partnerName, partnerIncome, mode, totalIncome);
 }
 
 function renderTab(calc, sharedTxs, partnerName, partnerIncome, mode, totalIncome){

@@ -2348,6 +2348,10 @@ function pickType(btn, type) { setType(type); }
 let editingEntryId = null;
 
 function saveEntry() {
+  const btnSave = document.getElementById('btnSaveEntry');
+  if (btnSave && btnSave.disabled) return; // evita doble-submit (doble-tap crea duplicados con id distinto)
+  if (btnSave) btnSave.disabled = true;
+
   const desc   = document.getElementById('mDesc').value.trim();
   const amount = parseFloat(document.getElementById('mAmount').value);
   const date   = document.getElementById('mDate').value;
@@ -2364,6 +2368,7 @@ function saveEntry() {
     const f = !desc ? 'mDesc' : !amount ? 'mAmount' : 'mDate';
     document.getElementById(f).style.borderColor = 'var(--red)';
     setTimeout(() => document.getElementById(f).style.borderColor = '', 1500);
+    if (btnSave) btnSave.disabled = false;
     return;
   }
 
@@ -2450,6 +2455,7 @@ function saveEntry() {
       : data.transactions[data.transactions.length-1];
     if(tx) syncHogarTxToGAS(tx);
   }
+  if (btnSave) btnSave.disabled = false;
 }
 
 /* ══════════════════════════════════════════
