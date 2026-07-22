@@ -3357,6 +3357,9 @@ applyDueRecurring();
     // Sube lo del mes actual que le importa al hogar: gastos/ahorros marcados hogar:true
     // + todos los ingresos (cheques), sin depender de cuántas transacciones tenga el usuario.
     const _thisMonth = new Date().toISOString().slice(0,7); // "2026-07"
+    const personalSpentThisMonth = (data.transactions||[])
+      .filter(t => String(t.date||'').startsWith(_thisMonth) && t.hogar!==true && (t.type==='gasto'||t.type==='suscripcion'||t.type==='hipoteca'))
+      .reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
     const limited = {
       transactions: (data.transactions||[]).filter(t =>
         String(t.date||'').startsWith(_thisMonth) && (t.hogar===true || t.type==='ingreso')
@@ -3365,7 +3368,8 @@ applyDueRecurring();
       subscriptions: (data.subscriptions||[]).slice(-10),
       sharedDebts: sharedDebts.slice(-20),
       hogarInv: hogarInv.slice(-20),
-      fondos: fondos
+      fondos: fondos,
+      personalSpentThisMonth: personalSpentThisMonth
     };
 
     // Use GET — more reliable with GAS CORS restrictions
@@ -3759,6 +3763,7 @@ async function loadPartnerHogarTxs(){
         const _bgMergedData = {
           transactions: _bgMergeById(_bgOldData.transactions, _bgNewData.transactions),
           emergency: (_bgNewData.emergency!=null ? _bgNewData.emergency : _bgOldData.emergency) || 0,
+          personalSpentThisMonth: (_bgNewData.personalSpentThisMonth!=null ? _bgNewData.personalSpentThisMonth : _bgOldData.personalSpentThisMonth) || 0,
           subscriptions: _bgMergeById(_bgOldData.subscriptions, _bgNewData.subscriptions),
           sharedDebts: _bgMergeById(_bgOldData.sharedDebts, _bgNewData.sharedDebts),
           hogarInv: _bgMergeById(_bgOldData.hogarInv, _bgNewData.hogarInv)

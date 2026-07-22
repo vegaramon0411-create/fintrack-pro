@@ -290,6 +290,8 @@ input, select, textarea { font-size: 16px !important; }
 const GAS_URL_HOGAR = 'https://script.google.com/macros/s/AKfycbwITyU4qld-IOEVKyLU9XHI46T8g_LjJaNp3nlQgler8-nMeIlztMmG_lZMVMm9cBkP/exec';
 let lang = 'es', user = {};
 let activeTab = 'resumen';
+let _depositosLimit = 5;
+let _gastosHogarLimit = 8;
 const FONDOS_KEY = 'ft_hogar_fondos';
 
 function loadFondos(){
@@ -437,6 +439,7 @@ function savePartnerProfileMerged(partnerEmail, pp){
     data: {
       transactions: mergePartnerDataById(oldData.transactions, newData.transactions),
       emergency: newData.emergency!=null ? newData.emergency : (oldData.emergency||0),
+      personalSpentThisMonth: newData.personalSpentThisMonth!=null ? newData.personalSpentThisMonth : (oldData.personalSpentThisMonth||0),
       subscriptions: mergePartnerDataById(oldData.subscriptions, newData.subscriptions),
       sharedDebts: mergePartnerDataById(oldData.sharedDebts, newData.sharedDebts),
       hogarInv: mergePartnerDataById(oldData.hogarInv, newData.hogarInv)
@@ -615,7 +618,9 @@ function renderDashboard(hogar){
   const sharedTotal = sharedTxs.reduce((a,t)=>a+(t.amount||0),0) + partnerSharedTxs.reduce((a,t)=>a+(t.amount||0),0);
   const personalPart = personalTotal;
   const partnerPersonalTotal = partnerProfile && partnerProfile.data
-    ? (partnerProfile.data.transactions||[]).filter(t=>t.hogar!==true && t.type==='gasto').reduce((a,t)=>a+(t.amount||0),0)
+    ? (partnerProfile.data.personalSpentThisMonth!=null
+        ? partnerProfile.data.personalSpentThisMonth
+        : (partnerProfile.data.transactions||[]).filter(t=>t.hogar!==true && t.type==='gasto').reduce((a,t)=>a+(t.amount||0),0))
     : 0;
 
   const calc = calcHogar(myIncome, partnerIncome, mode, personalTotal, partnerPersonalTotal, [...sharedTxs, ...partnerSharedTxs]);
@@ -700,27 +705,25 @@ function renderDashboard(hogar){
     <div style="font-size:11px;color:var(--text3);margin-bottom:10px">${es?`${hogarPctChk}% al presupuesto del hogar · ${100-hogarPctChk}% a cuenta personal`:`${hogarPctChk}% to household budget · ${100-hogarPctChk}% to personal account`}</div>
     ${(myIncomeTxs.length+partnerIncomeTxs.length)?`
     <div style="display:flex;flex-direction:column;gap:8px">
-      ${myIncomeTxs.map(t=>{
-        const hogarPart=t.amount*hogarPctChk/100, persPart=t.amount-hogarPart;
-        return `<div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--off);border-radius:10px">
-          <div style="width:34px;height:34px;border-radius:10px;background:var(--g-light);display:grid;place-items:center;font-size:15px;flex-shrink:0">💵</div>
-          <div style="flex:1;min-width:0">
-            <div style="font-size:12px;font-weight:700">${user.name||'Tú'} · ${fmt(t.amount)}</div>
-            <div style="font-size:10px;color:var(--text3)">${t.date} · 🏠 ${fmt(hogarPart)} · 👤 ${fmt(persPart)}</div>
-          </div>
-          <div onclick="deleteMyIncomeTx('${t.id}')" style="cursor:pointer;color:var(--text3);font-size:13px;flex-shrink:0" title="${es?'Eliminar':'Delete'}">🗑</div>
-        </div>`;
-      }).join('')}
-      ${partnerIncomeTxs.map(t=>{
-        const hogarPart=t.amount*hogarPctChk/100, persPart=t.amount-hogarPart;
-        return `<div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--off);border-radius:10px">
-          <div style="width:34px;height:34px;border-radius:10px;background:var(--blu-dim);display:grid;place-items:center;font-size:15px;flex-shrink:0">💵</div>
-          <div style="flex:1;min-width:0">
-            <div style="font-size:12px;font-weight:700">${partnerName} · ${fmt(t.amount)}</div>
-            <div style="font-size:10px;color:var(--text3)">${t.date} · 🏠 ${fmt(hogarPart)} · 👤 ${fmt(persPart)}</div>
-          </div>
-        </div>`;
-      }).join('')}
+      ${(() => {
+        const allDep = [
+          ...myIncomeTxs.map(t=>({...t,_mine:true})),
+          ...partnerIncomeTxs.map(t=>({...t,_mine:false}))
+        ].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+        const shown = allDep.slice(0, _depositosLimit);
+        return shown.map(t=>{
+          const hogarPart=t.amount*hogarPctChk/100, persPart=t.amount-hogarPart;
+          return `<div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--off);border-radius:10px">
+            <div style="width:34px;height:34px;border-radius:10px;background:${t._mine?'var(--g-light)':'var(--blu-dim)'};display:grid;place-items:center;font-size:15px;flex-shrink:0">💵</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:12px;font-weight:700">${t._mine?(user.name||'Tú'):partnerName} · ${fmt(t.amount)}</div>
+              <div style="font-size:10px;color:var(--text3)">${t.date} · 🏠 ${fmt(hogarPart)} · 👤 ${fmt(persPart)}</div>
+            </div>
+            ${t._mine?`<div onclick="deleteMyIncomeTx('${t.id}')" style="cursor:pointer;color:var(--text3);font-size:13px;flex-shrink:0" title="${es?'Eliminar':'Delete'}">🗑</div>`:''}
+          </div>`;
+        }).join('') + (allDep.length > _depositosLimit ? `
+        <button onclick="_depositosLimit+=10;render()" style="background:var(--off);border:1.5px solid var(--border);border-radius:10px;padding:10px;font-size:12px;font-weight:700;color:var(--text2);cursor:pointer;font-family:inherit">${es?`Ver más (${allDep.length-_depositosLimit} más)`:`See more (${allDep.length-_depositosLimit} more)`}</button>` : '');
+      })()}
     </div>`:`<div style="text-align:center;padding:16px;color:var(--text3);font-size:12px">${es?'Sin depósitos registrados este mes':'No deposits recorded this month'}</div>`}
   </div>
 
@@ -730,9 +733,11 @@ function renderDashboard(hogar){
     <div style="font-size:11px;color:var(--text3);margin-bottom:10px">${es?'Solo lo marcado como \u201cdel hogar\u201d \u2014 de ambos':'Only items tagged \u201chousehold\u201d \u2014 from both of you'}</div>
     ${(sharedTxs.length+partnerSharedTxs.length)?`
     <div style="display:flex;flex-direction:column;gap:8px">
-      ${[...sharedTxs.map(t=>({...t,_who:user.name||(es?'Tú':'You'),_mine:true})), ...partnerSharedTxs.map(t=>({...t,_who:partnerName,_mine:false}))]
-        .sort((a,b)=>(b.date||'').localeCompare(a.date||''))
-        .map(t=>`
+      ${(() => {
+        const allGastos = [...sharedTxs.map(t=>({...t,_who:user.name||(es?'Tú':'You'),_mine:true})), ...partnerSharedTxs.map(t=>({...t,_who:partnerName,_mine:false}))]
+          .sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+        const shown = allGastos.slice(0, _gastosHogarLimit);
+        return shown.map(t=>`
         <div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--off);border-radius:10px">
           <div style="width:34px;height:34px;border-radius:10px;background:${t._mine?'var(--g-light)':'var(--blu-dim)'};display:grid;place-items:center;font-size:15px;flex-shrink:0">🏠</div>
           <div style="flex:1;min-width:0">
@@ -740,7 +745,9 @@ function renderDashboard(hogar){
             <div style="font-size:10px;color:var(--text3)">${t._who} · ${t.date||''} · ${t.cat||t.category||''}</div>
           </div>
           <div style="font-size:13px;font-weight:800;color:var(--red)">-${fmt(t.amount||0)}</div>
-        </div>`).join('')}
+        </div>`).join('') + (allGastos.length > _gastosHogarLimit ? `
+        <button onclick="_gastosHogarLimit+=10;render()" style="background:var(--off);border:1.5px solid var(--border);border-radius:10px;padding:10px;font-size:12px;font-weight:700;color:var(--text2);cursor:pointer;font-family:inherit">${es?`Ver más (${allGastos.length-_gastosHogarLimit} más)`:`See more (${allGastos.length-_gastosHogarLimit} more)`}</button>` : '');
+      })()}
     </div>`:`<div style="text-align:center;padding:16px;color:var(--text3);font-size:12px">${es?'Sin gastos del hogar registrados este mes':'No household expenses recorded this month'}</div>`}
   </div>
 
@@ -789,12 +796,15 @@ function switchTab(tab){
       })
     : [];
   const partnerPersonalTotal = partnerProfile&&partnerProfile.data
-    ? (partnerProfile.data.transactions||[]).filter(t=>{
-        if(!t.date||t.hogar===true) return false;
-        const _p=String(t.date).split(/[-T]/);
-        return parseInt(_p[0])===_y2&&parseInt(_p[1])-1===_m2&&
-          (t.type==='gasto'||t.type==='inversion'||(t.type==='ahorro'&&t.hogar!==true));
-      }).reduce((a,t)=>a+(parseFloat(t.amount)||0),0) : 0;
+    ? (partnerProfile.data.personalSpentThisMonth!=null
+        ? partnerProfile.data.personalSpentThisMonth
+        : (partnerProfile.data.transactions||[]).filter(t=>{
+            if(!t.date||t.hogar===true) return false;
+            const _p=String(t.date).split(/[-T]/);
+            return parseInt(_p[0])===_y2&&parseInt(_p[1])-1===_m2&&
+              (t.type==='gasto'||t.type==='inversion'||(t.type==='ahorro'&&t.hogar!==true));
+          }).reduce((a,t)=>a+(parseFloat(t.amount)||0),0))
+    : 0;
   const calc = calcHogar(myIncome, partnerIncome, mode, personalTotal, partnerPersonalTotal, [...sharedTxs, ...partnerSharedTxs]);
   const totalIncome = myIncome + partnerIncome;
 
@@ -1969,6 +1979,12 @@ function setLang(l){
       let hogarInv = [];
       try{ hogarInv = JSON.parse(localStorage.getItem('ft_hogar_inv')||'[]'); }catch(e){}
       const _thisMonth = new Date().toISOString().slice(0,7);
+      // Total agregado de gasto personal (sin detalle línea por línea, solo la suma) —
+      // sin esto, "te queda este mes" del lado de tu pareja sale inflado, porque cree
+      // que no gastaste nada personal ya que esas transacciones ya no viajan en el payload.
+      const personalSpentThisMonth = (data.transactions||[])
+        .filter(t => String(t.date||'').startsWith(_thisMonth) && t.hogar!==true && (t.type==='gasto'||t.type==='suscripcion'||t.type==='hipoteca'))
+        .reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
       const limited = {
         transactions: (data.transactions||[]).filter(t =>
           String(t.date||'').startsWith(_thisMonth) && (t.hogar===true || t.type==='ingreso')
@@ -1977,7 +1993,8 @@ function setLang(l){
         subscriptions: (data.subscriptions||[]).slice(-10),
         sharedDebts: sharedDebts.slice(-20),
         hogarInv: hogarInv.slice(-20),
-        fondos: loadFondos()
+        fondos: loadFondos(),
+        personalSpentThisMonth: personalSpentThisMonth
       };
       const params = new URLSearchParams({
         action: 'saveProfile', email: user.email, name: user.name||'',
