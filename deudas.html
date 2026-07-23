@@ -340,7 +340,7 @@ input, select, textarea { font-size: 16px !important; }
         <div style="font-size:10.5px;color:var(--text3);margin-top:6px" data-es="Se aplicará solo, sin que tengas que volver a entrar." data-en="Applies automatically, no need to come back and confirm.">Se aplicará solo, sin que tengas que volver a entrar.</div>
       </div>
     </div>
-    <button onclick="guardarAbono()" style="width:100%;background:var(--g-main);color:white;border:none;border-radius:12px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:8px" data-es="✅ Registrar abono" data-en="✅ Register payment">✅ Registrar abono</button>
+    <button id="btnRegistrarAbono" onclick="guardarAbono()" style="width:100%;background:var(--g-main);color:white;border:none;border-radius:12px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:8px" data-es="✅ Registrar abono" data-en="✅ Register payment">✅ Registrar abono</button>
     <button onclick="closeAbonar()" style="width:100%;background:var(--off);border:1.5px solid var(--border);border-radius:12px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit" data-es="Cancelar" data-en="Cancel">Cancelar</button>
   </div>
 </div>
@@ -1311,6 +1311,8 @@ function openAbonar(debtId){
   document.getElementById('abonarFecha').value = new Date().toISOString().split('T')[0];
   document.getElementById('abonarMonto').value = '';
   document.getElementById('abonarNota').value = '';
+  const _btnAbono = document.getElementById('btnRegistrarAbono');
+  if(_btnAbono) _btnAbono.disabled = false;
   abonoTipo='nuevo'; setAbonoTipo('nuevo');
 
   if(debtId){
@@ -1365,6 +1367,8 @@ function toggleAbonoRecurrenteFreq(){
 }
 
 function guardarAbono(){
+  const btn = document.getElementById('btnRegistrarAbono');
+  if(btn && btn.disabled) return; // evita doble-submit (doble-tap duplicaba el abono)
   const es = lang==='es';
   const overlay = document.getElementById('abonarOverlay');
   const debtId = overlay.dataset.debtId || document.getElementById('abonarDebtId')?.value;
@@ -1375,6 +1379,7 @@ function guardarAbono(){
   if(!debtId){ showToast(es?'⚠️ Selecciona una deuda':'⚠️ Select a debt'); return; }
   if(!monto||monto<=0){ showToast(es?'⚠️ Ingresa un monto válido':'⚠️ Enter a valid amount'); return; }
   if(!fecha){ showToast(es?'⚠️ Selecciona una fecha':'⚠️ Select a date'); return; }
+  if(btn) btn.disabled = true;
 
   const debts = loadDebts();
   const idx = debts.findIndex(d=>String(d.id)===String(debtId));
@@ -1427,6 +1432,7 @@ function guardarAbono(){
   }
 
   closeAbonar();
+  if(btn) btn.disabled = false;
   showToast(es?`✅ Abono de ${fmt(monto)} registrado · Nuevo saldo: ${fmt(newBalance)}${wantsRecurrente?' · 🔄 recurrente activado':''}`:`✅ Payment of ${fmt(monto)} registered · New balance: ${fmt(newBalance)}${wantsRecurrente?' · 🔄 recurring enabled':''}`, 4000);
   render();
 }
