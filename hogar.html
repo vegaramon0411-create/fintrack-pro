@@ -1275,6 +1275,16 @@ function renderDistribucion(calc, partnerName, totalIncome, mode, partnerIncome)
   const leftover = Math.max(0, totalIncome - calc.sharedTotal);
   const hogarBudget = totalIncome * payPct / 100;
   const hogarSurplus = Math.max(0, hogarBudget - calc.sharedTotal);
+  // De qué es la parte de cada quien dentro del sobrante — misma proporción
+  // que ya se usa para repartir el aporte al hogar (por ingreso, o 50/50 si el modo es equal/common)
+  let _sobranteMyPct = 50, _sobrantePartnerPct = 50;
+  if(mode !== 'equal' && mode !== 'common'){
+    const _totalInc = (user.income||0) + (partnerIncome||0);
+    _sobranteMyPct = _totalInc > 0 ? Math.round(((user.income||0)/_totalInc)*100) : 50;
+    _sobrantePartnerPct = 100 - _sobranteMyPct;
+  }
+  const misobranteParte = hogarSurplus * _sobranteMyPct/100;
+  const susobranteParte = hogarSurplus * _sobrantePartnerPct/100;
 
   const myPart = (user.income||0) * personalPct/100;
   const partnerPart = partnerInc * personalPct/100;
@@ -1375,12 +1385,24 @@ function renderDistribucion(calc, partnerName, totalIncome, mode, partnerIncome)
     <!-- SOBRANTE DEL HOGAR -->
     ${hogarSurplus > 0 ? `
     <div style="background:var(--g-light);border:1.5px solid var(--g-main);border-radius:12px;padding:14px">
-      <div style="font-size:13px;font-weight:800;color:var(--g-dark);margin-bottom:6px">🎉 ${es?'Sobrante del hogar este mes':'Household surplus this month'}</div>
-      <div style="font-size:24px;font-weight:800;color:var(--g-main);margin-bottom:8px">${fmt(hogarSurplus)}</div>
+      <div style="display:flex;align-items:center;gap:5px;margin-bottom:2px">
+        <div style="font-size:13px;font-weight:800;color:var(--g-dark)">🎉 ${es?'Sobrante combinado del hogar':'Combined household surplus'}</div>
+        <details style="position:relative">
+          <summary style="list-style:none;cursor:pointer;width:16px;height:16px;border-radius:50%;background:var(--g-main);color:white;font-size:10px;font-weight:800;display:grid;place-items:center;flex-shrink:0">i</summary>
+          <div style="margin-top:6px;padding:10px;background:white;border:1px solid var(--border);border-radius:10px;font-size:11px;color:var(--text2);line-height:1.6">
+            <div>${es?'Presupuesto del hogar':'Household budget'} (${fmt(totalIncome)} × ${payPct}%): <b>${fmt(hogarBudget)}</b></div>
+            <div>− ${es?'Gastado del hogar (los dos)':'Household spent (both)'}: <b>${fmt(calc.sharedTotal)}</b></div>
+            <div style="margin-top:4px;padding-top:4px;border-top:1px dashed var(--border)">= ${es?'Sobrante':'Surplus'}: <b>${fmt(hogarSurplus)}</b></div>
+          </div>
+        </details>
+      </div>
+      <div style="font-size:10px;color:var(--text3);margin-bottom:6px">${es?'De ti + tu pareja juntos, este mes':'From you + your partner combined, this month'}</div>
+      <div style="font-size:24px;font-weight:800;color:var(--g-main);margin-bottom:4px">${fmt(hogarSurplus)}</div>
+      <div style="font-size:11px;color:var(--text2);margin-bottom:8px">${es?'Tuyo':'Yours'}: <b>${fmt(misobranteParte)}</b> (${_sobranteMyPct}%) · ${partnerName}: <b>${fmt(susobranteParte)}</b> (${_sobrantePartnerPct}%)</div>
       <div style="font-size:12px;color:var(--text2);margin-bottom:10px">${es?'Gastaron menos del presupuesto del hogar. Opciones:':'You spent less than the household budget. Options:'}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
         <div style="background:white;border-radius:8px;padding:10px;text-align:center">
-          <div style="font-size:11px;font-weight:700;color:var(--purple)">${fmt(hogarSurplus/2)}</div>
+          <div style="font-size:11px;font-weight:700;color:var(--purple)">${fmt(hogarSurplus)}</div>
           <div style="font-size:10px;color:var(--text3)">${es?'Mover a metas':'Move to goals'}</div>
         </div>
         <div style="background:white;border-radius:8px;padding:10px;text-align:center">
