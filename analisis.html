@@ -282,6 +282,31 @@ function render(){
   const projectedTotal = dailyRate * daysInMonth;
   const willOverspend = personalBudget>0 && projectedTotal > personalBudget;
 
+  // ── Ahorro potencial REAL: personal + tu parte del sobrante combinado del hogar ──
+  // (gasto hogar combinado = el mío + el de mi pareja, porque un gasto hogar es de los dos)
+  const _mesActualHogar = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  const partnerIncomeAn = parseFloat(hogar.partnerIncome)||0;
+  let partnerHogarExpenses = 0;
+  if(hogarConn && hogar.partnerEmail){
+    try{
+      const _k = 'profile_'+hogar.partnerEmail.replace(/[^a-z0-9]/gi,'_');
+      const _pp = JSON.parse(localStorage.getItem(_k)||'null');
+      if(_pp && _pp.data && _pp.data.transactions){
+        partnerHogarExpenses = _pp.data.transactions
+          .filter(t=>t.hogar===true && (t.type==='gasto'||t.type==='suscripcion'||t.type==='hipoteca') && String(t.date||'').startsWith(_mesActualHogar))
+          .reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
+      }
+    }catch(e){}
+  }
+  const hogarExpensesCombined = hogarExpenses + partnerHogarExpenses;
+  const totalIncomeHogar = monthlyIncome + partnerIncomeAn;
+  const hogarBudgetCombined = totalIncomeHogar * ((parseFloat(hogar.payPctHogar)||50)/100);
+  const hogarSurplusCombined = hogarBudgetCombined - hogarExpensesCombined; // puede ser negativo (déficit)
+  const _myPctHogarAn = totalIncomeHogar>0 ? Math.round((monthlyIncome/totalIncomeHogar)*100) : 50;
+  const miParteSurplusHogar = hogarConn ? (hogarSurplusCombined * _myPctHogarAn/100) : 0;
+  const ahorroPotencialPersonal = income - expenses;
+  const ahorroPotencialCombinado = ahorroPotencialPersonal + miParteSurplusHogar;
+
   const hogarExplainCard = hogarConn ? `
     <div class="card">
       <div style="font-size:13px;font-weight:800;margin-bottom:10px">🏠 ${es?'Cómo se reparte tu sueldo':'How your paycheck splits'}</div>
@@ -402,6 +427,40 @@ function render(){
         </div>
       </div>`:''}
     </div>
+
+    ${hogarConn?`
+    <div class="card" style="border:2px solid var(--purple);background:linear-gradient(180deg,rgba(123,94,167,.04),transparent)">
+      <div style="font-size:13px;font-weight:800;margin-bottom:2px;color:var(--purple)">🏠+👤 ${es?'Tu ahorro potencial REAL (personal + hogar)':'Your REAL savings potential (personal + household)'}</div>
+      <div style="font-size:10px;color:var(--text3);margin-bottom:12px">${es?'Esto es distinto al de arriba \u2014 aquí sí se suma lo que sobra en el hogar. El de arriba es solo tu presupuesto personal, sin tocar':'This is different from the one above \u2014 here the household surplus IS added in. The one above is only your personal budget, untouched'}</div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:8px 0;border-top:1px solid var(--off)">
+        <span style="color:var(--text2)">1️⃣ ${es?'Tu ahorro potencial personal':'Your personal savings potential'}</span>
+        <span style="font-weight:800;color:${ahorroPotencialPersonal>=0?'var(--g-main)':'var(--red)'}">${fmt(ahorroPotencialPersonal)}</span>
+      </div>
+
+      <div style="padding:8px 0;border-top:1px solid var(--off)">
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;margin-bottom:6px">
+          <span style="color:var(--text2)">2️⃣ ${es?'Sobrante combinado del hogar (tú + tu pareja)':'Combined household surplus (you + your partner)'}</span>
+          <span style="font-weight:800;color:${hogarSurplusCombined>=0?'var(--g-main)':'var(--red)'}">${hogarSurplusCombined>=0?'':'-'}${fmt(Math.abs(hogarSurplusCombined))}</span>
+        </div>
+        <div style="background:var(--off);border-radius:8px;padding:8px 10px;font-size:10.5px;color:var(--text3);line-height:1.6">
+          <div>${es?'Presupuesto del hogar':'Household budget'} (${fmt(totalIncomeHogar)} × ${parseFloat(hogar.payPctHogar)||50}%): <b>${fmt(hogarBudgetCombined)}</b></div>
+          <div>− ${es?'Gastado del hogar, los dos juntos':'Household spent, both combined'}: <b>${fmt(hogarExpensesCombined)}</b> ${es?'(tuyo':'(yours'}: ${fmt(hogarExpenses)} + ${es?'pareja':'partner'}: ${fmt(partnerHogarExpenses)})</div>
+          <div style="margin-top:2px;padding-top:2px;border-top:1px dashed var(--border)">= ${hogarSurplusCombined>=0?(es?'Sobrante combinado':'Combined surplus'):(es?'Déficit combinado':'Combined deficit')}: <b>${fmt(Math.abs(hogarSurplusCombined))}</b></div>
+        </div>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:8px 0;border-top:1px solid var(--off)">
+        <span style="color:var(--text2)">3️⃣ ${es?`Tu parte de ese sobrante (${_myPctHogarAn}%, según tu ingreso)`:`Your share of that surplus (${_myPctHogarAn}%, based on your income)`}</span>
+        <span style="font-weight:800;color:${miParteSurplusHogar>=0?'var(--g-main)':'var(--red)'}">${miParteSurplusHogar>=0?'+':'-'}${fmt(Math.abs(miParteSurplusHogar))}</span>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:13.5px;padding:12px 0 4px;border-top:2px solid var(--purple);margin-top:4px">
+        <span style="font-weight:800;color:var(--purple)">= ${es?'Total que podrías ahorrar este mes':'Total you could save this month'}</span>
+        <span style="font-weight:800;font-size:16px;color:${ahorroPotencialCombinado>=0?'var(--g-main)':'var(--red)'}">${fmt(ahorroPotencialCombinado)}</span>
+      </div>
+      <div style="font-size:10px;color:var(--text3);margin-top:4px">${es?'(1) + (3) \u2014 tu presupuesto personal más tu parte del hogar, si sobró algo':'(1) + (3) \u2014 your personal budget plus your share of the household, if anything was left over'}</div>
+    </div>` : ''}
 
     ${cats.length?`
     <div class="card">
