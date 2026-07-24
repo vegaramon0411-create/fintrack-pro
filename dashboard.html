@@ -769,6 +769,7 @@ input, select, textarea { font-size: 16px !important; }
       <div style="background:white;border-radius:20px 20px 0 0;width:100%;max-width:500px;padding:20px;padding-bottom:calc(20px + env(safe-area-inset-bottom))">
         <div style="font-size:16px;font-weight:800;margin-bottom:4px">💵 Recibí mi cheque</div>
         <div style="font-size:11px;color:var(--text3);margin-bottom:14px" id="chequeSubtitle"></div>
+        <div id="chequeAutoWarning" style="display:none;background:#FFF4E5;border:1.5px solid #E8A33D;border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:#8A5A00"></div>
         <label style="font-size:11px;font-weight:700;color:#9395A5;display:block;margin-bottom:6px">MONTO RECIBIDO ($)</label>
         <input type="number" id="chequeMonto" placeholder="0.00" step="0.01" min="0"
           style="width:100%;padding:12px;border:2px solid var(--g-main);border-radius:10px;font-size:18px;font-weight:700;font-family:inherit;margin-bottom:12px;box-sizing:border-box;outline:none;text-align:center">
@@ -1584,6 +1585,21 @@ function openChequeModal(){
   chequeType = 'nuevo';
   setChequeType('nuevo');
   updateChequePreview();
+
+  // Avisar si el registro automático de cheque ya está activado (Perfil → Frecuencia de pago) —
+  // para no terminar registrando el mismo cheque dos veces, una a mano y otra sola.
+  const warnEl = document.getElementById('chequeAutoWarning');
+  if(user.payAuto){
+    const _dayLabels = es
+      ? {monday:'Lunes',tuesday:'Martes',wednesday:'Miércoles',thursday:'Jueves',friday:'Viernes',saturday:'Sábado'}
+      : {monday:'Monday',tuesday:'Tuesday',wednesday:'Wednesday',thursday:'Thursday',friday:'Friday',saturday:'Saturday'};
+    const dayLbl = _dayLabels[user.payDay] || user.payDay || (es?'tu día de pago':'your pay day');
+    warnEl.style.display = '';
+    warnEl.innerHTML = `⚠️ ${es?`Ya tienes el registro automático activado (cada ${dayLbl}). Si tu cheque de este periodo ya se registró solo, no lo dupliques aquí.`:`Auto-register is already on (every ${dayLbl}). If this period's paycheck already registered itself, don\u2019t duplicate it here.`}`;
+  } else {
+    warnEl.style.display = 'none';
+  }
+
   document.getElementById('chequeModal').style.display='flex';
 }
 
@@ -2712,14 +2728,27 @@ function deleteEntry() {
 /* ══════════════════════════════════════════
    TOAST
 ══════════════════════════════════════════ */
+let _toastQueue = [];
+let _toastShowing = false;
 function showToast(icon, title, msg, color) {
+  _toastQueue.push({icon, title, msg, color});
+  _processToastQueue();
+}
+function _processToastQueue() {
+  if (_toastShowing || !_toastQueue.length) return;
+  _toastShowing = true;
+  const {icon, title, msg, color} = _toastQueue.shift();
   const t = document.getElementById('toast');
   t.querySelector('.toast-icon').textContent   = icon;
   t.querySelector('.toast-title').textContent  = title;
   t.querySelector('.toast-title').style.color  = color||'var(--red)';
   t.querySelector('.toast-msg').textContent    = msg;
   t.style.display = 'flex';
-  setTimeout(() => { t.style.display='none'; }, 3500);
+  setTimeout(() => {
+    t.style.display='none';
+    _toastShowing = false;
+    setTimeout(_processToastQueue, 300); // pequeño respiro entre avisos
+  }, 3500);
 }
 
 /* ══════════════════════════════════════════
@@ -3266,7 +3295,9 @@ function _applyRecurringMeta(rec, hoyStr){
       f.emerg.hist = f.emerg.hist||[]; f.emerg.hist.push(entry);
       f.emerg.actual = f.emerg.hist.reduce((a,h)=>a+(h.monto||0),0);
     } else {
-      const meta = f.metas[rec.metaIdx];
+      // Buscar por id fijo (robusto ante borrar/reordenar metas); si el recurrente es
+      // viejo y no tiene metaId, cae al índice como antes.
+      const meta = rec.metaId!=null ? f.metas.find(m=>m.id===rec.metaId) : f.metas[rec.metaIdx];
       if(!meta) return false; // la meta fue borrada — no se puede aplicar
       meta.hist = meta.hist||[]; meta.hist.push(entry);
       meta.actual = meta.hist.reduce((a,h)=>a+(h.monto||0),0);

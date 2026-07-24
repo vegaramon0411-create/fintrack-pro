@@ -290,6 +290,7 @@ input, select, textarea { font-size: 16px !important; }
       <select id="abonarDebtId" onchange="updateAbonarInfo()" style="width:100%;background:var(--off);border:1.5px solid var(--border);border-radius:10px;padding:11px;font-size:13px;font-family:inherit;outline:none"></select>
     </div>
     <!-- Info de la deuda seleccionada -->
+    <div id="abonarRecurrenteWarning" style="display:none;background:#FFF4E5;border:1.5px solid var(--amber);border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:#8A5A00"></div>
     <div id="abonarDebtInfo" style="background:var(--off);border-radius:10px;padding:12px;margin-bottom:14px;display:none">
       <div style="font-size:11px;color:var(--text3);margin-bottom:4px" data-es="Saldo actual" data-en="Current balance">Saldo actual</div>
       <div style="font-size:22px;font-weight:800" id="abonarSaldoActual">$0</div>
@@ -1344,6 +1345,26 @@ function showAbonarInfo(d){
   const chips = document.getElementById('abonarChips');
   info.style.display = '';
   document.getElementById('abonarSaldoActual').textContent = fmt(balance);
+
+  // Avisar si ya hay un abono recurrente activo para esta deuda —
+  // así no se te olvida y terminas registrando el pago dos veces.
+  const es = lang==='es';
+  const warnEl = document.getElementById('abonarRecurrenteWarning');
+  let recurring = [];
+  try{ recurring = JSON.parse(localStorage.getItem('ft_recurring')||'[]'); }catch(e){}
+  const existente = recurring.find(r=>r.kind==='debt' && String(r.debtId)===String(d.id) && r.active);
+  if(existente){
+    const freqLbl = {weekly:es?'semanal':'weekly',biweekly:es?'quincenal':'biweekly',monthly:es?'mensual':'monthly'}[existente.freq]||existente.freq;
+    const _ultimoAuto = (d.abonos||[]).filter(a=>a.auto).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''))[0];
+    const _ultimoTxt = _ultimoAuto
+      ? (es?` Último aplicado solo: ${_ultimoAuto.fecha}.`:` Last auto-applied: ${_ultimoAuto.fecha}.`)
+      : (es?' Aún no se ha aplicado ninguno automáticamente.':' None has been auto-applied yet.');
+    warnEl.style.display = '';
+    warnEl.innerHTML = `⚠️ ${es?`Ya tienes un abono recurrente activo de ${fmt(existente.amount)} (${freqLbl}). Próximo: ${existente.nextDate}.${_ultimoTxt} No lo dupliques.`:`You already have an active recurring payment of ${fmt(existente.amount)} (${freqLbl}). Next: ${existente.nextDate}.${_ultimoTxt} Don't duplicate it.`}`;
+  } else {
+    warnEl.style.display = 'none';
+  }
+
   // Sugerencias rápidas
   const opciones = [];
   if(payment>0) opciones.push({l:(lang==='es'?'Pago mínimo':'Min payment')+' '+fmt(payment), v:payment});
@@ -1379,11 +1400,23 @@ function guardarAbono(){
   if(!debtId){ showToast(es?'⚠️ Selecciona una deuda':'⚠️ Select a debt'); return; }
   if(!monto||monto<=0){ showToast(es?'⚠️ Ingresa un monto válido':'⚠️ Enter a valid amount'); return; }
   if(!fecha){ showToast(es?'⚠️ Selecciona una fecha':'⚠️ Select a date'); return; }
+
+  let _recurringChk = [];
+  try{ _recurringChk = JSON.parse(localStorage.getItem('ft_recurring')||'[]'); }catch(e){}
+  const _existenteChk = _recurringChk.find(r=>r.kind==='debt' && String(r.debtId)===String(debtId) && r.active);
+  const _wantsRecChk = document.getElementById('abonarRecurrenteCheck')?.checked;
+  if(_existenteChk){
+    if(_wantsRecChk){
+      if(!confirm(es?`⚠️ Ya tienes un abono recurrente activo (${fmt(_existenteChk.amount)}). ¿Crear otro de todos modos? Esto duplicaría los pagos automáticos.`:`⚠️ You already have an active recurring payment (${fmt(_existenteChk.amount)}). Create another anyway? This would duplicate the automatic payments.`)) return;
+    } else if(abonoTipo==='nuevo'){
+      if(!confirm(es?`⚠️ Ya tienes un abono recurrente activo de ${fmt(_existenteChk.amount)} para esta deuda (próximo: ${_existenteChk.nextDate}). ¿Seguro que quieres registrar este pago manual también? Si el recurrente ya cubre este pago, se duplicaría.`:`⚠️ You already have an active recurring payment of ${fmt(_existenteChk.amount)} for this debt (next: ${_existenteChk.nextDate}). Register this manual payment too? If the recurring one already covers it, it will be duplicated.`)) return;
+    }
+  }
   if(btn) btn.disabled = true;
 
   const debts = loadDebts();
   const idx = debts.findIndex(d=>String(d.id)===String(debtId));
-  if(idx<0){ showToast('⚠️ Deuda no encontrada'); return; }
+  if(idx<0){ showToast('⚠️ Deuda no encontrada'); if(btn) btn.disabled=false; return; }
 
   const d = debts[idx];
   const oldBalance = parseFloat(d.balance)||0;

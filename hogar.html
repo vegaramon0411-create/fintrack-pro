@@ -1055,6 +1055,7 @@ function abrirAporteModal(tipo, idx, montoSugerido){
     m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:300;display:flex;align-items:flex-end;justify-content:center';
     m.innerHTML='<div style="background:white;border-radius:20px 20px 0 0;width:100%;max-width:500px;padding:20px;padding-bottom:calc(20px + env(safe-area-inset-bottom))">'
       +'<div style="font-size:15px;font-weight:800;margin-bottom:14px" id="_aporteTitle">Depositar</div>'
+      +'<div id="_aporteRecurrenteWarning" style="display:none;background:#FFF4E5;border:1.5px solid #E8A33D;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:#8A5A00"></div>'
       +'<label style="font-size:11px;font-weight:700;color:#9395A5;display:block;margin-bottom:6px">MONTO ($)</label>'
       +'<input type="number" id="_aporteMonto" placeholder="0.00" min="0" step="1" style="width:100%;padding:11px;border:1.5px solid #E4E6F0;border-radius:10px;font-size:16px;font-family:inherit;margin-bottom:10px;box-sizing:border-box;outline:none">'
       +'<label style="font-size:11px;font-weight:700;color:#9395A5;display:block;margin-bottom:6px">TIPO DE DEPOSITO</label>'
@@ -1101,8 +1102,25 @@ function abrirAporteModal(tipo, idx, montoSugerido){
       var fecha=document.getElementById('_aporteFecha').value;
       if(!monto||monto<=0){showToast(lang==='es'?'Ingresa un monto valido':'Enter a valid amount');return;}
       if(!fecha){showToast(lang==='es'?'Selecciona una fecha':'Select a date');return;}
-      this.disabled = true;
+
+      var _recChk2 = [];
+      try{ _recChk2 = JSON.parse(localStorage.getItem('ft_recurring')||'[]'); }catch(e){}
       var f=loadFondos();
+      var _curMetaId = _aporteCtx.tipo==='meta' && f.metas[_aporteCtx.idx] ? f.metas[_aporteCtx.idx].id : null;
+      var _existenteChk2 = _recChk2.find(function(r){
+        if(!(r.kind==='meta' && r.active && r.metaTipo===_aporteCtx.tipo)) return false;
+        if(_aporteCtx.tipo==='emerg') return true;
+        return r.metaId!=null ? r.metaId===_curMetaId : r.metaIdx===_aporteCtx.idx; // fallback para recurrentes viejos sin metaId
+      });
+      var _wantsRecChk2 = document.getElementById('_aporteRecurrenteCheck').checked;
+      if(_existenteChk2){
+        if(_wantsRecChk2){
+          if(!confirm(lang==='es'?('⚠️ Ya tienes un aporte recurrente activo ('+fmt(_existenteChk2.amount)+'). ¿Crear otro de todos modos? Esto duplicaría los depósitos automáticos.'):('⚠️ You already have an active recurring deposit ('+fmt(_existenteChk2.amount)+'). Create another anyway? This would duplicate the automatic deposits.'))) return;
+        } else {
+          if(!confirm(lang==='es'?('⚠️ Ya tienes un aporte recurrente activo de '+fmt(_existenteChk2.amount)+' (próximo: '+_existenteChk2.nextDate+'). ¿Seguro que quieres depositar manualmente también? Si el recurrente ya cubre este depósito, se duplicaría.'):('⚠️ You already have an active recurring deposit of '+fmt(_existenteChk2.amount)+' (next: '+_existenteChk2.nextDate+'). Deposit manually too? If the recurring one already covers it, it will be duplicated.'))) return;
+        }
+      }
+      this.disabled = true;
       var entry={id:'d_'+Date.now(),monto:monto,fecha:fecha,desdePres:_desdePres};
       if(_aporteCtx.tipo==='emerg'){
         f.emerg.hist=f.emerg.hist||[]; f.emerg.hist.push(entry);
@@ -1129,7 +1147,8 @@ function abrirAporteModal(tipo, idx, montoSugerido){
           return dt.toISOString().split('T')[0];
         })(freq, fecha);
         var recurring = JSON.parse(localStorage.getItem('ft_recurring')||'[]');
-        recurring.push({ id:'rec_'+Date.now(), kind:'meta', metaTipo:_aporteCtx.tipo, metaIdx:_aporteCtx.idx, desc:descRec, amount:monto, freq:freq, hogar:true, desdePres:_desdePres, nextDate:nextDate, active:true, createdBy:user.name||'' });
+        var _metaIdRec = _aporteCtx.tipo==='meta' && f.metas[_aporteCtx.idx] ? f.metas[_aporteCtx.idx].id : null;
+        recurring.push({ id:'rec_'+Date.now(), kind:'meta', metaTipo:_aporteCtx.tipo, metaId:_metaIdRec, metaIdx:_aporteCtx.idx, desc:descRec, amount:monto, freq:freq, hogar:true, desdePres:_desdePres, nextDate:nextDate, active:true, createdBy:user.name||'' });
         localStorage.setItem('ft_recurring', JSON.stringify(recurring));
       }
 
@@ -1153,6 +1172,30 @@ function abrirAporteModal(tipo, idx, montoSugerido){
   document.getElementById('_aporteRecurrenteFreqWrap').style.display = 'none';
   var titulo = tipo==='emerg'?(es?'Depositar al fondo de emergencia':'Deposit to emergency fund'):(fondos.metas[idx]?'Depositar a '+fondos.metas[idx].nombre:'Depositar');
   document.getElementById('_aporteTitle').textContent=titulo;
+
+  // Avisar si ya hay un aporte recurrente activo para esta meta/emergencia
+  var _recChk = [];
+  try{ _recChk = JSON.parse(localStorage.getItem('ft_recurring')||'[]'); }catch(e){}
+  var _curMetaIdOpen = tipo==='meta' && fondos.metas[idx] ? fondos.metas[idx].id : null;
+  var _existenteChk = _recChk.find(function(r){
+    if(!(r.kind==='meta' && r.active && r.metaTipo===tipo)) return false;
+    if(tipo==='emerg') return true;
+    return r.metaId!=null ? r.metaId===_curMetaIdOpen : r.metaIdx===idx; // fallback para recurrentes viejos sin metaId
+  });
+  var _warnEl = document.getElementById('_aporteRecurrenteWarning');
+  if(_existenteChk){
+    var _freqLbl = {weekly:es?'semanal':'weekly',biweekly:es?'quincenal':'biweekly',monthly:es?'mensual':'monthly'}[_existenteChk.freq]||_existenteChk.freq;
+    var _histRef = tipo==='emerg' ? (fondos.emerg.hist||[]) : (fondos.metas[idx] ? (fondos.metas[idx].hist||[]) : []);
+    var _ultimoAutoM = _histRef.filter(function(h){return h.auto;}).sort(function(a,b){return (b.fecha||'').localeCompare(a.fecha||'');})[0];
+    var _ultimoTxtM = _ultimoAutoM
+      ? (es?(' Último aplicado solo: '+_ultimoAutoM.fecha+'.'):(' Last auto-applied: '+_ultimoAutoM.fecha+'.'))
+      : (es?' Aún no se ha aplicado ninguno automáticamente.':' None has been auto-applied yet.');
+    _warnEl.style.display='block';
+    _warnEl.innerHTML = '⚠️ '+(es?('Ya tienes un aporte recurrente activo de '+fmt(_existenteChk.amount)+' ('+_freqLbl+'). Próximo: '+_existenteChk.nextDate+'.'+_ultimoTxtM+' No lo dupliques.'):('You already have an active recurring deposit of '+fmt(_existenteChk.amount)+' ('+_freqLbl+'). Next: '+_existenteChk.nextDate+'.'+_ultimoTxtM+' Don\u2019t duplicate it.'));
+  } else {
+    _warnEl.style.display='none';
+  }
+
   document.getElementById('_aporteModal').style.display='flex';
 }
 
