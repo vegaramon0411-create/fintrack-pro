@@ -1780,7 +1780,10 @@ function renderAporteMes(totals){
   const sobranteReal = Math.max(0, sobrante - ahorroMetasMes);
   const mitadSobrante = sobranteReal / 2;
   // Reparto proporcional por ingreso (mismo criterio que usa Hogar)
-  const _dashMyPct = totalIncomeChk > 0 ? Math.round((income/totalIncomeChk)*100) : 50;
+  let _dashMyPct = 50;
+  if(hogar.mode !== 'equal' && hogar.mode !== 'common'){
+    _dashMyPct = totalIncomeChk > 0 ? Math.round((income/totalIncomeChk)*100) : 50;
+  }
   const _dashPartnerPct = 100 - _dashMyPct;
   const miParteSobrante = sobranteReal * _dashMyPct/100;
 
