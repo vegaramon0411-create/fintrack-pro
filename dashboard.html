@@ -44,7 +44,10 @@
 * { margin:0; padding:0; box-sizing:border-box; }
 
 body {
-  font-family: 'Plus Jakarta Sans', sans-serif;
+  /* ⬇️ REDISEÑO — tipografía estilo Apple (usa SF Pro nativa en iPhone/Mac) ⬇️ */
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Plus Jakarta Sans', sans-serif;
+  /* ANTERIOR: font-family: 'Plus Jakarta Sans', sans-serif; */
+  /* ⬆️ FIN ⬆️ */
   background: var(--off);
   color: var(--text);
   min-height: 100vh;
@@ -171,18 +174,22 @@ body {
    y descomenta el bloque "DISEÑO ANTERIOR" más abajo.
    ══════════════════════════════════════════════════════════ */
 .hero {
-  background: rgba(255,255,255,0.4);
-  backdrop-filter: blur(28px) saturate(180%);
-  -webkit-backdrop-filter: blur(28px) saturate(180%);
-  border: 1.5px solid rgba(255,255,255,0.85);
-  box-shadow: 0 16px 40px -12px rgba(20,20,30,.22), inset 0 1px 0 rgba(255,255,255,0.9);
+  background: linear-gradient(160deg, rgba(255,255,255,0.97) 0%, rgba(248,249,251,0.9) 100%);
+  backdrop-filter: blur(24px) saturate(140%);
+  -webkit-backdrop-filter: blur(24px) saturate(140%);
+  border: 1px solid rgba(255,255,255,0.9);
+  box-shadow:
+    0 1px 1px rgba(20,20,30,.03),
+    0 8px 16px -6px rgba(20,20,30,.08),
+    0 24px 48px -20px rgba(20,20,30,.16),
+    inset 0 1px 0 rgba(255,255,255,1);
   border-radius:26px; padding:26px 30px; color:var(--text);
   margin-bottom:20px; position:relative; overflow:hidden;
   display:grid; grid-template-columns:1fr auto; gap:20px; align-items:center;
 }
-/* Manchas de color desenfocadas detrás — más grandes/saturadas para que el vidrio se note claramente */
-.hero::before { content:''; position:absolute; top:-90px; left:-70px; width:320px; height:320px; border-radius:50%; background:radial-gradient(circle, #34D399 0%, transparent 65%); filter:blur(6px); opacity:.75; z-index:0; }
-.hero::after  { content:''; position:absolute; top:-50px; right:-90px; width:300px; height:300px; border-radius:50%; background:radial-gradient(circle, #60A5FA 0%, transparent 65%); filter:blur(6px); opacity:.65; z-index:0; }
+/* Sin color — solo un brillo blanco muy sutil arriba-izquierda para dar profundidad de cristal */
+.hero::before { content:''; position:absolute; top:-120px; left:-60px; width:280px; height:280px; border-radius:50%; background:radial-gradient(circle, rgba(255,255,255,0.9) 0%, transparent 70%); z-index:0; }
+.hero::after  { content:''; position:absolute; bottom:-100px; right:-60px; width:220px; height:220px; border-radius:50%; background:radial-gradient(circle, rgba(20,20,30,0.025) 0%, transparent 70%); z-index:0; }
 
 .hero-left { position:relative;z-index:1; }
 .hero-greeting { font-size:13px; opacity:.6; margin-bottom:4px; color:var(--text2); }
@@ -197,8 +204,10 @@ body {
 
 .hero-chips { display:flex; flex-direction:column; gap:8px; position:relative;z-index:1; flex-shrink:0; }
 .hero-chip  {
-  background:rgba(255,255,255,.6); border:1px solid rgba(255,255,255,.8); border-radius:12px;
-  padding:8px 12px; backdrop-filter:blur(6px); min-width:120px;
+  background:rgba(255,255,255,.9); border:1px solid rgba(20,20,30,.05);
+  box-shadow:0 2px 6px -2px rgba(20,20,30,.08);
+  border-radius:14px;
+  padding:10px 12px; min-width:120px;
   font-size:10px; font-weight:600; opacity:.85; color:var(--text2);
 }
 .hc-val { font-size:16px; font-weight:800; letter-spacing:-.5px; margin-top:2px; opacity:1; color:var(--text); }
@@ -627,7 +636,7 @@ input, select, textarea { font-size: 16px !important; }
       <div id="heroViewGastos">
         <div style="display:flex;justify-content:space-between;align-items:flex-start">
           <div class="hero-greeting" id="heroGreeting">Buenos días, Ramon 👋</div>
-          <div style="background:rgba(255,255,255,.15);border-radius:20px;padding:4px 10px;font-size:10px;font-weight:700;opacity:.8">💰 →</div>
+          <div style="background:rgba(20,20,30,.06);border-radius:20px;padding:4px 10px;font-size:10px;font-weight:700;opacity:.8">💰 →</div>
         </div>
         <div class="hero-amount" id="heroAmount">$0</div>
         <div class="hero-note" id="heroNote" data-es="gastados este mes" data-en="spent this month">gastados este mes</div>
@@ -646,7 +655,7 @@ input, select, textarea { font-size: 16px !important; }
             <div class="hc-val" id="chipIncome">$0</div>
           </div>
           <div class="hero-chip" onclick="event.stopPropagation();explainCalc('savings')" style="cursor:pointer">
-            <div id="chipSavingsLabel" data-es="🎯 Meta de ahorro del mes" data-en="🎯 Monthly savings target">🎯 Meta de ahorro del mes<span class="info-i" onclick="event.stopPropagation();toggleInfoTip(this)" style="color:rgba(255,255,255,.7)" data-tip-es="Basado en tu sueldo fijo mensual — no cambia con cheques ni ingresos extra. Es tu plan, no tu efectivo real." data-tip-en="Based on your fixed monthly paycheck — doesn't change with paychecks or extra income. This is your plan, not your real cash.">ⓘ</span></div>
+            <div id="chipSavingsLabel" data-es="🎯 Meta de ahorro del mes" data-en="🎯 Monthly savings target">🎯 Meta de ahorro del mes<span class="info-i" onclick="event.stopPropagation();toggleInfoTip(this)" style="color:rgba(20,20,30,.4)" data-tip-es="Basado en tu sueldo fijo mensual — no cambia con cheques ni ingresos extra. Es tu plan, no tu efectivo real." data-tip-en="Based on your fixed monthly paycheck — doesn't change with paychecks or extra income. This is your plan, not your real cash.">ⓘ</span></div>
             <div class="hc-val" id="chipSavings">$0</div>
           </div>
         </div>
@@ -656,7 +665,8 @@ input, select, textarea { font-size: 16px !important; }
       <div id="heroViewDinero" style="display:none">
         <div style="display:flex;justify-content:space-between;align-items:flex-start">
           <div style="font-size:12px;opacity:.7;margin-bottom:4px" data-es="💰 Mi patrimonio personal" data-en="💰 My personal assets">💰 Mi patrimonio personal</div>
-          <div style="background:rgba(255,255,255,.15);border-radius:20px;padding:4px 10px;font-size:10px;font-weight:700;opacity:.8">← 📊</div>
+          <!-- REDISEÑO: gris sutil en vez de blanco transparente (antes: rgba(255,255,255,.15)) -->
+          <div style="background:rgba(20,20,30,.06);border-radius:20px;padding:4px 10px;font-size:10px;font-weight:700;opacity:.8">← 📊</div>
         </div>
         <div class="hero-amount" id="heroPatrimony">$0</div>
         <div style="font-size:12px;opacity:.7;margin-bottom:14px" data-es="total acumulado · privado" data-en="total accumulated · private">total acumulado · privado</div>
@@ -676,10 +686,10 @@ input, select, textarea { font-size: 16px !important; }
           <div class="hero-chip" id="chipPersonalWrap" style="display:none">
             <div data-es="👤 Disponible personal" data-en="👤 Personal available">👤 Disponible personal</div>
             <div class="hc-val" id="chipPersonalDisp">$0</div>
-            <div style="font-size:9px;opacity:.85;margin-top:2px"><span style="background:rgba(255,255,255,.25);padding:2px 6px;border-radius:20px;font-weight:700" data-es="💵 Real" data-en="💵 Real">💵 Real</span> <span data-es="de lo ya recibido" data-en="of what's been received">de lo ya recibido</span></div>
+            <div style="font-size:9px;opacity:.85;margin-top:2px"><span style="background:rgba(20,20,30,.07);padding:2px 6px;border-radius:20px;font-weight:700" data-es="💵 Real" data-en="💵 Real">💵 Real</span> <span data-es="de lo ya recibido" data-en="of what's been received">de lo ya recibido</span></div>
           </div>
         </div>
-        <div style="margin-top:10px;background:rgba(255,255,255,.12);border-radius:12px;padding:10px">
+        <div style="margin-top:10px;background:rgba(20,20,30,.045);border-radius:12px;padding:10px">
           <div style="font-size:11px;opacity:.75;margin-bottom:8px" id="heroSobro"></div>
           <div style="display:flex;gap:6px;flex-wrap:wrap" id="heroDistBtns"></div>
         </div>
@@ -3517,7 +3527,11 @@ applyDueRecurring();
     let myDebts = [];
     try{ myDebts = JSON.parse(localStorage.getItem('ft_debts')||'[]'); }catch(e){}
     const sharedDebts = myDebts.filter(d=>d.owner==='both' || d.type==='hipoteca' || d.type==='hogar')
-      .map(d=>({ id:d.id, name:d.name, balance:d.balance, type:d.type, payment:d.payment, payDay:d.payDay }));
+      .map(d=>({ id:d.id, name:d.name, balance:d.balance, original:d.original, type:d.type, payment:d.payment, payDay:d.payDay, owner:d.owner, abonos:(d.abonos||[]).slice(-30), updatedAt:d.updatedAt }));
+    let myRecurring = [];
+    try{ myRecurring = JSON.parse(localStorage.getItem('ft_recurring')||'[]'); }catch(e){}
+    const sharedDebtIds = new Set(sharedDebts.map(d=>String(d.id)));
+    const sharedRecurring = myRecurring.filter(r=>r.kind==='debt' && sharedDebtIds.has(String(r.debtId)));
     let hogarInv = [];
     try{ hogarInv = JSON.parse(localStorage.getItem('ft_hogar_inv')||'[]'); }catch(e){}
     let fondos = null;
@@ -3537,7 +3551,8 @@ applyDueRecurring();
       sharedDebts: sharedDebts.slice(-20),
       hogarInv: hogarInv.slice(-20),
       fondos: fondos,
-      personalSpentThisMonth: personalSpentThisMonth
+      personalSpentThisMonth: personalSpentThisMonth,
+      sharedRecurring: sharedRecurring
     };
 
     // Use GET — more reliable with GAS CORS restrictions
@@ -3979,6 +3994,35 @@ async function loadPartnerHogarTxs(){
             });
 
             localStorage.setItem('ft_hogar_fondos', JSON.stringify({ emerg:_bgEmerg, metas:Object.values(_bgMetasById) }));
+          }catch(e){}
+        }
+
+        // Deudas compartidas + sus recurrentes — mismo criterio que hogar.html
+        if(_bgNewData.sharedDebts && _bgNewData.sharedDebts.length){
+          try{
+            function _bgMergeAbonos(a,b){
+              const byId={}; (a||[]).forEach(x=>{if(x&&x.id!=null)byId[x.id]=x;}); (b||[]).forEach(x=>{if(x&&x.id!=null)byId[x.id]=x;});
+              return Object.values(byId);
+            }
+            let _bgMyDebts = JSON.parse(localStorage.getItem('ft_debts')||'[]');
+            _bgNewData.sharedDebts.forEach(pd=>{
+              const idx = _bgMyDebts.findIndex(d=>String(d.id)===String(pd.id));
+              if(idx<0){ _bgMyDebts.push({...pd, owner:'both'}); }
+              else {
+                const mine = _bgMyDebts[idx];
+                const abonos = _bgMergeAbonos(mine.abonos, pd.abonos);
+                const original = mine.original || pd.original || mine.balance;
+                _bgMyDebts[idx] = { ...mine, owner:'both', abonos, original, balance: Math.max(0, original - abonos.reduce((a,x)=>a+(parseFloat(x.monto)||0),0)) };
+              }
+            });
+            localStorage.setItem('ft_debts', JSON.stringify(_bgMyDebts));
+          }catch(e){}
+        }
+        if(_bgNewData.sharedRecurring && _bgNewData.sharedRecurring.length){
+          try{
+            let _bgMyRecurring = JSON.parse(localStorage.getItem('ft_recurring')||'[]');
+            const _bgById = {}; _bgMyRecurring.forEach(r=>{_bgById[r.id]=r;}); _bgNewData.sharedRecurring.forEach(r=>{_bgById[r.id]=r;});
+            localStorage.setItem('ft_recurring', JSON.stringify(Object.values(_bgById)));
           }catch(e){}
         }
       }).catch(()=>{});

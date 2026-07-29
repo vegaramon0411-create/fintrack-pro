@@ -428,6 +428,59 @@ function mergeFondos(myFondos, partnerFondos){
   return { emerg, metas: Object.values(metasById) };
 }
 
+// Fusiona los abonos de una deuda compartida por id (unión, sin duplicar) y recalcula
+// el balance desde el monto original menos la suma de abonos ya fusionados — más seguro
+// que confiar en el campo balance de cualquiera de los dos lados, que puede desactualizarse.
+function mergeAbonos(abonosA, abonosB){
+  const byId = {};
+  (abonosA||[]).forEach(a=>{ if(a && a.id!=null) byId[a.id]=a; });
+  (abonosB||[]).forEach(a=>{ if(a && a.id!=null) byId[a.id]=a; });
+  return Object.values(byId);
+}
+
+// Fusiona las deudas compartidas de mi pareja dentro de MI ft_debts local — para que
+// aparezcan completas en mi propia pantalla de Deudas y pueda abonar/crear recurrentes,
+// no solo verlas de lejos en Hogar.
+function mergeSharedDebtsIntoMine(partnerSharedDebts){
+  if(!partnerSharedDebts || !partnerSharedDebts.length) return;
+  try{
+    let myDebts = JSON.parse(localStorage.getItem('ft_debts')||'[]');
+    partnerSharedDebts.forEach(pd=>{
+      const idx = myDebts.findIndex(d=>String(d.id)===String(pd.id));
+      if(idx<0){
+        // No la tengo — la agrego completa, marcada compartida
+        myDebts.push({ ...pd, owner:'both' });
+      } else {
+        const mine = myDebts[idx];
+        const abonos = mergeAbonos(mine.abonos, pd.abonos);
+        const original = mine.original || pd.original || mine.balance;
+        myDebts[idx] = {
+          ...mine,
+          owner:'both',
+          abonos,
+          original,
+          balance: Math.max(0, original - abonos.reduce((a,x)=>a+(parseFloat(x.monto)||0),0)),
+        };
+      }
+    });
+    localStorage.setItem('ft_debts', JSON.stringify(myDebts));
+  }catch(e){}
+}
+
+// Fusiona los recurrentes de deuda de mi pareja (ligados a deudas compartidas) dentro
+// de mi propio ft_recurring — para ver en la lista TODOS los recurrentes activos en esa
+// deuda, no solo los que yo mismo creé.
+function mergeSharedRecurringIntoMine(partnerSharedRecurring){
+  if(!partnerSharedRecurring || !partnerSharedRecurring.length) return;
+  try{
+    let myRecurring = JSON.parse(localStorage.getItem('ft_recurring')||'[]');
+    const byId = {};
+    myRecurring.forEach(r=>{ byId[r.id]=r; });
+    partnerSharedRecurring.forEach(r=>{ byId[r.id]=r; }); // el más reciente sincronizado gana
+    localStorage.setItem('ft_recurring', JSON.stringify(Object.values(byId)));
+  }catch(e){}
+}
+
 function savePartnerProfileMerged(partnerEmail, pp){
   const k = 'profile_'+partnerEmail.replace(/[^a-z0-9]/gi,'_');
   let old = null;
@@ -457,6 +510,10 @@ function savePartnerProfileMerged(partnerEmail, pp){
       saveFondos(mergedFondos);
     }catch(e){}
   }
+
+  // Deudas compartidas y sus recurrentes — de los dos, no solo de quien las creó.
+  if(newData.sharedDebts) mergeSharedDebtsIntoMine(newData.sharedDebts);
+  if(newData.sharedRecurring) mergeSharedRecurringIntoMine(newData.sharedRecurring);
 
   return merged;
 }
@@ -2040,7 +2097,13 @@ function setLang(l){
       let myDebts = [];
       try{ myDebts = JSON.parse(localStorage.getItem('ft_debts')||'[]'); }catch(e){}
       const sharedDebts = myDebts.filter(d=>d.owner==='both' || d.type==='hipoteca' || d.type==='hogar')
-        .map(d=>({ id:d.id, name:d.name, balance:d.balance, type:d.type, payment:d.payment, payDay:d.payDay }));
+        .map(d=>({ id:d.id, name:d.name, balance:d.balance, original:d.original, type:d.type, payment:d.payment, payDay:d.payDay, owner:d.owner, abonos:(d.abonos||[]).slice(-30), updatedAt:d.updatedAt }));
+      // Recurrentes ligados a esas deudas compartidas — para que ambos vean todos los
+      // abonos programados en esa deuda (los tuyos y los de tu pareja), no solo los propios.
+      let myRecurring = [];
+      try{ myRecurring = JSON.parse(localStorage.getItem('ft_recurring')||'[]'); }catch(e){}
+      const sharedDebtIds = new Set(sharedDebts.map(d=>String(d.id)));
+      const sharedRecurring = myRecurring.filter(r=>r.kind==='debt' && sharedDebtIds.has(String(r.debtId)));
       let hogarInv = [];
       try{ hogarInv = JSON.parse(localStorage.getItem('ft_hogar_inv')||'[]'); }catch(e){}
       const _thisMonth = new Date().toISOString().slice(0,7);
@@ -2059,7 +2122,8 @@ function setLang(l){
         sharedDebts: sharedDebts.slice(-20),
         hogarInv: hogarInv.slice(-20),
         fondos: loadFondos(),
-        personalSpentThisMonth: personalSpentThisMonth
+        personalSpentThisMonth: personalSpentThisMonth,
+        sharedRecurring: sharedRecurring
       };
       const params = new URLSearchParams({
         action: 'saveProfile', email: user.email, name: user.name||'',
