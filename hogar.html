@@ -1100,6 +1100,55 @@ function toggleSeccion(id){
 var _aporteCtx = null;
 var _desdePres = false;
 
+function deleteMetaRecurring(recId, tipo, idx){
+  var es = lang==='es';
+  if(!confirm(es?'¿Eliminar este aporte recurrente? Ya no se aplicará automáticamente.':'Delete this recurring deposit? It will no longer apply automatically.')) return;
+  try{
+    var recurring = JSON.parse(localStorage.getItem('ft_recurring')||'[]');
+    var i = recurring.findIndex(function(r){ return String(r.id)===String(recId); });
+    if(i>=0){ recurring[i].active = false; }
+    localStorage.setItem('ft_recurring', JSON.stringify(recurring));
+    showToast(es?'🗑️ Recurrente eliminado':'🗑️ Recurring deposit deleted');
+    abrirAporteModal(tipo, idx, 0);
+  }catch(e){}
+}
+
+function editMetaRecurring(recId){
+  var es = lang==='es';
+  var recurring = JSON.parse(localStorage.getItem('ft_recurring')||'[]');
+  var rec = recurring.find(function(r){ return String(r.id)===String(recId); });
+  if(!rec) return;
+  var row = document.getElementById('metaRecRow_'+recId);
+  if(!row) return;
+  row.innerHTML = '<div style="width:100%">'
+    +'<div style="display:flex;gap:6px;margin-bottom:6px">'
+    +'<input type="number" id="metaEditMonto_'+recId+'" value="'+rec.amount+'" step="0.01" style="flex:1;padding:6px 8px;border:1.5px solid #E4E6F0;border-radius:8px;font-size:12px;font-family:inherit">'
+    +'<select id="metaEditFreq_'+recId+'" style="flex:1;padding:6px 8px;border:1.5px solid #E4E6F0;border-radius:8px;font-size:12px;font-family:inherit">'
+    +'<option value="weekly"'+(rec.freq==='weekly'?' selected':'')+'>'+(es?'Semanal':'Weekly')+'</option>'
+    +'<option value="biweekly"'+(rec.freq==='biweekly'?' selected':'')+'>'+(es?'Quincenal':'Biweekly')+'</option>'
+    +'<option value="monthly"'+(rec.freq==='monthly'?' selected':'')+'>'+(es?'Mensual':'Monthly')+'</option>'
+    +'</select></div>'
+    +'<div style="display:flex;gap:6px">'
+    +'<button onclick="saveMetaRecurringEdit(\''+recId+'\')" style="flex:1;background:var(--g-main);color:white;border:none;border-radius:8px;padding:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">'+(es?'Guardar':'Save')+'</button>'
+    +'<button onclick="abrirAporteModal(\''+rec.metaTipo+'\','+(rec.metaIdx!=null?rec.metaIdx:'null')+',0)" style="flex:1;background:#F7F8FC;border:1px solid #E4E6F0;border-radius:8px;padding:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">'+(es?'Cancelar':'Cancel')+'</button>'
+    +'</div></div>';
+}
+
+function saveMetaRecurringEdit(recId){
+  var es = lang==='es';
+  var monto = parseFloat(document.getElementById('metaEditMonto_'+recId)?.value);
+  var freq = document.getElementById('metaEditFreq_'+recId)?.value;
+  if(!monto||monto<=0){ showToast(es?'⚠️ Monto inválido':'⚠️ Invalid amount'); return; }
+  var recurring = JSON.parse(localStorage.getItem('ft_recurring')||'[]');
+  var i = recurring.findIndex(function(r){ return String(r.id)===String(recId); });
+  if(i<0) return;
+  recurring[i].amount = monto;
+  recurring[i].freq = freq;
+  localStorage.setItem('ft_recurring', JSON.stringify(recurring));
+  showToast(es?'✅ Recurrente actualizado':'✅ Recurring deposit updated');
+  abrirAporteModal(recurring[i].metaTipo, recurring[i].metaIdx, 0);
+}
+
 function abrirAporteModal(tipo, idx, montoSugerido){
   _aporteCtx = {tipo:tipo, idx:idx};
   _desdePres = false;
@@ -1230,25 +1279,32 @@ function abrirAporteModal(tipo, idx, montoSugerido){
   var titulo = tipo==='emerg'?(es?'Depositar al fondo de emergencia':'Deposit to emergency fund'):(fondos.metas[idx]?'Depositar a '+fondos.metas[idx].nombre:'Depositar');
   document.getElementById('_aporteTitle').textContent=titulo;
 
-  // Avisar si ya hay un aporte recurrente activo para esta meta/emergencia
+  // Lista de TODOS los aportes recurrentes activos para esta meta/emergencia
   var _recChk = [];
   try{ _recChk = JSON.parse(localStorage.getItem('ft_recurring')||'[]'); }catch(e){}
   var _curMetaIdOpen = tipo==='meta' && fondos.metas[idx] ? fondos.metas[idx].id : null;
-  var _existenteChk = _recChk.find(function(r){
+  var _activosM = _recChk.filter(function(r){
     if(!(r.kind==='meta' && r.active && r.metaTipo===tipo)) return false;
     if(tipo==='emerg') return true;
     return r.metaId!=null ? r.metaId===_curMetaIdOpen : r.metaIdx===idx; // fallback para recurrentes viejos sin metaId
   });
   var _warnEl = document.getElementById('_aporteRecurrenteWarning');
-  if(_existenteChk){
-    var _freqLbl = {weekly:es?'semanal':'weekly',biweekly:es?'quincenal':'biweekly',monthly:es?'mensual':'monthly'}[_existenteChk.freq]||_existenteChk.freq;
+  if(_activosM.length){
+    var _freqLblFn = function(f){ return {weekly:es?'semanal':'weekly',biweekly:es?'quincenal':'biweekly',monthly:es?'mensual':'monthly'}[f]||f; };
     var _histRef = tipo==='emerg' ? (fondos.emerg.hist||[]) : (fondos.metas[idx] ? (fondos.metas[idx].hist||[]) : []);
-    var _ultimoAutoM = _histRef.filter(function(h){return h.auto;}).sort(function(a,b){return (b.fecha||'').localeCompare(a.fecha||'');})[0];
-    var _ultimoTxtM = _ultimoAutoM
-      ? (es?(' Último aplicado solo: '+_ultimoAutoM.fecha+'.'):(' Last auto-applied: '+_ultimoAutoM.fecha+'.'))
-      : (es?' Aún no se ha aplicado ninguno automáticamente.':' None has been auto-applied yet.');
+    var _rowsM = _activosM.map(function(r){
+      var _ultimoAutoM = _histRef.filter(function(h){return h.auto && Math.abs((h.monto||0)-(r.amount||0))<0.01;}).sort(function(a,b){return (b.fecha||'').localeCompare(a.fecha||'');})[0];
+      var _ultimoTxtM = _ultimoAutoM ? (es?('último: '+_ultimoAutoM.fecha):('last: '+_ultimoAutoM.fecha)) : (es?'aún no aplicado':'not applied yet');
+      return '<div id="metaRecRow_'+r.id+'" style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-top:1px solid rgba(138,90,0,.15);gap:8px">'
+        +'<div style="flex:1;min-width:0"><div style="font-weight:700">'+fmt(r.amount)+' · '+_freqLblFn(r.freq)+'</div>'
+        +'<div style="font-size:10.5px;opacity:.8">próximo '+r.nextDate+' · '+_ultimoTxtM+'</div></div>'
+        +'<div style="display:flex;gap:4px;flex-shrink:0">'
+        +'<button onclick="editMetaRecurring(\''+r.id+'\')" style="background:none;border:none;font-size:15px;cursor:pointer;padding:4px">✏️</button>'
+        +'<button onclick="deleteMetaRecurring(\''+r.id+'\',\''+tipo+'\','+idx+')" style="background:none;border:none;font-size:15px;cursor:pointer;padding:4px">🗑️</button>'
+        +'</div></div>';
+    }).join('');
     _warnEl.style.display='block';
-    _warnEl.innerHTML = '⚠️ '+(es?('Ya tienes un aporte recurrente activo de '+fmt(_existenteChk.amount)+' ('+_freqLbl+'). Próximo: '+_existenteChk.nextDate+'.'+_ultimoTxtM+' No lo dupliques.'):('You already have an active recurring deposit of '+fmt(_existenteChk.amount)+' ('+_freqLbl+'). Next: '+_existenteChk.nextDate+'.'+_ultimoTxtM+' Don\u2019t duplicate it.'));
+    _warnEl.innerHTML = '<div style="font-weight:700;margin-bottom:2px">⚠️ '+(es?(_activosM.length+' aporte(s) recurrente(s) activo(s):'):(_activosM.length+' active recurring deposit(s):'))+'</div>'+_rowsM;
   } else {
     _warnEl.style.display='none';
   }
@@ -1615,7 +1671,10 @@ function renderDeudas(partnerName){
           <div style="font-size:13px;font-weight:800;color:var(--blue)">${fmt(partnerAmt)}/mes</div>
         </div>
       </div>
-      <button onclick="makeDebtPersonal('${d.id}')" style="width:100%;background:var(--off);border:1.5px solid var(--border);border-radius:10px;padding:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;color:var(--text3)">👤 ${es?'Cambiar a solo mía':'Change to personal'}</button>`
+      <div style="display:flex;gap:8px">
+        <button onclick="localStorage.setItem('ft_open_abonar','${d.id}');location.href='deudas.html'" style="flex:1;background:linear-gradient(135deg,var(--g-dark),var(--g-main));color:white;border:none;border-radius:10px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">💳 ${es?'Abonar':'Pay'}</button>
+        <button onclick="makeDebtPersonal('${d.id}')" style="flex:1;background:var(--off);border:1.5px solid var(--border);border-radius:10px;padding:9px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;color:var(--text3)">👤 ${es?'Cambiar a solo mía':'Change to personal'}</button>
+      </div>`
       :`<div style="display:flex;align-items:center;gap:8px">
         <div style="flex:1;font-size:11px;color:var(--text3)">${fmt(d.payment||0)}/mes · ${es?'Solo tuya':'Yours only'}</div>
         <button onclick="makeDebtShared('${d.id}')" style="background:linear-gradient(135deg,var(--g-dark),var(--g-main));color:white;border:none;border-radius:10px;padding:8px 14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">👥 ${es?'Compartir':'Share'}</button>

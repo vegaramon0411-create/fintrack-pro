@@ -155,6 +155,7 @@ input, select, textarea { font-size: 16px !important; }
       <label data-es="Fecha" data-en="Date">Fecha</label>
       <input type="date" id="mDate">
     </div>
+    <div id="ahorroRecurrenteWarning" style="display:none;background:#FFF4E5;border:1.5px solid #E8A33D;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:#8A5A00"></div>
     <div class="field" id="ahorroRecurrenteField" style="background:var(--off);border-radius:10px;padding:12px">
       <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12.5px;font-weight:700" onclick="event.preventDefault();document.getElementById('ahorroRecurrenteCheck').click()">
         <input type="checkbox" id="ahorroRecurrenteCheck" style="width:16px;height:16px" onclick="event.stopPropagation();toggleAhorroRecurrenteFreq()">
@@ -359,6 +360,77 @@ function setModalTab(tab){
   document.getElementById('ahorroRecurrenteField').style.display = isDep ? '' : 'none';
   document.getElementById('ahorroRecurrenteCheck').checked = false;
   document.getElementById('ahorroRecurrenteFreqWrap').style.display = 'none';
+  if(isDep) showAhorroRecurringList(); else document.getElementById('ahorroRecurrenteWarning').style.display='none';
+}
+
+function showAhorroRecurringList(){
+  const es = lang==='es';
+  let recurring = [];
+  try{ recurring = JSON.parse(localStorage.getItem('ft_recurring')||'[]'); }catch(e){}
+  const activos = recurring.filter(r=>r.kind==='ahorro' && r.active);
+  const warnEl = document.getElementById('ahorroRecurrenteWarning');
+  if(activos.length){
+    const freqLbl = f => ({weekly:es?'semanal':'weekly',biweekly:es?'quincenal':'biweekly',monthly:es?'mensual':'monthly'}[f]||f);
+    const rows = activos.map(r=>`<div id="ahorroRecRow_${r.id}" style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-top:1px solid rgba(138,90,0,.15);gap:8px">
+      <div style="flex:1;min-width:0"><div style="font-weight:700">${fmt(r.amount)} · ${freqLbl(r.freq)}</div>
+      <div style="font-size:10.5px;opacity:.8">próximo ${r.nextDate}</div></div>
+      <div style="display:flex;gap:4px;flex-shrink:0">
+        <button onclick="editAhorroRecurring('${r.id}')" style="background:none;border:none;font-size:15px;cursor:pointer;padding:4px">✏️</button>
+        <button onclick="deleteAhorroRecurring('${r.id}')" style="background:none;border:none;font-size:15px;cursor:pointer;padding:4px">🗑️</button>
+      </div></div>`).join('');
+    warnEl.style.display='block';
+    warnEl.innerHTML = `<div style="font-weight:700;margin-bottom:2px">⚠️ ${es?`${activos.length} depósito(s) recurrente(s) activo(s):`:`${activos.length} active recurring deposit(s):`}</div>${rows}`;
+  } else {
+    warnEl.style.display='none';
+  }
+}
+
+function deleteAhorroRecurring(recId){
+  const es = lang==='es';
+  if(!confirm(es?'¿Eliminar este depósito recurrente?':'Delete this recurring deposit?')) return;
+  let recurring = JSON.parse(localStorage.getItem('ft_recurring')||'[]');
+  const i = recurring.findIndex(r=>String(r.id)===String(recId));
+  if(i>=0) recurring[i].active = false;
+  localStorage.setItem('ft_recurring', JSON.stringify(recurring));
+  showToast(es?'🗑️ Recurrente eliminado':'🗑️ Recurring deposit deleted');
+  showAhorroRecurringList();
+}
+
+function editAhorroRecurring(recId){
+  const es = lang==='es';
+  const recurring = JSON.parse(localStorage.getItem('ft_recurring')||'[]');
+  const rec = recurring.find(r=>String(r.id)===String(recId));
+  if(!rec) return;
+  const row = document.getElementById('ahorroRecRow_'+recId);
+  if(!row) return;
+  row.innerHTML = `<div style="width:100%">
+    <div style="display:flex;gap:6px;margin-bottom:6px">
+      <input type="number" id="ahorroEditMonto_${recId}" value="${rec.amount}" step="0.01" style="flex:1;padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-family:inherit">
+      <select id="ahorroEditFreq_${recId}" style="flex:1;padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-family:inherit">
+        <option value="weekly" ${rec.freq==='weekly'?'selected':''}>${es?'Semanal':'Weekly'}</option>
+        <option value="biweekly" ${rec.freq==='biweekly'?'selected':''}>${es?'Quincenal':'Biweekly'}</option>
+        <option value="monthly" ${rec.freq==='monthly'?'selected':''}>${es?'Mensual':'Monthly'}</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:6px">
+      <button onclick="saveAhorroRecurringEdit('${recId}')" style="flex:1;background:var(--purple);color:white;border:none;border-radius:8px;padding:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">${es?'Guardar':'Save'}</button>
+      <button onclick="showAhorroRecurringList()" style="flex:1;background:var(--off);border:1px solid var(--border);border-radius:8px;padding:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">${es?'Cancelar':'Cancel'}</button>
+    </div></div>`;
+}
+
+function saveAhorroRecurringEdit(recId){
+  const es = lang==='es';
+  const monto = parseFloat(document.getElementById('ahorroEditMonto_'+recId)?.value);
+  const freq = document.getElementById('ahorroEditFreq_'+recId)?.value;
+  if(!monto||monto<=0){ showToast(es?'⚠️ Monto inválido':'⚠️ Invalid amount'); return; }
+  const recurring = JSON.parse(localStorage.getItem('ft_recurring')||'[]');
+  const i = recurring.findIndex(r=>String(r.id)===String(recId));
+  if(i<0) return;
+  recurring[i].amount = monto;
+  recurring[i].freq = freq;
+  localStorage.setItem('ft_recurring', JSON.stringify(recurring));
+  showToast(es?'✅ Recurrente actualizado':'✅ Recurring deposit updated');
+  showAhorroRecurringList();
 }
 
 function renderCats(){

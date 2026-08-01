@@ -315,7 +315,10 @@ function render(){
     _myPctHogarAn = totalIncomeHogar > 0 ? Math.round((monthlyIncome/totalIncomeHogar)*100) : 50;
   }
   const miParteSurplusHogar = hogarConn ? (hogarSurplusCombined * _myPctHogarAn/100) : 0;
-  const ahorroPotencialPersonal = income - expenses;
+  // Lo que "todavía" podrías ahorrar = ingreso menos TODO lo que ya salió: gastos,
+  // lo que ya se fue a ahorro, y lo que ya se invirtió. Antes solo restaba gastos,
+  // lo que hacía ver dinero "libre" que en realidad ya estaba comprometido.
+  const ahorroPotencialPersonal = income - expenses - personalAhorro - invested;
   const ahorroPotencialCombinado = ahorroPotencialPersonal + miParteSurplusHogar;
 
   const hogarExplainCard = hogarConn ? `
@@ -431,11 +434,12 @@ function render(){
       <div style="margin-top:14px">
         <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700;margin-bottom:6px">
           <span>${es?'Ahorro potencial':'Potential savings'}</span>
-          <span style="color:${income>expenses?'var(--g-main)':'var(--red)'}">${fmt(income-expenses)}</span>
+          <span style="color:${ahorroPotencialPersonal>=0?'var(--g-main)':'var(--red)'}">${fmt(ahorroPotencialPersonal)}</span>
         </div>
         <div style="background:var(--border);border-radius:100px;height:8px;overflow:hidden">
-          <div style="height:100%;background:${income>expenses?'var(--g-main)':'var(--red)'};width:${Math.min(100,(expenses/income)*100).toFixed(0)}%;border-radius:100px"></div>
+          <div style="height:100%;background:${ahorroPotencialPersonal>=0?'var(--g-main)':'var(--red)'};width:${Math.min(100,Math.max(0,((expenses+personalAhorro+invested)/income)*100)).toFixed(0)}%;border-radius:100px"></div>
         </div>
+        <div style="font-size:9px;color:var(--text3);margin-top:4px">${es?'Ingreso menos gastos, ahorro e inversión ya hechos este mes':'Income minus expenses, savings and investing already done this month'}</div>
       </div>`:''}
     </div>
 

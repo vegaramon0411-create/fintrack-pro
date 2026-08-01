@@ -1344,6 +1344,60 @@ function openAbonar(debtId){
   overlay.classList.add('open');
 }
 
+function deleteRecurring(recId, debtId){
+  const es = lang==='es';
+  if(!confirm(es?'¿Eliminar este abono recurrente? Ya no se aplicará automáticamente.':'Delete this recurring payment? It will no longer apply automatically.')) return;
+  try{
+    let recurring = JSON.parse(localStorage.getItem('ft_recurring')||'[]');
+    const idx = recurring.findIndex(r=>String(r.id)===String(recId));
+    if(idx>=0){ recurring[idx].active = false; } // se desactiva, no se borra — conserva el historial de cuándo se aplicó
+    localStorage.setItem('ft_recurring', JSON.stringify(recurring));
+    showToast(es?'🗑️ Recurrente eliminado':'🗑️ Recurring payment deleted');
+    const d = loadDebts().find(x=>String(x.id)===String(debtId));
+    if(d) showAbonarInfo(d);
+  }catch(e){}
+}
+
+function editRecurring(recId){
+  const es = lang==='es';
+  let recurring = JSON.parse(localStorage.getItem('ft_recurring')||'[]');
+  const rec = recurring.find(r=>String(r.id)===String(recId));
+  if(!rec) return;
+  const row = document.getElementById('recRow_'+recId);
+  if(!row) return;
+  row.innerHTML = `
+    <div style="width:100%">
+      <div style="display:flex;gap:6px;margin-bottom:6px">
+        <input type="number" id="editMonto_${recId}" value="${rec.amount}" step="0.01" style="flex:1;padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-family:inherit">
+        <select id="editFreq_${recId}" style="flex:1;padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-family:inherit">
+          <option value="weekly" ${rec.freq==='weekly'?'selected':''}>${es?'Semanal':'Weekly'}</option>
+          <option value="biweekly" ${rec.freq==='biweekly'?'selected':''}>${es?'Quincenal':'Biweekly'}</option>
+          <option value="monthly" ${rec.freq==='monthly'?'selected':''}>${es?'Mensual':'Monthly'}</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button onclick="saveRecurringEdit('${recId}')" style="flex:1;background:var(--g-main);color:white;border:none;border-radius:8px;padding:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">${es?'Guardar':'Save'}</button>
+        <button onclick="showAbonarInfo(loadDebts().find(x=>String(x.id)===String('${rec.debtId}')))" style="flex:1;background:var(--off);border:1px solid var(--border);border-radius:8px;padding:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">${es?'Cancelar':'Cancel'}</button>
+      </div>
+    </div>`;
+}
+
+function saveRecurringEdit(recId){
+  const es = lang==='es';
+  const monto = parseFloat(document.getElementById('editMonto_'+recId)?.value);
+  const freq = document.getElementById('editFreq_'+recId)?.value;
+  if(!monto||monto<=0){ showToast(es?'⚠️ Monto inválido':'⚠️ Invalid amount'); return; }
+  let recurring = JSON.parse(localStorage.getItem('ft_recurring')||'[]');
+  const idx = recurring.findIndex(r=>String(r.id)===String(recId));
+  if(idx<0) return;
+  recurring[idx].amount = monto;
+  recurring[idx].freq = freq;
+  localStorage.setItem('ft_recurring', JSON.stringify(recurring));
+  showToast(es?'✅ Recurrente actualizado':'✅ Recurring payment updated');
+  const d = loadDebts().find(x=>String(x.id)===String(recurring[idx].debtId));
+  if(d) showAbonarInfo(d);
+}
+
 function showAbonarInfo(d){
   const balance = parseFloat(d.balance)||0;
   const payment = parseFloat(d.payment)||0;
@@ -1369,10 +1423,14 @@ function showAbonarInfo(d){
       const quien = r.payerLabel || (r.createdBy===user.name ? (es?'Tuyo':'Yours') : partnerName);
       const _ultimoAuto = (d.abonos||[]).filter(a=>a.auto && Math.abs((a.monto||0)-(r.amount||0))<0.01).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''))[0];
       const _ultimoTxt = _ultimoAuto ? (es?`último: ${_ultimoAuto.fecha}`:`last: ${_ultimoAuto.fecha}`) : (es?'aún no aplicado':'not applied yet');
-      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-top:1px solid rgba(138,90,0,.15)">
-        <div>
+      return `<div id="recRow_${r.id}" style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-top:1px solid rgba(138,90,0,.15);gap:8px">
+        <div style="flex:1;min-width:0">
           <div style="font-weight:700">${fmt(r.amount)} · ${freqLbl(r.freq)}</div>
           <div style="font-size:10.5px;opacity:.8">${quien} · próximo ${r.nextDate} · ${_ultimoTxt}</div>
+        </div>
+        <div style="display:flex;gap:4px;flex-shrink:0">
+          <button onclick="editRecurring('${r.id}')" style="background:none;border:none;font-size:15px;cursor:pointer;padding:4px" title="${es?'Editar':'Edit'}">✏️</button>
+          <button onclick="deleteRecurring('${r.id}','${d.id}')" style="background:none;border:none;font-size:15px;cursor:pointer;padding:4px" title="${es?'Eliminar':'Delete'}">🗑️</button>
         </div>
       </div>`;
     }).join('');
@@ -1460,6 +1518,10 @@ function guardarAbono(){
   // Actualizar saldo de la deuda
   debts[idx].balance = newBalance;
   debts[idx].updatedAt = new Date().toISOString();
+  // Marcar el mes de este abono como pagado — sin esto, el banner de "pago vencido"
+  // nunca se enteraba de que ya pagaste y seguía apareciendo indefinidamente.
+  if(!debts[idx].paidMonths) debts[idx].paidMonths = {};
+  debts[idx].paidMonths[String(fecha).slice(0,7)] = true;
 
   // Registrar en historial de abonos
   if(!debts[idx].abonos) debts[idx].abonos = [];

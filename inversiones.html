@@ -637,8 +637,8 @@ function saveInv(){
 function renderRecurrentes(){
   var es=lang==='es';
   var recs=[];
-  try{recs=JSON.parse(localStorage.getItem('ft_inv_recurrentes')||'[]');}catch(e){}
-  var activos=recs.filter(function(r){return r.activo;});
+  try{recs=JSON.parse(localStorage.getItem('ft_recurring')||'[]');}catch(e){}
+  var activos=recs.filter(function(r){return r.kind==='inversion' && r.active;});
   var el=document.getElementById('recurrentesList');
   if(!el) return;
   if(!activos.length){el.style.display='none';return;}
@@ -646,12 +646,61 @@ function renderRecurrentes(){
   var freqLabel={weekly:es?'Semanal':'Weekly',biweekly:es?'Quincenal':'Bi-weekly',monthly:es?'Mensual':'Monthly'};
   el.innerHTML='<div style="font-size:13px;font-weight:800;margin-bottom:10px">🔄 '+(es?'Inversiones recurrentes':'Recurring investments')+'</div>'
     +activos.map(function(r){
-      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--off)">'
-        +'<div><div style="font-size:13px;font-weight:700">'+r.ticker+'</div>'
-        +'<div style="font-size:10px;color:var(--text3)">'+freqLabel[r.freq||'weekly']+' · $'+Math.abs(r.amount||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+'</div></div>'
-        +'<button data-rid="'+r.id+'" onclick="ejecutarRecurrente(this.dataset.rid)" style="background:var(--g-main);color:white;border:none;border-radius:10px;padding:8px 14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">'+(es?'Depositar':'Deposit')+'</button>'
-        +'</div>';
+      return '<div id="invRecRow_'+r.id+'" style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--off);gap:8px">'
+        +'<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700">'+(r.desc||r.ticker||'—')+'</div>'
+        +'<div style="font-size:10px;color:var(--text3)">'+(freqLabel[r.freq]||r.freq)+' · $'+Math.abs(r.amount||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+' · '+(es?'próximo ':'next ')+r.nextDate+'</div></div>'
+        +'<div style="display:flex;gap:4px;flex-shrink:0">'
+        +'<button onclick="editInvRecurring(\''+r.id+'\')" style="background:none;border:none;font-size:15px;cursor:pointer;padding:4px">✏️</button>'
+        +'<button onclick="deleteInvRecurring(\''+r.id+'\')" style="background:none;border:none;font-size:15px;cursor:pointer;padding:4px">🗑️</button>'
+        +'</div></div>';
     }).join('');
+}
+
+function deleteInvRecurring(recId){
+  var es = lang==='es';
+  if(!confirm(es?'¿Eliminar esta inversión recurrente?':'Delete this recurring investment?')) return;
+  var recurring = JSON.parse(localStorage.getItem('ft_recurring')||'[]');
+  var i = recurring.findIndex(function(r){ return String(r.id)===String(recId); });
+  if(i>=0) recurring[i].active = false;
+  localStorage.setItem('ft_recurring', JSON.stringify(recurring));
+  showToast(es?'🗑️ Recurrente eliminado':'🗑️ Recurring investment deleted');
+  renderRecurrentes();
+}
+
+function editInvRecurring(recId){
+  var es = lang==='es';
+  var recurring = JSON.parse(localStorage.getItem('ft_recurring')||'[]');
+  var rec = recurring.find(function(r){ return String(r.id)===String(recId); });
+  if(!rec) return;
+  var row = document.getElementById('invRecRow_'+recId);
+  if(!row) return;
+  row.innerHTML = '<div style="width:100%">'
+    +'<div style="display:flex;gap:6px;margin-bottom:6px">'
+    +'<input type="number" id="invEditMonto_'+recId+'" value="'+rec.amount+'" step="0.01" style="flex:1;padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-family:inherit">'
+    +'<select id="invEditFreq_'+recId+'" style="flex:1;padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-family:inherit">'
+    +'<option value="weekly"'+(rec.freq==='weekly'?' selected':'')+'>'+(es?'Semanal':'Weekly')+'</option>'
+    +'<option value="biweekly"'+(rec.freq==='biweekly'?' selected':'')+'>'+(es?'Quincenal':'Biweekly')+'</option>'
+    +'<option value="monthly"'+(rec.freq==='monthly'?' selected':'')+'>'+(es?'Mensual':'Monthly')+'</option>'
+    +'</select></div>'
+    +'<div style="display:flex;gap:6px">'
+    +'<button onclick="saveInvRecurringEdit(\''+recId+'\')" style="flex:1;background:var(--g-main);color:white;border:none;border-radius:8px;padding:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">'+(es?'Guardar':'Save')+'</button>'
+    +'<button onclick="renderRecurrentes()" style="flex:1;background:var(--off);border:1px solid var(--border);border-radius:8px;padding:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">'+(es?'Cancelar':'Cancel')+'</button>'
+    +'</div></div>';
+}
+
+function saveInvRecurringEdit(recId){
+  var es = lang==='es';
+  var monto = parseFloat(document.getElementById('invEditMonto_'+recId)?.value);
+  var freq = document.getElementById('invEditFreq_'+recId)?.value;
+  if(!monto||monto<=0){ showToast(es?'⚠️ Monto inválido':'⚠️ Invalid amount'); return; }
+  var recurring = JSON.parse(localStorage.getItem('ft_recurring')||'[]');
+  var i = recurring.findIndex(function(r){ return String(r.id)===String(recId); });
+  if(i<0) return;
+  recurring[i].amount = monto;
+  recurring[i].freq = freq;
+  localStorage.setItem('ft_recurring', JSON.stringify(recurring));
+  showToast(es?'✅ Recurrente actualizado':'✅ Recurring investment updated');
+  renderRecurrentes();
 }
 
 function ejecutarRecurrente(rid){
