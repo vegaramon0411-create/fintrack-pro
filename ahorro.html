@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>FinTrack Pro · Ahorro Libre</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="premium.js"></script>
@@ -244,6 +244,53 @@ function closeMoreMenu(){document.getElementById('moreOverlay').classList.remove
 
 function loadSavings(){return parseFloat(localStorage.getItem(SAVINGS_KEY)||'0');}
 function saveSavings(n){localStorage.setItem(SAVINGS_KEY,Math.max(0,n).toFixed(2));}
+
+// Mismo cálculo que usa el Dashboard para "Disponible personal" — para saber
+// cuánto del retiro debe ir a cubrir el sobregiro automáticamente.
+function getPersonalOverspendNow(){
+  try{
+    const data = JSON.parse(localStorage.getItem('ft_data')||'{"transactions":[]}');
+    const hogar = JSON.parse(localStorage.getItem('ft_hogar')||'{}');
+    const hogarConnected = !!(hogar.connected && !hogar.manuallyLeft);
+    const hogarPctTotal = parseFloat(hogar.payPctHogar)||50;
+    const persPct = hogarConnected ? (100 - hogarPctTotal) : 100;
+    const now = new Date();
+    const mesKey = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+    const txs = (data.transactions||[]).filter(t=>String(t.date||'').startsWith(mesKey));
+
+    const incomeTxs = txs.filter(t=>t.type==='ingreso');
+    const cheque = incomeTxs.filter(t=>t.incomeKind!=='extra'&&t.incomeKind!=='cobertura').reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
+    const extra = incomeTxs.filter(t=>t.incomeKind==='extra').reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
+    const cobertura = incomeTxs.filter(t=>t.incomeKind==='cobertura').reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
+    const income = (JSON.parse(localStorage.getItem('ft_user')||'{}').income)||0;
+    const personalBudget = hogarConnected ? (cheque*persPct/100 + extra + cobertura) : (parseFloat(income)||0) + cobertura;
+
+    const gastado = txs.filter(t=>['gasto','suscripcion','hipoteca'].includes(t.type) && t.hogar!==true).reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
+    const ahorroPersonal = txs.filter(t=>t.type==='ahorro' && t.hogar!==true).reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
+    const invPersonal = txs.filter(t=>t.type==='inversion' && t.hogar!==true).reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
+
+    const raw = personalBudget - gastado - ahorroPersonal - invPersonal;
+    return Math.max(0, -raw);
+  }catch(e){ return 0; }
+}
+
+// Registra la parte del retiro que cubre el sobregiro como una transacción real
+// de tipo ingreso — así "Disponible personal" del Dashboard sube de verdad,
+// no solo el saldo de esta pantalla.
+function registrarCoberturaSobregiro(monto, fuente){
+  if(monto<=0) return;
+  try{
+    const data = JSON.parse(localStorage.getItem('ft_data')||'{"transactions":[]}');
+    data.transactions = data.transactions||[];
+    data.transactions.push({
+      id: 'cob_'+Date.now(), type:'ingreso', incomeKind:'cobertura',
+      desc: (lang==='es'?'Cobertura de sobregiro desde ':'Overspend covered from ')+fuente,
+      amount: monto, date: new Date().toISOString().split('T')[0],
+      hogar:false, source: fuente
+    });
+    localStorage.setItem('ft_data', JSON.stringify(data));
+  }catch(e){}
+}
 function loadHist(){try{return JSON.parse(localStorage.getItem(HIST_KEY)||'[]');}catch(e){return[];}}
 function saveHist(h){localStorage.setItem(HIST_KEY,JSON.stringify(h));}
 
@@ -463,6 +510,15 @@ function saveEntry(){
 
   const newBal=isRet?bal-amt:bal+amt;
   saveSavings(newBal);
+
+  // Si estás retirando, cubre automático el sobregiro del mes (si tienes) — sin preguntar,
+  // ya elegiste la fuente al venir a esta pantalla. El resto del retiro (si sobra) queda
+  // como dinero libre normal, tal cual antes.
+  if(isRet){
+    const overspend = getPersonalOverspendNow();
+    const cobertura = Math.min(amt, overspend);
+    if(cobertura>0) registrarCoberturaSobregiro(cobertura, lang==='es'?'Ahorro libre':'Free savings');
+  }
 
   const hist=loadHist();
   hist.push({id:Date.now(),tipo:modalTab,monto:amt,nota,fecha,cat:isRet?'':selectedCat});

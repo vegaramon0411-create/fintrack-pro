@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>FinTrack Pro · Importar</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="premium.js"></script>
@@ -372,7 +372,7 @@ function loadInvestments(){
 function saveInvestments(arr){localStorage.setItem(INV_KEY,JSON.stringify(arr));}
 
 const AI_KEY    = 'ft_ai_credits';
-const MAX_AI_PREMIUM = 3;
+const MAX_AI_PREMIUM = 10;
 
 /* ── AI CREDITS ── */
 function getCredits(){
@@ -410,7 +410,7 @@ function showUpgradeModal(){
   const title=document.getElementById('creditsPanelTitle');
   const sub=document.getElementById('creditsPanelSub');
   if(title) title.textContent=prem?(es?'Tus créditos IA se agotaron':'Your AI credits ran out'):(es?'Función Premium':'Premium Feature');
-  if(sub) sub.textContent=prem?(es?'Usaste tus 3 créditos del mes. Compra más para seguir.':'You used your 3 monthly credits. Buy more to continue.'):(es?'El análisis IA es exclusivo para usuarios Premium.':'AI analysis is exclusive to Premium users.');
+  if(sub) sub.textContent=prem?(es?`Usaste tus ${MAX_AI_PREMIUM} créditos del mes. Compra más para seguir.`:`You used your ${MAX_AI_PREMIUM} monthly credits. Buy more to continue.`):(es?'El análisis IA es exclusivo para usuarios Premium.':'AI analysis is exclusive to Premium users.');
   if(panel){panel.style.display='flex';}
   document.getElementById('codeResult').textContent='';
   document.getElementById('codeInputStatic').value='';
@@ -720,6 +720,24 @@ function parseCSV(text, filename){
   }
 
   const header = parseCSVLine(lines[headerIdx]).map(h=>h.trim().toLowerCase());
+
+  // Si el CSV no trae ninguna columna de fecha reconocible, avisar ANTES de
+  // importar — si no, cada fila se guarda con la fecha de HOY en silencio,
+  // y luego es imposible saber si algo se duplicó o son transacciones distintas.
+  const DATE_COLS = ['fecha','date','transaction date','posted date','trade date','activity date','run date','authorized date','post date','process date'];
+  const hasDateCol = DATE_COLS.some(c => header.includes(c));
+  if(!hasDateCol){
+    const seguir = confirm(
+      lang==='es'
+        ? '⚠️ Este archivo no tiene una columna de fecha reconocible.\n\nSi continúas, TODAS las filas se guardarán con la fecha de HOY, y no vas a poder distinguir después si algo se duplicó o son movimientos distintos.\n\nCancela y agrega una columna "Fecha" (formato AAAA-MM-DD) antes de volver a intentar.\n\n¿Continuar de todos modos, sabiendo que perderás las fechas reales?'
+        : '⚠️ This file has no recognizable date column.\n\nIf you continue, ALL rows will be saved with TODAY\'s date, and you won\'t be able to tell later if something was duplicated or is a different transaction.\n\nCancel and add a "Date" column (YYYY-MM-DD format) before trying again.\n\nContinue anyway, knowing you\'ll lose the real dates?'
+    );
+    if(!seguir){
+      const zone = document.getElementById('dropZone');
+      if(zone) zone.innerHTML = `<div class="uz-ico">📅</div><div class="uz-title">${lang==='es'?'Agrega una columna de fecha':'Add a date column'}</div><div class="uz-sub">${lang==='es'?'Vuelve a subir el archivo cuando esté lista':'Re-upload the file once it\u2019s ready'}</div>`;
+      return;
+    }
+  }
 
   // Detect format
   if(header.includes('symbol') || header.includes('action')){

@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>FinTrack Pro · Dashboard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -609,7 +609,11 @@ input, select, textarea { font-size: 16px !important; }
   <div class="topbar">
     <div class="tb-title" data-es="Dashboard" data-en="Dashboard">Dashboard</div>
     <div class="tb-right">
-      <div class="month-pill" id="monthPill">◀ &nbsp;— 2026&nbsp; ▶</div>
+      <div class="month-pill" id="monthPill">
+        <span onclick="prevMonth()" style="cursor:pointer;padding:2px 6px">◀</span>
+        &nbsp;<span id="monthPillLabel">— 2026</span>&nbsp;
+        <span onclick="nextMonth()" id="monthPillNext" style="cursor:pointer;padding:2px 6px">▶</span>
+      </div>
       <div class="lang-toggle">
         <div class="lt-opt on" id="ltES" onclick="setLang('es')">ES</div>
         <div class="lt-opt"    id="ltEN" onclick="setLang('en')">EN</div>
@@ -884,6 +888,16 @@ input, select, textarea { font-size: 16px !important; }
         <div class="subs-grid" id="subGrid"></div>
       </div>
 
+      <!-- SERVICIOS DE LA CASA -->
+      <div class="card" id="serviciosCasaCard" style="display:none">
+        <div class="card-hd">
+          🏠 <span data-es="Servicios de la casa" data-en="Household services">Servicios de la casa</span>
+          <span class="card-act" onclick="location.href='servicios.html'" data-es="Ver todos →" data-en="See all →">Ver todos →</span>
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin:-8px 0 12px" id="serviciosCasaSub"></div>
+        <div id="serviciosCasaList"></div>
+      </div>
+
     </div>
 
     <!-- GOALS PREVIEW -->
@@ -966,6 +980,7 @@ input, select, textarea { font-size: 16px !important; }
       <div class="more-item" onclick="go('analisis.html')"><div class="more-ico" style="background:var(--blu-dim)">📈</div><span data-es="Análisis" data-en="Analysis">Análisis</span></div>
       <div class="more-item" onclick="go('metas.html')"><div class="more-ico" style="background:var(--g-light)">🎯</div><span data-es="Metas" data-en="Goals">Metas</span></div>
       <div class="more-item" onclick="go('suscripciones.html')"><div class="more-ico" style="background:var(--pur-dim,rgba(123,94,167,.1))">🔄</div><span data-es="Suscripciones" data-en="Subscriptions">Suscripciones</span></div>
+      <div class="more-item" onclick="go('recurrentes.html')"><div class="more-ico" style="background:var(--blu-dim,rgba(74,108,247,.1))">📋</div><span data-es="Recurrentes" data-en="Recurring">Recurrentes</span></div>
       <div class="more-item" onclick="go('inversiones.html')"><div class="more-ico" style="background:var(--blu-dim,rgba(74,108,247,.1))">🏦</div><span data-es="Inversiones" data-en="Investments">Inversiones</span></div>
       <div class="more-item" onclick="go('scanner.html')"><div class="more-ico" style="background:var(--g-light)">📷</div><span data-es="Escanear" data-en="Scan">Escanear</span></div>
       <div class="more-item" onclick="go('importar.html')"><div class="more-ico" style="background:var(--blu-dim)">📥</div><span data-es="Importar" data-en="Import">Importar</span></div>
@@ -1015,8 +1030,8 @@ input, select, textarea { font-size: 16px !important; }
         <button class="type-btn on" onclick="setType('gasto')" data-es="💸 Gasto" data-en="💸 Expense">💸 Gasto</button>
         <button class="type-btn" onclick="setType('ingreso')" data-es="💰 Ingreso" data-en="💰 Income">💰 Ingreso</button>
         <button class="type-btn" onclick="setType('inversion')" data-es="📈 Inversión" data-en="📈 Investment">📈 Inversión</button>
-        <button class="type-btn" onclick="setType('ahorro');setSavingsDest('emergencia')" data-es="🛡️ Emergencia" data-en="🛡️ Emergency">🛡️ Emergencia</button>
-        <button class="type-btn" onclick="setType('ahorro');setSavingsDest('libre')" data-es="💵 Ahorro libre" data-en="💵 Free savings">💵 Ahorro libre</button>
+        <button class="type-btn" data-key="ahorro-emergencia" onclick="setType('ahorro','ahorro-emergencia');setSavingsDest('emergencia')" data-es="🛡️ Emergencia" data-en="🛡️ Emergency">🛡️ Emergencia</button>
+        <button class="type-btn" data-key="ahorro-libre" onclick="setType('ahorro','ahorro-libre');setSavingsDest('libre')" data-es="💵 Ahorro libre" data-en="💵 Free savings">💵 Ahorro libre</button>
         <button class="type-btn" onclick="setType('suscripcion')" data-es="🔄 Suscripción" data-en="🔄 Subscription">🔄 Suscripción</button>
         <button class="type-btn" onclick="setType('hipoteca')" data-es="🏠 Renta/Hipoteca" data-en="🏠 Rent/Mortgage">🏠 Renta/Hipoteca</button>
         <button class="type-btn" onclick="closeModal();openDebtAbonarModal()" style="grid-column:span 3;background:var(--red-dim);color:var(--red);border-color:var(--red)" data-es="💳 Abonar a deuda" data-en="💳 Pay a debt">💳 Abonar a deuda</button>
@@ -1043,6 +1058,43 @@ input, select, textarea { font-size: 16px !important; }
       <div class="field">
         <label><span data-es="Nota (opcional)" data-en="Note (optional)">Nota (opcional)</span><span class="info-i" onclick="toggleInfoTip(this)" data-tip-es="Detalle extra, si quieres" data-tip-en="Extra detail, if you want">ⓘ</span></label>
         <input type="text" id="mNote" placeholder="">
+      </div>
+
+      <!-- CAMPOS ESPECÍFICOS DE INVERSIÓN — antes solo se guardaba genérico y había
+           que ir a Inversiones a completar ticker/tipo/plataforma/recurrente. -->
+      <div id="invExtraFields" style="display:none;background:var(--off);border-radius:12px;padding:12px;margin-bottom:14px">
+        <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px" data-es="Detalle de la inversión" data-en="Investment detail">Detalle de la inversión</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+          <select id="invExtraType" style="padding:9px;border:1.5px solid var(--border);border-radius:8px;font-size:12.5px;font-family:inherit">
+            <option value="stock" data-es="Acción/Stock" data-en="Stock">Acción/Stock</option>
+            <option value="etf">ETF</option>
+            <option value="crypto">Crypto</option>
+            <option value="fondo" data-es="Fondo" data-en="Fund">Fondo</option>
+            <option value="otro" data-es="Otro" data-en="Other">Otro</option>
+          </select>
+          <input type="text" id="invExtraPlatform" placeholder="Fidelity, Robinhood..." style="padding:9px;border:1.5px solid var(--border);border-radius:8px;font-size:12.5px;font-family:inherit">
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer">
+          <input type="checkbox" id="invExtraRecurrente" style="width:16px;height:16px" onchange="document.getElementById('invExtraFreqWrap').style.display=this.checked?'':'none'">
+          <span data-es="🔄 Hacer recurrente" data-en="🔄 Make recurring">🔄 Hacer recurrente</span>
+        </label>
+        <div id="invExtraFreqWrap" style="display:none;margin-top:8px">
+          <select id="invExtraFreq" style="width:100%;padding:9px;border:1.5px solid var(--border);border-radius:8px;font-size:12.5px;font-family:inherit">
+            <option value="weekly" data-es="Cada semana" data-en="Every week">Cada semana</option>
+            <option value="biweekly" data-es="Cada quincena" data-en="Every two weeks">Cada quincena</option>
+            <option value="monthly" selected data-es="Cada mes" data-en="Every month">Cada mes</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- CAMPOS ESPECÍFICOS DE SUSCRIPCIÓN — antes solo se guardaba genérico. -->
+      <div id="subExtraFields" style="display:none;background:var(--off);border-radius:12px;padding:12px;margin-bottom:14px">
+        <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px" data-es="Detalle de la suscripción" data-en="Subscription detail">Detalle de la suscripción</div>
+        <select id="subExtraFreq" style="width:100%;padding:9px;border:1.5px solid var(--border);border-radius:8px;font-size:12.5px;font-family:inherit">
+          <option value="monthly" selected data-es="Mensual" data-en="Monthly">Mensual</option>
+          <option value="weekly" data-es="Semanal" data-en="Weekly">Semanal</option>
+          <option value="annual" data-es="Anual" data-en="Annual">Anual</option>
+        </select>
       </div>
 
       <!-- DESTINO DE AHORRO (solo tipo ahorro) -->
@@ -1173,6 +1225,21 @@ function saveDebts(d) { localStorage.setItem('ft_debts', JSON.stringify(d)); }
 ══════════════════════════════════════════ */
 let user = {};
 let lang = 'es';
+// Mes que se está viendo en el Dashboard — 0 = mes actual, -1 = mes anterior, etc.
+// Antes los botones ◀▶ eran solo texto decorativo, sin funcionalidad real.
+let selectedMonthOffset = 0;
+function getViewDate(){
+  const d = new Date();
+  d.setDate(1); // evita el bug de "31 de marzo - 1 mes = 3 de marzo" al cambiar de mes
+  d.setMonth(d.getMonth() + selectedMonthOffset);
+  return d;
+}
+function prevMonth(){ selectedMonthOffset--; renderDashboard(); }
+function nextMonth(){
+  if(selectedMonthOffset>=0) return; // no dejar navegar a meses futuros que aún no pasaron
+  selectedMonthOffset++;
+  renderDashboard();
+}
 
 function loadSession() {
   try {
@@ -1245,7 +1312,7 @@ function getMonthLabel() {
     es:['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'],
     en:['January','February','March','April','May','June','July','August','September','October','November','December']
   };
-  const now = new Date();
+  const now = getViewDate();
   return months[lang][now.getMonth()] + ' ' + now.getFullYear();
 }
 
@@ -1304,7 +1371,7 @@ function getCategoryType(cat) {
 
 function getMonthTotals() {
   const data = loadData();
-  const now  = new Date();
+  const now  = getViewDate();
   const curYear  = now.getFullYear();
   const curMonth = now.getMonth();
 
@@ -1369,7 +1436,7 @@ function getPartnerHogarSpentThisMonth(){
     const k = 'profile_'+hogar.partnerEmail.replace(/[^a-z0-9]/gi,'_');
     const pp = JSON.parse(localStorage.getItem(k)||'null');
     if(!pp || !pp.data || !pp.data.transactions) return 0;
-    const now = new Date();
+    const now = getViewDate();
     const y = now.getFullYear(), m = now.getMonth();
     return pp.data.transactions
       .filter(t=>{
@@ -1420,7 +1487,9 @@ function renderDashboard() {
   updateHeroDinero();
 
   // ── MONTH LABEL ──
-  document.getElementById('monthPill').innerHTML = '◀ &nbsp;' + getMonthLabel() + '&nbsp; ▶';
+  document.getElementById('monthPillLabel').textContent = getMonthLabel();
+  const _nextBtn = document.getElementById('monthPillNext');
+  if(_nextBtn) _nextBtn.style.opacity = selectedMonthOffset>=0 ? '.3' : '1';
 
   // ── USER INFO ──
   document.getElementById('sbName').textContent   = user.name  || '';
@@ -1528,6 +1597,9 @@ function renderDashboard() {
   // ── SUBSCRIPTIONS ──
   renderSubs();
 
+  // ── SERVICIOS DE LA CASA ──
+  renderServiciosCasa();
+
   // ── GOALS PREVIEW ──
   renderGoalsPreview();
 
@@ -1611,7 +1683,7 @@ const typeNames = {
 
 function renderTx(filter) {
   const data = loadData();
-  const now  = new Date();
+  const now  = getViewDate();
   const nowKey = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
   let txs = data.transactions
     .filter(t => String(t.date||'').startsWith(nowKey))
@@ -1672,7 +1744,7 @@ var chequeType = 'nuevo';
 function getAbonosDelMes(){
   try{
     const data = JSON.parse(localStorage.getItem('ft_data')||'{}');
-    const now = new Date();
+    const now = getViewDate();
     const y = now.getFullYear(), m = now.getMonth();
     return (data.transactions||[]).filter(t=>{
       if(t.cat !== '💳 Deudas' || t.type !== 'gasto') return false;
@@ -1684,7 +1756,7 @@ function getAbonosDelMes(){
 
 function getChequesDelMes(){
   try{
-    const now = new Date();
+    const now = getViewDate();
     const key = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
     const all = JSON.parse(localStorage.getItem('ft_cheques')||'[]');
     return all.filter(c=>c.mes===key);
@@ -1902,7 +1974,7 @@ function renderAporteMes(totals){
 
   // Ahorros en metas hogar este mes
   const fondos = (() => { try{ return JSON.parse(localStorage.getItem('ft_hogar_fondos')||'{}'); }catch(e){ return {}; }})();
-  const now = new Date();
+  const now = getViewDate();
   const mesKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
   let ahorroMetasMes = 0;
   (fondos.metas||[]).forEach(m=>{
@@ -2016,25 +2088,106 @@ function renderSubs() {
   try { subs = JSON.parse(localStorage.getItem('ft_subs') || '[]'); } catch(e) { subs = []; }
   if (!subs.length && data.subscriptions && data.subscriptions.length) subs = data.subscriptions;
   if (!subs.length) subs = defaultSubs;
-  const total = subs.reduce((s,x) => s+(parseFloat(x.amount)||0), 0);
+  const total = subs.filter(s=>!s.paused).reduce((s,x) => s+(parseFloat(x.amount)||0), 0);
 
   document.getElementById('subTotal').textContent = fmtD(total)+'/'+(lang==='es'?'mes':'mo');
 
   const addLabel = lang==='es' ? 'Agregar' : 'Add';
   document.getElementById('subGrid').innerHTML = subs.slice(0,5).map(s => `
-    <div class="sub-card">
+    <div class="sub-card" onclick="openSubManage('${s.id||''}')" style="cursor:pointer;${s.paused?'opacity:.5':''}">
       <div class="sub-top">
         <div class="sub-ico" style="background:${s.bg||'var(--g-dim)'}">${s.icon||'📦'}</div>
         <div><div class="sub-nm">${s.name}</div><div class="sub-dt">${lang==='es'?'Próximo':'Next'}: ${s.next||'—'}</div></div>
       </div>
       <div class="sub-amt">${fmtD(s.amount)}</div>
-      <div class="sub-freq">${lang==='es'?'mensual':'monthly'}</div>
+      <div class="sub-freq">${s.paused?(lang==='es'?'⏸ pausada':'⏸ paused'):(lang==='es'?'mensual':'monthly')}</div>
       <div class="sub-badge ${s.badge==='soon'?'bs':'bo'}">${s.badge==='soon'?'⚡':'✓'} ${s.next||'—'}</div>
     </div>`).join('') +
     `<div class="sub-card sub-add" onclick="window.location.href='suscripciones.html'">
       <div style="font-size:22px">＋</div>
       <div style="font-size:11px;color:var(--text3);font-weight:600">${addLabel}</div>
     </div>`;
+}
+
+// ── Gestión rápida de suscripción desde el Dashboard (antes las cards no hacían nada) ──
+function openSubManage(subId){
+  if(!subId) return;
+  const es = lang==='es';
+  let subs = JSON.parse(localStorage.getItem('ft_subs')||'[]');
+  const s = subs.find(x=>String(x.id)===String(subId));
+  if(!s) return;
+  let overlay = document.getElementById('subManageOverlay');
+  if(!overlay){
+    overlay = document.createElement('div');
+    overlay.id = 'subManageOverlay';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:300;background:rgba(20,20,30,.35);display:flex;align-items:flex-end';
+    overlay.onclick = (e)=>{ if(e.target===overlay) overlay.remove(); };
+    document.body.appendChild(overlay);
+  }
+  overlay.innerHTML = `<div onclick="event.stopPropagation()" style="background:white;border-radius:22px 22px 0 0;padding:20px;width:100%;max-width:420px;margin:0 auto">
+    <div style="width:36px;height:4px;background:var(--border);border-radius:99px;margin:0 auto 16px"></div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+      <div style="width:40px;height:40px;border-radius:12px;background:${s.bg||'var(--g-dim)'};display:grid;place-items:center;font-size:18px">${s.icon||'📦'}</div>
+      <div style="font-size:15px;font-weight:800">${s.name}</div>
+    </div>
+    <label style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase">${es?'Monto mensual':'Monthly amount'}</label>
+    <input type="number" id="subManageAmt" value="${s.amount}" step="0.01" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:10px;margin:6px 0 14px;font-size:14px;font-family:inherit">
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <button onclick="saveSubManage('${subId}')" style="background:var(--g-main);color:white;border:none;border-radius:12px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">${es?'💾 Guardar cambios':'💾 Save changes'}</button>
+      <button onclick="toggleSubPause('${subId}')" style="background:var(--off);border:1.5px solid var(--border);border-radius:12px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">${s.paused?(es?'▶️ Reanudar':'▶️ Resume'):(es?'⏸ Pausar':'⏸ Pause')}</button>
+      <button onclick="deleteSubManage('${subId}')" style="background:var(--red-dim);color:var(--red);border:none;border-radius:12px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">${es?'🗑️ Eliminar':'🗑️ Delete'}</button>
+      <button onclick="document.getElementById('subManageOverlay').remove()" style="background:none;border:none;padding:8px;font-size:12px;color:var(--text3);cursor:pointer;font-family:inherit">${es?'Cancelar':'Cancel'}</button>
+    </div>
+  </div>`;
+}
+function saveSubManage(subId){
+  const monto = parseFloat(document.getElementById('subManageAmt')?.value);
+  if(!monto||monto<=0){ showToast(lang==='es'?'⚠️ Monto inválido':'⚠️ Invalid amount'); return; }
+  let subs = JSON.parse(localStorage.getItem('ft_subs')||'[]');
+  const i = subs.findIndex(x=>String(x.id)===String(subId));
+  if(i>=0){ subs[i].amount = monto; localStorage.setItem('ft_subs', JSON.stringify(subs)); }
+  document.getElementById('subManageOverlay')?.remove();
+  showToast(lang==='es'?'✅ Suscripción actualizada':'✅ Subscription updated');
+  renderSubs();
+}
+function toggleSubPause(subId){
+  let subs = JSON.parse(localStorage.getItem('ft_subs')||'[]');
+  const i = subs.findIndex(x=>String(x.id)===String(subId));
+  if(i>=0){ subs[i].paused = !subs[i].paused; localStorage.setItem('ft_subs', JSON.stringify(subs)); }
+  document.getElementById('subManageOverlay')?.remove();
+  showToast(subs[i].paused?(lang==='es'?'⏸ Pausada — no se cobrará sola':'⏸ Paused — won\u2019t auto-charge'):(lang==='es'?'▶️ Reanudada':'▶️ Resumed'));
+  renderSubs();
+}
+function deleteSubManage(subId){
+  if(!confirm(lang==='es'?'¿Eliminar esta suscripción?':'Delete this subscription?')) return;
+  let subs = JSON.parse(localStorage.getItem('ft_subs')||'[]');
+  subs = subs.filter(x=>String(x.id)!==String(subId));
+  localStorage.setItem('ft_subs', JSON.stringify(subs));
+  document.getElementById('subManageOverlay')?.remove();
+  showToast(lang==='es'?'🗑️ Suscripción eliminada':'🗑️ Subscription deleted');
+  renderSubs();
+}
+
+// ── Vista previa de "Servicios de la casa" — se descuentan del presupuesto de
+// Necesidades del hogar, no del personal. Solo aparece si ya tienes al menos uno. ──
+function renderServiciosCasa(){
+  let servicios = [];
+  try{ servicios = JSON.parse(localStorage.getItem('ft_servicios')||'[]'); }catch(e){}
+  const card = document.getElementById('serviciosCasaCard');
+  if(!card) return;
+  if(!servicios.length){ card.style.display='none'; return; }
+  card.style.display='';
+  const es = lang==='es';
+  const activos = servicios.filter(s=>!s.paused);
+  const total = activos.reduce((a,s)=>a+(parseFloat(s.amount)||0),0);
+  document.getElementById('serviciosCasaSub').textContent = fmtD(total)+'/'+(es?'mes · del hogar':'mo · household');
+  document.getElementById('serviciosCasaList').innerHTML = activos.slice(0,4).map(s=>`
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--off)">
+      <div style="width:34px;height:34px;border-radius:10px;background:var(--blu-dim);display:grid;place-items:center;font-size:15px">🏠</div>
+      <div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:700">${s.name}</div>
+      <div style="font-size:10px;color:var(--text3)">${s.cat||''}</div></div>
+      <div style="font-size:13px;font-weight:800">${fmtD(s.amount)}</div>
+    </div>`).join('');
 }
 
 /* ══════════════════════════════════════════
@@ -2516,7 +2669,13 @@ function showHogarToggle(type){
 
 function openModal() {
   editingEntryId = null;
+  _coberturaConfirmada = false;
   document.getElementById('overlay').classList.add('open');
+  document.getElementById('invExtraFields').style.display = 'none';
+  document.getElementById('subExtraFields').style.display = 'none';
+  document.getElementById('invExtraRecurrente').checked = false;
+  document.getElementById('invExtraFreqWrap').style.display = 'none';
+  document.getElementById('invExtraPlatform').value = '';
   document.getElementById('mDate').value = new Date().toISOString().split('T')[0];
   document.getElementById('mDesc').value = '';
   document.getElementById('mAmount').value = '';
@@ -2542,6 +2701,106 @@ function pickType(btn, type) { setType(type); }
 
 let editingEntryId = null;
 
+// Mismo cálculo que "Disponible personal" del resumen — para saber, antes de guardar
+// un gasto nuevo, si ya no te queda nada y hay que preguntar de dónde cubrirlo.
+function calcPersonalDisponibleActual(){
+  try{
+    const data = loadData();
+    const hogar = JSON.parse(localStorage.getItem('ft_hogar')||'{}');
+    const hogarConnected = !!(hogar.connected && !hogar.manuallyLeft);
+    const hogarPctTotal = parseFloat(hogar.payPctHogar)||50;
+    const persPct = hogarConnected ? (100 - hogarPctTotal) : 100;
+    const now = new Date();
+    const mesKey = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+    const txs = (data.transactions||[]).filter(t=>String(t.date||'').startsWith(mesKey));
+
+    const incomeTxs = txs.filter(t=>t.type==='ingreso');
+    const cheque = incomeTxs.filter(t=>t.incomeKind!=='extra'&&t.incomeKind!=='cobertura').reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
+    const extra = incomeTxs.filter(t=>t.incomeKind==='extra').reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
+    const cobertura = incomeTxs.filter(t=>t.incomeKind==='cobertura').reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
+    const personalBudget = hogarConnected ? (cheque*persPct/100 + extra + cobertura) : (parseFloat(user.income)||0) + cobertura;
+
+    const gastado = txs.filter(t=>['gasto','suscripcion','hipoteca'].includes(t.type) && t.hogar!==true).reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
+    const ahorroPersonal = txs.filter(t=>t.type==='ahorro' && t.hogar!==true).reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
+    const invPersonal = txs.filter(t=>t.type==='inversion' && t.hogar!==true).reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
+
+    return personalBudget - gastado - ahorroPersonal - invPersonal;
+  }catch(e){ return 0; }
+}
+
+// Registra la parte del gasto que se cubrió con un fondo externo, como transacción
+// real de ingreso — así el saldo de esa pantalla y "Disponible personal" cuentan
+// siempre la misma historia.
+function registrarCoberturaSobregiro(monto, fuente){
+  if(monto<=0) return;
+  try{
+    const data = loadData();
+    data.transactions = data.transactions||[];
+    data.transactions.push({
+      id: 'cob_'+Date.now(), type:'ingreso', incomeKind:'cobertura',
+      desc: (lang==='es'?'Cobertura de sobregiro desde ':'Overspend covered from ')+fuente,
+      amount: monto, date: new Date().toISOString().split('T')[0],
+      hogar:false, source: fuente
+    });
+    localStorage.setItem('ft_data', JSON.stringify(data));
+  }catch(e){}
+}
+
+let _coberturaConfirmada = false; // se resetea cada vez que se abre el modal de nuevo registro
+
+function elegirFuenteCobertura(fuente, faltante){
+  if(fuente==='ahorro'){
+    const bal = parseFloat(localStorage.getItem('ft_available_savings')||'0');
+    localStorage.setItem('ft_available_savings', Math.max(0, bal-faltante).toFixed(2));
+    let hist=[]; try{hist=JSON.parse(localStorage.getItem('ft_savings_hist')||'[]');}catch(e){}
+    hist.push({id:Date.now(),tipo:'retiro',monto:faltante,nota:lang==='es'?'Cobertura automática de gasto':'Automatic expense coverage',fecha:new Date().toISOString().split('T')[0],cat:''});
+    localStorage.setItem('ft_savings_hist', JSON.stringify(hist));
+    registrarCoberturaSobregiro(faltante, lang==='es'?'Ahorro libre':'Free savings');
+  } else if(fuente==='emergencia'){
+    const data = loadData();
+    data.emergency = Math.max(0, (data.emergency||0) - faltante);
+    localStorage.setItem('ft_data', JSON.stringify(data));
+    addEmergencyHistoryEntry({ id:Date.now(), amount:-faltante, date:new Date().toISOString().split('T')[0], type:'retiro', note: lang==='es'?'Cobertura automática de gasto':'Automatic expense coverage' });
+    registrarCoberturaSobregiro(faltante, lang==='es'?'Fondo de emergencia':'Emergency fund');
+  } else if(fuente==='inversion'){
+    // De inversión no se "retira" saldo (no es líquido), solo se registra la cobertura —
+    // el usuario ya sabe que está usando ese colchón conceptualmente.
+    registrarCoberturaSobregiro(faltante, lang==='es'?'Inversiones':'Investments');
+  }
+  document.getElementById('coberturaOverlay')?.remove();
+  _coberturaConfirmada = true;
+  showToast('✅', lang==='es'?'Cubierto':'Covered', lang==='es'?`Con ${fuente}`:`With ${fuente}`, 'var(--g-main)');
+  saveEntry(); // reintenta guardar — ya no debería faltar disponible
+}
+
+function cancelarCobertura(){
+  document.getElementById('coberturaOverlay')?.remove();
+  const btnSave = document.getElementById('btnSaveEntry');
+  if(btnSave) btnSave.disabled = false;
+}
+
+function mostrarAvisoSinDisponible(faltante){
+  const es = lang==='es';
+  let overlay = document.getElementById('coberturaOverlay');
+  if(overlay) overlay.remove();
+  overlay = document.createElement('div');
+  overlay.id = 'coberturaOverlay';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:400;background:rgba(20,20,30,.4);display:flex;align-items:center;justify-content:center;padding:20px';
+  overlay.onclick = (e)=>{ if(e.target===overlay) cancelarCobertura(); };
+  overlay.innerHTML = `<div onclick="event.stopPropagation()" style="background:white;border-radius:22px;padding:22px;width:100%;max-width:380px">
+    <div style="font-size:32px;text-align:center;margin-bottom:6px">⚠️</div>
+    <div style="font-size:15px;font-weight:800;text-align:center;margin-bottom:6px">${es?'Ya no tienes dinero disponible para gastar':'You have no money available to spend'}</div>
+    <div style="font-size:12.5px;color:var(--text3);text-align:center;margin-bottom:18px">${es?`Te faltan ${fmt(faltante)}. ¿De dónde lo tomamos?`:`You're short ${fmt(faltante)}. Where should we take it from?`}</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <button onclick="elegirFuenteCobertura('ahorro',${faltante})" style="background:var(--g-main);color:white;border:none;border-radius:12px;padding:13px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">💵 ${es?'Ahorro libre':'Free savings'}</button>
+      <button onclick="elegirFuenteCobertura('emergencia',${faltante})" style="background:var(--amber);color:white;border:none;border-radius:12px;padding:13px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">🛡️ ${es?'Fondo de emergencia':'Emergency fund'}</button>
+      <button onclick="elegirFuenteCobertura('inversion',${faltante})" style="background:var(--blue);color:white;border:none;border-radius:12px;padding:13px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">📈 ${es?'Inversiones':'Investments'}</button>
+      <button onclick="cancelarCobertura()" style="background:none;border:none;padding:8px;font-size:12px;color:var(--text3);cursor:pointer;font-family:inherit">${es?'Cancelar':'Cancel'}</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+}
+
 function saveEntry() {
   const btnSave = document.getElementById('btnSaveEntry');
   if (btnSave && btnSave.disabled) return; // evita doble-submit (doble-tap crea duplicados con id distinto)
@@ -2566,6 +2825,19 @@ function saveEntry() {
     if (btnSave) btnSave.disabled = false;
     return;
   }
+
+  // Si es un GASTO personal nuevo (no hogar, no edición) y ya no queda disponible,
+  // preguntar de dónde cubrirlo antes de continuar — solo una vez por intento.
+  if (currentType === 'gasto' && !editingEntryId && !isHogarTx && !_coberturaConfirmada) {
+    const disponibleAntes = calcPersonalDisponibleActual();
+    const faltante = amount - disponibleAntes;
+    if (faltante > 0) {
+      if (btnSave) btnSave.disabled = false;
+      mostrarAvisoSinDisponible(Math.round(faltante * 100) / 100);
+      return;
+    }
+  }
+  _coberturaConfirmada = false; // ya se usó (si aplicaba), lista para el próximo registro
 
   const data = loadData();
   const wasEditing = !!editingEntryId;
@@ -2614,16 +2886,41 @@ function saveEntry() {
       }
     }
     if (currentType === 'inversion') {
+      const invType = document.getElementById('invExtraType').value;
+      const invPlatform = document.getElementById('invExtraPlatform').value.trim();
       if (isHogarConnected() && isHogarTx) {
-        // Guardar en ft_hogar_inv como posición del hogar
         try {
           const hogarInvs = JSON.parse(localStorage.getItem('ft_hogar_inv')||'[]');
-          hogarInvs.push({ id:'hi_'+entry.id, ticker:desc.toUpperCase(), type:'ahorro', shares:1, avgPrice:amount, curPrice:amount, platform:'Hogar', addedBy:user.name||'', addedAt:new Date().toISOString() });
+          hogarInvs.push({ id:'hi_'+entry.id, ticker:desc.toUpperCase(), type:invType, shares:1, avgPrice:amount, curPrice:amount, platform:invPlatform||'Hogar', fecha:date, addedBy:user.name||'', addedAt:new Date().toISOString() });
           localStorage.setItem('ft_hogar_inv', JSON.stringify(hogarInvs));
         } catch(e) {}
       } else {
-        addInvestmentSyncEntry({ id: entry.id, name: desc, amount, date, note });
+        // Se guarda completa desde aquí — antes quedaba como "Varias" genérica
+        // y había que ir a Inversiones a terminar de llenar ticker/tipo/plataforma.
+        try{
+          const invs = JSON.parse(localStorage.getItem('ft_investments')||'[]');
+          invs.push({ id:'i_'+entry.id, ticker:desc.toUpperCase(), type:invType, shares:1, avgPrice:amount, curPrice:amount, amount, platform:invPlatform, modo:'nueva', fecha:date, addedBy:user.name||'', addedAt:new Date().toISOString() });
+          localStorage.setItem('ft_investments', JSON.stringify(invs));
+        }catch(e){}
       }
+      if (document.getElementById('invExtraRecurrente').checked) {
+        try{
+          const freq = document.getElementById('invExtraFreq').value;
+          const recurring = JSON.parse(localStorage.getItem('ft_recurring')||'[]');
+          recurring.push({ id:'rec_'+Date.now(), kind:'inversion', desc, amount, freq, hogar:isHogarTx&&isHogarConnected(), nextDate:_advanceRecDate(freq,date), active:true, createdBy:user.name||'' });
+          localStorage.setItem('ft_recurring', JSON.stringify(recurring));
+        }catch(e){}
+      }
+    }
+    if (currentType === 'suscripcion') {
+      // Se guarda en ft_subs (la key real de Suscripciones) — antes solo quedaba
+      // como transacción genérica y no aparecía en la pantalla de Suscripciones.
+      try{
+        const freq = document.getElementById('subExtraFreq').value;
+        const subs = JSON.parse(localStorage.getItem('ft_subs')||'[]');
+        subs.push({ id:'s_'+entry.id, name:desc, amount, freq, date, cat: cat||'📦 Otro', paused:false, hogar: isHogarTx&&isHogarConnected(), createdBy:user.name||'' });
+        localStorage.setItem('ft_subs', JSON.stringify(subs));
+      }catch(e){}
     }
     data.transactions.push(entry);
   }
@@ -2912,11 +3209,17 @@ function populateCategorySelect() {
   sel.innerHTML = cats.map(c => `<option value="${c.v}">${es?c.es:c.en}</option>`).join('');
 }
 
-function setType(type) {
+function setType(type, key) {
   currentType = type;
+  const activeKey = key || type; // los botones sin data-key propio caen al type mismo (comportamiento de antes)
   document.querySelectorAll('.type-btn').forEach(b => {
-    const onclickAttr = b.getAttribute('onclick') || '';
-    b.classList.toggle('on', onclickAttr.includes("'"+type+"'"));
+    const btnKey = b.getAttribute('data-key');
+    if (btnKey) {
+      b.classList.toggle('on', btnKey === activeKey);
+    } else {
+      const onclickAttr = b.getAttribute('onclick') || '';
+      b.classList.toggle('on', onclickAttr.includes("'"+type+"'"));
+    }
   });
   // Show/hide category field for types that need it
   document.getElementById('catField').style.display = ['gasto','suscripcion','hipoteca'].includes(type) ? '' : 'none';
@@ -2931,6 +3234,10 @@ function setType(type) {
   // Show/hide destino de ahorro
   showSavingsDestField(type === 'ahorro');
   showIncomeKindField(type === 'ingreso');
+  // Detalle completo de inversión/suscripción — antes se guardaba genérico
+  // y había que ir a la página específica a completar los datos reales.
+  document.getElementById('invExtraFields').style.display = type === 'inversion' ? '' : 'none';
+  document.getElementById('subExtraFields').style.display = type === 'suscripcion' ? '' : 'none';
 }
 
 function setCategory(catValue) {
@@ -3526,6 +3833,105 @@ function applyDueRecurring(){
     }
   } catch(e){}
 }
+// ── Auto-cobro de suscripciones — antes solo se mostraban, nunca se descontaban solas ──
+function _subNextBillingDate(s){
+  if(!s.date) return null;
+  const parts = s.date.split('-').map(Number);
+  let d = new Date(parts[0], parts[1]-1, parts[2]);
+  const today = new Date(); today.setHours(0,0,0,0);
+  const stepFn = () => {
+    if(s.freq==='annual') d.setFullYear(d.getFullYear()+1);
+    else if(s.freq==='weekly') d.setDate(d.getDate()+7);
+    else d.setMonth(d.getMonth()+1);
+  };
+  return { due: d < today, dateObj: d, advance: stepFn };
+}
+function applyDueSubscriptions(){
+  try{
+    let subs = JSON.parse(localStorage.getItem('ft_subs')||'[]');
+    if(!subs.length) return;
+    const today = new Date(); today.setHours(0,0,0,0);
+    let appliedCount = 0, appliedTotal = 0;
+    const data = JSON.parse(localStorage.getItem('ft_data')||'{"transactions":[]}');
+    data.transactions = data.transactions||[];
+
+    subs.forEach(s=>{
+      if(s.paused || !s.date) return;
+      let guard = 0;
+      while(guard<60){
+        const parts = s.date.split('-').map(Number);
+        let d = new Date(parts[0], parts[1]-1, parts[2]);
+        if(!(d < today)) break; // ya no hay periodos vencidos pendientes
+        data.transactions.push({
+          id: Date.now()+guard, type:'suscripcion', desc:s.name, amount:parseFloat(s.amount)||0,
+          date: s.date, cat: s.cat||'🔄 Suscripción', hogar: s.hogar===true,
+          createdBy: user.name||'', auto:true
+        });
+        appliedCount++; appliedTotal += parseFloat(s.amount)||0;
+        if(s.freq==='annual') d.setFullYear(d.getFullYear()+1);
+        else if(s.freq==='weekly') d.setDate(d.getDate()+7);
+        else d.setMonth(d.getMonth()+1);
+        s.date = d.toISOString().split('T')[0];
+        guard++;
+      }
+    });
+
+    if(appliedCount>0){
+      localStorage.setItem('ft_data', JSON.stringify(data));
+      localStorage.setItem('ft_subs', JSON.stringify(subs));
+      showToast('🔄', lang==='es'?'Suscripciones cobradas':'Subscriptions charged',
+        lang==='es' ? `${appliedCount} cobro(s) automático(s) · ${fmt(appliedTotal)}` : `${appliedCount} automatic charge(s) · ${fmt(appliedTotal)}`,
+        'var(--g-main)');
+      renderDashboard();
+    }
+  } catch(e){}
+}
+applyDueSubscriptions();
+
+// ── Auto-cobro de Servicios de la casa — igual que suscripciones, pero marcado
+// hogar:true, así resta del presupuesto de Necesidades del hogar, no del personal. ──
+function applyDueServicios(){
+  try{
+    let servicios = JSON.parse(localStorage.getItem('ft_servicios')||'[]');
+    if(!servicios.length) return;
+    const today = new Date(); today.setHours(0,0,0,0);
+    let appliedCount = 0, appliedTotal = 0;
+    const data = JSON.parse(localStorage.getItem('ft_data')||'{"transactions":[]}');
+    data.transactions = data.transactions||[];
+
+    servicios.forEach(s=>{
+      if(s.paused || !s.date) return;
+      let guard = 0;
+      while(guard<60){
+        const parts = s.date.split('-').map(Number);
+        let d = new Date(parts[0], parts[1]-1, parts[2]);
+        if(!(d < today)) break;
+        data.transactions.push({
+          id: Date.now()+guard+1000, type:'suscripcion', desc:s.name, amount:parseFloat(s.amount)||0,
+          date: s.date, cat: s.cat||'🏠 Servicios', hogar:true,
+          createdBy: user.name||'', auto:true
+        });
+        appliedCount++; appliedTotal += parseFloat(s.amount)||0;
+        if(s.freq==='annual') d.setFullYear(d.getFullYear()+1);
+        else if(s.freq==='weekly') d.setDate(d.getDate()+7);
+        else d.setMonth(d.getMonth()+1);
+        s.date = d.toISOString().split('T')[0];
+        guard++;
+      }
+    });
+
+    if(appliedCount>0){
+      localStorage.setItem('ft_data', JSON.stringify(data));
+      localStorage.setItem('ft_servicios', JSON.stringify(servicios));
+      showToast('🏠', lang==='es'?'Servicios de la casa cobrados':'Household services charged',
+        lang==='es' ? `${appliedCount} cobro(s) automático(s) · ${fmt(appliedTotal)}` : `${appliedCount} automatic charge(s) · ${fmt(appliedTotal)}`,
+        'var(--g-main)');
+      renderDashboard();
+    }
+  } catch(e){}
+}
+applyDueServicios();
+
 applyDueRecurring();
 
 // Auto-sync profile to GAS if user is part of a household
@@ -3564,7 +3970,8 @@ applyDueRecurring();
       hogarInv: hogarInv.slice(-20),
       fondos: fondos,
       personalSpentThisMonth: personalSpentThisMonth,
-      sharedRecurring: sharedRecurring
+      sharedRecurring: sharedRecurring,
+      servicios: (() => { try{ return JSON.parse(localStorage.getItem('ft_servicios')||'[]').slice(-20); }catch(e){ return []; } })()
     };
 
     // Use GET — more reliable with GAS CORS restrictions
@@ -3736,24 +4143,28 @@ function renderMiDineroTab(){
   const householdLeft = Math.max(0, householdBudget - householdSpent);
   const householdPct = householdBudget > 0 ? Math.min((householdSpent/householdBudget)*100, 100) : 0;
 
-  // Disponible personal = 40% del cheque + 100% del extra - gastado - ya apartado (págate primero)
+  // Disponible personal = 40% del cheque + 100% del extra + cobertura de sobregiro - gastado - ya apartado
   const persPct = hogarConnected ? (100 - hogarPctTotal) : 100;
   const _mesActualR = _mesActual;
   const _incomeTxsTab = (loadData().transactions||[]).filter(t=>t.type==='ingreso' && String(t.date||'').startsWith(_mesActualR));
-  const myChequeReceivedTab = _incomeTxsTab.filter(t=>t.incomeKind!=='extra').reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
+  const myChequeReceivedTab = _incomeTxsTab.filter(t=>t.incomeKind!=='extra' && t.incomeKind!=='cobertura').reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
   const myExtraReceivedTab = _incomeTxsTab.filter(t=>t.incomeKind==='extra').reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
-  const personalBudget = hogarConnected ? (myChequeReceivedTab * persPct/100 + myExtraReceivedTab) : income;
+  // "Cobertura" = dinero real que sacaste de Ahorro libre/Emergencia/Inversión para tapar un sobregiro.
+  // Es una transacción de verdad (no un descuento oculto), así el saldo que ves en cada pantalla
+  // y tu Disponible personal siempre cuentan la misma historia.
+  const myCoberturaReceivedTab = _incomeTxsTab.filter(t=>t.incomeKind==='cobertura').reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
+  const personalBudget = hogarConnected ? (myChequeReceivedTab * persPct/100 + myExtraReceivedTab + myCoberturaReceivedTab) : (income + myCoberturaReceivedTab);
   const personalGastado = personalNeedsSpent + personalWantsSpent;
   const _personalAhorroTab = (totals.txs||[]).filter(t=>t.type==='ahorro' && !(t.hogar==true)).reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
   const personalDisponibleRaw = personalBudget - personalGastado - _personalAhorroTab - (totals.inversion||0); // puede ser negativo
-  const personalOverspend = Math.max(0, -personalDisponibleRaw); // lo que se pasó del 40%
+  const personalOverspend = Math.max(0, -personalDisponibleRaw); // lo que falta cubrir del 40%
   const personalDisponible = personalDisponibleRaw; // se muestra tal cual, puede ser negativo
   const personalGastadoPct = personalBudget > 0 ? Math.min((personalGastado/personalBudget)*100, 100) : 0;
-  // El sobregiro sale de tu Ahorro libre (patrimonio), no queda "flotando"
-  const availSavingsAfterOverspend = availSavings - personalOverspend;
 
   const abonosDelMes = getAbonosDelMes();
-  const totalPatrimony = availSavingsAfterOverspend + emergencyFund + totalInvested + personalDisponible - abonosDelMes;
+  // availSavings/emergencyFund/totalInvested ya vienen reales (bajan solos cuando cubres un
+  // sobregiro de verdad), así que el patrimonio ya no necesita restar nada "a mano" aparte.
+  const totalPatrimony = availSavings + emergencyFund + totalInvested + personalDisponible - abonosDelMes;
 
   const container=document.getElementById('miDineroContent');
   if(!container) return;
@@ -4075,8 +4486,20 @@ async function loadPartnerHogarTxs(){
         if(_bgNewData.sharedRecurring && _bgNewData.sharedRecurring.length){
           try{
             let _bgMyRecurring = JSON.parse(localStorage.getItem('ft_recurring')||'[]');
-            const _bgById = {}; _bgMyRecurring.forEach(r=>{_bgById[r.id]=r;}); _bgNewData.sharedRecurring.forEach(r=>{_bgById[r.id]=r;});
+            const _bgById = {}; _bgMyRecurring.forEach(r=>{_bgById[r.id]=r;});
+            _bgNewData.sharedRecurring.forEach(r=>{
+              const mine = _bgById[r.id];
+              if(mine && mine.nextDate && r.nextDate && mine.nextDate > r.nextDate) return; // no pisar una copia ya más avanzada
+              _bgById[r.id]=r;
+            });
             localStorage.setItem('ft_recurring', JSON.stringify(Object.values(_bgById)));
+          }catch(e){}
+        }
+        if(_bgNewData.servicios && _bgNewData.servicios.length){
+          try{
+            let _bgMyServicios = JSON.parse(localStorage.getItem('ft_servicios')||'[]');
+            const _bgSvById = {}; _bgMyServicios.forEach(s=>{_bgSvById[s.id]=s;}); _bgNewData.servicios.forEach(s=>{_bgSvById[s.id]=s;});
+            localStorage.setItem('ft_servicios', JSON.stringify(Object.values(_bgSvById)));
           }catch(e){}
         }
       }).catch(()=>{});

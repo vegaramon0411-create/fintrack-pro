@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>FinTrack Pro · Inversiones</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="premium.js"></script>
@@ -196,6 +196,7 @@ input, select, textarea { font-size: 16px !important; }
       <div class="field"><label>Precio actual ($)</label><input type="number" id="fCurPrice" placeholder="0.00" step="0.01" min="0"></div>
     </div>
 
+    <div class="field"><label>Fecha</label><input type="date" id="fFecha"></div>
     <div class="field"><label>Plataforma (opcional)</label><input type="text" id="fPlatform" placeholder="Fidelity, Robinhood..."></div>
 
     <!-- RECURRENTE (solo si nueva) -->
@@ -459,6 +460,7 @@ function openAdd(){
     var el=document.getElementById(id); if(el) el.value='';
   });
   document.getElementById('fType').value='etf';
+  document.getElementById('fFecha').value=new Date().toISOString().split('T')[0];
   document.getElementById('fRecurrente').checked=false;
   document.getElementById('recurrenteFreqPanel').style.display='none';
   setInvModo('nueva');
@@ -504,6 +506,7 @@ function showInvDetail(id){
     +'</div>'
     +'<div style="display:flex;flex-direction:column;gap:10px;font-size:13px;margin-bottom:16px">'
     +'<div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">'+(es?'Tipo':'Type')+'</span><span style="font-weight:600">'+(inv.type||'—')+'</span></div>'
+    +'<div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">'+(es?'Fecha':'Date')+'</span><span style="font-weight:600">'+(inv.fecha||(inv.addedAt?inv.addedAt.split('T')[0]:'—'))+'</span></div>'
     +'<div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">'+(es?'Plataforma':'Platform')+'</span><span style="font-weight:600">'+(inv.platform||'—')+'</span></div>'
     +'<div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">'+(es?'Unidades':'Shares')+'</span><span style="font-weight:600">'+fmtN(shares)+'</span></div>'
     +'<div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">'+(es?'Precio promedio':'Avg price')+'</span><span style="font-weight:600">$'+avg.toFixed(2)+'</span></div>'
@@ -538,6 +541,7 @@ function editInv(id){
   document.getElementById('fTicker').value=inv.ticker||'';
   document.getElementById('fType').value=inv.type||'etf';
   document.getElementById('fPlatform').value=inv.platform||'';
+  document.getElementById('fFecha').value = inv.fecha || (inv.addedAt?inv.addedAt.split('T')[0]:new Date().toISOString().split('T')[0]);
   if(esAvanzado){
     document.getElementById('fShares').value=inv.shares||1;
     document.getElementById('fAvgPrice').value=inv.avgPrice||inv.amount||'';
@@ -574,6 +578,7 @@ function saveInv(){
     if(amount<=0){showToast(lang==='es'?'Ingresa el monto invertido':'Enter the amount invested');return;}
   }
 
+  var fecha = document.getElementById('fFecha').value || new Date().toISOString().split('T')[0];
   var esRecurrente = !editingId && invModo==='nueva' && document.getElementById('fRecurrente').checked;
 
   if(editingId){
@@ -581,14 +586,14 @@ function saveInv(){
     var list = invView==='hogar'?loadHogarInv():loadInv();
     var idx = list.findIndex(function(i){return i.id===editingId;});
     if(idx>=0){
-      list[idx]=Object.assign({},list[idx],{ticker:ticker,type:type,shares:shares,avgPrice:avgPrice,curPrice:curPrice,amount:amount,platform:platform});
+      list[idx]=Object.assign({},list[idx],{ticker:ticker,type:type,shares:shares,avgPrice:avgPrice,curPrice:curPrice,amount:amount,platform:platform,fecha:fecha});
     }
     if(invView==='hogar') saveHogarInv(list); else saveInvPersonal(list);
     showToast(lang==='es'?'Inversion actualizada':'Investment updated');
 
   } else {
     // NUEVA posicion
-    var entry={id:'i_'+Date.now(),ticker:ticker,type:type,shares:shares,avgPrice:avgPrice,curPrice:curPrice,amount:amount,platform:platform,modo:invModo,addedBy:user.name||'',addedAt:new Date().toISOString()};
+    var entry={id:'i_'+Date.now(),ticker:ticker,type:type,shares:shares,avgPrice:avgPrice,curPrice:curPrice,amount:amount,platform:platform,modo:invModo,fecha:fecha,addedBy:user.name||'',addedAt:new Date().toISOString()};
 
     if(invView==='hogar'){ var l=loadHogarInv();l.push(entry);saveHogarInv(l); }
     else { var l2=loadInv();l2.push(entry);saveInvPersonal(l2); }
@@ -601,7 +606,7 @@ function saveInv(){
         data.transactions.push({
           id:'inv_'+entry.id,type:'inversion',
           desc:ticker,amount:amount,
-          date:new Date().toISOString().split('T')[0],
+          date:fecha,
           cat:'Inversion',note:platform,
           hogar:invIsHogar&&isHogarConnected(),
           fromInvPage:true

@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>FinTrack Pro · Historial</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="premium.js"></script>
@@ -147,6 +147,9 @@ input, select, textarea { font-size: 16px !important; }
     <button class="filter-btn" onclick="setFilter('inversion',this)" data-es="📈 Inversiones" data-en="📈 Investments">📈 Inversiones</button>
     <button class="filter-btn" onclick="setFilter('hogar',this)" data-es="🏠 Hogar" data-en="🏠 Home">🏠 Hogar</button>
   </div>
+
+  <button onclick="buscarDuplicados()" style="width:100%;background:var(--amb-dim);color:#8A5A00;border:1.5px solid var(--amber);border-radius:12px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:14px">🔍 <span data-es="Buscar posibles duplicados" data-en="Find possible duplicates">Buscar posibles duplicados</span></button>
+  <div id="dupResults" style="display:none;margin-bottom:14px"></div>
 
   <div class="card" id="txList"></div>
 </div>
@@ -331,6 +334,59 @@ function render(){
   renderList();
 }
 
+// Agrupa transacciones con mismo monto + descripción parecida (sin importar fecha,
+// ya que un CSV importado sin fecha real pudo quedar con la fecha de "hoy" del día
+// que lo subiste, distinta de la fecha real de otra transacción que sí sea la misma).
+function buscarDuplicados(){
+  const es = lang==='es';
+  const data = loadData();
+  const txs = data.transactions||[];
+  const norm = s => (s||'').toLowerCase().trim().replace(/\s+/g,' ').replace(/[^\w\sáéíóúñ]/g,'');
+
+  const groups = {};
+  txs.forEach(t=>{
+    if(t.type==='ingreso') return; // los ingresos (cheques) legítimamente se repiten monto/desc cada periodo, no aplica
+    const key = (parseFloat(t.amount)||0).toFixed(2) + '|' + norm(t.desc||t.description);
+    if(!groups[key]) groups[key] = [];
+    groups[key].push(t);
+  });
+
+  const sospechosos = Object.values(groups).filter(g=>g.length>=2);
+  const el = document.getElementById('dupResults');
+  el.style.display = 'block';
+
+  if(!sospechosos.length){
+    el.innerHTML = `<div class="card" style="text-align:center;color:var(--text3);font-size:13px;padding:20px">✅ ${es?'No encontré nada que parezca duplicado':'Nothing that looks duplicated'}</div>`;
+    return;
+  }
+
+  el.innerHTML = `<div style="font-size:12px;font-weight:700;color:#8A5A00;margin-bottom:10px">⚠️ ${es?`${sospechosos.length} grupo(s) con posibles duplicados — revisa y borra los que no debieran estar`:`${sospechosos.length} group(s) with possible duplicates — review and delete the ones that shouldn't be there`}</div>` +
+    sospechosos.map((g,gi)=>{
+      const mismaFecha = new Set(g.map(t=>t.date)).size===1;
+      return `<div class="card" style="margin-bottom:10px;border:1.5px solid ${mismaFecha?'var(--red)':'var(--amber)'}">
+        <div style="font-size:11px;font-weight:700;color:${mismaFecha?'var(--red)':'#8A5A00'};margin-bottom:8px">${mismaFecha?(es?'🔴 Misma fecha y monto — muy probable duplicado':'🔴 Same date and amount — very likely duplicate'):(es?'🟡 Mismo monto/descripción, fechas distintas':'🟡 Same amount/description, different dates')}</div>
+        ${g.map(t=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--off)">
+          <div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:700">${t.desc||t.description||'—'}</div>
+          <div style="font-size:10.5px;color:var(--text3)">${t.date} · ${fmt(t.amount)} · ${t.type}</div></div>
+          <button onclick="borrarTxDuplicada('${t.id}')" style="background:var(--red-dim);color:var(--red);border:none;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">🗑️ ${es?'Borrar':'Delete'}</button>
+        </div>`).join('')}
+      </div>`;
+    }).join('');
+}
+
+function borrarTxDuplicada(txId){
+  const es = lang==='es';
+  if(!confirm(es?'¿Eliminar esta transacción?':'Delete this transaction?')) return;
+  const data = loadData();
+  const tx = (data.transactions||[]).find(t=>String(t.id)===String(txId));
+  revertirEfectosSecundarios(data, tx);
+  data.transactions = (data.transactions||[]).filter(t=>String(t.id)!==String(txId));
+  localStorage.setItem('ft_data', JSON.stringify(data));
+  showToast(es?'🗑️ Eliminada':'🗑️ Deleted');
+  buscarDuplicados(); // refresca la lista de sospechosos
+  render();
+}
+
 function renderList(){
   const data = loadData();
   let txs = (data.transactions||[]).filter(t=>(t.date||'').startsWith(selectedMonth));
@@ -482,11 +538,63 @@ function saveEditDetail(){
   showToast(lang==='es'?'✅ Registro actualizado':'✅ Entry updated');
 }
 
+// Revierte todos los efectos secundarios de una transacción antes de borrarla —
+// ahorro (libre/emergencia), inversión, y abonos de deuda. Sin esto, el saldo de
+// esa pantalla se queda con un registro fantasma sin transacción real detrás.
+function revertirEfectosSecundarios(data, tx){
+  if(!tx) return;
+  if(tx.type==='ahorro'){
+    if(tx.dest==='libre' || (!tx.dest && (tx.cat||'').includes('Ahorro'))){
+      try{
+        const hist = JSON.parse(localStorage.getItem('ft_savings_hist')||'[]');
+        const idx = hist.findIndex(h=>h.id===('tx_'+tx.id));
+        if(idx>=0){
+          const cur = parseFloat(localStorage.getItem('ft_available_savings')||'0');
+          localStorage.setItem('ft_available_savings', Math.max(0, cur-parseFloat(hist[idx].monto)).toFixed(2));
+          hist.splice(idx,1);
+          localStorage.setItem('ft_savings_hist', JSON.stringify(hist));
+        }
+      }catch(e){}
+    } else {
+      data.emergency = Math.max(0, (data.emergency||0) - parseFloat(tx.amount||0));
+      try{
+        let ehist = JSON.parse(localStorage.getItem('ft_emergency_history')||'[]');
+        ehist = ehist.filter(h=>h.id!==('tx_'+tx.id));
+        localStorage.setItem('ft_emergency_history', JSON.stringify(ehist));
+      }catch(e){}
+    }
+  } else if(tx.type==='inversion'){
+    try{
+      let inv = JSON.parse(localStorage.getItem('ft_investments')||'[]');
+      inv = inv.filter(i=>i.id!==('tx_'+tx.id));
+      localStorage.setItem('ft_investments', JSON.stringify(inv));
+    }catch(e){}
+  }
+
+  try{
+    let debts = JSON.parse(localStorage.getItem('ft_debts')||'[]');
+    let tocado = false;
+    debts.forEach(d=>{
+      if(!d.abonos || !d.abonos.length) return;
+      const before = d.abonos.length;
+      d.abonos = d.abonos.filter(a=>String(a.txId)!==String(tx.id));
+      if(d.abonos.length!==before){
+        tocado = true;
+        const original = d.original!=null ? d.original : d.balance;
+        d.balance = Math.max(0, original - d.abonos.reduce((s,a)=>s+(parseFloat(a.monto)||0),0));
+      }
+    });
+    if(tocado) localStorage.setItem('ft_debts', JSON.stringify(debts));
+  }catch(e){}
+}
+
 function deleteTx(id){
   const es = lang==='es';
   if(!confirm(es?'¿Eliminar este movimiento?':'Delete this transaction?')) return;
   try{
     const data = JSON.parse(localStorage.getItem('ft_data')||'{}');
+    const tx = (data.transactions||[]).find(t=>String(t.id)===String(id));
+    revertirEfectosSecundarios(data, tx);
     data.transactions = (data.transactions||[]).filter(t=>String(t.id)!==String(id));
     localStorage.setItem('ft_data',JSON.stringify(data));
     closeDetail();

@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>FinTrack Pro · Hogar</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="premium.js"></script>
@@ -122,15 +122,25 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
 .mc-pro{color:var(--g-main);}
 .mc-con{color:var(--amber);}
 
-/* DASHBOARD HOGAR */
-.hero-combined{background:linear-gradient(135deg,#1A1D2E,#2D3561);border-radius:18px;padding:22px;color:white;margin-bottom:14px;}
-.hc-label{font-size:11px;opacity:.6;margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px;}
-.hc-amount{font-size:36px;font-weight:800;letter-spacing:-.8px;margin-bottom:12px;}
+/* DASHBOARD HOGAR — mismo estilo que el hero del Dashboard (variante C): blanco
+   plano, línea de acento arriba, sombra sutil. Antes era un gradiente oscuro
+   propio que no combinaba con el resto de la app. */
+.hero-combined{
+  background-image: linear-gradient(white, white), linear-gradient(90deg, var(--g-main), #4F8CFF);
+  background-origin: border-box; background-clip: padding-box, border-box;
+  border-style: solid; border-color: transparent;
+  border-width: 3px 0 0 0;
+  border-radius:26px; padding:22px 26px; color:var(--text);
+  box-shadow: 0 4px 14px -6px rgba(20,20,30,.09);
+  margin-bottom:14px;
+}
+.hc-label{font-size:11px;opacity:.55;margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);}
+.hc-amount{font-size:36px;font-weight:800;letter-spacing:-.8px;margin-bottom:12px;color:var(--text);}
 .hc-members{display:flex;gap:10px;margin-top:12px;}
-.hc-member{background:rgba(255,255,255,.1);border-radius:10px;padding:10px 14px;flex:1;}
-.hc-member-name{font-size:10px;opacity:.7;margin-bottom:2px;}
-.hc-member-amt{font-size:15px;font-weight:800;}
-.hc-member-pct{font-size:10px;opacity:.6;}
+.hc-member{background:rgba(20,20,30,.045);border:1px solid rgba(20,20,30,.05);border-radius:14px;padding:10px 14px;flex:1;}
+.hc-member-name{font-size:10px;opacity:.7;margin-bottom:2px;color:var(--text3);}
+.hc-member-amt{font-size:15px;font-weight:800;color:var(--text);}
+.hc-member-pct{font-size:10px;opacity:.6;color:var(--text3);}
 
 /* FLOW BARS */
 .flow-section{margin-bottom:14px;}
@@ -476,7 +486,14 @@ function mergeSharedRecurringIntoMine(partnerSharedRecurring){
     let myRecurring = JSON.parse(localStorage.getItem('ft_recurring')||'[]');
     const byId = {};
     myRecurring.forEach(r=>{ byId[r.id]=r; });
-    partnerSharedRecurring.forEach(r=>{ byId[r.id]=r; }); // el más reciente sincronizado gana
+    partnerSharedRecurring.forEach(r=>{
+      const mine = byId[r.id];
+      // Si ya lo tengo y mi copia ya avanzó más su nextDate (porque ya se aplicó aquí),
+      // NO lo piso con una copia vieja de la pareja — si no, se vuelve a aplicar solo
+      // cada vez que llega el sync, duplicando el pago.
+      if(mine && mine.nextDate && r.nextDate && mine.nextDate > r.nextDate) return;
+      byId[r.id] = r;
+    });
     localStorage.setItem('ft_recurring', JSON.stringify(Object.values(byId)));
   }catch(e){}
 }
@@ -514,6 +531,13 @@ function savePartnerProfileMerged(partnerEmail, pp){
   // Deudas compartidas y sus recurrentes — de los dos, no solo de quien las creó.
   if(newData.sharedDebts) mergeSharedDebtsIntoMine(newData.sharedDebts);
   if(newData.sharedRecurring) mergeSharedRecurringIntoMine(newData.sharedRecurring);
+  if(newData.servicios && newData.servicios.length){
+    try{
+      let myServicios = JSON.parse(localStorage.getItem('ft_servicios')||'[]');
+      const byId = {}; myServicios.forEach(s=>{byId[s.id]=s;}); newData.servicios.forEach(s=>{byId[s.id]=s;});
+      localStorage.setItem('ft_servicios', JSON.stringify(Object.values(byId)));
+    }catch(e){}
+  }
 
   return merged;
 }
@@ -744,13 +768,13 @@ function renderDashboard(hogar){
         ${partnerSharedTxs.length ? `<div style="font-size:10px;opacity:.7;margin-top:2px">${es?'Aportado':'Contributed'}: ${fmt(partnerSharedTxs.reduce((a,t)=>a+(t.amount||0),0))}</div>` : ''}
       </div>
     </div>
-    <div style="margin-top:14px;background:rgba(255,255,255,.08);border-radius:10px;padding:10px 12px">
+    <div style="margin-top:14px;background:rgba(20,20,30,.045);border:1px solid rgba(20,20,30,.05);border-radius:10px;padding:10px 12px">
       <div style="display:flex;justify-content:space-between;font-size:11px;opacity:.8;margin-bottom:6px">
         <span>💵 ${es?'Recibido este mes':'Received this month'}</span>
         <span>${fmt(totalIncomeReceived)} / ${fmt(totalIncome)}</span>
       </div>
-      <div style="height:6px;background:rgba(255,255,255,.15);border-radius:100px;overflow:hidden">
-        <div style="height:100%;width:${incomeReceivedPct}%;background:#fff;border-radius:100px"></div>
+      <div style="height:6px;background:rgba(20,20,30,.08);border-radius:100px;overflow:hidden">
+        <div style="height:100%;width:${incomeReceivedPct}%;background:var(--g-main);border-radius:100px"></div>
       </div>
       <div style="font-size:10px;opacity:.6;margin-top:6px">${es?'Bote real en cuenta (recibido − gastado hogar)':'Real balance (received − household spent)'}: <b style="opacity:1">${fmt(botesReal)}</b></div>
     </div>
@@ -825,8 +849,13 @@ function renderDashboard(hogar){
 
   <div id="tabContent"></div>
 
-  <!-- LEAVE -->
+  <!-- SERVICIOS DE LA CASA -->
   <div style="margin-top:20px">
+    <button class="btn-secondary" onclick="location.href='servicios.html'" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px">🏠 ${es?'Servicios de la casa (luz, agua, internet...)':'Household services (electricity, water, internet...)'}</button>
+  </div>
+
+  <!-- LEAVE -->
+  <div style="margin-top:10px">
     <button class="btn-secondary" onclick="leaveHousehold()" style="color:var(--red)">${es?'Salir del hogar':'Leave household'}</button>
   </div>`;
 
@@ -2182,7 +2211,8 @@ function setLang(l){
         hogarInv: hogarInv.slice(-20),
         fondos: loadFondos(),
         personalSpentThisMonth: personalSpentThisMonth,
-        sharedRecurring: sharedRecurring
+        sharedRecurring: sharedRecurring,
+        servicios: (() => { try{ return JSON.parse(localStorage.getItem('ft_servicios')||'[]').slice(-20); }catch(e){ return []; } })()
       };
       const params = new URLSearchParams({
         action: 'saveProfile', email: user.email, name: user.name||'',

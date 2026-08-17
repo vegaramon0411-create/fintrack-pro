@@ -3,33 +3,39 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>FinTrack Pro · Metas</title>
+<title>FinTrack Pro · Recurrentes</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="premium.js"></script>
 <style>
-:root{--g-dark:#0F5132;--g-main:#1A7A4A;--g-light:#E8F7EF;--white:#fff;--off:#F7F8FC;--border:#E4E6F0;--text:#1A1D2E;--text2:#4A4E69;--text3:#9395A5;--red:#E63946;--red-dim:rgba(230,57,70,.1);--amber:#F4A261;--amb-dim:rgba(244,162,97,.12);--blue:#4A6CF7;--shadow:0 2px 12px rgba(0,0,0,.06);}
+:root{--g-dark:#0F5132;--g-main:#1A7A4A;--g-light:#E8F7EF;--white:#fff;--off:#F7F8FC;--border:#E4E6F0;--text:#1A1D2E;--text2:#4A4E69;--text3:#9395A5;--red:#E63946;--red-dim:rgba(230,57,70,.1);--amber:#F4A261;--amb-dim:rgba(244,162,97,.12);--blue:#4A6CF7;--blu-dim:rgba(74,108,247,.1);--shadow:0 2px 12px rgba(0,0,0,.06);}
 *{margin:0;padding:0;box-sizing:border-box;}
 body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(--text);min-height:100vh;padding-bottom:90px;}
 .topbar{background:var(--white);border-bottom:1px solid var(--border);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
 .topbar-title{font-size:17px;font-weight:800;}
 .page{padding:16px;}
-.card{background:var(--white);border-radius:16px;padding:18px;margin-bottom:14px;box-shadow:var(--shadow);}
+.card{background:var(--white);border-radius:16px;padding:14px;margin-bottom:12px;box-shadow:var(--shadow);}
 .lang-toggle{display:flex;background:var(--off);border:1px solid var(--border);border-radius:20px;overflow:hidden;font-size:11px;font-weight:700;}
 .lt-opt{padding:5px 12px;cursor:pointer;color:var(--text3);}
 .lt-opt.on{background:var(--g-main);color:white;}
 .btn{border:none;border-radius:12px;padding:11px 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;}
-.btn-primary{background:var(--g-main);color:white;}
+.btn-primary{background:var(--blue);color:white;}
+.filter-row{display:flex;gap:6px;margin-bottom:14px;}
+.filter-btn{flex-shrink:0;background:var(--off);border:1.5px solid var(--border);border-radius:20px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;color:var(--text3);font-family:inherit;}
+.filter-btn.on{background:var(--blue);border-color:var(--blue);color:white;}
+.sub-item{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--off);}
+.sub-item:last-child{border-bottom:none;}
+.sub-ico{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;font-size:20px;background:var(--blu-dim);}
+.sub-info{flex:1;}
+.sub-name{font-size:13px;font-weight:700;}
+.sub-meta{font-size:11px;color:var(--text3);}
+.sub-amount{font-size:14px;font-weight:800;color:var(--blue);}
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;place-items:center;z-index:150;}
 .overlay.open{display:grid;}
 .modal{background:var(--white);border-radius:20px;width:min(480px,calc(100vw - 24px));max-height:88vh;overflow-y:auto;padding:20px;}
 .field{margin-bottom:14px;}
 .field label{display:block;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;}
 .field input,.field select{width:100%;background:var(--off);border:1.5px solid var(--border);border-radius:10px;padding:11px 13px;font-size:14px;font-family:inherit;outline:none;}
-.field input:focus,.field select:focus{border-color:var(--g-main);}
-.goal-card{background:var(--white);border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:var(--shadow);}
-.goal-header{display:flex;align-items:center;gap:12px;margin-bottom:12px;}
-.goal-ico{width:44px;height:44px;border-radius:13px;display:grid;place-items:center;font-size:22px;}
-.goal-actions{display:flex;gap:6px;margin-top:10px;}
+.field input:focus,.field select:focus{border-color:var(--blue);}
 .app{display:flex;min-height:100vh;}
 .sidebar{width:var(--sidebar,240px);background:var(--white);border-right:1px solid var(--border);position:fixed;top:0;left:0;bottom:0;display:flex;flex-direction:column;z-index:50;overflow-y:auto;transition:width .18s ease;}
 .sidebar.collapsed{width:64px;}
@@ -83,7 +89,9 @@ input, select, textarea { font-size: 16px !important; }
     <div class="sb-link" onclick="go('dashboard.html')"><span class="sb-ico">📊</span><span>Dashboard</span></div>
     <div class="sb-link" onclick="go('dashboard.html')"><span class="sb-ico">➕</span><span data-es="Nuevo registro" data-en="New entry">Nuevo registro</span></div>
     <div class="sb-link" onclick="go('suscripciones.html')"><span class="sb-ico">🔄</span><span data-es="Suscripciones" data-en="Subscriptions">Suscripciones</span></div>
-    <div class="sb-link on"><span class="sb-ico">🎯</span><span data-es="Metas" data-en="Goals">Metas</span></div>
+    <div class="sb-link" onclick="go('servicios.html')"><span class="sb-ico">🏠</span><span data-es="Servicios de la casa" data-en="Household services">Servicios de la casa</span></div>
+    <div class="sb-link on"><span class="sb-ico">🔄</span><span data-es="Recurrentes" data-en="Recurring">Recurrentes</span></div>
+    <div class="sb-link" onclick="go('metas.html')"><span class="sb-ico">🎯</span><span data-es="Metas" data-en="Goals">Metas</span></div>
     <div class="sb-link" onclick="go('deudas.html')"><span class="sb-ico">💳</span><span data-es="Deudas" data-en="Debts">Deudas</span></div>
     <div class="sb-section">Análisis</div>
     <div class="sb-link" onclick="go('analisis.html')"><span class="sb-ico">📈</span><span data-es="Por categoría" data-en="By category">Por categoría</span></div>
@@ -106,79 +114,68 @@ input, select, textarea { font-size: 16px !important; }
 <div class="main">
 
 <div class="topbar">
-  <div class="topbar-title">🎯 <span data-es="Mis Metas" data-en="My Goals">Mis Metas</span></div>
+  <div class="topbar-title">🔄 <span data-es="Recurrentes" data-en="Recurring">Recurrentes</span></div>
   <div style="display:flex;align-items:center;gap:10px;">
     <div class="lang-toggle">
       <div class="lt-opt on" id="ltES" onclick="setLang('es')">ES</div>
       <div class="lt-opt" id="ltEN" onclick="setLang('en')">EN</div>
     </div>
-    <button class="btn btn-primary" onclick="openAddModal()" style="padding:8px 14px" data-es="+ Nueva meta" data-en="+ New goal">+ Nueva meta</button>
   </div>
 </div>
 
-<div class="page" id="goalsList"></div>
+<div class="page">
+  <div id="summaryCard" class="card"></div>
+  <div class="filter-row" style="flex-wrap:wrap">
+    <button class="filter-btn on" onclick="setFilter('all',this)" data-es="Todos" data-en="All">Todos</button>
+    <button class="filter-btn" onclick="setFilter('debt',this)" data-es="💳 Deudas" data-en="💳 Debts">💳 Deudas</button>
+    <button class="filter-btn" onclick="setFilter('meta',this)" data-es="🎯 Metas" data-en="🎯 Goals">🎯 Metas</button>
+    <button class="filter-btn" onclick="setFilter('ahorro',this)" data-es="💵 Ahorro" data-en="💵 Savings">💵 Ahorro</button>
+    <button class="filter-btn" onclick="setFilter('inversion',this)" data-es="📈 Inversión" data-en="📈 Investment">📈 Inversión</button>
+    <button class="filter-btn" onclick="setFilter('sub',this)" data-es="🎬 Suscripciones" data-en="🎬 Subscriptions">🎬 Suscripciones</button>
+    <button class="filter-btn" onclick="setFilter('serv',this)" data-es="🏠 Servicios" data-en="🏠 Services">🏠 Servicios</button>
+  </div>
+  <div class="card" id="subList"></div>
+</div>
+
+<!-- DETAIL MODAL -->
+<div class="overlay" id="detailOverlay" onclick="if(event.target===this)closeDetail()">
+  <div class="modal" id="detailBox"></div>
+</div>
 
 <!-- MODAL -->
 <div class="overlay" id="overlay" onclick="if(event.target===this)closeModal()">
   <div class="modal">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-      <div style="font-size:16px;font-weight:800" id="modalTitle">Nueva meta</div>
+      <div style="font-size:16px;font-weight:800" id="modalTitle">Nuevo servicio</div>
       <div onclick="closeModal()" style="cursor:pointer;font-size:20px;color:var(--text3)">✕</div>
     </div>
+    <div class="field"><label>Nombre</label><input type="text" id="fName" placeholder="Luz, Agua, Internet..."></div>
+    <div class="field"><label>Monto ($)</label><input type="number" id="fAmount" placeholder="0.00" step="0.01" min="0"></div>
     <div class="field">
-      <label data-es="Nombre de la meta" data-en="Goal name">Nombre</label>
-      <input type="text" id="fName" placeholder="ej. Vacaciones, Auto nuevo...">
-    </div>
-    <div class="field">
-      <label data-es="Meta total ($)" data-en="Target amount ($)">Meta total ($)</label>
-      <input type="number" id="fTarget" placeholder="0.00" min="0" step="0.01">
-    </div>
-    <div class="field">
-      <label data-es="Ahorrado hasta ahora ($)" data-en="Saved so far ($)">Ahorrado hasta ahora ($)</label>
-      <input type="number" id="fSaved" placeholder="0.00" min="0" step="0.01">
-    </div>
-    <div class="field">
-      <label data-es="Fecha límite (opcional)" data-en="Deadline (optional)">Fecha límite</label>
-      <input type="date" id="fDeadline">
-    </div>
-    <div class="field">
-      <label data-es="Ícono" data-en="Icon">Ícono</label>
-      <select id="fIcon">
-        <option value="🎯">🎯 Meta</option>
-        <option value="🚗">🚗 Auto</option>
-        <option value="✈️">✈️ Viaje</option>
-        <option value="🏠">🏠 Casa</option>
-        <option value="🎓">🎓 Educación</option>
-        <option value="💍">💍 Anillo/Boda</option>
-        <option value="📱">📱 Gadget</option>
-        <option value="🛡️">🛡️ Emergencia</option>
-        <option value="💰">💰 Ahorro general</option>
+      <label data-es="Frecuencia" data-en="Frequency">Frecuencia</label>
+      <select id="fFreq">
+        <option value="monthly" data-es="Mensual" data-en="Monthly">Mensual</option>
+        <option value="annual" data-es="Anual" data-en="Annual">Anual</option>
+        <option value="weekly" data-es="Semanal" data-en="Weekly">Semanal</option>
       </select>
     </div>
-    <button class="btn btn-primary" onclick="saveGoal()" style="width:100%;margin-bottom:8px" data-es="Guardar meta" data-en="Save goal">Guardar meta</button>
-    <button class="btn" style="width:100%;background:var(--off);border:1.5px solid var(--border)" onclick="closeModal()" data-es="Cancelar" data-en="Cancel">Cancelar</button>
-  </div>
-</div>
-
-<!-- ABONAR MODAL -->
-<div class="overlay" id="abonarOverlay" onclick="if(event.target===this)closeAbonarModal()">
-  <div class="modal">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-      <div style="font-size:16px;font-weight:800" data-es="Abonar a meta" data-en="Add to goal">Abonar a meta</div>
-      <div onclick="closeAbonarModal()" style="cursor:pointer;font-size:20px;color:var(--text3)">✕</div>
-    </div>
     <div class="field">
-      <label data-es="Monto a abonar ($)" data-en="Amount to add ($)">Monto ($)</label>
-      <input type="number" id="aAmount" placeholder="0.00" min="0" step="0.01">
+      <label data-es="Fecha de cobro" data-en="Billing date">Fecha de cobro</label>
+      <input type="date" id="fDate">
     </div>
-    <button class="btn btn-primary" onclick="confirmAbonar()" style="width:100%;margin-bottom:8px">Abonar</button>
-    <button class="btn" style="width:100%;background:var(--off);border:1.5px solid var(--border)" onclick="closeAbonarModal()">Cancelar</button>
+    <div class="field"><label>Categoría</label>
+      <select id="fCat">
+        <option>💡 Luz</option><option>💧 Agua</option><option>🔥 Gas</option>
+        <option>📶 Internet</option><option>🧹 Mantenimiento</option><option>Otro</option>
+      </select>
+    </div>
+    <button class="btn btn-primary" onclick="saveSub()" style="width:100%;margin-bottom:8px">Guardar</button>
+    <button class="btn" style="width:100%;background:var(--off);border:1.5px solid var(--border)" onclick="closeModal()">Cancelar</button>
   </div>
 </div>
 
 <div id="toast"></div>
 
-<!-- MORE MENU -->
 <div class="more-overlay" id="moreOverlay" onclick="if(event.target===this)closeMoreMenu()">
   <div class="more-panel">
     <div class="more-handle"></div>
@@ -192,6 +189,7 @@ input, select, textarea { font-size: 16px !important; }
       <div class="more-item" onclick="go('importar.html')"><div class="more-ico" style="background:var(--blu-dim)">📥</div><span data-es="Importar CSV" data-en="Import CSV">Importar CSV</span></div>
       <div class="more-item" onclick="go('emergencia.html')"><div class="more-ico" style="background:var(--amb-dim)">🛡️</div><span data-es="Emergencia" data-en="Emergency">Emergencia</span></div>
       <div class="more-item" onclick="go('suscripciones.html')"><div class="more-ico" style="background:rgba(123,94,167,.1)">🔄</div><span data-es="Suscripciones" data-en="Subscriptions">Suscripciones</span></div>
+      <div class="more-item" onclick="go('servicios.html')"><div class="more-ico" style="background:var(--blu-dim)">🏠</div><span data-es="Servicios casa" data-en="Household services">Servicios casa</span></div>
       <div class="more-item" onclick="go('config.html')"><div class="more-ico" style="background:var(--off)">⚙️</div><span data-es="Config" data-en="Settings">Config</span></div>
       <div class="more-item" onclick="go('perfil.html')"><div class="more-ico" style="background:var(--blu-dim)">👤</div><span data-es="Perfil" data-en="Profile">Perfil</span></div>
     </div>
@@ -210,13 +208,13 @@ input, select, textarea { font-size: 16px !important; }
 </nav>
 
 <script>
-let user = {}, lang = 'es';
-let editingId = null;
-let abonarId  = null;
-const GOALS_KEY = 'ft_goals';
+let user={},lang='es',filterMode='all';
+let editingId=null;
+let detailId=null;
+const KEY='ft_servicios';
 
-function loadGoals(){ try{return JSON.parse(localStorage.getItem(GOALS_KEY))||[];}catch(e){return[];} }
-function saveGoals(d){ localStorage.setItem(GOALS_KEY,JSON.stringify(d)); }
+function loadSubs(){ try{return JSON.parse(localStorage.getItem(KEY))||[];}catch(e){return[];} }
+function saveSubs(d){ localStorage.setItem(KEY,JSON.stringify(d)); }
 function fmt(n){ return '$'+Math.abs(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 function go(url){ window.location.href=url; }
 
@@ -243,126 +241,94 @@ function logout(){sessionStorage.clear();['ft_user','ft_user_setup','ft_premium'
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.style.display='block';setTimeout(()=>t.style.display='none',3000);}
 function openMoreMenu(){document.getElementById('moreOverlay').classList.add('open');}
 function closeMoreMenu(){document.getElementById('moreOverlay').classList.remove('open');}
-function checkHogar(){ try{const h=JSON.parse(localStorage.getItem('ft_hogar')||'{}');return h.connected===true&&!h.manuallyLeft;}catch(e){return false;} }
 
 function setLang(l){
-  lang=l; localStorage.setItem('ft_lang',l);
+  lang=l;localStorage.setItem('ft_lang',l);
   document.getElementById('ltES').classList.toggle('on',l==='es');
   document.getElementById('ltEN').classList.toggle('on',l==='en');
   document.querySelectorAll('[data-es]').forEach(el=>{const v=el.getAttribute('data-'+l);if(v)el.textContent=v;});
   render();
 }
 
-function render(){
-  const goals = loadGoals();
-  const es = lang==='es';
-  const list = document.getElementById('goalsList');
+function setFilter(f,btn){
+  filterMode=f;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  render();
+}
 
-  if(!goals.length){
-    list.innerHTML = `<div style="text-align:center;padding:60px 20px"><div style="font-size:48px;margin-bottom:12px">🎯</div><div style="font-size:16px;font-weight:800;margin-bottom:6px">${es?'Sin metas aún':'No goals yet'}</div><div style="font-size:13px;color:var(--text3)">${es?'Crea tu primera meta de ahorro':'Create your first savings goal'}</div></div>`;
+function toMonthly(s){ if(s.freq==='annual') return (parseFloat(s.amount)||0)/12; if(s.freq==='weekly') return (parseFloat(s.amount)||0)*4.33; return parseFloat(s.amount)||0; }
+
+function toMonthlyRec(amount, freq){
+  if(freq==='annual') return (parseFloat(amount)||0)/12;
+  if(freq==='biweekly') return (parseFloat(amount)||0)*2.17;
+  if(freq==='weekly') return (parseFloat(amount)||0)*4.33;
+  return parseFloat(amount)||0;
+}
+
+// Junta TODO lo recurrente de la app en un solo lugar: ft_recurring (deudas,
+// metas/emergencia, ahorro, inversión) + ft_subs (suscripciones) + ft_servicios
+// (servicios de la casa) — antes cada uno vivía escondido en su propia pantalla.
+function loadAllRecurring(){
+  const items = [];
+  let recurring=[]; try{ recurring = JSON.parse(localStorage.getItem('ft_recurring')||'[]'); }catch(e){}
+  recurring.filter(r=>r.active).forEach(r=>{
+    const kindMeta = {
+      debt:      {icon:'💳', label:{es:'Abono a deuda',en:'Debt payment'}, page:'deudas.html', filterKey:'debt'},
+      meta:      {icon:'🎯', label:{es:'Aporte a meta',en:'Goal deposit'}, page:'hogar.html', filterKey:'meta'},
+      ahorro:    {icon:'💵', label:{es:'Ahorro',en:'Savings'}, page:'ahorro.html', filterKey:'ahorro'},
+      inversion: {icon:'📈', label:{es:'Inversión',en:'Investment'}, page:'inversiones.html', filterKey:'inversion'},
+    }[r.kind] || {icon:'🔄', label:{es:'Recurrente',en:'Recurring'}, page:'dashboard.html', filterKey:'other'};
+    items.push({
+      name: r.desc || r.payerLabel || kindMeta.label[lang],
+      amount: r.amount, freq: r.freq, nextDate: r.nextDate,
+      icon: kindMeta.icon, typeLabel: kindMeta.label[lang], page: kindMeta.page,
+      filterKey: kindMeta.filterKey, who: r.payerLabel || ''
+    });
+  });
+  let subs=[]; try{ subs = JSON.parse(localStorage.getItem('ft_subs')||'[]'); }catch(e){}
+  subs.filter(s=>!s.paused).forEach(s=>{
+    items.push({ name:s.name, amount:s.amount, freq:s.freq, nextDate:s.date, icon:'🎬', typeLabel:lang==='es'?'Suscripción':'Subscription', page:'suscripciones.html', filterKey:'sub', who:'' });
+  });
+  let servicios=[]; try{ servicios = JSON.parse(localStorage.getItem('ft_servicios')||'[]'); }catch(e){}
+  servicios.filter(s=>!s.paused).forEach(s=>{
+    items.push({ name:s.name, amount:s.amount, freq:s.freq, nextDate:s.date, icon:'🏠', typeLabel:lang==='es'?'Servicio de casa':'Household service', page:'servicios.html', filterKey:'serv', who:'' });
+  });
+  return items.sort((a,b)=>(a.nextDate||'').localeCompare(b.nextDate||''));
+}
+
+function render(){
+  const es = lang==='es';
+  const all = loadAllRecurring();
+  const items = filterMode==='all' ? all : all.filter(i=>i.filterKey===filterMode);
+
+  const totalMensual = all.reduce((a,i)=>a+toMonthlyRec(i.amount,i.freq),0);
+  document.getElementById('summaryCard').innerHTML = `
+    <div style="font-size:11px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">${es?'Total recurrente estimado':'Estimated recurring total'}</div>
+    <div style="font-size:30px;font-weight:800">${fmt(totalMensual)}<span style="font-size:14px;color:var(--text3);font-weight:600">/${es?'mes':'mo'}</span></div>
+    <div style="font-size:11px;color:var(--text3);margin-top:4px">${all.length} ${es?'recurrente(s) activo(s) en total':'active recurring item(s) total'}</div>`;
+
+  const freqLbl = f => ({weekly:es?'Semanal':'Weekly',biweekly:es?'Quincenal':'Biweekly',monthly:es?'Mensual':'Monthly',annual:es?'Anual':'Annual'}[f]||f);
+
+  const list = document.getElementById('subList');
+  if(!items.length){
+    list.innerHTML = `<div style="text-align:center;padding:30px 10px;color:var(--text3);font-size:13px">${es?'Nada por aquí — cuando crees un recurrente (deuda, meta, ahorro, inversión, suscripción o servicio) aparece junto a los demás.':'Nothing here yet — once you create a recurring item (debt, goal, savings, investment, subscription, or service) it shows up together with the rest.'}</div>`;
     return;
   }
-
-  list.innerHTML = goals.map(g=>{
-    const saved = parseFloat(g.saved)||0;
-    const target = parseFloat(g.target)||1;
-    const pct = Math.min(Math.round((saved/target)*100),100);
-    const remaining = Math.max(0,target-saved);
-    const done = pct>=100;
-    const color = done?'var(--g-main)':'var(--amber)';
-    return `
-    <div class="goal-card" style="border-left:4px solid ${color}">
-      <div class="goal-header">
-        <div class="goal-ico" style="background:${done?'var(--g-light)':'var(--amb-dim)'};">${g.icon||'🎯'}</div>
-        <div style="flex:1">
-          <div style="font-size:14px;font-weight:800">${g.name||'Meta'}</div>
-          <div style="font-size:11px;color:var(--text3)">${fmt(saved)} ${es?'de':'of'} ${fmt(target)}</div>
-        </div>
-        <div style="font-size:16px;font-weight:800;color:${color}">${pct}%</div>
+  list.innerHTML = items.map(i => `
+    <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--off);cursor:pointer" onclick="go('${i.page}')">
+      <div style="width:40px;height:40px;border-radius:12px;background:var(--off);display:grid;place-items:center;font-size:18px;flex-shrink:0">${i.icon}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13.5px;font-weight:700">${i.name}</div>
+        <div style="font-size:10.5px;color:var(--text3)">${i.typeLabel}${i.who?' · '+i.who:''} · ${freqLbl(i.freq)} · ${es?'próximo':'next'} ${i.nextDate||'—'}</div>
       </div>
-      <div style="background:var(--border);border-radius:100px;height:8px;overflow:hidden;margin-bottom:8px">
-        <div style="height:100%;border-radius:100px;background:${color};width:${pct}%;transition:width .8s ease"></div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-size:14px;font-weight:800">${fmt(i.amount)}</div>
+        <div style="font-size:9.5px;color:var(--blue);font-weight:700">${es?'Gestionar →':'Manage →'}</div>
       </div>
-      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:10px">
-        <span>${es?'Faltan':'Remaining'}: ${fmt(remaining)}</span>
-        ${g.deadline?`<span>${es?'Límite':'Due'}: ${g.deadline}</span>`:''}
-      </div>
-      ${done?`<div style="background:var(--g-light);color:var(--g-dark);border-radius:10px;padding:8px;font-size:12px;font-weight:700;text-align:center;margin-bottom:8px">🎉 ${es?'¡Meta alcanzada!':'Goal reached!'}</div>`:''}
-      <div class="goal-actions">
-        <button class="btn btn-primary" onclick="openAbonar('${g.id}')" style="flex:1;padding:9px" data-es="Abonar" data-en="Add">Abonar</button>
-        <button class="btn" onclick="openEdit('${g.id}')" style="background:var(--off);border:1.5px solid var(--border);padding:9px 14px">✏️</button>
-        <button class="btn" onclick="deleteGoal('${g.id}')" style="background:var(--red-dim);color:var(--red);border:none;padding:9px 14px">🗑️</button>
-      </div>
-    </div>`;
-  }).join('');
+    </div>`).join('');
 }
 
-function openAddModal(){
-  editingId=null;
-  document.getElementById('fName').value='';
-  document.getElementById('fTarget').value='';
-  document.getElementById('fSaved').value='';
-  document.getElementById('fDeadline').value='';
-  document.getElementById('fIcon').value='🎯';
-  document.getElementById('modalTitle').textContent=lang==='es'?'Nueva meta':'New goal';
-  document.getElementById('overlay').classList.add('open');
-}
-function openEdit(id){
-  const g = loadGoals().find(g=>g.id===id);
-  if(!g) return;
-  editingId=id;
-  document.getElementById('fName').value=g.name||'';
-  document.getElementById('fTarget').value=g.target||'';
-  document.getElementById('fSaved').value=g.saved||'';
-  document.getElementById('fDeadline').value=g.deadline||'';
-  document.getElementById('fIcon').value=g.icon||'🎯';
-  document.getElementById('modalTitle').textContent=lang==='es'?'Editar meta':'Edit goal';
-  document.getElementById('overlay').classList.add('open');
-}
-function closeModal(){ document.getElementById('overlay').classList.remove('open'); editingId=null; }
-
-function saveGoal(){
-  const name    = document.getElementById('fName').value.trim();
-  const target  = parseFloat(document.getElementById('fTarget').value)||0;
-  const saved   = parseFloat(document.getElementById('fSaved').value)||0;
-  const deadline= document.getElementById('fDeadline').value;
-  const icon    = document.getElementById('fIcon').value;
-  const es=lang==='es';
-  if(!name){ showToast(es?'⚠️ Ingresa un nombre':'⚠️ Enter a name'); return; }
-  if(!target){ showToast(es?'⚠️ Ingresa una meta':'⚠️ Enter a target'); return; }
-  const goals = loadGoals();
-  if(editingId){
-    const idx=goals.findIndex(g=>g.id===editingId);
-    if(idx>=0) goals[idx]={...goals[idx],name,target,saved,deadline,icon};
-  } else {
-    goals.push({id:'g_'+Date.now(),name,target,saved,deadline,icon,createdAt:new Date().toISOString()});
-  }
-  saveGoals(goals);
-  closeModal();
-  render();
-  showToast(es?'✅ Meta guardada':'✅ Goal saved');
-}
-
-function openAbonar(id){ abonarId=id; document.getElementById('aAmount').value=''; document.getElementById('abonarOverlay').classList.add('open'); }
-function closeAbonarModal(){ document.getElementById('abonarOverlay').classList.remove('open'); abonarId=null; }
-function confirmAbonar(){
-  const amt = parseFloat(document.getElementById('aAmount').value)||0;
-  if(!amt){ showToast('⚠️ Ingresa un monto'); return; }
-  const goals = loadGoals();
-  const idx = goals.findIndex(g=>g.id===abonarId);
-  if(idx>=0){ goals[idx].saved=(parseFloat(goals[idx].saved)||0)+amt; }
-  saveGoals(goals);
-  closeAbonarModal();
-  render();
-  showToast(lang==='es'?'✅ Abono registrado':'✅ Added to goal');
-}
-
-function deleteGoal(id){
-  if(!confirm(lang==='es'?'¿Eliminar esta meta?':'Delete this goal?')) return;
-  saveGoals(loadGoals().filter(g=>g.id!==id));
-  render();
-  showToast(lang==='es'?'🗑️ Eliminada':'🗑️ Deleted');
-}
 
 (function init(){
   let s=localStorage.getItem('ft_user')||sessionStorage.getItem('ft_user');
@@ -402,7 +368,7 @@ function deleteGoal(id){
       .then(r=>r.json())
       .then(data=>{
         if(!data || !data.success) return;
-        let _bgNewData = {transactions:[],emergency:0,subscriptions:[],sharedDebts:[],hogarInv:[]};
+        let _bgNewData = {transactions:[],emergency:0,subscriptions:[],sharedDebts:[],hogarInv:[],servicios:[]};
         try{ _bgNewData = JSON.parse(data.dataJson||'{}'); }catch(e){}
 
         let _bgOld = null;
@@ -420,6 +386,15 @@ function deleteGoal(id){
         const _bgPp = { name:data.name||(_bgOld&&_bgOld.name)||'', email:data.email||_bgHogar.partnerEmail, income:parseFloat(data.income)||0, needs:parseFloat(data.needs)||0, wants:parseFloat(data.wants)||0, savings:parseFloat(data.savings)||0, data:_bgMergedData };
         localStorage.setItem(_bgKey, JSON.stringify(_bgPp));
         localStorage.setItem('ft_profile_B', JSON.stringify(_bgPp));
+
+        if(_bgNewData.servicios && _bgNewData.servicios.length){
+          try{
+            let _bgMyServicios = JSON.parse(localStorage.getItem('ft_servicios')||'[]');
+            const _bgSvById = {}; _bgMyServicios.forEach(s=>{_bgSvById[s.id]=s;}); _bgNewData.servicios.forEach(s=>{_bgSvById[s.id]=s;});
+            localStorage.setItem('ft_servicios', JSON.stringify(Object.values(_bgSvById)));
+            render();
+          }catch(e){}
+        }
       }).catch(()=>{});
   } catch(e){}
 })();
