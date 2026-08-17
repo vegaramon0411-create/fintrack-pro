@@ -79,9 +79,9 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
 #toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#1A1D2E;color:white;padding:12px 20px;border-radius:20px;font-size:13px;font-weight:600;display:none;z-index:300;}
 
 input, select, textarea { font-size: 16px !important; }
-.ov{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;align-items:center;justify-content:center;z-index:400;padding:16px;}
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;align-items:center;justify-content:center;z-index:400;padding:12px;}
 .ov.open{display:flex;}
-.ov-box{background:var(--white);border-radius:20px;padding:20px;width:100%;max-width:400px;max-height:85vh;overflow-y:auto;}
+.ov-box{background:var(--white);border-radius:20px;padding:20px;width:min(480px, calc(100vw - 24px));max-height:85vh;overflow-y:auto;}
 .ov-field{margin-bottom:12px;}
 .ov-field label{font-size:11px;font-weight:700;color:var(--text3);display:block;margin-bottom:4px;}
 .ov-field input, .ov-field textarea{width:100%;border:1.5px solid var(--border);border-radius:10px;padding:9px 10px;font-family:inherit;font-size:14px;}
@@ -148,7 +148,13 @@ input, select, textarea { font-size: 16px !important; }
     <button class="filter-btn" onclick="setFilter('hogar',this)" data-es="🏠 Hogar" data-en="🏠 Home">🏠 Hogar</button>
   </div>
 
-  <button onclick="buscarDuplicados()" style="width:100%;background:var(--amb-dim);color:#8A5A00;border:1.5px solid var(--amber);border-radius:12px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:14px">🔍 <span data-es="Buscar posibles duplicados" data-en="Find possible duplicates">Buscar posibles duplicados</span></button>
+  <button onclick="buscarDuplicados()" style="width:100%;background:var(--amb-dim);color:#8A5A00;border:1.5px solid var(--amber);border-radius:12px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:8px">🔍 <span data-es="Buscar posibles duplicados" data-en="Find possible duplicates">Buscar posibles duplicados</span></button>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+    <button onclick="exportarRespaldo()" style="background:var(--g-dim,rgba(26,122,74,.08));color:var(--g-main);border:1.5px solid var(--g-main);border-radius:12px;padding:11px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit">📤 <span data-es="Descargar respaldo" data-en="Download backup">Descargar respaldo</span></button>
+    <button onclick="document.getElementById('inputRestaurar').click()" style="background:var(--off);color:var(--text2);border:1.5px solid var(--border);border-radius:12px;padding:11px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit">📥 <span data-es="Restaurar respaldo" data-en="Restore backup">Restaurar respaldo</span></button>
+  </div>
+  <input type="file" id="inputRestaurar" accept=".json" style="display:none" onchange="restaurarRespaldo(this.files[0])">
   <div id="dupResults" style="display:none;margin-bottom:14px"></div>
 
   <div class="card" id="txList"></div>
@@ -174,7 +180,8 @@ input, select, textarea { font-size: 16px !important; }
       <div class="more-item" onclick="go('scanner.html')"><div class="more-ico" style="background:rgba(123,94,167,.1)">📷</div><span data-es="Escanear" data-en="Scan">Escanear</span></div>
       <div class="more-item" onclick="go('importar.html')"><div class="more-ico" style="background:var(--blu-dim)">📥</div><span data-es="Importar CSV" data-en="Import CSV">Importar CSV</span></div>
       <div class="more-item" onclick="go('emergencia.html')"><div class="more-ico" style="background:var(--amb-dim)">🛡️</div><span data-es="Emergencia" data-en="Emergency">Emergencia</span></div>
-      <div class="more-item" onclick="go('suscripciones.html')"><div class="more-ico" style="background:rgba(123,94,167,.1)">🔄</div><span data-es="Suscripciones" data-en="Subscriptions">Suscripciones</span></div>
+      <div class="more-item" onclick="go('suscripciones.html')"><div class="more-ico" style="background:rgba(123,94,167,.1)">🔄</div>
+      <div class="more-item" onclick="go('recurrentes.html')"><div class="more-ico" style="background:rgba(74,108,247,.1)">📋</div><span data-es="Recurrentes" data-en="Recurring">Recurrentes</span></div><span data-es="Suscripciones" data-en="Subscriptions">Suscripciones</span></div>
       <div class="more-item" onclick="go('config.html')"><div class="more-ico" style="background:var(--off)">⚙️</div><span data-es="Config" data-en="Settings">Config</span></div>
       <div class="more-item" onclick="go('perfil.html')"><div class="more-ico" style="background:var(--blu-dim)">👤</div><span data-es="Perfil" data-en="Profile">Perfil</span></div>
     </div>
@@ -337,6 +344,61 @@ function render(){
 // Agrupa transacciones con mismo monto + descripción parecida (sin importar fecha,
 // ya que un CSV importado sin fecha real pudo quedar con la fecha de "hoy" del día
 // que lo subiste, distinta de la fecha real de otra transacción que sí sea la misma).
+// Respaldo completo — no solo transacciones: incluye deudas, fondos (metas/emergencia),
+// inversiones, suscripciones, servicios y recurrentes. Así, si se pierde el teléfono o
+// se resetea la app, se puede restaurar todo tal cual estaba, no solo el historial suelto.
+const RESPALDO_KEYS = ['ft_data','ft_debts','ft_hogar_fondos','ft_investments','ft_hogar_inv','ft_subs','ft_servicios','ft_recurring','ft_available_savings','ft_savings_hist','ft_checking_balance'];
+
+function exportarRespaldo(){
+  const es = lang==='es';
+  const backup = { _meta: { app:'FinTrack Pro', version:1, exportedAt: new Date().toISOString(), user: user.name||'' }, data:{} };
+  RESPALDO_KEYS.forEach(k=>{
+    const v = localStorage.getItem(k);
+    if(v!=null) backup.data[k] = v;
+  });
+  const blob = new Blob([JSON.stringify(backup, null, 2)], { type:'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const fecha = new Date().toISOString().split('T')[0];
+  a.href = url;
+  a.download = `fintrack-respaldo-${fecha}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast(es?'✅ Respaldo descargado':'✅ Backup downloaded');
+}
+
+function restaurarRespaldo(file){
+  if(!file) return;
+  const es = lang==='es';
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    let backup;
+    try{ backup = JSON.parse(e.target.result); }catch(err){
+      alert(es?'⚠️ Este archivo no es un respaldo válido de FinTrack Pro.':'⚠️ This file is not a valid FinTrack Pro backup.');
+      return;
+    }
+    if(!backup || !backup.data || !backup._meta || backup._meta.app!=='FinTrack Pro'){
+      alert(es?'⚠️ Este archivo no es un respaldo válido de FinTrack Pro.':'⚠️ This file is not a valid FinTrack Pro backup.');
+      return;
+    }
+    const fecha = backup._meta.exportedAt ? backup._meta.exportedAt.split('T')[0] : '?';
+    const ok = confirm(
+      es
+        ? `Este respaldo es del ${fecha} (de ${backup._meta.user||'—'}).\n\n⚠️ Esto REEMPLAZA lo que tienes ahora mismo en este teléfono por lo del respaldo. Si tienes datos nuevos sin respaldar aquí, se perderán.\n\n¿Continuar?`
+        : `This backup is from ${fecha} (by ${backup._meta.user||'—'}).\n\n⚠️ This REPLACES what you currently have on this phone with what's in the backup. Any newer data not in this backup will be lost.\n\nContinue?`
+    );
+    if(!ok) return;
+    Object.keys(backup.data).forEach(k=>{
+      localStorage.setItem(k, backup.data[k]);
+    });
+    showToast(es?'✅ Respaldo restaurado':'✅ Backup restored');
+    setTimeout(()=>location.reload(), 800);
+  };
+  reader.readAsText(file);
+}
+
 function buscarDuplicados(){
   const es = lang==='es';
   const data = loadData();

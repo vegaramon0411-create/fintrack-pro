@@ -470,6 +470,7 @@ body {
   color:var(--text3);background:var(--off);font-family:inherit;transition:all .15s;
 }
 .type-btn.on { border-color:var(--g-main);background:var(--g-dim);color:var(--g-main); }
+.type-btn.big { padding:16px 6px;font-size:12px;line-height:1.6;border-width:2px; }
 
 .field { margin-bottom:14px; }
 .field label { display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text3);margin-bottom:6px; }
@@ -697,6 +698,10 @@ input, select, textarea { font-size: 16px !important; }
             <div data-es="📈 Inversiones" data-en="📈 Investments">📈 Inversiones</div>
             <div class="hc-val" id="chipInvested">$0</div>
           </div>
+          <div class="hero-chip" id="chipCheckingWrap" style="display:none">
+            <div data-es="🏦 Cuenta de cheques" data-en="🏦 Checking account">🏦 Cuenta de cheques</div>
+            <div class="hc-val" id="chipChecking">$0</div>
+          </div>
           <div class="hero-chip" id="chipPersonalWrap" style="display:none">
             <div data-es="👤 Disponible personal" data-en="👤 Personal available">👤 Disponible personal</div>
             <div class="hc-val" id="chipPersonalDisp">$0</div>
@@ -708,6 +713,10 @@ input, select, textarea { font-size: 16px !important; }
           <div style="display:flex;gap:6px;flex-wrap:wrap" id="heroDistBtns"></div>
         </div>
       </div>
+
+      <!-- ACCESOS RÁPIDOS — antes había que buscar cada sección en el menú -->
+      <div style="font-size:11px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin:14px 4px 8px" data-es="Accesos rápidos" data-en="Quick access">Accesos rápidos</div>
+      <div id="quickAccessGrid" style="display:flex;flex-direction:column;gap:8px;margin-bottom:6px"></div>
 
     </div>
 
@@ -1025,16 +1034,22 @@ input, select, textarea { font-size: 16px !important; }
 
     <!-- MANUAL TAB -->
     <div id="tabManual">
-      <!-- TYPE BUTTONS -->
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:14px">
-        <button class="type-btn on" onclick="setType('gasto')" data-es="💸 Gasto" data-en="💸 Expense">💸 Gasto</button>
-        <button class="type-btn" onclick="setType('ingreso')" data-es="💰 Ingreso" data-en="💰 Income">💰 Ingreso</button>
+      <!-- TYPE BUTTONS — los 4 más usados arriba, el resto plegado (nada se quitó, solo se reordenó) -->
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:10px">
+        <button class="type-btn big on" onclick="setType('gasto')" data-es="💸 Gasto" data-en="💸 Expense">💸<br>Gasto</button>
+        <button class="type-btn big" onclick="setType('ingreso')" data-es="💰 Ingreso" data-en="💰 Income">💰<br>Ingreso</button>
+        <button class="type-btn big" data-key="servicio" onclick="setType('suscripcion','servicio');markAsServicio()" data-es="🏠 Servicio del hogar" data-en="🏠 Household service">🏠<br>Servicio del hogar</button>
+        <button class="type-btn big" onclick="closeModal();openDebtAbonarModal()" style="background:var(--red-dim);color:var(--red);border-color:var(--red)" data-es="💳 Abonar a deuda" data-en="💳 Pay a debt">💳<br>Abonar a deuda</button>
+      </div>
+
+      <button type="button" id="btnVerMasTipos" onclick="toggleMasTipos()" style="width:100%;background:var(--off);border:1.5px dashed var(--border);border-radius:12px;padding:10px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;font-family:inherit;margin-bottom:14px" data-es="Ver más tipos (Inversión, Suscripción, Ahorro...) ⌄" data-en="See more types (Investment, Subscription, Savings...) ⌄">Ver más tipos (Inversión, Suscripción, Ahorro...) ⌄</button>
+
+      <div id="masTiposWrap" style="display:none;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:14px">
         <button class="type-btn" onclick="setType('inversion')" data-es="📈 Inversión" data-en="📈 Investment">📈 Inversión</button>
         <button class="type-btn" data-key="ahorro-emergencia" onclick="setType('ahorro','ahorro-emergencia');setSavingsDest('emergencia')" data-es="🛡️ Emergencia" data-en="🛡️ Emergency">🛡️ Emergencia</button>
         <button class="type-btn" data-key="ahorro-libre" onclick="setType('ahorro','ahorro-libre');setSavingsDest('libre')" data-es="💵 Ahorro libre" data-en="💵 Free savings">💵 Ahorro libre</button>
         <button class="type-btn" onclick="setType('suscripcion')" data-es="🔄 Suscripción" data-en="🔄 Subscription">🔄 Suscripción</button>
         <button class="type-btn" onclick="setType('hipoteca')" data-es="🏠 Renta/Hipoteca" data-en="🏠 Rent/Mortgage">🏠 Renta/Hipoteca</button>
-        <button class="type-btn" onclick="closeModal();openDebtAbonarModal()" style="grid-column:span 3;background:var(--red-dim);color:var(--red);border-color:var(--red)" data-es="💳 Abonar a deuda" data-en="💳 Pay a debt">💳 Abonar a deuda</button>
       </div>
 
       <div class="field">
@@ -1350,6 +1365,11 @@ const CATEGORY_TYPE_MAP = {
   '🔧 Mantenimiento':       'needs',
   '💳 Deudas':               'needs',  // abonos a deudas = necesidad
   '🏠 Hogar':                'needs',
+  '💡 Luz':                  'needs',
+  '💧 Agua':                 'needs',
+  '🔥 Gas':                  'needs',
+  '📶 Internet':             'needs',
+  '🧹 Mantenimiento':        'needs',
   // Wants — discretionary, lifestyle expenses
   '🍔 Restaurantes':        'wants',
   '🎬 Entretenimiento':     'wants',
@@ -1599,6 +1619,9 @@ function renderDashboard() {
 
   // ── SERVICIOS DE LA CASA ──
   renderServiciosCasa();
+
+  // ── ACCESOS RÁPIDOS ──
+  renderQuickAccess();
 
   // ── GOALS PREVIEW ──
   renderGoalsPreview();
@@ -2198,6 +2221,48 @@ function loadGoals() {
   catch(e) { return []; }
 }
 
+function renderQuickAccess(){
+  const es = lang==='es';
+  const grid = document.getElementById('quickAccessGrid');
+  if(!grid) return;
+
+  let servicios=[], subs=[], debts=[], invs=[], recurring=[];
+  try{ servicios = JSON.parse(localStorage.getItem('ft_servicios')||'[]').filter(s=>!s.paused); }catch(e){}
+  try{ subs = JSON.parse(localStorage.getItem('ft_subs')||'[]').filter(s=>!s.paused); }catch(e){}
+  try{ debts = JSON.parse(localStorage.getItem('ft_debts')||'[]'); }catch(e){}
+  try{ invs = JSON.parse(localStorage.getItem('ft_investments')||'[]'); }catch(e){}
+  try{ recurring = JSON.parse(localStorage.getItem('ft_recurring')||'[]').filter(r=>r.active); }catch(e){}
+
+  const servTotal = servicios.reduce((a,s)=>a+(parseFloat(s.amount)||0),0);
+  const debtsPending = debts.filter(d=>{
+    const today = new Date(); const monthKey = today.toISOString().slice(0,7);
+    return !(d.paidMonths && d.paidMonths[monthKey]);
+  }).length;
+  const invTotal = invs.reduce((a,i)=>a+(parseFloat(i.amount)||0),0);
+  const recTotal = recurring.reduce((a,r)=>{
+    const m = r.freq==='annual'?(r.amount||0)/12 : r.freq==='biweekly'?(r.amount||0)*2.17 : r.freq==='weekly'?(r.amount||0)*4.33 : (r.amount||0);
+    return a+m;
+  },0);
+
+  const items = [
+    { icon:'🏠', bg:'var(--blu-dim)', label: es?'Servicios de la casa':'Household services', sub: servicios.length ? fmt(servTotal)+'/'+(es?'mes · '+servicios.length+' activos':'mo · '+servicios.length+' active') : (es?'Sin servicios registrados':'No services yet'), page:'servicios.html' },
+    { icon:'💳', bg:'var(--red-dim)', label: es?'Deudas':'Debts', sub: debts.length ? (debtsPending>0 ? (es?`${debtsPending} con pago pendiente`:`${debtsPending} payment(s) pending`) : (es?'Todo al día este mes':'All caught up this month')) : (es?'Sin deudas registradas':'No debts yet'), page:'deudas.html', badge: debtsPending>0?String(debtsPending):null },
+    { icon:'🔄', bg:'var(--blu-dim)', label: es?'Recurrentes':'Recurring', sub: recurring.length ? fmt(recTotal)+'/'+(es?'mes en total':'mo total') : (es?'Sin recurrentes activos':'No active recurring items'), page:'recurrentes.html' },
+    { icon:'📈', bg:'var(--g-light)', label: es?'Inversiones':'Investments', sub: invs.length ? fmt(invTotal)+' '+(es?'invertidos':'invested') : (es?'Sin inversiones registradas':'No investments yet'), page:'inversiones.html' },
+  ];
+
+  grid.innerHTML = items.map(it => `
+    <div onclick="location.href='${it.page}'" style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:16px;background:white;border:1px solid var(--border);box-shadow:0 2px 8px -4px rgba(20,20,30,.06);cursor:pointer;position:relative">
+      <div style="width:38px;height:38px;border-radius:11px;background:${it.bg};display:grid;place-items:center;font-size:17px;flex-shrink:0">${it.icon}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:800;color:var(--text)">${it.label}</div>
+        <div style="font-size:10.5px;color:var(--text3)">${it.sub}</div>
+      </div>
+      <span style="color:var(--text3);font-size:14px">›</span>
+      ${it.badge?`<div style="position:absolute;top:8px;right:26px;background:var(--red);color:white;font-size:9px;font-weight:800;border-radius:20px;padding:1px 6px">${it.badge}</div>`:''}
+    </div>`).join('');
+}
+
 function renderGoalsPreview() {
   const goals = loadGoals();
   const el = document.getElementById('goalsPreview');
@@ -2299,6 +2364,19 @@ function updateHeroDinero(){
   if(el('chipAvailSavings')) el('chipAvailSavings').textContent = fmt(availSavings);
   if(el('chipEmergency'))    el('chipEmergency').textContent    = fmt(emergency);
   if(el('chipInvested'))     el('chipInvested').textContent     = fmt(totalInvested);
+  (() => {
+    let checking = null;
+    try{ checking = JSON.parse(localStorage.getItem('ft_checking_balance')||'null'); }catch(e){}
+    const wrap = el('chipCheckingWrap');
+    if(wrap){
+      if(checking && !checking.hogar && checking.amount>0){
+        wrap.style.display = '';
+        if(el('chipChecking')) el('chipChecking').textContent = fmt(checking.amount);
+      } else {
+        wrap.style.display = 'none'; // si es cuenta conjunta, ya se ve combinada en Hogar
+      }
+    }
+  })();
   if(el('chipPersonalWrap')) el('chipPersonalWrap').style.display = hogarConn ? '' : 'none';
   if(el('chipPersonalDisp')) {
     el('chipPersonalDisp').textContent = (personalDisponible2<0?'-':'') + fmt(personalDisponible2);
@@ -2670,6 +2748,7 @@ function showHogarToggle(type){
 function openModal() {
   editingEntryId = null;
   _coberturaConfirmada = false;
+  esServicioDelHogar = false;
   document.getElementById('overlay').classList.add('open');
   document.getElementById('invExtraFields').style.display = 'none';
   document.getElementById('subExtraFields').style.display = 'none';
@@ -2913,14 +2992,24 @@ function saveEntry() {
       }
     }
     if (currentType === 'suscripcion') {
-      // Se guarda en ft_subs (la key real de Suscripciones) — antes solo quedaba
-      // como transacción genérica y no aparecía en la pantalla de Suscripciones.
-      try{
-        const freq = document.getElementById('subExtraFreq').value;
-        const subs = JSON.parse(localStorage.getItem('ft_subs')||'[]');
-        subs.push({ id:'s_'+entry.id, name:desc, amount, freq, date, cat: cat||'📦 Otro', paused:false, hogar: isHogarTx&&isHogarConnected(), createdBy:user.name||'' });
-        localStorage.setItem('ft_subs', JSON.stringify(subs));
-      }catch(e){}
+      if(esServicioDelHogar){
+        // "Servicio del hogar" → mismo storage real que usa servicios.html, siempre hogar:true
+        try{
+          const freq = document.getElementById('subExtraFreq').value;
+          const servicios = JSON.parse(localStorage.getItem('ft_servicios')||'[]');
+          servicios.push({ id:'sv_'+entry.id, name:desc, amount, freq, date, cat: cat||'🏠 Servicios', paused:false, hogar:true, createdBy:user.name||'' });
+          localStorage.setItem('ft_servicios', JSON.stringify(servicios));
+        }catch(e){}
+      } else {
+        // Se guarda en ft_subs (la key real de Suscripciones) — antes solo quedaba
+        // como transacción genérica y no aparecía en la pantalla de Suscripciones.
+        try{
+          const freq = document.getElementById('subExtraFreq').value;
+          const subs = JSON.parse(localStorage.getItem('ft_subs')||'[]');
+          subs.push({ id:'s_'+entry.id, name:desc, amount, freq, date, cat: cat||'📦 Otro', paused:false, hogar: isHogarTx&&isHogarConnected(), createdBy:user.name||'' });
+          localStorage.setItem('ft_subs', JSON.stringify(subs));
+        }catch(e){}
+      }
     }
     data.transactions.push(entry);
   }
@@ -2993,7 +3082,7 @@ function addFreeSavingsEntry(entry) {
   const cur = parseFloat(localStorage.getItem(FREE_SAVINGS_KEY)||'0');
   localStorage.setItem(FREE_SAVINGS_KEY, (cur + parseFloat(entry.amount)).toFixed(2));
   const hist = loadFreeSavingsHist();
-  hist.push({ id: 'tx_'+entry.id, tipo:'deposito', monto: entry.amount, fecha: entry.date, nota: entry.note, cat:'' });
+  hist.push({ id: 'tx_'+entry.id, tipo:'deposito', monto: entry.amount, fecha: entry.date, nota: entry.note, cat:'', recId: entry.recId||null });
   saveFreeSavingsHist(hist);
 }
 
@@ -3038,7 +3127,8 @@ function addInvestmentSyncEntry(entry) {
     platform: lang==='es' ? 'Sin asignar' : 'Unassigned',
     invType: 'varias',
     note: entry.note || '',
-    fromDashboard: true
+    fromDashboard: true,
+    recId: entry.recId||null
   });
   saveInvestmentSync(filtered);
 }
@@ -3209,7 +3299,31 @@ function populateCategorySelect() {
   sel.innerHTML = cats.map(c => `<option value="${c.v}">${es?c.es:c.en}</option>`).join('');
 }
 
+let esServicioDelHogar = false; // true solo cuando se elige "Servicio del hogar" en el modal rápido
+
+function toggleMasTipos(){
+  const wrap = document.getElementById('masTiposWrap');
+  const btn = document.getElementById('btnVerMasTipos');
+  const showing = wrap.style.display !== 'none';
+  wrap.style.display = showing ? 'none' : 'grid';
+  if(btn){
+    btn.dataset.es = showing ? 'Ver más tipos (Inversión, Suscripción, Ahorro...) ⌄' : 'Ocultar ⌃';
+    btn.dataset.en = showing ? 'See more types (Investment, Subscription, Savings...) ⌄' : 'Hide ⌃';
+    btn.textContent = lang==='es' ? btn.dataset.es : btn.dataset.en;
+  }
+}
+
+// "Servicio del hogar" reutiliza el tipo 'suscripcion' (mismo guardado real en ft_servicios
+// en vez de ft_subs), pero ya sabe que es del hogar — no hace falta preguntar.
+function markAsServicio(){
+  esServicioDelHogar = true;
+  isHogarTx = true;
+  const hogarWrap = document.getElementById('hogarToggleField');
+  if(hogarWrap) hogarWrap.style.display = 'none'; // ya se sabe la respuesta, no confundir preguntando
+}
+
 function setType(type, key) {
+  if(key !== 'servicio') esServicioDelHogar = false; // se resetea al elegir cualquier otro tipo
   currentType = type;
   const activeKey = key || type; // los botones sin data-key propio caen al type mismo (comportamiento de antes)
   document.querySelectorAll('.type-btn').forEach(b => {
@@ -3734,7 +3848,10 @@ function _advanceRecDate(freq, fromStr){
 function _applyRecurringMeta(rec, hoyStr){
   try{
     const f = JSON.parse(localStorage.getItem('ft_hogar_fondos')||'null') || { emerg:{meta:0,actual:0,fecha:'',hist:[]}, metas:[] };
-    const entry = { id:'d_'+Date.now()+'_'+Math.floor(Math.random()*1000), monto:rec.amount, fecha:hoyStr, desdePres:rec.desdePres, auto:true };
+    // Protección real contra duplicados — igual que en deudas, sin importar el estado de nextDate.
+    const histRef = rec.metaTipo==='emerg' ? (f.emerg.hist||[]) : ((rec.metaId!=null ? f.metas.find(m=>m.id===rec.metaId) : f.metas[rec.metaIdx])||{}).hist||[];
+    if(histRef.some(h=>h.recId===rec.id && h.fecha===hoyStr)) return 'already';
+    const entry = { id:'d_'+Date.now()+'_'+Math.floor(Math.random()*1000), monto:rec.amount, fecha:hoyStr, desdePres:rec.desdePres, auto:true, recId:rec.id };
     if(rec.metaTipo==='emerg'){
       f.emerg.hist = f.emerg.hist||[]; f.emerg.hist.push(entry);
       f.emerg.actual = f.emerg.hist.reduce((a,h)=>a+(h.monto||0),0);
@@ -3742,7 +3859,7 @@ function _applyRecurringMeta(rec, hoyStr){
       // Buscar por id fijo (robusto ante borrar/reordenar metas); si el recurrente es
       // viejo y no tiene metaId, cae al índice como antes.
       const meta = rec.metaId!=null ? f.metas.find(m=>m.id===rec.metaId) : f.metas[rec.metaIdx];
-      if(!meta) return false; // la meta fue borrada — no se puede aplicar
+      if(!meta) return 'broken'; // la meta fue borrada — no se puede aplicar
       meta.hist = meta.hist||[]; meta.hist.push(entry);
       meta.actual = meta.hist.reduce((a,h)=>a+(h.monto||0),0);
     }
@@ -3750,33 +3867,42 @@ function _applyRecurringMeta(rec, hoyStr){
     if(rec.desdePres){
       const data = JSON.parse(localStorage.getItem('ft_data')||'{"transactions":[]}');
       data.transactions = data.transactions||[];
-      data.transactions.push({ id:Date.now(), type:'ahorro', desc:rec.desc, amount:rec.amount, date:hoyStr, cat:'🏠 Hogar', hogar:true, createdBy:user.name||'', auto:true });
+      data.transactions.push({ id:Date.now(), type:'ahorro', desc:rec.desc, amount:rec.amount, date:hoyStr, cat:'🏠 Hogar', hogar:true, createdBy:user.name||'', auto:true, recId:rec.id });
       localStorage.setItem('ft_data', JSON.stringify(data));
     }
-    return true;
-  } catch(e){ return false; }
+    return 'applied';
+  } catch(e){ return 'broken'; }
 }
 
 function _applyRecurringAhorro(rec, hoyStr){
   try{
-    addFreeSavingsEntry({ id: Date.now(), amount: rec.amount, date: hoyStr, note: rec.desc });
-    return true;
-  } catch(e){ return false; }
+    const hist = JSON.parse(localStorage.getItem('ft_savings_hist')||'[]');
+    if(hist.some(h=>h.recId===rec.id && h.fecha===hoyStr)) return 'already';
+    addFreeSavingsEntry({ id: Date.now(), amount: rec.amount, date: hoyStr, note: rec.desc, recId: rec.id });
+    return 'applied';
+  } catch(e){ return 'broken'; }
 }
 
 function _applyRecurringInversion(rec, hoyStr){
   try{
-    addInvestmentSyncEntry({ id: Date.now(), name: rec.desc, amount: rec.amount, date: hoyStr, note: '' });
-    return true;
-  } catch(e){ return false; }
+    const invs = JSON.parse(localStorage.getItem('ft_investments')||'[]');
+    if(invs.some(i=>i.recId===rec.id && i.date===hoyStr)) return 'already';
+    addInvestmentSyncEntry({ id: Date.now(), name: rec.desc, amount: rec.amount, date: hoyStr, note: '', recId: rec.id });
+    return 'applied';
+  } catch(e){ return 'broken'; }
 }
 
 function _applyRecurringDebt(rec, hoyStr){
   try{
     const debts = JSON.parse(localStorage.getItem('ft_debts')||'[]');
     const idx = debts.findIndex(d=>String(d.id)===String(rec.debtId));
-    if(idx<0) return false; // la deuda fue borrada — no se puede aplicar
+    if(idx<0) return 'broken'; // la deuda fue borrada — no se puede aplicar
     const d = debts[idx];
+    // Protección real contra duplicados: sin importar qué tan desincronizado esté
+    // nextDate (por ejemplo, si un sync trajo una copia vieja de la pareja), si ya
+    // existe un abono de ESTE recurrente en ESTA fecha, no se vuelve a aplicar.
+    const yaExiste = (d.abonos||[]).some(a=>a.recId===rec.id && a.fecha===hoyStr);
+    if(yaExiste) return 'already';
     const oldBalance = parseFloat(d.balance)||0;
     const newBalance = Math.max(0, oldBalance - rec.amount);
     debts[idx].balance = newBalance;
@@ -3790,13 +3916,13 @@ function _applyRecurringDebt(rec, hoyStr){
       const data = JSON.parse(localStorage.getItem('ft_data')||'{}');
       data.transactions = data.transactions||[];
       linkedTxId = abonoId + 1;
-      data.transactions.push({ id:linkedTxId, type:'gasto', desc:(lang==='es'?'Abono a ':'Payment to ')+d.name, amount:rec.amount, date:hoyStr, cat:'💳 Deudas', hogar:rec.hogar, createdBy:user.name||'', auto:true });
+      data.transactions.push({ id:linkedTxId, type:'gasto', desc:(lang==='es'?'Abono a ':'Payment to ')+d.name, amount:rec.amount, date:hoyStr, cat:'💳 Deudas', hogar:rec.hogar, createdBy:user.name||'', auto:true, recId:rec.id });
       localStorage.setItem('ft_data', JSON.stringify(data));
     } catch(e){}
-    debts[idx].abonos.push({ id:abonoId, monto:rec.amount, fecha:hoyStr, nota:'', saldoAntes:oldBalance, saldoDespues:newBalance, tipo:'nuevo', createdBy:user.name||'', txId:linkedTxId, auto:true });
+    debts[idx].abonos.push({ id:abonoId, monto:rec.amount, fecha:hoyStr, nota:'', saldoAntes:oldBalance, saldoDespues:newBalance, tipo:'nuevo', createdBy:user.name||'', txId:linkedTxId, auto:true, recId:rec.id });
     localStorage.setItem('ft_debts', JSON.stringify(debts));
-    return true;
-  } catch(e){ return false; }
+    return 'applied';
+  } catch(e){ return 'broken'; }
 }
 
 function applyDueRecurring(){
@@ -3811,13 +3937,15 @@ function applyDueRecurring(){
       if(!rec.active || !rec.nextDate) return;
       let guard = 0; // máx 60 periodos de catch-up por seguridad, evita loop infinito
       while(rec.nextDate && rec.nextDate <= hoyStr && guard < 60){
-        let ok = false;
-        if(rec.kind==='meta') ok = _applyRecurringMeta(rec, rec.nextDate);
-        else if(rec.kind==='ahorro') ok = _applyRecurringAhorro(rec, rec.nextDate);
-        else if(rec.kind==='inversion') ok = _applyRecurringInversion(rec, rec.nextDate);
-        else if(rec.kind==='debt') ok = _applyRecurringDebt(rec, rec.nextDate);
-        if(!ok){ rec.active = false; break; } // referencia rota (meta/deuda borrada) — desactivar en vez de reintentar infinito
-        appliedCount++; appliedTotal += (rec.amount||0);
+        let status = 'broken';
+        if(rec.kind==='meta') status = _applyRecurringMeta(rec, rec.nextDate);
+        else if(rec.kind==='ahorro') status = _applyRecurringAhorro(rec, rec.nextDate);
+        else if(rec.kind==='inversion') status = _applyRecurringInversion(rec, rec.nextDate);
+        else if(rec.kind==='debt') status = _applyRecurringDebt(rec, rec.nextDate);
+        if(status==='broken'){ rec.active = false; break; } // referencia rota (meta/deuda borrada) — desactivar en vez de reintentar infinito
+        if(status==='applied'){ appliedCount++; appliedTotal += (rec.amount||0); }
+        // 'already' = un sync trajo nextDate desincronizado, pero ya se había aplicado
+        // este período — se avanza la fecha en silencio, sin volver a contar ni avisar.
         rec.nextDate = _advanceRecDate(rec.freq, rec.nextDate);
         guard++;
       }
@@ -3971,7 +4099,8 @@ applyDueRecurring();
       fondos: fondos,
       personalSpentThisMonth: personalSpentThisMonth,
       sharedRecurring: sharedRecurring,
-      servicios: (() => { try{ return JSON.parse(localStorage.getItem('ft_servicios')||'[]').slice(-20); }catch(e){ return []; } })()
+      servicios: (() => { try{ return JSON.parse(localStorage.getItem('ft_servicios')||'[]').slice(-20); }catch(e){ return []; } })(),
+      checking: (() => { try{ return JSON.parse(localStorage.getItem('ft_checking_balance')||'null'); }catch(e){ return null; } })()
     };
 
     // Use GET — more reliable with GAS CORS restrictions
@@ -4501,6 +4630,9 @@ async function loadPartnerHogarTxs(){
             const _bgSvById = {}; _bgMyServicios.forEach(s=>{_bgSvById[s.id]=s;}); _bgNewData.servicios.forEach(s=>{_bgSvById[s.id]=s;});
             localStorage.setItem('ft_servicios', JSON.stringify(Object.values(_bgSvById)));
           }catch(e){}
+        }
+        if(_bgNewData.checking){
+          try{ localStorage.setItem('ft_partner_checking', JSON.stringify(_bgNewData.checking)); }catch(e){}
         }
       }).catch(()=>{});
   } catch(e){}

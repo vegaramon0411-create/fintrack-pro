@@ -20,8 +20,8 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
 .btn{border:none;border-radius:12px;padding:12px 18px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;}
 .btn-primary{background:var(--amber);color:white;width:100%;}
 .btn-danger{background:var(--red-dim);color:var(--red);}
-.overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;place-items:center;z-index:150;}
-.overlay.open{display:grid;}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;justify-content:center;align-items:flex-start;overflow-y:auto;padding:24px 12px;z-index:150;}
+.overlay.open{display:flex;}
 .modal{background:var(--white);border-radius:20px;width:min(480px,calc(100vw - 24px));max-height:88vh;overflow-y:auto;padding:20px;}
 .field{margin-bottom:14px;}
 .field label{display:block;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;}
@@ -112,12 +112,17 @@ input, select, textarea { font-size: 16px !important; }
       <div class="lt-opt on" id="ltES" onclick="setLang('es')">ES</div>
       <div class="lt-opt" id="ltEN" onclick="setLang('en')">EN</div>
     </div>
+    <button class="btn btn-primary" style="width:auto;padding:8px 12px;font-size:12px;white-space:nowrap;background:var(--off);color:var(--text2);border:1.5px solid var(--border)" onclick="openWithdraw()" data-es="↩ Retirar" data-en="↩ Withdraw">↩ Retirar</button>
     <button class="btn btn-primary" style="width:auto;padding:8px 12px;font-size:12px;white-space:nowrap;" onclick="openDeposit()" data-es="+ Agregar depósito" data-en="+ Add deposit">+ Agregar depósito</button>
   </div>
 </div>
 
 <div class="page">
   <div class="card" id="heroCard"></div>
+  <div class="card" style="border-left:4px solid var(--amber);background:var(--amb-dim)">
+    <div style="font-size:13px;font-weight:800;margin-bottom:8px;color:#8A5A00" data-es="⚠️ ¿Cuándo puedo retirar de aquí?" data-en="⚠️ When can I withdraw from here?">⚠️ ¿Cuándo puedo retirar de aquí?</div>
+    <div style="font-size:12px;color:var(--text2);line-height:1.6" data-es="Este fondo es distinto al Ahorro libre — está pensado solo para emergencias reales (perder el trabajo, un gasto médico grande, algo urgente e inevitable). Sí puedes retirar cuando lo necesites de verdad, pero no está pensado para cubrir gastos normales del mes — para eso existe el Ahorro libre, que se usa sin restricciones." data-en="This fund is different from Free Savings — it's meant only for real emergencies (losing your job, a big medical expense, something urgent and unavoidable). You can withdraw when you truly need to, but it's not meant to cover regular monthly spending — that's what Free Savings is for, which you can use without restrictions.">Este fondo es distinto al Ahorro libre — está pensado solo para emergencias reales (perder el trabajo, un gasto médico grande, algo urgente e inevitable). Sí puedes retirar cuando lo necesites de verdad, pero no está pensado para cubrir gastos normales del mes — para eso existe el Ahorro libre, que se usa sin restricciones.</div>
+  </div>
   <div class="card">
     <div style="font-size:13px;font-weight:800;margin-bottom:12px" data-es="📋 Historial de depósitos" data-en="📋 Deposit history">📋 Historial de depósitos</div>
     <div id="histList"><p style="color:var(--text3);font-size:13px" data-es="Sin depósitos aún" data-en="No deposits yet">Sin depósitos aún</p></div>
@@ -131,6 +136,7 @@ input, select, textarea { font-size: 16px !important; }
       <div style="font-size:16px;font-weight:800" id="modalTitle">Agregar depósito</div>
       <div onclick="closeModal()" style="cursor:pointer;font-size:20px;color:var(--text3)">✕</div>
     </div>
+    <div id="withdrawWarning" style="display:none;background:var(--amb-dim);border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:11.5px;color:#8A5A00"></div>
     <div class="field">
       <label data-es="Monto ($)" data-en="Amount ($)">Monto ($)</label>
       <input type="number" id="fAmount" placeholder="0.00" min="0" step="0.01">
@@ -143,7 +149,7 @@ input, select, textarea { font-size: 16px !important; }
       <label data-es="Fecha" data-en="Date">Fecha</label>
       <input type="date" id="fDate">
     </div>
-    <button class="btn btn-primary" onclick="saveDeposit()" style="margin-bottom:8px" data-es="Guardar" data-en="Save">Guardar</button>
+    <button class="btn btn-primary" onclick="saveMovement()" style="margin-bottom:8px" id="btnSaveMovement" data-es="Guardar" data-en="Save">Guardar</button>
     <button class="btn" style="width:100%;background:var(--off);border:1.5px solid var(--border)" onclick="closeModal()" data-es="Cancelar" data-en="Cancel">Cancelar</button>
   </div>
 </div>
@@ -163,7 +169,8 @@ input, select, textarea { font-size: 16px !important; }
       <div class="more-item" onclick="go('scanner.html')"><div class="more-ico" style="background:rgba(123,94,167,.1)">📷</div><span data-es="Escanear" data-en="Scan">Escanear</span></div>
       <div class="more-item" onclick="go('importar.html')"><div class="more-ico" style="background:var(--blu-dim)">📥</div><span data-es="Importar CSV" data-en="Import CSV">Importar CSV</span></div>
       <div class="more-item" onclick="go('emergencia.html')"><div class="more-ico" style="background:var(--amb-dim)">🛡️</div><span data-es="Emergencia" data-en="Emergency">Emergencia</span></div>
-      <div class="more-item" onclick="go('suscripciones.html')"><div class="more-ico" style="background:rgba(123,94,167,.1)">🔄</div><span data-es="Suscripciones" data-en="Subscriptions">Suscripciones</span></div>
+      <div class="more-item" onclick="go('suscripciones.html')"><div class="more-ico" style="background:rgba(123,94,167,.1)">🔄</div>
+      <div class="more-item" onclick="go('recurrentes.html')"><div class="more-ico" style="background:rgba(74,108,247,.1)">📋</div><span data-es="Recurrentes" data-en="Recurring">Recurrentes</span></div><span data-es="Suscripciones" data-en="Subscriptions">Suscripciones</span></div>
       <div class="more-item" onclick="go('config.html')"><div class="more-ico" style="background:var(--off)">⚙️</div><span data-es="Config" data-en="Settings">Config</span></div>
       <div class="more-item" onclick="go('perfil.html')"><div class="more-ico" style="background:var(--blu-dim)">👤</div><span data-es="Perfil" data-en="Profile">Perfil</span></div>
     </div>
@@ -270,7 +277,28 @@ function render(){
   `).join('');
 }
 
+let movementMode = 'deposito';
+
 function openDeposit(){
+  movementMode = 'deposito';
+  document.getElementById('modalTitle').textContent = lang==='es'?'Agregar depósito':'Add deposit';
+  document.getElementById('btnSaveMovement').textContent = lang==='es'?'Guardar':'Save';
+  document.getElementById('withdrawWarning').style.display = 'none';
+  document.getElementById('fAmount').value='';
+  document.getElementById('fNote').value='';
+  document.getElementById('fDate').value=new Date().toISOString().slice(0,10);
+  document.getElementById('overlay').classList.add('open');
+}
+function openWithdraw(){
+  movementMode = 'retiro';
+  const es = lang==='es';
+  document.getElementById('modalTitle').textContent = es?'Retirar de emergencia':'Withdraw from emergency';
+  document.getElementById('btnSaveMovement').textContent = es?'Confirmar retiro':'Confirm withdrawal';
+  const warn = document.getElementById('withdrawWarning');
+  warn.style.display = '';
+  warn.textContent = es
+    ? '⚠️ Este fondo es solo para emergencias reales. Antes de retirar, pregúntate: ¿esto es realmente una emergencia, o debería salir de tu Ahorro libre?'
+    : '⚠️ This fund is only for real emergencies. Before withdrawing, ask yourself: is this truly an emergency, or should it come from your Free Savings instead?';
   document.getElementById('fAmount').value='';
   document.getElementById('fNote').value='';
   document.getElementById('fDate').value=new Date().toISOString().slice(0,10);
@@ -278,23 +306,30 @@ function openDeposit(){
 }
 function closeModal(){ document.getElementById('overlay').classList.remove('open'); }
 
-function saveDeposit(){
+function saveMovement(){
   const amount = parseFloat(document.getElementById('fAmount').value)||0;
   const note   = document.getElementById('fNote').value.trim();
   const date   = document.getElementById('fDate').value || new Date().toISOString().slice(0,10);
-  if(!amount){ showToast(lang==='es'?'⚠️ Ingresa un monto':'⚠️ Enter an amount'); return; }
+  const es = lang==='es';
+  if(!amount){ showToast(es?'⚠️ Ingresa un monto':'⚠️ Enter an amount'); return; }
 
   const d = loadData();
-  d.emergency = (parseFloat(d.emergency)||0) + amount;
+  if(movementMode==='retiro'){
+    const current = parseFloat(d.emergency)||0;
+    if(amount > current){ showToast(es?'⚠️ No tienes suficiente en el fondo':'⚠️ Not enough in the fund'); return; }
+    d.emergency = current - amount;
+  } else {
+    d.emergency = (parseFloat(d.emergency)||0) + amount;
+  }
   saveData(d);
 
   const hist = loadHist();
-  hist.push({ id:'h_'+Date.now(), amount, note, date });
+  hist.push({ id:'h_'+Date.now(), amount: movementMode==='retiro' ? -amount : amount, note: note || (movementMode==='retiro' ? (es?'Retiro':'Withdrawal') : ''), date, tipo: movementMode });
   saveHist(hist);
 
   closeModal();
   render();
-  showToast(lang==='es'?'✅ Depósito guardado':'✅ Deposit saved');
+  showToast(movementMode==='retiro' ? (es?'✅ Retiro registrado':'✅ Withdrawal recorded') : (es?'✅ Depósito guardado':'✅ Deposit saved'));
 }
 
 function deleteDeposit(id){

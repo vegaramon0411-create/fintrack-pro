@@ -538,6 +538,11 @@ function savePartnerProfileMerged(partnerEmail, pp){
       localStorage.setItem('ft_servicios', JSON.stringify(Object.values(byId)));
     }catch(e){}
   }
+  // Guarda el checking de la pareja aparte — nunca pisa el propio, solo se usa para
+  // mostrar el total combinado cuando ambos marcan la misma cuenta como "conjunta".
+  if(newData.checking){
+    try{ localStorage.setItem('ft_partner_checking', JSON.stringify(newData.checking)); }catch(e){}
+  }
 
   return merged;
 }
@@ -778,7 +783,28 @@ function renderDashboard(hogar){
       </div>
       <div style="font-size:10px;opacity:.6;margin-top:6px">${es?'Bote real en cuenta (recibido − gastado hogar)':'Real balance (received − household spent)'}: <b style="opacity:1">${fmt(botesReal)}</b></div>
     </div>
+    ${(() => {
+      let myChecking=null, partnerChecking=null;
+      try{ myChecking = JSON.parse(localStorage.getItem('ft_checking_balance')||'null'); }catch(e){}
+      try{ partnerChecking = JSON.parse(localStorage.getItem('ft_partner_checking')||'null'); }catch(e){}
+      const myAmt = (myChecking && myChecking.hogar) ? (myChecking.amount||0) : 0;
+      const partnerAmt = (partnerChecking && partnerChecking.hogar) ? (partnerChecking.amount||0) : 0;
+      if(!myAmt && !partnerAmt) return '';
+      const total = myAmt + partnerAmt;
+      return `<div style="margin-top:10px;background:rgba(20,20,30,.045);border:1px solid rgba(20,20,30,.05);border-radius:10px;padding:10px 12px">
+        <div style="font-size:11px;opacity:.8;margin-bottom:6px">🏦 ${es?'Cuenta de cheques conjunta':'Joint checking account'}</div>
+        <div style="font-size:20px;font-weight:800">${fmt(total)}</div>
+        <div style="display:flex;gap:14px;margin-top:6px;font-size:10.5px;opacity:.75">
+          <span>${user.name||(es?'Tú':'You')}: ${fmt(myAmt)}</span>
+          <span>${partnerName}: ${partnerAmt?fmt(partnerAmt):(es?'sin reportar':'not reported')}</span>
+        </div>
+      </div>`;
+    })()}
   </div>
+
+  <!-- ACCESOS RÁPIDOS DEL HOGAR — antes "Servicios" era un botón perdido hasta abajo -->
+  <div style="font-size:11px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin:14px 4px 8px">${es?'Accesos rápidos del hogar':'Household quick access'}</div>
+  <div id="hogarQuickGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px"></div>
 
   <!-- DEPOSITOS DEL MES CON DESGLOSE 60/40 -->
   <div class="card" style="margin-bottom:14px">
@@ -860,6 +886,92 @@ function renderDashboard(hogar){
   </div>`;
 
   renderTab(calc, [...sharedTxs, ...partnerSharedTxs], partnerName, partnerIncome, mode, totalIncome);
+  renderHogarQuickAccess();
+}
+
+function renderHogarQuickAccess(){
+  const es = lang==='es';
+  const grid = document.getElementById('hogarQuickGrid');
+  if(!grid) return;
+
+  let servicios=[], debts=[], invs=[], myChecking=null, partnerChecking=null;
+  try{ servicios = JSON.parse(localStorage.getItem('ft_servicios')||'[]').filter(s=>!s.paused); }catch(e){}
+  try{ debts = JSON.parse(localStorage.getItem('ft_debts')||'[]').filter(d=>d.owner==='both'||d.type==='hipoteca'||d.type==='hogar'); }catch(e){}
+  try{ invs = JSON.parse(localStorage.getItem('ft_hogar_inv')||'[]'); }catch(e){}
+  try{ myChecking = JSON.parse(localStorage.getItem('ft_checking_balance')||'null'); }catch(e){}
+  try{ partnerChecking = JSON.parse(localStorage.getItem('ft_partner_checking')||'null'); }catch(e){}
+
+  const servTotal = servicios.reduce((a,s)=>a+(parseFloat(s.amount)||0),0);
+  const invTotal = invs.reduce((a,i)=>a+(parseFloat(i.amount)||0),0);
+  const myCheck = (myChecking && myChecking.hogar) ? (myChecking.amount||0) : 0;
+  const partnerCheck = (partnerChecking && partnerChecking.hogar) ? (partnerChecking.amount||0) : 0;
+  const checkTotal = myCheck + partnerCheck;
+
+  const items = [
+    { icon:'🏠', bg:'var(--blu-dim,rgba(74,108,247,.1))', label: es?'Servicios':'Services', sub: servicios.length ? fmt(servTotal)+'/'+(es?'mes':'mo') : (es?'Sin registrar':'None yet'), page:'servicios.html' },
+    { icon:'💳', bg:'var(--red-dim,rgba(230,57,70,.1))', label: es?'Deudas':'Debts', sub: debts.length ? (es?`${debts.length} compartida(s)`:`${debts.length} shared`) : (es?'Sin deudas':'No debts'), page:'deudas.html' },
+    { icon:'📈', bg:'var(--g-light,#E8F7EF)', label: es?'Inversiones':'Investments', sub: invs.length ? fmt(invTotal) : (es?'Sin registrar':'None yet'), page:'inversiones.html' },
+    { icon:'🏦', bg:'#FFF7ED', label: es?'Cuenta conjunta':'Joint account', sub: checkTotal>0 ? fmt(checkTotal) : (es?'Sin reportar':'Not reported'), page:'onboarding.html' },
+  ];
+
+  grid.innerHTML = items.map(it => `
+    <div onclick="location.href='${it.page}'" style="display:flex;align-items:center;gap:10px;padding:12px;border-radius:16px;background:white;border:1px solid var(--border);box-shadow:0 2px 8px -4px rgba(20,20,30,.06);cursor:pointer">
+      <div style="width:34px;height:34px;border-radius:10px;background:${it.bg};display:grid;place-items:center;font-size:15px;flex-shrink:0">${it.icon}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12.5px;font-weight:800;color:var(--text)">${it.label}</div>
+        <div style="font-size:10px;color:var(--text3)">${it.sub}</div>
+      </div>
+    </div>`).join('');
+}
+
+function renderHogarTrendChart(){
+  const es = lang==='es';
+  let myTxs = []; try{ myTxs = (JSON.parse(localStorage.getItem('ft_data')||'{}').transactions)||[]; }catch(e){}
+  const partnerProfile = loadPartnerProfile();
+  const partnerTxs = (partnerProfile && partnerProfile.data && partnerProfile.data.transactions) || [];
+  const allTxs = [...myTxs, ...partnerTxs];
+
+  const months = [];
+  const now = new Date();
+  const nombres = es
+    ? ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
+    : ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+  for(let i=5;i>=0;i--){
+    const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
+    const key = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    const monthTxs = allTxs.filter(t=>String(t.date||'').startsWith(key));
+    const income = monthTxs.filter(t=>t.type==='ingreso').reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
+    const expenses = monthTxs.filter(t=>t.hogar===true && ['gasto','suscripcion','hipoteca'].includes(t.type)).reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
+    months.push({ label: nombres[d.getMonth()], income, expenses });
+  }
+
+  const hasData = months.some(m=>m.income>0 || m.expenses>0);
+  if(!hasData) return '';
+
+  const W=800,H=180,padL=20,padR=20,padT=16,padB=28;
+  const maxVal = Math.max(1, ...months.map(m=>Math.max(m.income,m.expenses)));
+  const stepX = (W-padL-padR)/(months.length-1||1);
+  const scaleY = v => H-padB - (v/maxVal)*(H-padT-padB);
+  const pathFor = key => months.map((m,i)=>`${i===0?'M':'L'}${(padL+i*stepX).toFixed(1)},${scaleY(m[key]).toFixed(1)}`).join(' ');
+  const dots = key => months.map((m,i)=>`<circle cx="${(padL+i*stepX).toFixed(1)}" cy="${scaleY(m[key]).toFixed(1)}" r="4" fill="${key==='income'?'#1A7A4A':'#E63946'}"/>`).join('');
+  const labels = months.map((m,i)=>`<text x="${(padL+i*stepX).toFixed(1)}" y="${H-8}" font-size="12" fill="#9395A5" text-anchor="middle">${m.label}</text>`).join('');
+
+  return `
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="font-size:13px;font-weight:800">📈 ${es?'Ingreso vs. gasto del hogar (6 meses)':'Household income vs. spending (6 months)'}</div>
+      <div style="display:flex;gap:12px;font-size:10px;color:var(--text3)">
+        <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#1A7A4A;margin-right:3px"></span>${es?'Ingreso':'Income'}</span>
+        <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#E63946;margin-right:3px"></span>${es?'Gasto hogar':'Household spend'}</span>
+      </div>
+    </div>
+    <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" style="width:100%;display:block">
+      <path d="${pathFor('income')}" fill="none" stroke="#1A7A4A" stroke-width="3"/>
+      <path d="${pathFor('expenses')}" fill="none" stroke="#E63946" stroke-width="3"/>
+      ${dots('income')}${dots('expenses')}
+      ${labels}
+    </svg>
+  </div>`;
 }
 
 function switchTab(tab){
@@ -966,6 +1078,8 @@ function renderResumen(calc, sharedTxs, partnerName, partnerIncome, totalIncome,
 
     ${catRows || `<div style="text-align:center;padding:20px;color:var(--text3);font-size:12px">${es?'Sin gastos del hogar este mes':'No household expenses this month'}<br><br><small>${es?'Al registrar un gasto, márcalo como "🏠 Del hogar"':'When adding an expense, mark it as "🏠 Household"'}</small></div>`}
   </div>
+
+  ${renderHogarTrendChart()}
 
   ${tip?`<div class="tip-box"><strong>💡 ${es?'¿Por qué no sobró más?':'Why wasn\'t there more left?'}</strong>${tip}</div>`:''}
 
@@ -2027,7 +2141,7 @@ function startInvite(){
 function showAcceptCode(){
   const es = lang==='es';
   const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);display:grid;place-items:center;z-index:100;backdrop-filter:blur(4px)';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;justify-content:center;align-items:flex-start;overflow-y:auto;padding:24px 12px;z-index:100;backdrop-filter:blur(4px)';
   overlay.innerHTML = `
   <div style="background:white;border-radius:18px;padding:24px;width:340px;max-width:calc(100vw-32px)">
     <div style="font-size:16px;font-weight:800;margin-bottom:6px">${es?'Ingresar código':'Enter code'}</div>
@@ -2212,7 +2326,8 @@ function setLang(l){
         fondos: loadFondos(),
         personalSpentThisMonth: personalSpentThisMonth,
         sharedRecurring: sharedRecurring,
-        servicios: (() => { try{ return JSON.parse(localStorage.getItem('ft_servicios')||'[]').slice(-20); }catch(e){ return []; } })()
+        servicios: (() => { try{ return JSON.parse(localStorage.getItem('ft_servicios')||'[]').slice(-20); }catch(e){ return []; } })(),
+        checking: (() => { try{ return JSON.parse(localStorage.getItem('ft_checking_balance')||'null'); }catch(e){ return null; } })()
       };
       const params = new URLSearchParams({
         action: 'saveProfile', email: user.email, name: user.name||'',

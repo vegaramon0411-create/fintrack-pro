@@ -20,8 +20,8 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
 .lt-opt.on{background:var(--g-main);color:white;}
 .btn{border:none;border-radius:12px;padding:12px 18px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;}
 .btn-primary{background:var(--purple);color:white;}
-.overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;place-items:center;z-index:150;}
-.overlay.open{display:grid;}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;justify-content:center;align-items:flex-start;overflow-y:auto;padding:24px 12px;z-index:150;}
+.overlay.open{display:flex;}
 .modal{background:var(--white);border-radius:20px;width:min(480px,calc(100vw - 24px));max-height:88vh;overflow-y:auto;padding:20px;}
 .field{margin-bottom:14px;}
 .field label{display:block;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;}
@@ -189,7 +189,8 @@ input, select, textarea { font-size: 16px !important; }
       <div class="more-item" onclick="go('scanner.html')"><div class="more-ico" style="background:rgba(123,94,167,.1)">📷</div><span data-es="Escanear" data-en="Scan">Escanear</span></div>
       <div class="more-item" onclick="go('importar.html')"><div class="more-ico" style="background:var(--blu-dim)">📥</div><span data-es="Importar CSV" data-en="Import CSV">Importar CSV</span></div>
       <div class="more-item" onclick="go('emergencia.html')"><div class="more-ico" style="background:var(--amb-dim)">🛡️</div><span data-es="Emergencia" data-en="Emergency">Emergencia</span></div>
-      <div class="more-item" onclick="go('suscripciones.html')"><div class="more-ico" style="background:rgba(123,94,167,.1)">🔄</div><span data-es="Suscripciones" data-en="Subscriptions">Suscripciones</span></div>
+      <div class="more-item" onclick="go('suscripciones.html')"><div class="more-ico" style="background:rgba(123,94,167,.1)">🔄</div>
+      <div class="more-item" onclick="go('recurrentes.html')"><div class="more-ico" style="background:rgba(74,108,247,.1)">📋</div><span data-es="Recurrentes" data-en="Recurring">Recurrentes</span></div><span data-es="Suscripciones" data-en="Subscriptions">Suscripciones</span></div>
       <div class="more-item" onclick="go('config.html')"><div class="more-ico" style="background:var(--off)">⚙️</div><span data-es="Config" data-en="Settings">Config</span></div>
       <div class="more-item" onclick="go('perfil.html')"><div class="more-ico" style="background:var(--blu-dim)">👤</div><span data-es="Perfil" data-en="Profile">Perfil</span></div>
     </div>
@@ -362,6 +363,16 @@ function render(){
         <div style="font-size:10px;font-weight:700;color:var(--blue);margin-bottom:4px">🛡️ ${es?'Fondo Emergencia':'Emergency Fund'}</div>
         <div style="font-size:11px;color:var(--text2)">${es?'Solo para emergencias reales · no tocar':'Only for real emergencies · don\'t touch'}</div>
       </div>
+    </div>
+  </div>
+
+  <!-- CÓMO FUNCIONA RETIRAR — para que nadie se quede sin saber qué pasa al tocar el botón -->
+  <div class="card" style="border-left:4px solid var(--g-main);background:var(--g-light)">
+    <div style="font-size:13px;font-weight:800;margin-bottom:8px;color:var(--g-dark)">✅ ${es?'¿Puedo retirar cuando quiera?':'Can I withdraw whenever I want?'}</div>
+    <div style="font-size:12px;color:var(--text2);line-height:1.6">
+      ${es
+        ? 'Sí, es tuyo — sin permisos ni preguntas. Si ese mes ya te pasaste de tu presupuesto personal, el retiro cubre automáticamente lo que falta, y lo que sobre lo usas libremente. No tienes que calcular nada ni elegir de dónde sale — se queda en el historial de aquí, visible, para que siempre sepas qué se usó y para qué.'
+        : 'Yes, it\'s yours — no permission needed. If you\'re already over your personal budget this month, the withdrawal automatically covers what\'s missing, and anything left over is yours to use freely. Nothing to calculate — it stays visible in this history so you always know what was used and why.'}
     </div>
   </div>
 
