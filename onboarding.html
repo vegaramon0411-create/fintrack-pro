@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>FinTrack Pro · Saldos iniciales</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--g-dark:#0F5132;--g-main:#1A7A4A;--g-light:#E8F7EF;--white:#fff;--off:#F7F8FC;--border:#E4E6F0;--text:#1A1D2E;--text2:#4A4E69;--text3:#9395A5;--red:#E63946;--red-dim:rgba(230,57,70,.1);--amber:#F4A261;--amb-dim:rgba(244,162,97,.12);--blue:#4A6CF7;--blu-dim:rgba(74,108,247,.1);--purple:#7B5EA7;--pur-dim:rgba(123,94,167,.1);}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{overflow-x:hidden;}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(--text);min-height:100vh;padding-bottom:110px;}
+.top{padding:24px 20px 16px;background:white;border-bottom:1px solid var(--border);}
+.top-title{font-size:20px;font-weight:800;margin-bottom:6px;}
+.top-sub{font-size:13px;color:var(--text3);line-height:1.5;}
+.page{padding:16px;max-width:520px;margin:0 auto;}
+.card{background:white;border-radius:18px;padding:18px;margin-bottom:14px;box-shadow:0 2px 12px rgba(0,0,0,.05);}
+.card-hd{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+.card-ico{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;font-size:18px;flex-shrink:0;}
+.card-title{font-size:14.5px;font-weight:800;}
+.card-sub{font-size:11px;color:var(--text3);margin-top:1px;}
+.field{margin-bottom:12px;}
+.field label{display:block;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;}
+.field input,.field select{width:100%;background:var(--off);border:1.5px solid var(--border);border-radius:10px;padding:11px 13px;font-size:14px;font-family:inherit;outline:none;}
+.field input:focus{border-color:var(--g-main);}
+.toggle-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:4px;}
+.toggle-btn{padding:9px;border-radius:10px;border:1.5px solid var(--border);font-size:12px;font-weight:700;cursor:pointer;background:var(--off);color:var(--text2);text-align:center;font-family:inherit;}
+.toggle-btn.on{border-color:var(--g-main);background:var(--g-light);color:var(--g-dark);}
+.meta-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;background:var(--off);border-radius:12px;padding:10px;}
+.meta-row input{flex:1;background:white;border:1.5px solid var(--border);border-radius:8px;padding:8px 10px;font-size:13px;font-family:inherit;}
+.cuenta-row{background:var(--off);border-radius:14px;padding:12px;margin-bottom:10px;}
+.cuenta-row-top{display:flex;gap:8px;margin-bottom:8px;}
+.cuenta-row-top input, .cuenta-row-top select{background:white;border:1.5px solid var(--border);border-radius:8px;padding:8px 10px;font-size:13px;font-family:inherit;}
+.cuenta-row-top .cuenta-nombre{flex:1.4;}
+.cuenta-row-top .cuenta-tipo{flex:1.3;}
+.cuenta-row-top .cuenta-monto{flex:1;max-width:100px;}
+.cuenta-toggle-row{display:grid;grid-template-columns:1fr 1fr auto;gap:6px;align-items:center;}
+.cuenta-toggle-btn{padding:7px;border-radius:8px;border:1.5px solid var(--border);font-size:11px;font-weight:700;cursor:pointer;background:white;color:var(--text2);text-align:center;font-family:inherit;}
+.cuenta-toggle-btn.on{border-color:var(--g-main);background:var(--g-light);color:var(--g-dark);}
+.cuenta-remove{cursor:pointer;color:var(--text3);font-size:16px;padding:0 4px;}
+.btn-add-meta{width:100%;background:none;border:1.5px dashed var(--border);border-radius:10px;padding:10px;font-size:12.5px;font-weight:700;color:var(--text3);cursor:pointer;font-family:inherit;}
+.footer{position:fixed;bottom:0;left:0;right:0;background:white;border-top:1px solid var(--border);padding:14px 16px;padding-bottom:calc(14px + env(safe-area-inset-bottom));display:flex;gap:10px;max-width:520px;margin:0 auto;}
+.btn{border:none;border-radius:14px;padding:14px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;flex:1;}
+.btn-primary{background:var(--g-main);color:white;}
+.btn-skip{background:var(--off);color:var(--text2);border:1.5px solid var(--border);flex:0 0 auto;padding:14px 18px;}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <div class="top-title">💰 ¿Con qué arrancas?</div>
+  <div class="top-sub">Pon lo que ya tienes hoy en cada lugar — así tus números salen exactos desde el primer día, no desde cero. Puedes cambiar esto después desde Perfil.</div>
+</div>
+
+<div class="page">
+
+  <!-- TUS CUENTAS — ilimitadas, agrega las que tengas -->
+  <div class="card">
+    <div class="card-hd">
+      <div class="card-ico" style="background:var(--pur-dim)">🏦</div>
+      <div><div class="card-title">Tus cuentas</div><div class="card-sub">Cheques, ahorro, emergencia, inversiones — las que tengas, personales o conjuntas</div></div>
+    </div>
+    <div id="cuentasList"></div>
+    <button class="btn-add-meta" onclick="addCuentaRow()">＋ Agregar cuenta</button>
+  </div>
+
+  <!-- APARTADOS / METAS -->
+  <div class="card">
+    <div class="card-hd">
+      <div class="card-ico" style="background:#FFE8F2">🎯</div>
+      <div><div class="card-title">Apartados para metas</div><div class="card-sub">Vacaciones, boda, lo que sea que ya estés guardando aparte</div></div>
+    </div>
+    <div id="metasList"></div>
+    <button class="btn-add-meta" onclick="addMetaRow()">＋ Agregar otro apartado</button>
+  </div>
+
+  <!-- DEUDAS -->
+  <div class="card">
+    <div class="card-hd">
+      <div class="card-ico" style="background:var(--red-dim)">💳</div>
+      <div><div class="card-title">Deudas</div><div class="card-sub">Tarjetas, préstamos, lo que debas</div></div>
+    </div>
+    <div style="font-size:12.5px;color:var(--text3);line-height:1.5">Esto se agrega con más detalle (pagos, fechas) directo en Deudas — puedes hacerlo justo después de esto.</div>
+  </div>
+
+</div>
+
+<div class="footer">
+  <button class="btn-skip" onclick="skipOnboarding()">Saltar por ahora</button>
+  <button class="btn btn-primary" onclick="saveOnboarding()">Guardar y continuar</button>
+</div>
+
+<script>
+let cuentaCount = 0;
+let metaCount = 0;
+
+const CUENTA_TIPOS = [
+  { value:'checking', label:'🏦 Cuenta de cheques' },
+  { value:'ahorro', label:'💵 Ahorro libre' },
+  { value:'emergencia', label:'🛡️ Fondo de emergencia' },
+  { value:'inversion', label:'📈 Inversión' },
+];
+
+function addCuentaRow(nombre, tipo, monto, hogar){
+  cuentaCount++;
+  const id = 'cuentaRow_'+cuentaCount;
+  const div = document.createElement('div');
+  div.className = 'cuenta-row';
+  div.id = id;
+  const opciones = CUENTA_TIPOS.map(t => `<option value="${t.value}" ${tipo===t.value?'selected':''}>${t.label}</option>`).join('');
+  div.innerHTML = `
+    <div class="cuenta-row-top">
+      <input type="text" placeholder="Nombre (ej. Cuenta conjunta)" class="ob-cuenta-nombre cuenta-nombre" value="${nombre||''}">
+      <select class="ob-cuenta-tipo cuenta-tipo">${opciones}</select>
+      <input type="number" placeholder="$0.00" step="0.01" min="0" class="ob-cuenta-monto cuenta-monto" value="${monto||''}">
+    </div>
+    <div class="cuenta-toggle-row">
+      <div class="cuenta-toggle-btn ${!hogar?'on':''}" onclick="setCuentaDest('${id}',false)" data-personal-btn>👤 Personal</div>
+      <div class="cuenta-toggle-btn ${hogar?'on':''}" onclick="setCuentaDest('${id}',true)" data-hogar-btn>🏠 Conjunta</div>
+      <div class="cuenta-remove" onclick="document.getElementById('${id}').remove()">✕</div>
+    </div>`;
+  div.dataset.hogar = hogar ? '1' : '0';
+  document.getElementById('cuentasList').appendChild(div);
+}
+
+function setCuentaDest(id, hogar){
+  const row = document.getElementById(id);
+  row.dataset.hogar = hogar ? '1' : '0';
+  row.querySelector('[data-personal-btn]').classList.toggle('on', !hogar);
+  row.querySelector('[data-hogar-btn]').classList.toggle('on', hogar);
+}
+
+// Un par de filas de ejemplo para empezar — se pueden borrar o editar libremente
+addCuentaRow('Cuenta personal', 'checking', '', false);
+addCuentaRow('Ahorro libre', 'ahorro', '', false);
+
+function addMetaRow(nombre, monto){
+  metaCount++;
+  const id = 'metaRow_'+metaCount;
+  const div = document.createElement('div');
+  div.className = 'meta-row';
+  div.id = id;
+  div.innerHTML = `
+    <input type="text" placeholder="Nombre (ej. Vacaciones)" class="ob-meta-nombre" value="${nombre||''}">
+    <input type="number" placeholder="$0.00" step="0.01" min="0" class="ob-meta-monto" style="max-width:110px" value="${monto||''}">
+    <div onclick="document.getElementById('${id}').remove()" style="cursor:pointer;color:var(--text3);font-size:16px;padding:0 4px">✕</div>`;
+  document.getElementById('metasList').appendChild(div);
+}
+addMetaRow(); // una fila vacía para empezar
+
+function skipOnboarding(){
+  localStorage.setItem('ft_onboarding_saldos_done', '1');
+  window.location.replace('dashboard.html');
+}
+
+function saveOnboarding(){
+  const user = JSON.parse(localStorage.getItem('ft_user')||sessionStorage.getItem('ft_user')||'{}');
+  const hoy = new Date().toISOString().split('T')[0];
+
+  // ── Recorrer todas las cuentas que el usuario haya agregado (ilimitadas) ──
+  const filas = document.querySelectorAll('.cuenta-row');
+  const checkingNuevas = []; // se agregan al arreglo existente, no lo reemplazan
+
+  filas.forEach(row => {
+    const nombre = row.querySelector('.ob-cuenta-nombre').value.trim();
+    const tipo = row.querySelector('.ob-cuenta-tipo').value;
+    const monto = parseFloat(row.querySelector('.ob-cuenta-monto').value)||0;
+    const hogar = row.dataset.hogar === '1';
+    if(!nombre || monto<=0) return;
+
+    if(tipo === 'checking'){
+      // Cuenta de cheques — de verdad múltiples cuentas nombradas, no un solo número.
+      checkingNuevas.push({ id:'chk_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), name:nombre, amount:monto, hogar, updatedAt:hoy });
+
+    } else if(tipo === 'ahorro'){
+      // Ahorro libre — un solo pool acumulado (así funciona ahorro.html), pero cada
+      // aportación queda nombrada en el historial para tu propia referencia.
+      const curBal = parseFloat(localStorage.getItem('ft_available_savings')||'0');
+      localStorage.setItem('ft_available_savings', (curBal+monto).toFixed(2));
+      let hist = []; try{ hist = JSON.parse(localStorage.getItem('ft_savings_hist')||'[]'); }catch(e){}
+      hist.push({ id:'onb_'+Date.now()+'_'+Math.random().toString(36).slice(2,5), tipo:'deposito', monto, fecha:hoy, nota:'Saldo inicial: '+nombre, cat:'' });
+      localStorage.setItem('ft_savings_hist', JSON.stringify(hist));
+
+    } else if(tipo === 'emergencia'){
+      // Fondo de emergencia — mismo trato: un pool por persona, nombrado en el historial.
+      let f = { emerg:{meta:0,actual:0,fecha:'',hist:[]}, metas:[] };
+      try{ const d = JSON.parse(localStorage.getItem('ft_hogar_fondos')); if(d) f = d; }catch(e){}
+      if(!f.emerg) f.emerg = {meta:0,actual:0,fecha:'',hist:[]};
+      if(!f.emerg.hist) f.emerg.hist = [];
+      f.emerg.hist.push({ id:'onb_'+Date.now()+'_'+Math.random().toString(36).slice(2,5), monto, fecha:hoy, desdePres:false, nota:'Saldo inicial: '+nombre });
+      f.emerg.actual = f.emerg.hist.reduce((a,h)=>a+(h.monto||0),0);
+      localStorage.setItem('ft_hogar_fondos', JSON.stringify(f));
+
+    } else if(tipo === 'inversion'){
+      // Inversión — ya es una lista, cada cuenta que agregues es su propia posición nombrada.
+      const entry = { id:'i_onb_'+Date.now()+'_'+Math.random().toString(36).slice(2,5), ticker:nombre.toUpperCase(), type:'otro', shares:1, avgPrice:monto, curPrice:monto, amount:monto, platform:'', modo:'yaLaTenia', fecha:hoy, addedBy:user.name||'', addedAt:new Date().toISOString() };
+      if(hogar){
+        let hogarInv = []; try{ hogarInv = JSON.parse(localStorage.getItem('ft_hogar_inv')||'[]'); }catch(e){}
+        hogarInv.push(entry);
+        localStorage.setItem('ft_hogar_inv', JSON.stringify(hogarInv));
+      } else {
+        let myInv = []; try{ myInv = JSON.parse(localStorage.getItem('ft_investments')||'[]'); }catch(e){}
+        myInv.push(entry);
+        localStorage.setItem('ft_investments', JSON.stringify(myInv));
+      }
+    }
+  });
+
+  if(checkingNuevas.length){
+    let checkingExistentes = []; try{ checkingExistentes = JSON.parse(localStorage.getItem('ft_checking_balance')||'[]'); }catch(e){}
+    if(!Array.isArray(checkingExistentes)) checkingExistentes = []; // por si venía del formato viejo (objeto único)
+    localStorage.setItem('ft_checking_balance', JSON.stringify([...checkingExistentes, ...checkingNuevas]));
+  }
+
+  // Apartados/metas — mismo storage que hogar.html (ft_hogar_fondos.metas[])
+  const nombres = document.querySelectorAll('.ob-meta-nombre');
+  const montos = document.querySelectorAll('.ob-meta-monto');
+  let f2 = { emerg:{meta:0,actual:0,fecha:'',hist:[]}, metas:[] };
+  try{ const d2 = JSON.parse(localStorage.getItem('ft_hogar_fondos')); if(d2) f2 = d2; }catch(e){}
+  if(!f2.metas) f2.metas = [];
+  let metasAgregadas = false;
+  nombres.forEach((inputNombre, i) => {
+    const nombre = inputNombre.value.trim();
+    const monto = parseFloat(montos[i].value)||0;
+    if(!nombre || monto<=0) return;
+    metasAgregadas = true;
+    f2.metas.push({
+      id: 'm_onb_'+Date.now()+'_'+i, nombre, meta: 0, actual: monto, fecha:'',
+      hist: [{ id:'onb_'+Date.now()+'_'+i, monto, fecha:hoy, desdePres:false, nota:'Saldo inicial' }]
+    });
+  });
+  if(metasAgregadas) localStorage.setItem('ft_hogar_fondos', JSON.stringify(f2));
+
+  localStorage.setItem('ft_onboarding_saldos_done', '1');
+  window.location.replace('dashboard.html');
+}
+
+// Si ya se hizo el onboarding antes, precargar las cuentas de cheques ya guardadas
+// para poder editarlas (esta pantalla es accesible después desde Perfil)
+(function preloadIfEditing(){
+  try{
+    let checkingExistentes = JSON.parse(localStorage.getItem('ft_checking_balance')||'[]');
+    if(!Array.isArray(checkingExistentes)) return; // formato viejo, no se puede precargar como filas
+    if(checkingExistentes.length){
+      document.getElementById('cuentasList').innerHTML = ''; // quita las filas de ejemplo
+      checkingExistentes.forEach(c => addCuentaRow(c.name, 'checking', c.amount, c.hogar));
+    }
+  }catch(e){}
+})();
+</script>
+</body>
+</html>

@@ -714,9 +714,18 @@ input, select, textarea { font-size: 16px !important; }
         </div>
       </div>
 
+      <!-- VER — mismo estilo de pills que ya tiene Hogar, para navegar sin buscar -->
+      <div style="font-size:11px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin:14px 4px 8px" data-es="Ver" data-en="View">Ver</div>
+      <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:14px">
+        <div style="flex-shrink:0;display:flex;align-items:center;gap:6px;padding:9px 14px;border-radius:20px;background:var(--g-main);color:white;font-size:12.5px;font-weight:700;white-space:nowrap">📊 <span data-es="Resumen" data-en="Summary">Resumen</span></div>
+        <div onclick="location.href='historial.html'" style="flex-shrink:0;cursor:pointer;display:flex;align-items:center;gap:6px;padding:9px 14px;border-radius:20px;border:1.5px solid var(--border);background:white;color:var(--text2);font-size:12.5px;font-weight:700;white-space:nowrap">📅 <span data-es="Historial gastos" data-en="Expense history">Historial gastos</span></div>
+        <div onclick="location.href='historial.html'" style="flex-shrink:0;cursor:pointer;display:flex;align-items:center;gap:6px;padding:9px 14px;border-radius:20px;border:1.5px solid var(--border);background:white;color:var(--text2);font-size:12.5px;font-weight:700;white-space:nowrap">💵 <span data-es="Historial ingresos" data-en="Income history">Historial ingresos</span></div>
+        <div onclick="location.href='analisis.html'" style="flex-shrink:0;cursor:pointer;display:flex;align-items:center;gap:6px;padding:9px 14px;border-radius:20px;border:1.5px solid var(--border);background:white;color:var(--text2);font-size:12.5px;font-weight:700;white-space:nowrap">📈 <span data-es="Análisis" data-en="Analysis">Análisis</span></div>
+      </div>
+
       <!-- ACCESOS RÁPIDOS — antes había que buscar cada sección en el menú -->
-      <div style="font-size:11px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin:14px 4px 8px" data-es="Accesos rápidos" data-en="Quick access">Accesos rápidos</div>
-      <div id="quickAccessGrid" style="display:flex;flex-direction:column;gap:8px;margin-bottom:6px"></div>
+      <div style="font-size:11px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin:0 4px 8px" data-es="Accesos rápidos" data-en="Quick access">Accesos rápidos</div>
+      <div id="quickAccessGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px"></div>
 
     </div>
 
@@ -2365,13 +2374,14 @@ function updateHeroDinero(){
   if(el('chipEmergency'))    el('chipEmergency').textContent    = fmt(emergency);
   if(el('chipInvested'))     el('chipInvested').textContent     = fmt(totalInvested);
   (() => {
-    let checking = null;
-    try{ checking = JSON.parse(localStorage.getItem('ft_checking_balance')||'null'); }catch(e){}
+    let checkingList = [];
+    try{ const raw = JSON.parse(localStorage.getItem('ft_checking_balance')||'[]'); checkingList = Array.isArray(raw) ? raw : (raw ? [raw] : []); }catch(e){}
+    const personalTotal = checkingList.filter(c=>!c.hogar).reduce((a,c)=>a+(parseFloat(c.amount)||0),0);
     const wrap = el('chipCheckingWrap');
     if(wrap){
-      if(checking && !checking.hogar && checking.amount>0){
+      if(personalTotal>0){
         wrap.style.display = '';
-        if(el('chipChecking')) el('chipChecking').textContent = fmt(checking.amount);
+        if(el('chipChecking')) el('chipChecking').textContent = fmt(personalTotal);
       } else {
         wrap.style.display = 'none'; // si es cuenta conjunta, ya se ve combinada en Hogar
       }

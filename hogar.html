@@ -784,15 +784,18 @@ function renderDashboard(hogar){
       <div style="font-size:10px;opacity:.6;margin-top:6px">${es?'Bote real en cuenta (recibido − gastado hogar)':'Real balance (received − household spent)'}: <b style="opacity:1">${fmt(botesReal)}</b></div>
     </div>
     ${(() => {
-      let myChecking=null, partnerChecking=null;
-      try{ myChecking = JSON.parse(localStorage.getItem('ft_checking_balance')||'null'); }catch(e){}
-      try{ partnerChecking = JSON.parse(localStorage.getItem('ft_partner_checking')||'null'); }catch(e){}
-      const myAmt = (myChecking && myChecking.hogar) ? (myChecking.amount||0) : 0;
-      const partnerAmt = (partnerChecking && partnerChecking.hogar) ? (partnerChecking.amount||0) : 0;
+      let myCheckingList=[], partnerCheckingList=[];
+      try{ const raw = JSON.parse(localStorage.getItem('ft_checking_balance')||'[]'); myCheckingList = Array.isArray(raw) ? raw : (raw ? [raw] : []); }catch(e){}
+      try{ const raw = JSON.parse(localStorage.getItem('ft_partner_checking')||'[]'); partnerCheckingList = Array.isArray(raw) ? raw : (raw ? [raw] : []); }catch(e){}
+      const myCuentas = myCheckingList.filter(c=>c.hogar);
+      const partnerCuentas = partnerCheckingList.filter(c=>c.hogar);
+      const myAmt = myCuentas.reduce((a,c)=>a+(parseFloat(c.amount)||0),0);
+      const partnerAmt = partnerCuentas.reduce((a,c)=>a+(parseFloat(c.amount)||0),0);
       if(!myAmt && !partnerAmt) return '';
       const total = myAmt + partnerAmt;
+      const nombres = [...myCuentas, ...partnerCuentas].map(c=>c.name).filter(Boolean).join(' · ');
       return `<div style="margin-top:10px;background:rgba(20,20,30,.045);border:1px solid rgba(20,20,30,.05);border-radius:10px;padding:10px 12px">
-        <div style="font-size:11px;opacity:.8;margin-bottom:6px">🏦 ${es?'Cuenta de cheques conjunta':'Joint checking account'}</div>
+        <div style="font-size:11px;opacity:.8;margin-bottom:6px">🏦 ${es?'Cuentas de cheques conjuntas':'Joint checking accounts'}${nombres?' · '+nombres:''}</div>
         <div style="font-size:20px;font-weight:800">${fmt(total)}</div>
         <div style="display:flex;gap:14px;margin-top:6px;font-size:10.5px;opacity:.75">
           <span>${user.name||(es?'Tú':'You')}: ${fmt(myAmt)}</span>
@@ -801,6 +804,42 @@ function renderDashboard(hogar){
       </div>`;
     })()}
   </div>
+
+  <!-- PATRIMONIO DEL HOGAR — combinado (inversiones + cuentas conjuntas + metas compartidas).
+       No incluye Ahorro libre ni Emergencia de cada quien: esos siguen siendo privados. -->
+  ${(() => {
+    let myHogarInv=[], myCheckingList=[], partnerCheckingList=[];
+    try{ myHogarInv = JSON.parse(localStorage.getItem('ft_hogar_inv')||'[]'); }catch(e){}
+    try{ const raw = JSON.parse(localStorage.getItem('ft_checking_balance')||'[]'); myCheckingList = Array.isArray(raw) ? raw : (raw ? [raw] : []); }catch(e){}
+    try{ const raw = JSON.parse(localStorage.getItem('ft_partner_checking')||'[]'); partnerCheckingList = Array.isArray(raw) ? raw : (raw ? [raw] : []); }catch(e){}
+
+    const invHogarTotal = myHogarInv.reduce((a,i)=>a+(parseFloat(i.amount)||0),0);
+    const checkTotal = [...myCheckingList, ...partnerCheckingList].filter(c=>c.hogar).reduce((a,c)=>a+(parseFloat(c.amount)||0),0);
+    let fondosData = { metas:[] }; try{ fondosData = loadFondos(); }catch(e){}
+    const metasTotal = (fondosData.metas||[]).reduce((a,m)=>a+(parseFloat(m.actual)||0),0);
+    const patrimonioHogar = invHogarTotal + checkTotal + metasTotal;
+
+    if(!patrimonioHogar) return '';
+    return `<div class="card" style="border-left:4px solid var(--purple)">
+      <div class="card-title">💎 ${es?'Patrimonio del hogar':'Household net worth'}</div>
+      <div class="card-sub">${es?'Solo lo compartido — tu ahorro y emergencia personal no se incluyen aquí':'Shared only — your personal savings and emergency fund aren\'t included here'}</div>
+      <div style="font-size:28px;font-weight:800;margin:8px 0 12px">${fmt(patrimonioHogar)}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+        <div style="background:var(--off);border-radius:10px;padding:9px;text-align:center">
+          <div style="font-size:9px;color:var(--text3);font-weight:700">🏦 ${es?'Cuentas conjuntas':'Joint accounts'}</div>
+          <div style="font-size:13px;font-weight:800;margin-top:2px">${fmt(checkTotal)}</div>
+        </div>
+        <div style="background:var(--off);border-radius:10px;padding:9px;text-align:center">
+          <div style="font-size:9px;color:var(--text3);font-weight:700">📈 ${es?'Inversión hogar':'Household inv.'}</div>
+          <div style="font-size:13px;font-weight:800;margin-top:2px">${fmt(invHogarTotal)}</div>
+        </div>
+        <div style="background:var(--off);border-radius:10px;padding:9px;text-align:center">
+          <div style="font-size:9px;color:var(--text3);font-weight:700">🎯 ${es?'Metas':'Goals'}</div>
+          <div style="font-size:13px;font-weight:800;margin-top:2px">${fmt(metasTotal)}</div>
+        </div>
+      </div>
+    </div>`;
+  })()}
 
   <!-- ACCESOS RÁPIDOS DEL HOGAR — antes "Servicios" era un botón perdido hasta abajo -->
   <div style="font-size:11px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin:14px 4px 8px">${es?'Accesos rápidos del hogar':'Household quick access'}</div>
@@ -894,17 +933,17 @@ function renderHogarQuickAccess(){
   const grid = document.getElementById('hogarQuickGrid');
   if(!grid) return;
 
-  let servicios=[], debts=[], invs=[], myChecking=null, partnerChecking=null;
+  let servicios=[], debts=[], invs=[], myCheckingList=[], partnerCheckingList=[];
   try{ servicios = JSON.parse(localStorage.getItem('ft_servicios')||'[]').filter(s=>!s.paused); }catch(e){}
   try{ debts = JSON.parse(localStorage.getItem('ft_debts')||'[]').filter(d=>d.owner==='both'||d.type==='hipoteca'||d.type==='hogar'); }catch(e){}
   try{ invs = JSON.parse(localStorage.getItem('ft_hogar_inv')||'[]'); }catch(e){}
-  try{ myChecking = JSON.parse(localStorage.getItem('ft_checking_balance')||'null'); }catch(e){}
-  try{ partnerChecking = JSON.parse(localStorage.getItem('ft_partner_checking')||'null'); }catch(e){}
+  try{ const raw = JSON.parse(localStorage.getItem('ft_checking_balance')||'[]'); myCheckingList = Array.isArray(raw) ? raw : (raw ? [raw] : []); }catch(e){}
+  try{ const raw = JSON.parse(localStorage.getItem('ft_partner_checking')||'[]'); partnerCheckingList = Array.isArray(raw) ? raw : (raw ? [raw] : []); }catch(e){}
 
   const servTotal = servicios.reduce((a,s)=>a+(parseFloat(s.amount)||0),0);
   const invTotal = invs.reduce((a,i)=>a+(parseFloat(i.amount)||0),0);
-  const myCheck = (myChecking && myChecking.hogar) ? (myChecking.amount||0) : 0;
-  const partnerCheck = (partnerChecking && partnerChecking.hogar) ? (partnerChecking.amount||0) : 0;
+  const myCheck = myCheckingList.filter(c=>c.hogar).reduce((a,c)=>a+(parseFloat(c.amount)||0),0);
+  const partnerCheck = partnerCheckingList.filter(c=>c.hogar).reduce((a,c)=>a+(parseFloat(c.amount)||0),0);
   const checkTotal = myCheck + partnerCheck;
 
   const items = [
