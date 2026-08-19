@@ -43,17 +43,18 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
 .sum-grid{margin-bottom:16px;}
 .sum-section{background:var(--white);border:1px solid var(--border);border-radius:16px;padding:14px;margin-bottom:10px;box-shadow:var(--shadow);min-width:0;}
 .sum-section-hd{font-size:10.5px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px;}
-.sum-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(6px,2vw,10px);}
-.sum-card{background:var(--off);border-radius:12px;padding:clamp(8px,3vw,12px) 6px;text-align:center;min-width:0;overflow:hidden;transition:transform .18s cubic-bezier(.16,1,.3,1),box-shadow .18s ease;animation:sumPop .35s cubic-bezier(.16,1,.3,1);}
-.sum-val{font-size:clamp(12px,4vw,15px);font-weight:800;overflow-wrap:break-word;line-height:1.2;}
-.sum-lbl{font-size:clamp(8.5px,2.6vw,10px);color:var(--text3);margin-top:2px;overflow-wrap:break-word;}
+.sum-list{display:flex;flex-direction:column;gap:2px;}
+.sum-line{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 4px;border-bottom:1px solid var(--off);min-width:0;}
+.sum-line:last-child{border-bottom:none;}
+.sum-line-lbl{font-size:12.5px;color:var(--text2);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.sum-line-val{font-size:14px;font-weight:800;flex-shrink:0;white-space:nowrap;}
 .sum-total{display:flex;flex-direction:column;gap:6px;font-size:11px;color:var(--text3);padding:12px 14px;background:var(--white);border:1px solid var(--border);border-radius:14px;margin-bottom:4px;min-width:0;}
 .sum-total-vals{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:11.5px;color:var(--text);}
 .sum-total-vals b{font-weight:800;}
 @keyframes sumPop{from{opacity:0;transform:translateY(4px) scale(.97);}to{opacity:1;transform:translateY(0) scale(1);}}
 @media(hover:hover){
   .tx-item:hover{background:var(--off);}
-  .sum-card:hover{transform:translateY(-2px);box-shadow:0 4px 14px -6px rgba(20,20,30,.15);}
+  .sum-line:hover{background:var(--off);border-radius:8px;}
   .card:hover{box-shadow:0 4px 20px rgba(0,0,0,.08);}
 }
 /* Mobile nav */
@@ -109,15 +110,14 @@ input, select, textarea { font-size: 16px !important; }
 @media(min-width:861px) and (max-width:1100px){
   :root{--sidebar:200px;}
   .page{padding:20px 24px;}
-  .sum-grid{gap:12px;}
 }
 
 /* ── DESKTOP GRANDE (1101px+): centrar contenido, evitar líneas eternas ── */
 @media(min-width:1101px){
   .page{padding:28px 32px;max-width:1040px;margin:0 auto;}
-  .sum-grid{gap:14px;}
-  .sum-card{padding:16px;}
-  .sum-val{font-size:17px;}
+  .sum-line{padding:11px 4px;}
+  .sum-line-lbl{font-size:13.5px;}
+  .sum-line-val{font-size:15px;}
   .card{padding:18px;}
   .month-label{font-size:16px;}
 }
@@ -375,19 +375,19 @@ function render(){
   document.getElementById('sumGrid').innerHTML = `
     <div class="sum-section">
       <div class="sum-section-hd">👤 ${es?'Personal':'Personal'}</div>
-      <div class="sum-row">
-        <div class="sum-card"><div class="sum-val" style="color:var(--g-main)">${fmt(pIncome)}</div><div class="sum-lbl">${es?'Ingresos':'Income'}</div></div>
-        <div class="sum-card"><div class="sum-val" style="color:var(--red)">${fmt(pExpense)}</div><div class="sum-lbl">${es?'Gastos':'Expenses'}</div></div>
-        <div class="sum-card"><div class="sum-val" style="color:var(--blue)">${fmt(pInvest)}</div><div class="sum-lbl">${es?'Inversiones':'Investments'}</div></div>
+      <div class="sum-list">
+        <div class="sum-line"><span class="sum-line-lbl">💰 ${es?'Ingresos':'Income'}</span><span class="sum-line-val" style="color:var(--g-main)">${fmt(pIncome)}</span></div>
+        <div class="sum-line"><span class="sum-line-lbl">💸 ${es?'Gastos':'Expenses'}</span><span class="sum-line-val" style="color:var(--red)">${fmt(pExpense)}</span></div>
+        <div class="sum-line"><span class="sum-line-lbl">📈 ${es?'Inversiones':'Investments'}</span><span class="sum-line-val" style="color:var(--blue)">${fmt(pInvest)}</span></div>
       </div>
     </div>
 
     <div class="sum-section">
       <div class="sum-section-hd">🏠 ${es?'Del hogar':'Household'}</div>
-      <div class="sum-row">
-        <div class="sum-card"><div class="sum-val" style="color:var(--g-main)">${fmt(hAportado)}</div><div class="sum-lbl">${es?'Aportado':'Contributed'}</div></div>
-        <div class="sum-card"><div class="sum-val" style="color:var(--red)">${fmt(hGastado)}</div><div class="sum-lbl">${es?'Gastos':'Expenses'}</div></div>
-        <div class="sum-card"><div class="sum-val" style="color:var(--blue)">${fmt(hIngreso)}</div><div class="sum-lbl">${es?'Ingreso':'Income'}</div></div>
+      <div class="sum-list">
+        <div class="sum-line"><span class="sum-line-lbl">💰 ${es?'Aportado':'Contributed'}</span><span class="sum-line-val" style="color:var(--g-main)">${fmt(hAportado)}</span></div>
+        <div class="sum-line"><span class="sum-line-lbl">💸 ${es?'Gastos':'Expenses'}</span><span class="sum-line-val" style="color:var(--red)">${fmt(hGastado)}</span></div>
+        <div class="sum-line"><span class="sum-line-lbl">📥 ${es?'Ingreso':'Income'}</span><span class="sum-line-val" style="color:var(--blue)">${fmt(hIngreso)}</span></div>
       </div>
     </div>
 
