@@ -903,11 +903,11 @@ function renderHogarQuickAccess(){
     { icon:'🏠', bg:'var(--blu-dim,rgba(74,108,247,.1))', label: es?'Servicios':'Services', sub: servicios.length ? fmt(servTotal)+'/'+(es?'mes':'mo') : (es?'Sin registrar':'None yet'), page:'servicios.html' },
     { icon:'💳', bg:'var(--red-dim,rgba(230,57,70,.1))', label: es?'Deudas':'Debts', sub: debts.length ? (es?`${debts.length} compartida(s)`:`${debts.length} shared`) : (es?'Sin deudas':'No debts'), page:'deudas.html' },
     { icon:'📈', bg:'var(--g-light,#E8F7EF)', label: es?'Inversiones':'Investments', sub: invs.length ? fmt(invTotal) : (es?'Sin registrar':'None yet'), page:'inversiones.html' },
-    { icon:'🏦', bg:'#FFF7ED', label: es?'Cuenta conjunta':'Joint account', sub: checkTotal>0 ? fmt(checkTotal) : (es?'Sin reportar':'Not reported'), page:'onboarding.html' },
+    { icon:'📋', bg:'var(--pur-dim,rgba(123,94,167,.1))', label: es?'Guía':'Guide', sub: es?'¿Cómo funciona esto?':'How does this work?', action:"switchTab('guia')" },
   ];
 
   grid.innerHTML = items.map(it => `
-    <div onclick="location.href='${it.page}'" style="display:flex;align-items:center;gap:10px;padding:12px;border-radius:16px;background:white;border:1px solid var(--border);box-shadow:0 2px 8px -4px rgba(20,20,30,.06);cursor:pointer">
+    <div onclick="${it.action || `location.href='${it.page}'`}" style="display:flex;align-items:center;gap:10px;padding:12px;border-radius:16px;background:white;border:1px solid var(--border);box-shadow:0 2px 8px -4px rgba(20,20,30,.06);cursor:pointer">
       <div style="width:34px;height:34px;border-radius:10px;background:${it.bg};display:grid;place-items:center;font-size:15px;flex-shrink:0">${it.icon}</div>
       <div style="flex:1;min-width:0">
         <div style="font-size:12.5px;font-weight:800;color:var(--text)">${it.label}</div>

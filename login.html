@@ -846,7 +846,8 @@ function animateRedirect() {
     fill.style.width = pct + '%';
     if (pct >= 100) {
       clearInterval(iv);
-      window.location.replace('dashboard.html');
+      // Usuario nuevo → primero saldos iniciales, luego Dashboard
+      window.location.replace('onboarding.html');
     }
   }, 40);
 }

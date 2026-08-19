@@ -274,6 +274,22 @@ function toMonthlyRec(amount, freq){
   return parseFloat(amount)||0;
 }
 
+function loadHogar(){ try{return JSON.parse(localStorage.getItem('ft_hogar'))||{connected:false};}catch(e){return{connected:false};} }
+function loadPartnerProfile(){
+  try {
+    const hogar = loadHogar();
+    if(!hogar.partnerEmail) return null;
+    const key = 'profile_'+hogar.partnerEmail.replace(/[^a-z0-9]/gi,'_');
+    const byKey = localStorage.getItem(key);
+    const bySlot = localStorage.getItem('ft_profile_B');
+    const fromKey = byKey ? JSON.parse(byKey) : null;
+    const fromSlot = bySlot ? JSON.parse(bySlot) : null;
+    if(fromKey && (fromKey.income||0) > 0) return fromKey;
+    if(fromSlot && (fromSlot.income||0) > 0) return fromSlot;
+    return fromKey || fromSlot;
+  } catch(e){ return null; }
+}
+
 function lastAppliedFor(r){
   try{
     if(r.kind==='debt'){
@@ -308,6 +324,25 @@ function lastAppliedFor(r){
 function loadAllRecurring(){
   const items = [];
   let recurring=[]; try{ recurring = JSON.parse(localStorage.getItem('ft_recurring')||'[]'); }catch(e){}
+
+  // Traer también los recurrentes de deuda compartida que subió la pareja
+  // (sharedRecurring), por si el merge de fondo en Dashboard/Deudas aún no corrió
+  // en este dispositivo — así "Recurrentes" siempre muestra la imagen completa:
+  // lo tuyo Y lo de tu pareja sobre la misma deuda/hogar, no solo tu mitad.
+  const partnerProfile = loadPartnerProfile();
+  const partnerShared = (partnerProfile && partnerProfile.data && partnerProfile.data.sharedRecurring) || [];
+  const seenIds = new Set(recurring.map(r=>String(r.id)));
+  partnerShared.forEach(r=>{
+    if(!seenIds.has(String(r.id))){ recurring.push(r); seenIds.add(String(r.id)); }
+  });
+
+  let myDebts=[]; try{ myDebts = JSON.parse(localStorage.getItem('ft_debts')||'[]'); }catch(e){}
+  const partnerDebts = (partnerProfile && partnerProfile.data && partnerProfile.data.sharedDebts) || [];
+  function debtNameFor(debtId){
+    const d = myDebts.find(x=>String(x.id)===String(debtId)) || partnerDebts.find(x=>String(x.id)===String(debtId));
+    return d ? d.name : null;
+  }
+
   recurring.filter(r=>r.active).forEach(r=>{
     const kindMeta = {
       debt:      {icon:'💳', label:{es:'Abono a deuda',en:'Debt payment'}, page:'deudas.html', filterKey:'debt'},
@@ -315,8 +350,9 @@ function loadAllRecurring(){
       ahorro:    {icon:'💵', label:{es:'Ahorro',en:'Savings'}, page:'ahorro.html', filterKey:'ahorro'},
       inversion: {icon:'📈', label:{es:'Inversión',en:'Investment'}, page:'inversiones.html', filterKey:'inversion'},
     }[r.kind] || {icon:'🔄', label:{es:'Recurrente',en:'Recurring'}, page:'dashboard.html', filterKey:'other'};
+    const resolvedName = r.kind==='debt' ? (debtNameFor(r.debtId) || kindMeta.label[lang]) : (r.desc || kindMeta.label[lang]);
     items.push({
-      name: r.desc || r.payerLabel || kindMeta.label[lang],
+      name: resolvedName,
       amount: r.amount, freq: r.freq, nextDate: r.nextDate,
       icon: kindMeta.icon, typeLabel: kindMeta.label[lang], page: kindMeta.page,
       filterKey: kindMeta.filterKey, who: r.payerLabel || '', lastApplied: lastAppliedFor(r)

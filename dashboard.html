@@ -695,7 +695,7 @@ input, select, textarea { font-size: 16px !important; }
             <div data-es="🛡️ Fondo emergencia" data-en="🛡️ Emergency fund">🛡️ Emergencia</div>
             <div class="hc-val" id="chipEmergency">$0</div>
           </div>
-          <div class="hero-chip">
+          <div class="hero-chip" onclick="event.stopPropagation();go('inversiones.html')" style="cursor:pointer">
             <div data-es="📈 Inversiones" data-en="📈 Investments">📈 Inversiones</div>
             <div class="hc-val" id="chipInvested">$0</div>
           </div>
@@ -703,10 +703,10 @@ input, select, textarea { font-size: 16px !important; }
             <div data-es="🏦 Cuenta de cheques" data-en="🏦 Checking account">🏦 Cuenta de cheques</div>
             <div class="hc-val" id="chipChecking">$0</div>
           </div>
-          <div class="hero-chip" id="chipPersonalWrap" style="display:none">
+          <div class="hero-chip" id="chipPersonalWrap" style="display:none;cursor:pointer" onclick="event.stopPropagation();explainDashNumber('disponiblePersonal')">
             <div data-es="👤 Disponible personal" data-en="👤 Personal available">👤 Disponible personal</div>
             <div class="hc-val" id="chipPersonalDisp">$0</div>
-            <div style="font-size:9px;opacity:.85;margin-top:2px"><span style="background:rgba(20,20,30,.07);padding:2px 6px;border-radius:20px;font-weight:700" data-es="💵 Real" data-en="💵 Real">💵 Real</span> <span data-es="de lo ya recibido" data-en="of what's been received">de lo ya recibido</span></div>
+            <div style="font-size:9px;opacity:.85;margin-top:2px"><span style="background:rgba(20,20,30,.07);padding:2px 6px;border-radius:20px;font-weight:700" data-es="💵 Real" data-en="💵 Real">💵 Real</span> <span data-es="de lo ya recibido" data-en="of what's been received">de lo ya recibido</span> <span style="opacity:.6">ⓘ</span></div>
           </div>
         </div>
         <div style="margin-top:10px;background:rgba(20,20,30,.045);border-radius:12px;padding:10px">
@@ -729,7 +729,7 @@ input, select, textarea { font-size: 16px !important; }
     <div id="dashPaneResumen">
       <!-- RESUMEN DEL MES — mismo grupo visual que el hero: "dónde estoy parado" -->
       <div class="kpi-row">
-        <div class="kpi">
+        <div class="kpi" onclick="go('historial.html?filter=ingreso')" style="cursor:pointer">
           <div class="kpi-top">
             <div class="kpi-ico" style="background:var(--g-light)">💰</div>
             <div class="kpi-delta dg" data-es="Este mes" data-en="This month">Este mes</div>
@@ -741,7 +741,7 @@ input, select, textarea { font-size: 16px !important; }
             <polyline fill="none" stroke="var(--g-main)" stroke-width="2" points="0,32 20,28 40,30 60,18 80,20 100,14 120,12"/>
           </svg></div>
         </div>
-        <div class="kpi">
+        <div class="kpi" onclick="go('historial.html?filter=gasto')" style="cursor:pointer">
           <div class="kpi-top">
             <div class="kpi-ico" style="background:var(--red-dim)">💸</div>
             <div class="kpi-delta dr" id="kpiSpentDelta">0%</div>
@@ -753,7 +753,7 @@ input, select, textarea { font-size: 16px !important; }
             <polyline fill="none" stroke="var(--red)" stroke-width="2" stroke-dasharray="3,3" points="0,35 20,35 40,35 60,35 80,35 100,35 120,35"/>
           </svg></div>
         </div>
-        <div class="kpi">
+        <div class="kpi" onclick="explainDashNumber('savingsGoal')" style="cursor:pointer">
           <div class="kpi-top">
             <div class="kpi-ico" style="background:var(--blu-dim)">📈</div>
             <div class="kpi-delta db" data-es="Meta" data-en="Goal">Meta</div>
@@ -765,7 +765,7 @@ input, select, textarea { font-size: 16px !important; }
             <polyline fill="none" stroke="var(--blue)" stroke-width="2" points="0,38 20,35 40,30 60,30 80,25 100,20 120,16"/>
           </svg></div>
         </div>
-        <div class="kpi">
+        <div class="kpi" onclick="go('emergencia.html')" style="cursor:pointer">
           <div class="kpi-top">
             <div class="kpi-ico" style="background:var(--amb-dim)">🛡️</div>
             <div class="kpi-delta da">0%</div>
@@ -1331,6 +1331,70 @@ function renderTrendBarChart(){
   document.getElementById('trendMonthDetail').innerHTML =
     `<strong>${d.label}</strong> — ${es?'Ingreso':'Income'} ${fmt(d.ingreso)} · ${es?'Gasto':'Expense'} ${fmt(d.gasto)} · ` +
     `<span style="color:${sobro>=0?'var(--g-main)':'var(--red)'};font-weight:700">${es?'Sobró':'Left over'} ${fmt(sobro)}</span>`;
+}
+
+function explainDashNumber(kind){
+  const es = lang==='es';
+  const data = loadData();
+  const income = user.income || 0;
+  const hogar = (() => { try{ return JSON.parse(localStorage.getItem('ft_hogar')||'{}'); }catch(e){ return {}; } })();
+  const hogarConnected = !!(hogar.connected && !hogar.manuallyLeft);
+  const now = getViewDate();
+  const mesKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const txs = (data.transactions||[]).filter(t=>String(t.date||'').startsWith(mesKey));
+
+  let title, rows;
+
+  if(kind==='disponiblePersonal'){
+    const payPct = parseFloat(hogar.payPctHogar)||50;
+    const savePct = parseFloat(hogar.saveHogarPct)||10;
+    const persPct = hogarConnected ? (100 - (payPct+savePct)) : 100;
+    const incomeTxs = txs.filter(t=>t.type==='ingreso');
+    const chequeRecv = incomeTxs.filter(t=>t.incomeKind!=='extra' && t.incomeKind!=='cobertura').reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
+    const extraRecv = incomeTxs.filter(t=>t.incomeKind==='extra').reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
+    const coberturaRecv = incomeTxs.filter(t=>t.incomeKind==='cobertura').reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
+    const personalBudget = hogarConnected ? (chequeRecv*persPct/100 + extraRecv + coberturaRecv) : (income + coberturaRecv);
+    const gastado = txs.filter(t=>(t.type==='gasto'||t.type==='suscripcion'||t.type==='hipoteca') && t.hogar!==true).reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
+    const ahorrado = txs.filter(t=>t.type==='ahorro' && t.hogar!==true).reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
+    const invertido = txs.filter(t=>t.type==='inversion' && t.hogar!==true).reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
+    const total = personalBudget - gastado - ahorrado - invertido;
+    title = es?'¿De dónde sale tu Disponible personal?':'Where does your Personal available come from?';
+    rows = [
+      [hogarConnected?`${es?'Recibido':'Received'} (${persPct}% ${es?'personal':'personal'})`:(es?'Ingreso recibido':'Income received'), fmt(personalBudget-extraRecv-coberturaRecv)],
+      ...(extraRecv>0?[[es?'+ Ingreso extra':'+ Extra income', fmt(extraRecv)]]:[]),
+      ...(coberturaRecv>0?[[es?'+ Cobertura de sobregiro':'+ Overspend coverage', fmt(coberturaRecv)]]:[]),
+      [es?'− Gastado':'− Spent', '-'+fmt(gastado)],
+      [es?'− Ahorrado':'− Saved', '-'+fmt(ahorrado)],
+      [es?'− Invertido':'− Invested', '-'+fmt(invertido)],
+      [es?'= Disponible personal':'= Personal available', fmt(total)],
+    ];
+  } else if(kind==='savingsGoal'){
+    const _hogarConnChk = hogarConnected;
+    const personalBase = _hogarConnChk ? income * (100-((parseFloat(hogar.payPctHogar)||50)+(parseFloat(hogar.saveHogarPct)||10)))/100 : income;
+    const savings = _hogarConnChk ? Math.round(personalBase*.20) : (user.savings || Math.round(personalBase*.20));
+    title = es?'¿De dónde sale tu Meta de ahorro?':'Where does your Savings goal come from?';
+    rows = [
+      [_hogarConnChk?(es?'Tu ingreso personal (después de hogar)':'Your personal income (after household)'):(es?'Tu ingreso mensual':'Your monthly income'), fmt(personalBase)],
+      [es?'× 20% (regla 50/30/20)':'× 20% (50/30/20 rule)', fmt(savings)],
+    ];
+  } else {
+    return;
+  }
+
+  const ov = document.createElement('div');
+  ov.id = '_explainOv';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:600;display:flex;align-items:center;justify-content:center;padding:20px';
+  ov.onclick = (e)=>{ if(e.target===ov) ov.remove(); };
+  ov.innerHTML = `<div style="background:white;border-radius:16px;padding:20px;max-width:340px;width:100%">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div style="font-size:15px;font-weight:800">${title}</div>
+      <div onclick="document.getElementById('_explainOv').remove()" style="cursor:pointer;font-size:18px;color:var(--text3)">✕</div>
+    </div>
+    ${rows.map(r=>`<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--off);font-size:13px">
+      <span style="color:var(--text2)">${r[0]}</span><span style="font-weight:700">${r[1]}</span>
+    </div>`).join('')}
+  </div>`;
+  document.body.appendChild(ov);
 }
 
 function prevMonth(){ selectedMonthOffset--; renderDashboard(); }
