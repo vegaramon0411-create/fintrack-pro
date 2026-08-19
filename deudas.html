@@ -20,6 +20,7 @@
   --shadow-md:0 4px 24px rgba(0,0,0,.09);
 }
 *{margin:0;padding:0;box-sizing:border-box;}
+html,body{overflow-x:hidden;max-width:100vw;}
 body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(--text);min-height:100vh;}
 .app{display:flex;min-height:100vh;}
 
@@ -57,7 +58,8 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
 .lt-opt.on{background:var(--g-main);color:white;}
 
 /* PAGE */
-.page{padding:24px 28px 40px;}
+.page{padding:24px 28px 40px;overflow-x:hidden;}
+.page [style*="grid-template-columns"] > *{min-width:0;}
 
 /* DEBT CARDS */
 .debt-grid{display:grid;gap:14px;}
@@ -1545,6 +1547,28 @@ function guardarAbono(){
 
   saveDebts(debts);
 
+  // Si esta deuda ya tenía un recurrente activo y el pago manual cae en o después de su
+  // próxima fecha, se avanza el recurrente para que el motor automático no lo vuelva a
+  // aplicar (bug real: pago manual + automático mismo día duplicaba el abono).
+  if(_existenteChk && abonoTipo==='nuevo' && _existenteChk.nextDate && fecha >= _existenteChk.nextDate){
+    try{
+      let recurring = JSON.parse(localStorage.getItem('ft_recurring')||'[]');
+      const ri = recurring.findIndex(r=>String(r.id)===String(_existenteChk.id));
+      if(ri>=0){
+        let guard = 0;
+        while(recurring[ri].nextDate && recurring[ri].nextDate <= fecha && guard < 60){
+          const dt = new Date(recurring[ri].nextDate+'T00:00:00');
+          if(recurring[ri].freq==='weekly') dt.setDate(dt.getDate()+7);
+          else if(recurring[ri].freq==='biweekly') dt.setDate(dt.getDate()+14);
+          else dt.setMonth(dt.getMonth()+1);
+          recurring[ri].nextDate = dt.toISOString().split('T')[0];
+          guard++;
+        }
+        localStorage.setItem('ft_recurring', JSON.stringify(recurring));
+      }
+    }catch(e){}
+  }
+
   // Crear recurrente si el usuario lo pidió
   const wantsRecurrente = document.getElementById('abonarRecurrenteCheck')?.checked;
   if(wantsRecurrente){
@@ -1698,9 +1722,11 @@ function deleteAbono(debtId, abonoId){
   if(aIdx<0) return;
   const a = debt.abonos[aIdx];
 
-  // Revertir saldo
-  debt.balance = parseFloat(debt.balance||0) + parseFloat(a.monto||0);
+  // Revertir saldo — recalculado desde 'original' menos los abonos restantes,
+  // igual que el resto del sync (más robusto que sumar de vuelta al balance actual).
   debt.abonos.splice(aIdx,1);
+  const original = debt.original!=null ? debt.original : (parseFloat(debt.balance||0) + parseFloat(a.monto||0));
+  debt.balance = Math.max(0, original - debt.abonos.reduce((s,x)=>s+(parseFloat(x.monto)||0),0));
   saveDebts(debts);
 
   // Sincronizar con historial (ft_data)

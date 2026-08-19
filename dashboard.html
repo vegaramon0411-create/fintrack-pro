@@ -3939,7 +3939,7 @@ function _applyRecurringMeta(rec, hoyStr){
     const f = JSON.parse(localStorage.getItem('ft_hogar_fondos')||'null') || { emerg:{meta:0,actual:0,fecha:'',hist:[]}, metas:[] };
     // Protección real contra duplicados — igual que en deudas, sin importar el estado de nextDate.
     const histRef = rec.metaTipo==='emerg' ? (f.emerg.hist||[]) : ((rec.metaId!=null ? f.metas.find(m=>m.id===rec.metaId) : f.metas[rec.metaIdx])||{}).hist||[];
-    if(histRef.some(h=>h.recId===rec.id && h.fecha===hoyStr)) return 'already';
+    if(histRef.some(h=>h.fecha===hoyStr && (h.recId===rec.id || !h.recId))) return 'already';
     const entry = { id:'d_'+Date.now()+'_'+Math.floor(Math.random()*1000), monto:rec.amount, fecha:hoyStr, desdePres:rec.desdePres, auto:true, recId:rec.id };
     if(rec.metaTipo==='emerg'){
       f.emerg.hist = f.emerg.hist||[]; f.emerg.hist.push(entry);
@@ -3966,7 +3966,7 @@ function _applyRecurringMeta(rec, hoyStr){
 function _applyRecurringAhorro(rec, hoyStr){
   try{
     const hist = JSON.parse(localStorage.getItem('ft_savings_hist')||'[]');
-    if(hist.some(h=>h.recId===rec.id && h.fecha===hoyStr)) return 'already';
+    if(hist.some(h=>h.fecha===hoyStr && (h.recId===rec.id || !h.recId))) return 'already';
     addFreeSavingsEntry({ id: Date.now(), amount: rec.amount, date: hoyStr, note: rec.desc, recId: rec.id });
     return 'applied';
   } catch(e){ return 'broken'; }
@@ -3990,7 +3990,9 @@ function _applyRecurringDebt(rec, hoyStr){
     // Protección real contra duplicados: sin importar qué tan desincronizado esté
     // nextDate (por ejemplo, si un sync trajo una copia vieja de la pareja), si ya
     // existe un abono de ESTE recurrente en ESTA fecha, no se vuelve a aplicar.
-    const yaExiste = (d.abonos||[]).some(a=>a.recId===rec.id && a.fecha===hoyStr);
+    // También cubre el caso de un abono MANUAL hecho el mismo día (sin recId) —
+    // si ya hay CUALQUIER abono en esa fecha exacta para esta deuda, se considera cubierto.
+    const yaExiste = (d.abonos||[]).some(a=>a.fecha===hoyStr && (a.recId===rec.id || !a.recId));
     if(yaExiste) return 'already';
     const oldBalance = parseFloat(d.balance)||0;
     const newBalance = Math.max(0, oldBalance - rec.amount);
