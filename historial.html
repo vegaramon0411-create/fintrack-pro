@@ -24,7 +24,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
 .month-btn{background:var(--off);border:1.5px solid var(--border);border-radius:10px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s ease;}
 .month-btn:hover{background:var(--g-light);border-color:var(--g-main);}
 .month-btn:active{transform:scale(.94);}
-.month-label{font-size:15px;font-weight:800;flex:1;text-align:center;}
+.month-label{font-size:clamp(13px,4vw,16px);font-weight:800;flex:1;text-align:center;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 /* Filter tabs */
 .filter-row{display:flex;gap:6px;overflow-x:auto;margin-bottom:14px;padding-bottom:2px;}
 .filter-btn{flex-shrink:0;background:var(--off);border:1.5px solid var(--border);border-radius:20px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;color:var(--text3);font-family:inherit;transition:all .15s ease;}
@@ -41,13 +41,15 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
 .tx-amount{font-size:14px;font-weight:800;flex-shrink:0;}
 /* Summary */
 .sum-grid{margin-bottom:16px;}
-.sum-section{background:var(--white);border:1px solid var(--border);border-radius:16px;padding:14px;margin-bottom:10px;box-shadow:var(--shadow);}
+.sum-section{background:var(--white);border:1px solid var(--border);border-radius:16px;padding:14px;margin-bottom:10px;box-shadow:var(--shadow);min-width:0;}
 .sum-section-hd{font-size:10.5px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px;}
-.sum-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;}
-.sum-card{background:var(--off);border-radius:12px;padding:12px;text-align:center;min-width:0;transition:transform .18s cubic-bezier(.16,1,.3,1),box-shadow .18s ease;animation:sumPop .35s cubic-bezier(.16,1,.3,1);}
-.sum-val{font-size:15px;font-weight:800;word-break:break-word;}
-.sum-lbl{font-size:10px;color:var(--text3);margin-top:2px;}
-.sum-total{display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--text3);padding:12px 14px;background:var(--white);border:1px solid var(--border);border-radius:14px;margin-bottom:4px;flex-wrap:wrap;gap:4px;}
+.sum-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(6px,2vw,10px);}
+.sum-card{background:var(--off);border-radius:12px;padding:clamp(8px,3vw,12px) 6px;text-align:center;min-width:0;overflow:hidden;transition:transform .18s cubic-bezier(.16,1,.3,1),box-shadow .18s ease;animation:sumPop .35s cubic-bezier(.16,1,.3,1);}
+.sum-val{font-size:clamp(12px,4vw,15px);font-weight:800;overflow-wrap:break-word;line-height:1.2;}
+.sum-lbl{font-size:clamp(8.5px,2.6vw,10px);color:var(--text3);margin-top:2px;overflow-wrap:break-word;}
+.sum-total{display:flex;flex-direction:column;gap:6px;font-size:11px;color:var(--text3);padding:12px 14px;background:var(--white);border:1px solid var(--border);border-radius:14px;margin-bottom:4px;min-width:0;}
+.sum-total-vals{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:11.5px;color:var(--text);}
+.sum-total-vals b{font-weight:800;}
 @keyframes sumPop{from{opacity:0;transform:translateY(4px) scale(.97);}to{opacity:1;transform:translateY(0) scale(1);}}
 @media(hover:hover){
   .tx-item:hover{background:var(--off);}
@@ -391,7 +393,10 @@ function render(){
 
     <div class="sum-total">
       <span>${es?'Total combinado':'Combined total'}</span>
-      <span style="font-weight:700;color:var(--text)">${es?'Ingresos':'Income'} ${fmt(totalIncome)} · ${es?'Gastos':'Expenses'} ${fmt(totalExpense)}</span>
+      <div class="sum-total-vals">
+        <span>${es?'Ingresos':'Income'} <b>${fmt(totalIncome)}</b></span>
+        <span>${es?'Gastos':'Expenses'} <b>${fmt(totalExpense)}</b></span>
+      </div>
     </div>
   `;
 
