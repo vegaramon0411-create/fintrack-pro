@@ -73,6 +73,12 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
 
 input, select, textarea { font-size: 16px !important; }
 @media(max-width:860px){.sidebar{display:none;}.main{margin-left:0;}.mob-nav{display:flex!important;}}
+
+@media(max-width:520px){
+  .topbar{flex-wrap:wrap;row-gap:10px;}
+  .topbar-title{flex:1 1 100%;order:1;}
+  .topbar > div:last-child{order:2;width:100%;flex-wrap:wrap;justify-content:flex-start!important;}
+}
 </style>
 </head>
 <body>
@@ -114,8 +120,8 @@ input, select, textarea { font-size: 16px !important; }
       <div class="lt-opt on" id="ltES" onclick="setLang('es')">ES</div>
       <div class="lt-opt" id="ltEN" onclick="setLang('en')">EN</div>
     </div>
-    <button class="btn btn-primary" style="width:auto;padding:8px 12px;font-size:12px;white-space:nowrap;background:var(--off);color:var(--text2);border:1.5px solid var(--border)" onclick="openWithdraw()" data-es="↩ Retirar" data-en="↩ Withdraw">↩ Retirar</button>
-    <button class="btn btn-primary" style="width:auto;padding:8px 12px;font-size:12px;white-space:nowrap;" onclick="openDeposit()" data-es="+ Agregar depósito" data-en="+ Add deposit">+ Agregar depósito</button>
+    <button class="btn btn-primary" style="width:auto;padding:8px 12px;font-size:12px;white-space:nowrap;background:var(--off);color:var(--text2);border:1.5px solid var(--border)" onclick="openWithdraw()">↩ <span data-es="Retirar" data-en="Withdraw">Retirar</span></button>
+    <button class="btn btn-primary" style="width:auto;padding:8px 12px;font-size:12px;white-space:nowrap;" onclick="openDeposit()">+ <span data-es="Depositar" data-en="Deposit">Depositar</span></button>
   </div>
 </div>
 
@@ -235,6 +241,43 @@ function setLang(l){
   render();
 }
 
+function explainEmergNumber(kind){
+  const es = lang==='es';
+  const d = loadData();
+  const bal = parseFloat(d.emergency)||0;
+  const inc = parseFloat(user.income)||3000;
+  const target = inc * 3;
+  const hist = loadHist();
+
+  let title, rows;
+  if(kind==='saldo'){
+    title = es?'¿De dónde sale este saldo?':'Where does this balance come from?';
+    rows = hist.slice().reverse().slice(0,6).map(h=>[h.note||(es?'Depósito':'Deposit')+' · '+h.date, (h.amount<0?'-':'+')+fmt(Math.abs(h.amount))]);
+    if(!rows.length) rows = [[es?'Sin movimientos todavía':'No movements yet','']];
+  } else {
+    title = es?'¿De dónde sale la meta?':'Where does the goal come from?';
+    rows = [
+      [es?'Tu ingreso mensual':'Your monthly income', fmt(inc)],
+      [es?'× 3 meses (regla estándar de colchón de emergencia)':'× 3 months (standard emergency cushion rule)', fmt(target)],
+    ];
+  }
+
+  const ov = document.createElement('div');
+  ov.id = '_explainOv';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:600;display:flex;align-items:center;justify-content:center;padding:20px';
+  ov.onclick = (e)=>{ if(e.target===ov) ov.remove(); };
+  ov.innerHTML = `<div style="background:white;border-radius:16px;padding:20px;max-width:340px;width:100%">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div style="font-size:15px;font-weight:800">${title}</div>
+      <div onclick="document.getElementById('_explainOv').remove()" style="cursor:pointer;font-size:18px;color:var(--text3)">✕</div>
+    </div>
+    ${rows.map(r=>`<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--off);font-size:13px">
+      <span style="color:var(--text2)">${r[0]}</span><span style="font-weight:700">${r[1]}</span>
+    </div>`).join('')}
+  </div>`;
+  document.body.appendChild(ov);
+}
+
 function render(){
   const d = loadData();
   const bal = parseFloat(d.emergency)||0;
@@ -245,9 +288,11 @@ function render(){
 
   document.getElementById('heroCard').innerHTML = `
     <div style="text-align:center;padding:8px 0 16px">
-      <div style="font-size:11px;color:var(--text3);margin-bottom:4px">${es?'Saldo actual':'Current balance'}</div>
-      <div style="font-size:36px;font-weight:800;color:var(--amber);letter-spacing:-.5px">${fmt(bal)}</div>
-      <div style="font-size:12px;color:var(--text3);margin-top:4px">${es?'Meta':'Goal'}: ${fmt(target)} (${es?'3 meses de ingreso':'3 months income'})</div>
+      <div onclick="explainEmergNumber('saldo')" style="cursor:pointer;display:inline-block">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:4px">${es?'Saldo actual':'Current balance'} <span style="opacity:.5">ⓘ</span></div>
+        <div style="font-size:36px;font-weight:800;color:var(--amber);letter-spacing:-.5px">${fmt(bal)}</div>
+      </div>
+      <div onclick="explainEmergNumber('meta')" style="cursor:pointer;font-size:12px;color:var(--text3);margin-top:4px">${es?'Meta':'Goal'}: ${fmt(target)} (${es?'3 meses de ingreso':'3 months income'}) <span style="opacity:.5">ⓘ</span></div>
     </div>
     <div style="background:var(--border);border-radius:100px;height:10px;overflow:hidden;margin-bottom:8px">
       <div style="height:100%;border-radius:100px;background:var(--amber);width:${pct}%;transition:width .8s ease"></div>

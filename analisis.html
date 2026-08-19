@@ -67,6 +67,12 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
   .mob-nav{display:flex!important;}
 }
 .trend-chart{width:100%;max-height:180px;display:block;}
+
+@media(max-width:520px){
+  .topbar{flex-wrap:wrap;row-gap:10px;}
+  .topbar-title{flex:1 1 100%;order:1;}
+  .topbar > div:last-child{order:2;width:100%;flex-wrap:wrap;justify-content:flex-start!important;}
+}
 </style>
 </head>
 <body>
