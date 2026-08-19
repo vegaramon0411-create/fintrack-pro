@@ -728,12 +728,12 @@ input, select, textarea { font-size: 16px !important; }
     <!-- PESTAÑA: RESUMEN -->
     <div id="dashPaneResumen">
       <div style="font-size:11px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin:0 4px 8px" data-es="Accesos rápidos" data-en="Quick access">Accesos rápidos</div>
-      <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:14px">
-        <div onclick="go('historial.html')" style="cursor:pointer;background:var(--off);border:1.5px solid var(--border);border-radius:14px;padding:12px 6px;text-align:center">
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:14px">
+        <div onclick="go('historial.html?filter=ingreso')" style="cursor:pointer;background:var(--off);border:1.5px solid var(--border);border-radius:14px;padding:12px 6px;text-align:center">
           <div style="font-size:20px;margin-bottom:4px">💰</div>
           <div style="font-size:10.5px;font-weight:700" data-es="Ingresos" data-en="Income">Ingresos</div>
         </div>
-        <div onclick="go('historial.html')" style="cursor:pointer;background:var(--off);border:1.5px solid var(--border);border-radius:14px;padding:12px 6px;text-align:center">
+        <div onclick="go('historial.html?filter=gasto')" style="cursor:pointer;background:var(--off);border:1.5px solid var(--border);border-radius:14px;padding:12px 6px;text-align:center">
           <div style="font-size:20px;margin-bottom:4px">💸</div>
           <div style="font-size:10.5px;font-weight:700" data-es="Gastos" data-en="Expenses">Gastos</div>
         </div>
@@ -745,144 +745,93 @@ input, select, textarea { font-size: 16px !important; }
           <div style="font-size:20px;margin-bottom:4px">🎯</div>
           <div style="font-size:10.5px;font-weight:700" data-es="Saving goals" data-en="Saving goals">Saving goals</div>
         </div>
+        <div onclick="go('suscripciones.html')" style="cursor:pointer;background:var(--off);border:1.5px solid var(--border);border-radius:14px;padding:12px 6px;text-align:center">
+          <div style="font-size:20px;margin-bottom:4px">🔄</div>
+          <div style="font-size:10.5px;font-weight:700" data-es="Suscripciones" data-en="Subscriptions">Suscripciones</div>
+        </div>
+        <div onclick="go('inversiones.html')" style="cursor:pointer;background:var(--off);border:1.5px solid var(--border);border-radius:14px;padding:12px 6px;text-align:center">
+          <div style="font-size:20px;margin-bottom:4px">📈</div>
+          <div style="font-size:10.5px;font-weight:700" data-es="Inversiones" data-en="Investments">Inversiones</div>
+        </div>
       </div>
+
       <div id="aporteMesCard" style="display:none"></div>
-    </div>
 
-    <!-- PESTAÑA: MÉTODO 50/30/20 -->
-    <div id="dashPaneMetodo" style="display:none">
-
-    <!-- KPI ROW -->
-    <div class="kpi-row">
-      <div class="kpi">
-        <div class="kpi-top">
-          <div class="kpi-ico" style="background:var(--g-light)">💰</div>
-          <div class="kpi-delta dg" data-es="Este mes" data-en="This month">Este mes</div>
+      <!-- KPI ROW -->
+      <div class="kpi-row">
+        <div class="kpi">
+          <div class="kpi-top">
+            <div class="kpi-ico" style="background:var(--g-light)">💰</div>
+            <div class="kpi-delta dg" data-es="Este mes" data-en="This month">Este mes</div>
+          </div>
+          <div class="kpi-val" style="color:var(--g-main)" id="kpiIncome">$0</div>
+          <div class="kpi-lbl" data-es="Ingreso mensual" data-en="Monthly income">Ingreso mensual</div>
+          <div class="spark"><svg viewBox="0 0 120 40" preserveAspectRatio="none">
+            <polyline fill="rgba(26,122,74,.12)" stroke="none" points="0,32 20,28 40,30 60,18 80,20 100,14 120,12 120,40 0,40"/>
+            <polyline fill="none" stroke="var(--g-main)" stroke-width="2" points="0,32 20,28 40,30 60,18 80,20 100,14 120,12"/>
+          </svg></div>
         </div>
-        <div class="kpi-val" style="color:var(--g-main)" id="kpiIncome">$0</div>
-        <div class="kpi-lbl" data-es="Ingreso mensual" data-en="Monthly income">Ingreso mensual</div>
-        <div class="spark"><svg viewBox="0 0 120 40" preserveAspectRatio="none">
-          <polyline fill="rgba(26,122,74,.12)" stroke="none" points="0,32 20,28 40,30 60,18 80,20 100,14 120,12 120,40 0,40"/>
-          <polyline fill="none" stroke="var(--g-main)" stroke-width="2" points="0,32 20,28 40,30 60,18 80,20 100,14 120,12"/>
-        </svg></div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-top">
-          <div class="kpi-ico" style="background:var(--red-dim)">💸</div>
-          <div class="kpi-delta dr" id="kpiSpentDelta">0%</div>
+        <div class="kpi">
+          <div class="kpi-top">
+            <div class="kpi-ico" style="background:var(--red-dim)">💸</div>
+            <div class="kpi-delta dr" id="kpiSpentDelta">0%</div>
+          </div>
+          <div class="kpi-val" style="color:var(--red)" id="kpiSpent">$0</div>
+          <div class="kpi-lbl" data-es="Total gastado" data-en="Total spent">Total gastado</div>
+          <div class="spark"><svg viewBox="0 0 120 40" preserveAspectRatio="none">
+            <polyline fill="rgba(230,57,70,.08)" stroke="none" points="0,35 20,35 40,35 60,35 80,35 100,35 120,35 120,40 0,40"/>
+            <polyline fill="none" stroke="var(--red)" stroke-width="2" stroke-dasharray="3,3" points="0,35 20,35 40,35 60,35 80,35 100,35 120,35"/>
+          </svg></div>
         </div>
-        <div class="kpi-val" style="color:var(--red)" id="kpiSpent">$0</div>
-        <div class="kpi-lbl" data-es="Total gastado" data-en="Total spent">Total gastado</div>
-        <div class="spark"><svg viewBox="0 0 120 40" preserveAspectRatio="none">
-          <polyline fill="rgba(230,57,70,.08)" stroke="none" points="0,35 20,35 40,35 60,35 80,35 100,35 120,35 120,40 0,40"/>
-          <polyline fill="none" stroke="var(--red)" stroke-width="2" stroke-dasharray="3,3" points="0,35 20,35 40,35 60,35 80,35 100,35 120,35"/>
-        </svg></div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-top">
-          <div class="kpi-ico" style="background:var(--blu-dim)">📈</div>
-          <div class="kpi-delta db" data-es="Meta" data-en="Goal">Meta</div>
+        <div class="kpi">
+          <div class="kpi-top">
+            <div class="kpi-ico" style="background:var(--blu-dim)">📈</div>
+            <div class="kpi-delta db" data-es="Meta" data-en="Goal">Meta</div>
+          </div>
+          <div class="kpi-val" style="color:var(--blue)" id="kpiSavingsGoal">$0</div>
+          <div class="kpi-lbl" data-es="Meta de ahorro" data-en="Savings goal">Meta de ahorro</div>
+          <div class="spark"><svg viewBox="0 0 120 40" preserveAspectRatio="none">
+            <polyline fill="rgba(74,108,247,.10)" stroke="none" points="0,38 20,35 40,30 60,30 80,25 100,20 120,16 120,40 0,40"/>
+            <polyline fill="none" stroke="var(--blue)" stroke-width="2" points="0,38 20,35 40,30 60,30 80,25 100,20 120,16"/>
+          </svg></div>
         </div>
-        <div class="kpi-val" style="color:var(--blue)" id="kpiSavingsGoal">$0</div>
-        <div class="kpi-lbl" data-es="Meta de ahorro" data-en="Savings goal">Meta de ahorro</div>
-        <div class="spark"><svg viewBox="0 0 120 40" preserveAspectRatio="none">
-          <polyline fill="rgba(74,108,247,.10)" stroke="none" points="0,38 20,35 40,30 60,30 80,25 100,20 120,16 120,40 0,40"/>
-          <polyline fill="none" stroke="var(--blue)" stroke-width="2" points="0,38 20,35 40,30 60,30 80,25 100,20 120,16"/>
-        </svg></div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-top">
-          <div class="kpi-ico" style="background:var(--amb-dim)">🛡️</div>
-          <div class="kpi-delta da">0%</div>
+        <div class="kpi">
+          <div class="kpi-top">
+            <div class="kpi-ico" style="background:var(--amb-dim)">🛡️</div>
+            <div class="kpi-delta da">0%</div>
+          </div>
+          <div class="kpi-val" style="color:var(--amber)" id="kpiEmergency">$0</div>
+          <div class="kpi-lbl" data-es="Fondo emergencia" data-en="Emergency fund">Fondo emergencia</div>
+          <div class="spark"><svg viewBox="0 0 120 40" preserveAspectRatio="none">
+            <polyline fill="rgba(244,162,97,.12)" stroke="none" points="0,38 20,38 40,38 60,38 80,38 100,38 120,38 120,40 0,40"/>
+            <polyline fill="none" stroke="var(--amber)" stroke-width="2" stroke-dasharray="3,3" points="0,38 20,38 40,38 60,38 80,38 100,38 120,38"/>
+          </svg></div>
         </div>
-        <div class="kpi-val" style="color:var(--amber)" id="kpiEmergency">$0</div>
-        <div class="kpi-lbl" data-es="Fondo emergencia" data-en="Emergency fund">Fondo emergencia</div>
-        <div class="spark"><svg viewBox="0 0 120 40" preserveAspectRatio="none">
-          <polyline fill="rgba(244,162,97,.12)" stroke="none" points="0,38 20,38 40,38 60,38 80,38 100,38 120,38 120,40 0,40"/>
-          <polyline fill="none" stroke="var(--amber)" stroke-width="2" stroke-dasharray="3,3" points="0,38 20,38 40,38 60,38 80,38 100,38 120,38"/>
-        </svg></div>
       </div>
-    </div>
 
-    <!-- TENDENCIA — barras clickeables ingreso vs gasto, 6 meses -->
-    <div class="card" style="margin-bottom:20px">
-      <div class="card-hd">📊 <span data-es="Ingreso vs. gasto (6 meses)" data-en="Income vs. expense (6 months)">Ingreso vs. gasto (6 meses)</span></div>
-      <div id="trendBarChart"></div>
-      <div style="display:flex;gap:12px;margin-top:8px;font-size:10.5px;color:var(--text3)">
-        <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--g-main);margin-right:4px"></span><span data-es="Ingreso" data-en="Income">Ingreso</span></span>
-        <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--amber);margin-right:4px"></span><span data-es="Gasto" data-en="Expense">Gasto</span></span>
+      <!-- TENDENCIA — barras clickeables ingreso vs gasto, 6 meses -->
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-hd">📊 <span data-es="Tendencia (6 meses)" data-en="Trend (6 months)">Tendencia (6 meses)</span></div>
+        <div id="trendBarChart"></div>
+        <div style="display:flex;gap:12px;margin-top:8px;font-size:10.5px;color:var(--text3)">
+          <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--g-main);margin-right:4px"></span><span data-es="Ingreso" data-en="Income">Ingreso</span></span>
+          <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--amber);margin-right:4px"></span><span data-es="Gasto" data-en="Expense">Gasto</span></span>
+        </div>
+        <div id="trendMonthDetail" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--off);font-size:12px;color:var(--text2)"></div>
       </div>
-      <div id="trendMonthDetail" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--off);font-size:12px;color:var(--text2)"></div>
-    </div>
 
-    <!-- 50/30/20 + TRANSACTIONS -->
-    <div class="grid-2">
-
-      <!-- 50/30/20 -->
-      <div class="card">
+      <!-- SERVICIOS DE LA CASA -->
+      <div class="card" id="serviciosCasaCard" style="display:none;margin-bottom:20px">
         <div class="card-hd">
-          📐 <span data-es="Regla 50 / 30 / 20" data-en="50 / 30 / 20 Rule">Regla 50 / 30 / 20</span>
-          <span class="card-act" onclick="go('analisis.html')" data-es="Ver detalle" data-en="Details">Ver detalle →</span>
+          🏠 <span data-es="Servicios de la casa" data-en="Household services">Servicios de la casa</span>
+          <span class="card-act" onclick="location.href='servicios.html'" data-es="Ver todos →" data-en="See all →">Ver todos →</span>
         </div>
-        <div style="font-size:10.5px;color:var(--text3);margin-top:-8px;margin-bottom:10px" data-es="Meta del mes completo — no baja con cada cheque" data-en="Full-month target — doesn't change with each paycheck">Meta del mes completo — no baja con cada cheque</div>
-
-        <!-- NEEDS -->
-        <div class="rule-item" onclick="explainCalc('needs')" style="cursor:pointer">
-          <div class="rule-header">
-            <div class="rule-name-wrap">
-              <div class="rule-dot" style="background:var(--g-main)"></div>
-              <div class="rule-name" data-es="Necesidades" data-en="Needs">Necesidades</div>
-              <div class="rule-pct" style="background:var(--g-light);color:var(--g-main)" id="needsPct">50%</div>
-            </div>
-            <div style="font-size:11px;color:var(--text3)" id="needsLimit"></div>
-          </div>
-          <div class="rule-amounts">
-            <span class="rule-spent" id="needsSpent" style="color:var(--g-main)">$0 gastados</span>
-            <span id="needsLeft"></span>
-          </div>
-          <div class="rule-track"><div class="rule-fill" id="needsFill" style="width:0%;background:var(--g-main)"></div></div>
-          <div id="hogarNeedsInfo" style="display:none;margin-top:4px"></div>
-        </div>
-        <div class="rule-item" onclick="explainCalc('wants')" style="cursor:pointer">
-          <div class="rule-header">
-            <div class="rule-name-wrap">
-              <div class="rule-dot" style="background:var(--blue)"></div>
-              <div class="rule-name" data-es="Gustos" data-en="Wants">Gustos</div>
-              <div class="rule-pct" style="background:var(--blu-dim);color:var(--blue)" id="wantsPct">30%</div>
-            </div>
-            <div style="font-size:11px;color:var(--text3)" id="wantsLimit"></div>
-          </div>
-          <div class="rule-amounts">
-            <span class="rule-spent" id="wantsSpent" style="color:var(--blue)">$0 gastados</span>
-            <span id="wantsLeft"></span>
-          </div>
-          <div class="rule-track"><div class="rule-fill" id="wantsFill" style="width:0%;background:var(--blue)"></div></div>
-        </div>
-
-        <!-- SAVINGS -->
-        <div class="rule-item" onclick="explainCalc('savings-bucket')" style="cursor:pointer">
-          <div class="rule-header">
-            <div class="rule-name-wrap">
-              <div class="rule-dot" style="background:var(--amber)"></div>
-              <div class="rule-name" data-es="Ahorro" data-en="Savings">Ahorro</div>
-              <div class="rule-pct" style="background:var(--amb-dim);color:var(--amber)" id="savingsPct">20%</div>
-            </div>
-            <div style="font-size:11px;color:var(--text3)" id="savingsLimit"></div>
-          </div>
-          <div class="rule-amounts">
-            <span class="rule-spent" id="savingsSpent" style="color:var(--amber)">$0 ahorrados</span>
-            <span id="savingsLeft"></span>
-          </div>
-          <div class="rule-track"><div class="rule-fill" id="savingsFill" style="width:0%;background:var(--amber)"></div></div>
-        </div>
-
-        <div class="rule-alert" id="ruleAlert" style="display:none">
-          ⚠️ <span id="ruleAlertMsg"></span>
-        </div>
+        <div style="font-size:11px;color:var(--text3);margin:-8px 0 12px" id="serviciosCasaSub"></div>
+        <div id="serviciosCasaList"></div>
       </div>
 
-      <!-- TRANSACTIONS -->
-      <div class="card">
+      <!-- ÚLTIMOS MOVIMIENTOS — hasta abajo -->
+      <div class="card" style="margin-bottom:20px">
         <div class="card-hd">
           🧾 <span data-es="Últimos movimientos" data-en="Recent transactions">Últimos movimientos</span>
           <span class="card-act" onclick="go('historial.html')" data-es="Ver todos" data-en="See all">Ver todos →</span>
@@ -899,10 +848,74 @@ input, select, textarea { font-size: 16px !important; }
 
       <!-- MI DINERO TAB CONTENT -->
       <div id="miDineroContent" style="display:none"></div>
-
     </div>
 
-    <!-- EMERGENCY + SUBSCRIPTIONS — ocultas: solo redirect button abajo, contenedores vivos para no romper sus funciones -->
+    <!-- PESTAÑA: MÉTODO 50/30/20 — solo las barras del método + explicación -->
+    <div id="dashPaneMetodo" style="display:none">
+
+    <div class="card">
+      <div class="card-hd">
+        📐 <span data-es="Regla 50 / 30 / 20" data-en="50 / 30 / 20 Rule">Regla 50 / 30 / 20</span>
+        <span class="card-act" onclick="go('analisis.html')" data-es="Ver detalle" data-en="Details">Ver detalle →</span>
+      </div>
+      <div style="font-size:10.5px;color:var(--text3);margin-top:-8px;margin-bottom:10px" data-es="Meta del mes completo — no baja con cada cheque · toca cualquier categoría para ver cómo se calculó" data-en="Full-month target — doesn't change with each paycheck · tap any category to see how it's calculated">Meta del mes completo — no baja con cada cheque · toca cualquier categoría para ver cómo se calculó</div>
+
+      <!-- NEEDS -->
+      <div class="rule-item" onclick="explainCalc('needs')" style="cursor:pointer">
+        <div class="rule-header">
+          <div class="rule-name-wrap">
+            <div class="rule-dot" style="background:var(--g-main)"></div>
+            <div class="rule-name" data-es="Necesidades" data-en="Needs">Necesidades</div>
+            <div class="rule-pct" style="background:var(--g-light);color:var(--g-main)" id="needsPct">50%</div>
+          </div>
+          <div style="font-size:11px;color:var(--text3)" id="needsLimit"></div>
+        </div>
+        <div class="rule-amounts">
+          <span class="rule-spent" id="needsSpent" style="color:var(--g-main)">$0 gastados</span>
+          <span id="needsLeft"></span>
+        </div>
+        <div class="rule-track"><div class="rule-fill" id="needsFill" style="width:0%;background:var(--g-main)"></div></div>
+        <div id="hogarNeedsInfo" style="display:none;margin-top:4px"></div>
+      </div>
+      <div class="rule-item" onclick="explainCalc('wants')" style="cursor:pointer">
+        <div class="rule-header">
+          <div class="rule-name-wrap">
+            <div class="rule-dot" style="background:var(--blue)"></div>
+            <div class="rule-name" data-es="Gustos" data-en="Wants">Gustos</div>
+            <div class="rule-pct" style="background:var(--blu-dim);color:var(--blue)" id="wantsPct">30%</div>
+          </div>
+          <div style="font-size:11px;color:var(--text3)" id="wantsLimit"></div>
+        </div>
+        <div class="rule-amounts">
+          <span class="rule-spent" id="wantsSpent" style="color:var(--blue)">$0 gastados</span>
+          <span id="wantsLeft"></span>
+        </div>
+        <div class="rule-track"><div class="rule-fill" id="wantsFill" style="width:0%;background:var(--blue)"></div></div>
+      </div>
+
+      <!-- SAVINGS -->
+      <div class="rule-item" onclick="explainCalc('savings-bucket')" style="cursor:pointer">
+        <div class="rule-header">
+          <div class="rule-name-wrap">
+            <div class="rule-dot" style="background:var(--amber)"></div>
+            <div class="rule-name" data-es="Ahorro" data-en="Savings">Ahorro</div>
+            <div class="rule-pct" style="background:var(--amb-dim);color:var(--amber)" id="savingsPct">20%</div>
+          </div>
+          <div style="font-size:11px;color:var(--text3)" id="savingsLimit"></div>
+        </div>
+        <div class="rule-amounts">
+          <span class="rule-spent" id="savingsSpent" style="color:var(--amber)">$0 ahorrados</span>
+          <span id="savingsLeft"></span>
+        </div>
+        <div class="rule-track"><div class="rule-fill" id="savingsFill" style="width:0%;background:var(--amber)"></div></div>
+      </div>
+
+      <div class="rule-alert" id="ruleAlert" style="display:none">
+        ⚠️ <span id="ruleAlertMsg"></span>
+      </div>
+    </div>
+
+    <!-- ocultos: no se eliminan por seguridad de JS, contenedores vivos -->
     <div class="grid-2" style="display:none">
       <div class="card">
         <div class="card-hd">🛡️ Fondo de emergencia</div>
@@ -919,40 +932,9 @@ input, select, textarea { font-size: 16px !important; }
         <div class="subs-grid" id="subGrid"></div>
       </div>
     </div>
-
-    <!-- SERVICIOS DE LA CASA — se queda visible -->
-    <div class="card" id="serviciosCasaCard" style="display:none">
-      <div class="card-hd">
-        🏠 <span data-es="Servicios de la casa" data-en="Household services">Servicios de la casa</span>
-        <span class="card-act" onclick="location.href='servicios.html'" data-es="Ver todos →" data-en="See all →">Ver todos →</span>
-      </div>
-      <div style="font-size:11px;color:var(--text3);margin:-8px 0 12px" id="serviciosCasaSub"></div>
-      <div id="serviciosCasaList"></div>
-    </div>
-
-    <!-- GOALS PREVIEW — oculto: solo redirect button abajo -->
     <div class="card" style="margin-bottom:20px;display:none">
       <div class="card-hd">🎯 Metas</div>
       <div id="goalsPreview"></div>
-    </div>
-
-    <!-- REDIRECT BUTTONS — Metas / Emergencia / Suscripciones solo navegan, sin contenido inline -->
-    <div class="card" style="padding:6px;margin-bottom:20px">
-      <div onclick="go('metas.html')" style="cursor:pointer;display:flex;align-items:center;gap:10px;padding:12px" data-es-full="1">
-        <div style="width:34px;height:34px;border-radius:50%;background:var(--off);display:grid;place-items:center;font-size:15px;flex-shrink:0">🎯</div>
-        <div style="flex:1;font-size:13px;font-weight:700" data-es="Metas" data-en="Goals">Metas</div>
-        <div style="color:var(--text3)">›</div>
-      </div>
-      <div onclick="go('emergencia.html')" style="cursor:pointer;display:flex;align-items:center;gap:10px;padding:12px;border-top:1px solid var(--off)">
-        <div style="width:34px;height:34px;border-radius:50%;background:var(--off);display:grid;place-items:center;font-size:15px;flex-shrink:0">🛡️</div>
-        <div style="flex:1;font-size:13px;font-weight:700" data-es="Fondo de emergencia" data-en="Emergency fund">Fondo de emergencia</div>
-        <div style="color:var(--text3)">›</div>
-      </div>
-      <div onclick="go('suscripciones.html')" style="cursor:pointer;display:flex;align-items:center;gap:10px;padding:12px;border-top:1px solid var(--off)">
-        <div style="width:34px;height:34px;border-radius:50%;background:var(--off);display:grid;place-items:center;font-size:15px;flex-shrink:0">🔄</div>
-        <div style="flex:1;font-size:13px;font-weight:700" data-es="Suscripciones" data-en="Subscriptions">Suscripciones</div>
-        <div style="color:var(--text3)">›</div>
-      </div>
     </div>
 
     </div><!-- /dashPaneMetodo -->

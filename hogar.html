@@ -303,6 +303,7 @@ let lang = 'es', user = {};
 let activeTab = 'resumen';
 let _depositosLimit = 5;
 let _gastosHogarLimit = 8;
+let _chequesLimit = 5;
 const FONDOS_KEY = 'ft_hogar_fondos';
 
 function loadFondos(){
@@ -846,58 +847,6 @@ function renderDashboard(hogar){
   <div style="font-size:11px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin:14px 4px 8px">${es?'Accesos rápidos del hogar':'Household quick access'}</div>
   <div id="hogarQuickGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px"></div>
 
-  <!-- DEPOSITOS DEL MES CON DESGLOSE 60/40 -->
-  <div class="card" style="margin-bottom:14px">
-    <div class="card-title">💰 ${es?'Depósitos de este mes':'Deposits this month'}</div>
-    <div style="font-size:11px;color:var(--text3);margin-bottom:10px">${es?`${hogarPctChk}% al presupuesto del hogar · ${100-hogarPctChk}% a cuenta personal`:`${hogarPctChk}% to household budget · ${100-hogarPctChk}% to personal account`}</div>
-    ${(myIncomeTxs.length+partnerIncomeTxs.length)?`
-    <div style="display:flex;flex-direction:column;gap:8px">
-      ${(() => {
-        const allDep = [
-          ...myIncomeTxs.map(t=>({...t,_mine:true})),
-          ...partnerIncomeTxs.map(t=>({...t,_mine:false}))
-        ].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-        const shown = allDep.slice(0, _depositosLimit);
-        return shown.map(t=>{
-          const hogarPart=t.amount*hogarPctChk/100, persPart=t.amount-hogarPart;
-          return `<div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--off);border-radius:10px">
-            <div style="width:34px;height:34px;border-radius:10px;background:${t._mine?'var(--g-light)':'var(--blu-dim)'};display:grid;place-items:center;font-size:15px;flex-shrink:0">💵</div>
-            <div style="flex:1;min-width:0">
-              <div style="font-size:12px;font-weight:700">${t._mine?(user.name||'Tú'):partnerName} · ${fmt(t.amount)}</div>
-              <div style="font-size:10px;color:var(--text3)">${t.date} · 🏠 ${fmt(hogarPart)} · 👤 ${fmt(persPart)}</div>
-            </div>
-            ${t._mine?`<div onclick="deleteMyIncomeTx('${t.id}')" style="cursor:pointer;color:var(--text3);font-size:13px;flex-shrink:0" title="${es?'Eliminar':'Delete'}">🗑</div>`:''}
-          </div>`;
-        }).join('') + (allDep.length > _depositosLimit ? `
-        <button onclick="_depositosLimit+=10;render()" style="background:var(--off);border:1.5px solid var(--border);border-radius:10px;padding:10px;font-size:12px;font-weight:700;color:var(--text2);cursor:pointer;font-family:inherit">${es?`Ver más (${allDep.length-_depositosLimit} más)`:`See more (${allDep.length-_depositosLimit} more)`}</button>` : '');
-      })()}
-    </div>`:`<div style="text-align:center;padding:16px;color:var(--text3);font-size:12px">${es?'Sin depósitos registrados este mes':'No deposits recorded this month'}</div>`}
-  </div>
-
-  <!-- HISTORIAL DE GASTOS DEL HOGAR (mío + pareja, combinado) -->
-  <div class="card" style="margin-bottom:14px">
-    <div class="card-title">🧾 ${es?'Historial de gastos del hogar':'Household expense history'}</div>
-    <div style="font-size:11px;color:var(--text3);margin-bottom:10px">${es?'Solo lo marcado como \u201cdel hogar\u201d \u2014 de ambos':'Only items tagged \u201chousehold\u201d \u2014 from both of you'}</div>
-    ${(sharedTxs.length+partnerSharedTxs.length)?`
-    <div style="display:flex;flex-direction:column;gap:8px">
-      ${(() => {
-        const allGastos = [...sharedTxs.map(t=>({...t,_who:user.name||(es?'Tú':'You'),_mine:true})), ...partnerSharedTxs.map(t=>({...t,_who:partnerName,_mine:false}))]
-          .sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-        const shown = allGastos.slice(0, _gastosHogarLimit);
-        return shown.map(t=>`
-        <div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--off);border-radius:10px">
-          <div style="width:34px;height:34px;border-radius:10px;background:${t._mine?'var(--g-light)':'var(--blu-dim)'};display:grid;place-items:center;font-size:15px;flex-shrink:0">🏠</div>
-          <div style="flex:1;min-width:0">
-            <div style="font-size:12px;font-weight:700">${t.desc||t.description||(es?'Gasto':'Expense')}</div>
-            <div style="font-size:10px;color:var(--text3)">${t._who} · ${t.date||''} · ${t.cat||t.category||''}</div>
-          </div>
-          <div style="font-size:13px;font-weight:800;color:var(--red)">-${fmt(t.amount||0)}</div>
-        </div>`).join('') + (allGastos.length > _gastosHogarLimit ? `
-        <button onclick="_gastosHogarLimit+=10;render()" style="background:var(--off);border:1.5px solid var(--border);border-radius:10px;padding:10px;font-size:12px;font-weight:700;color:var(--text2);cursor:pointer;font-family:inherit">${es?`Ver más (${allGastos.length-_gastosHogarLimit} más)`:`See more (${allGastos.length-_gastosHogarLimit} more)`}</button>` : '');
-      })()}
-    </div>`:`<div style="text-align:center;padding:16px;color:var(--text3);font-size:12px">${es?'Sin gastos del hogar registrados este mes':'No household expenses recorded this month'}</div>`}
-  </div>
-
   <!-- MODE BADGE -->
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
     <span style="background:var(--g-light);color:var(--g-dark);font-size:11px;font-weight:700;padding:5px 12px;border-radius:20px">${modeLabels[mode]||mode}</span>
@@ -907,6 +856,8 @@ function renderDashboard(hogar){
   <!-- TABS -->
   <div class="tab-row">
     <button class="tab-btn ${activeTab==='resumen'?'on':''}" onclick="switchTab('resumen')">${es?'📊 Resumen':'📊 Summary'}</button>
+    <button class="tab-btn ${activeTab==='depositos'?'on':''}" onclick="switchTab('depositos')">${es?'💰 Depósitos':'💰 Deposits'}</button>
+    <button class="tab-btn ${activeTab==='gastoshogar'?'on':''}" onclick="switchTab('gastoshogar')">${es?'🧾 Gastos hogar':'🧾 Household spend'}</button>
     <button class="tab-btn ${activeTab==='distribucion'?'on':''}" onclick="switchTab('distribucion')">${es?'💰 Distribución':'💰 Distribution'}</button>
     <button class="tab-btn ${activeTab==='deudas'?'on':''}" onclick="switchTab('deudas')">${es?'💳 Deudas':'💳 Debts'}</button>
     <button class="tab-btn ${activeTab==='inversiones'?'on':''}" onclick="switchTab('inversiones')">${es?'📈 Inversiones':'📈 Investments'}</button>
@@ -1048,7 +999,7 @@ function switchTab(tab){
   const totalIncome = myIncome + partnerIncome;
 
   document.querySelectorAll('.tab-btn').forEach((b,i)=>{
-    const tabs = ['resumen','distribucion','deudas','inversiones','metas','guia'];
+    const tabs = ['resumen','depositos','gastoshogar','distribucion','deudas','inversiones','metas','guia'];
     b.classList.toggle('on', tabs[i]===tab);
   });
 
@@ -1061,6 +1012,8 @@ function renderTab(calc, sharedTxs, partnerName, partnerIncome, mode, totalIncom
   if(!container) return;
 
   if(activeTab==='resumen') container.innerHTML = renderResumen(calc, sharedTxs, partnerName, partnerIncome, totalIncome, mode);
+  else if(activeTab==='depositos') container.innerHTML = renderDepositosTab(partnerName);
+  else if(activeTab==='gastoshogar') container.innerHTML = renderGastosHogarTab(partnerName);
   else if(activeTab==='distribucion') container.innerHTML = renderDistribucion(calc, partnerName, totalIncome, mode, partnerIncome);
   else if(activeTab==='deudas') container.innerHTML = renderDeudas(partnerName);
   else if(activeTab==='inversiones') container.innerHTML = renderHogarInversiones();
@@ -1149,6 +1102,118 @@ function renderResumen(calc, sharedTxs, partnerName, partnerIncome, totalIncome,
   </div>
 
   ` + renderFondosCards(calc, es);
+}
+
+/* ── PESTAÑA DEPÓSITOS (mensuales) + últimos cheques — autocontenida, no depende del scope de renderTab ── */
+function renderDepositosTab(partnerName){
+  const es = lang==='es';
+  const hogar = loadHogar();
+  const partnerProfile = loadPartnerProfile();
+  const hogarPctChk = (parseFloat(hogar.payPctHogar)||50) + (parseFloat(hogar.saveHogarPct)||10);
+  const _now = new Date(), _nowY = _now.getFullYear(), _nowM = _now.getMonth();
+  const _mesKeyChk = _nowY+'-'+String(_nowM+1).padStart(2,'0');
+  const myIncomeTxs = (loadMyData().transactions||[])
+    .filter(t=>t.type==='ingreso' && t.incomeKind!=='extra' && String(t.date||'').startsWith(_mesKeyChk))
+    .map(t=>({id:t.id, amount:parseFloat(t.amount)||0, date:t.date}))
+    .sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const partnerIncomeTxs = partnerProfile && partnerProfile.data && partnerProfile.data.transactions
+    ? (partnerProfile.data.transactions||[])
+        .filter(t=>t.type==='ingreso' && t.incomeKind!=='extra' && String(t.date||'').startsWith(_mesKeyChk))
+        .map(t=>({id:t.id, amount:parseFloat(t.amount)||0, date:t.date}))
+        .sort((a,b)=>(b.date||'').localeCompare(a.date||''))
+    : [];
+
+  const depositosCard = `
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-title">💰 ${es?'Depósitos de este mes':'Deposits this month'}</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:10px">${es?`${hogarPctChk}% al presupuesto del hogar · ${100-hogarPctChk}% a cuenta personal`:`${hogarPctChk}% to household budget · ${100-hogarPctChk}% to personal account`}</div>
+    ${(myIncomeTxs.length+partnerIncomeTxs.length)?`
+    <div style="display:flex;flex-direction:column;gap:8px">
+      ${(() => {
+        const allDep = [
+          ...myIncomeTxs.map(t=>({...t,_mine:true})),
+          ...partnerIncomeTxs.map(t=>({...t,_mine:false}))
+        ].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+        const shown = allDep.slice(0, _depositosLimit);
+        return shown.map(t=>{
+          const hogarPart=t.amount*hogarPctChk/100, persPart=t.amount-hogarPart;
+          return `<div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--off);border-radius:10px">
+            <div style="width:34px;height:34px;border-radius:10px;background:${t._mine?'var(--g-light)':'var(--blu-dim)'};display:grid;place-items:center;font-size:15px;flex-shrink:0">💵</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:12px;font-weight:700">${t._mine?(user.name||'Tú'):partnerName} · ${fmt(t.amount)}</div>
+              <div style="font-size:10px;color:var(--text3)">${t.date} · 🏠 ${fmt(hogarPart)} · 👤 ${fmt(persPart)}</div>
+            </div>
+            ${t._mine?`<div onclick="deleteMyIncomeTx('${t.id}')" style="cursor:pointer;color:var(--text3);font-size:13px;flex-shrink:0" title="${es?'Eliminar':'Delete'}">🗑</div>`:''}
+          </div>`;
+        }).join('') + (allDep.length > _depositosLimit ? `
+        <button onclick="_depositosLimit+=10;switchTab('depositos')" style="background:var(--off);border:1.5px solid var(--border);border-radius:10px;padding:10px;font-size:12px;font-weight:700;color:var(--text2);cursor:pointer;font-family:inherit">${es?`Ver más (${allDep.length-_depositosLimit} más)`:`See more (${allDep.length-_depositosLimit} more)`}</button>` : '');
+      })()}
+    </div>`:`<div style="text-align:center;padding:16px;color:var(--text3);font-size:12px">${es?'Sin depósitos registrados este mes':'No deposits recorded this month'}</div>`}
+  </div>`;
+
+  const chequesCard = `
+  <div class="card">
+    <div class="card-title">🧾 ${es?'Últimos cheques':'Recent paychecks'}</div>
+    ${(() => {
+      let myCheques=[], partnerCheques=[];
+      try{ myCheques = (JSON.parse(localStorage.getItem('ft_cheques')||'[]')).map(c=>({...c,_mine:true})); }catch(e){}
+      try{ partnerCheques = ((partnerProfile && partnerProfile.data && partnerProfile.data.cheques) || []).map(c=>({...c,_mine:false})); }catch(e){}
+      const allCheques = [...myCheques, ...partnerCheques].sort((a,b)=>(b.fecha||b.date||'').localeCompare(a.fecha||a.date||''));
+      if(!allCheques.length) return `<div style="text-align:center;padding:16px;color:var(--text3);font-size:12px">${es?'Sin cheques registrados todavía':'No paychecks recorded yet'}</div>`;
+      const shown = allCheques.slice(0, _chequesLimit);
+      return `<div style="display:flex;flex-direction:column;gap:8px">` + shown.map(c => `
+        <div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--off);border-radius:10px">
+          <div style="width:34px;height:34px;border-radius:10px;background:${c._mine?'var(--g-light)':'var(--blu-dim)'};display:grid;place-items:center;font-size:15px;flex-shrink:0">💵</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12px;font-weight:700">${c._mine?(user.name||'Tú'):partnerName} · ${fmt((c.hogarAmt||0)+(c.persAmt||0)||c.amount||0)}</div>
+            <div style="font-size:10px;color:var(--text3)">${c.fecha||c.date||''} · 🏠 ${fmt(c.hogarAmt||0)} · 👤 ${fmt(c.persAmt||((c.amount||0)-(c.hogarAmt||0)))}</div>
+          </div>
+        </div>`).join('') + (allCheques.length > _chequesLimit ? `
+        <button onclick="_chequesLimit+=10;switchTab('depositos')" style="background:var(--off);border:1.5px solid var(--border);border-radius:10px;padding:10px;font-size:12px;font-weight:700;color:var(--text2);cursor:pointer;font-family:inherit">${es?`Ver más (${allCheques.length-_chequesLimit} más)`:`See more (${allCheques.length-_chequesLimit} more)`}</button>` : '') + `</div>`;
+    })()}
+  </div>`;
+
+  return depositosCard + chequesCard;
+}
+
+/* ── PESTAÑA GASTOS DEL HOGAR — autocontenida ── */
+function renderGastosHogarTab(partnerName){
+  const es = lang==='es';
+  const partnerProfile = loadPartnerProfile();
+  const sharedTxs = getSharedExpenses();
+  const _now = new Date(), _nowY = _now.getFullYear(), _nowM = _now.getMonth();
+  const partnerSharedTxs = partnerProfile && partnerProfile.data && partnerProfile.data.transactions
+    ? (partnerProfile.data.transactions||[]).filter(t=>{
+        if(!t.date || t.hogar!==true) return false;
+        if(!(t.type==='gasto'||t.type==='ahorro'||t.type==='suscripcion'||t.type==='hipoteca')) return false;
+        const p = String(t.date).split(/[-T]/);
+        return parseInt(p[0])===_nowY && (parseInt(p[1])-1)===_nowM;
+      })
+    : [];
+
+  return `
+  <div class="card">
+    <div class="card-title">🧾 ${es?'Historial de gastos del hogar':'Household expense history'}</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:10px">${es?'Solo lo marcado como \u201cdel hogar\u201d \u2014 de ambos':'Only items tagged \u201chousehold\u201d \u2014 from both of you'}</div>
+    ${(sharedTxs.length+partnerSharedTxs.length)?`
+    <div style="display:flex;flex-direction:column;gap:8px">
+      ${(() => {
+        const allGastos = [...sharedTxs.map(t=>({...t,_who:user.name||(es?'Tú':'You'),_mine:true})), ...partnerSharedTxs.map(t=>({...t,_who:partnerName,_mine:false}))]
+          .sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+        const shown = allGastos.slice(0, _gastosHogarLimit);
+        return shown.map(t=>`
+        <div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--off);border-radius:10px">
+          <div style="width:34px;height:34px;border-radius:10px;background:${t._mine?'var(--g-light)':'var(--blu-dim)'};display:grid;place-items:center;font-size:15px;flex-shrink:0">🏠</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12px;font-weight:700">${t.desc||t.description||(es?'Gasto':'Expense')}</div>
+            <div style="font-size:10px;color:var(--text3)">${t._who} · ${t.date||''} · ${t.cat||t.category||''}</div>
+          </div>
+          <div style="font-size:13px;font-weight:800;color:var(--red)">-${fmt(t.amount||0)}</div>
+        </div>`).join('') + (allGastos.length > _gastosHogarLimit ? `
+        <button onclick="_gastosHogarLimit+=10;switchTab('gastoshogar')" style="background:var(--off);border:1.5px solid var(--border);border-radius:10px;padding:10px;font-size:12px;font-weight:700;color:var(--text2);cursor:pointer;font-family:inherit">${es?`Ver más (${allGastos.length-_gastosHogarLimit} más)`:`See more (${allGastos.length-_gastosHogarLimit} more)`}</button>` : '');
+      })()}
+    </div>`:`<div style="text-align:center;padding:16px;color:var(--text3);font-size:12px">${es?'Sin gastos del hogar registrados este mes':'No household expenses recorded this month'}</div>`}
+  </div>`;
 }
 
 /* ── PESTAÑA METAS (separada de Emergencia por pedido — emergencia no se mueve) ── */
