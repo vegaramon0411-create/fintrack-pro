@@ -82,7 +82,8 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
 .lt-opt.on{background:var(--g-main);color:white;}
 
 /* ─── PAGE ─── */
-.page{padding:24px;max-width:760px;width:100%;box-sizing:border-box;}
+.page{padding:24px;max-width:760px;width:100%;box-sizing:border-box;overflow-x:hidden;}
+.page [style*="grid-template-columns"] > *{min-width:0;}
 
 /* ─── MOBILE ─── */
 @media(max-width:860px){
@@ -909,6 +910,7 @@ function renderDashboard(hogar){
     <button class="tab-btn ${activeTab==='distribucion'?'on':''}" onclick="switchTab('distribucion')">${es?'💰 Distribución':'💰 Distribution'}</button>
     <button class="tab-btn ${activeTab==='deudas'?'on':''}" onclick="switchTab('deudas')">${es?'💳 Deudas':'💳 Debts'}</button>
     <button class="tab-btn ${activeTab==='inversiones'?'on':''}" onclick="switchTab('inversiones')">${es?'📈 Inversiones':'📈 Investments'}</button>
+    <button class="tab-btn ${activeTab==='metas'?'on':''}" onclick="switchTab('metas')">${es?'🎯 Metas':'🎯 Goals'}</button>
     <button class="tab-btn ${activeTab==='guia'?'on':''}" onclick="switchTab('guia')">${es?'📋 Guía':'📋 Guide'}</button>
   </div>
 
@@ -987,29 +989,29 @@ function renderHogarTrendChart(){
   const hasData = months.some(m=>m.income>0 || m.expenses>0);
   if(!hasData) return '';
 
-  const W=800,H=180,padL=20,padR=20,padT=16,padB=28;
   const maxVal = Math.max(1, ...months.map(m=>Math.max(m.income,m.expenses)));
-  const stepX = (W-padL-padR)/(months.length-1||1);
-  const scaleY = v => H-padB - (v/maxVal)*(H-padT-padB);
-  const pathFor = key => months.map((m,i)=>`${i===0?'M':'L'}${(padL+i*stepX).toFixed(1)},${scaleY(m[key]).toFixed(1)}`).join(' ');
-  const dots = key => months.map((m,i)=>`<circle cx="${(padL+i*stepX).toFixed(1)}" cy="${scaleY(m[key]).toFixed(1)}" r="4" fill="${key==='income'?'#1A7A4A':'#E63946'}"/>`).join('');
-  const labels = months.map((m,i)=>`<text x="${(padL+i*stepX).toFixed(1)}" y="${H-8}" font-size="12" fill="#9395A5" text-anchor="middle">${m.label}</text>`).join('');
+  const bars = months.map((m,i)=>{
+    const hi = Math.max(3, (m.income/maxVal)*90);
+    const he = Math.max(3, (m.expenses/maxVal)*90);
+    return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">
+      <div style="display:flex;align-items:flex-end;gap:2px;height:96px">
+        <div style="width:9px;border-radius:3px 3px 0 0;height:${hi}px;background:#1A7A4A"></div>
+        <div style="width:9px;border-radius:3px 3px 0 0;height:${he}px;background:#E63946"></div>
+      </div>
+      <div style="font-size:9.5px;font-weight:700;color:#9395A5">${m.label}</div>
+    </div>`;
+  }).join('');
 
   return `
   <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-      <div style="font-size:13px;font-weight:800">📈 ${es?'Ingreso vs. gasto del hogar (6 meses)':'Household income vs. spending (6 months)'}</div>
+      <div style="font-size:13px;font-weight:800">📊 ${es?'Ingreso vs. gasto del hogar (6 meses)':'Household income vs. spending (6 months)'}</div>
       <div style="display:flex;gap:12px;font-size:10px;color:var(--text3)">
-        <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#1A7A4A;margin-right:3px"></span>${es?'Ingreso':'Income'}</span>
-        <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#E63946;margin-right:3px"></span>${es?'Gasto hogar':'Household spend'}</span>
+        <span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#1A7A4A;margin-right:3px"></span>${es?'Ingreso':'Income'}</span>
+        <span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#E63946;margin-right:3px"></span>${es?'Gasto hogar':'Household spend'}</span>
       </div>
     </div>
-    <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" style="width:100%;display:block">
-      <path d="${pathFor('income')}" fill="none" stroke="#1A7A4A" stroke-width="3"/>
-      <path d="${pathFor('expenses')}" fill="none" stroke="#E63946" stroke-width="3"/>
-      ${dots('income')}${dots('expenses')}
-      ${labels}
-    </svg>
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:6px;height:120px">${bars}</div>
   </div>`;
 }
 
@@ -1046,7 +1048,7 @@ function switchTab(tab){
   const totalIncome = myIncome + partnerIncome;
 
   document.querySelectorAll('.tab-btn').forEach((b,i)=>{
-    const tabs = ['resumen','distribucion','deudas','inversiones','guia'];
+    const tabs = ['resumen','distribucion','deudas','inversiones','metas','guia'];
     b.classList.toggle('on', tabs[i]===tab);
   });
 
@@ -1062,6 +1064,7 @@ function renderTab(calc, sharedTxs, partnerName, partnerIncome, mode, totalIncom
   else if(activeTab==='distribucion') container.innerHTML = renderDistribucion(calc, partnerName, totalIncome, mode, partnerIncome);
   else if(activeTab==='deudas') container.innerHTML = renderDeudas(partnerName);
   else if(activeTab==='inversiones') container.innerHTML = renderHogarInversiones();
+  else if(activeTab==='metas') container.innerHTML = renderMetasTab(calc);
   else if(activeTab==='guia') container.innerHTML = renderGuia(mode, calc, partnerName);
 }
 
@@ -1122,37 +1125,41 @@ function renderResumen(calc, sharedTxs, partnerName, partnerIncome, totalIncome,
 
   ${tip?`<div class="tip-box"><strong>💡 ${es?'¿Por qué no sobró más?':'Why wasn\'t there more left?'}</strong>${tip}</div>`:''}
 
-  <!-- PERSON SUMMARY -->
+  <!-- PERSON SUMMARY — solo aportaciones al hogar, nunca gasto personal -->
   <div class="person-grid">
     <div class="person-card">
       <div class="pc-avatar" style="background:var(--g-main)">${(user.name||'T').charAt(0).toUpperCase()}</div>
       <div class="pc-name">${user.name||'Tú'}</div>
       <div class="pc-income">${fmt(user.income||0)}/mes</div>
       <div class="pc-stat"><span class="pc-stat-label">${es?'Aporte hogar':'Household share'}</span><span class="pc-stat-val">${fmt(calc.mySharedPart)}</span></div>
-      <div class="pc-stat"><span class="pc-stat-label">${es?'Gastos propios':'Personal expenses'}</span><span class="pc-stat-val">${fmt(calc.myTotalExpenses - calc.mySharedPart)}</span></div>
-      <div class="pc-leftover" style="background:${calc.myLeftover < 0 ? 'var(--red-dim)' : ''}">
-        <div class="pc-leftover-amt" style="color:${calc.myLeftover < 0 ? 'var(--red)' : 'var(--g-main)'}">${calc.myLeftover < 0 ? '-' : ''}${fmt(Math.abs(calc.myLeftover))}</div>
-        <div class="pc-leftover-lbl">${calc.myLeftover < 0 ? (es?'⚠️ te pasaste este mes':'⚠️ overspent this month') : (es?'te queda este mes':'left this month')}</div>
-      </div>
     </div>
     <div class="person-card">
       <div class="pc-avatar" style="background:var(--blue)">${(partnerName||'P').charAt(0).toUpperCase()}</div>
       <div class="pc-name">${partnerName}</div>
       <div class="pc-income">${fmt(partnerIncome)}/mes</div>
       <div class="pc-stat"><span class="pc-stat-label">${es?'Aporte hogar':'Household share'}</span><span class="pc-stat-val">${fmt(calc.partnerSharedPart)}</span></div>
-      <div class="pc-stat"><span class="pc-stat-label">${es?'Gastos propios':'Personal expenses'}</span><span class="pc-stat-val">${fmt(calc.partnerTotalExpenses - calc.partnerSharedPart)}</span></div>
-      <div class="pc-leftover" style="background:${calc.partnerLeftover < 0 ? 'var(--red-dim)' : ''}">
-        <div class="pc-leftover-amt" style="color:${calc.partnerLeftover < 0 ? 'var(--red)' : 'var(--blue)'}">${calc.partnerLeftover < 0 ? '-' : ''}${fmt(Math.abs(calc.partnerLeftover))}</div>
-        <div class="pc-leftover-lbl">${calc.partnerLeftover < 0 ? (es?'⚠️ se pasó este mes':'⚠️ overspent this month') : (es?'le queda este mes':'left this month')}</div>
-      </div>
     </div>
+  </div>
+
+  <!-- SOBRANTE COMBINADO DEL HOGAR — reemplaza 'te queda/le queda' que revelaba gasto personal -->
+  <div class="card" style="text-align:center;background:${(calc.mySharedPart+calc.partnerSharedPart-sharedTotal)<0?'var(--red-dim)':'var(--g-light)'}">
+    <div style="font-size:11px;color:var(--text3);margin-bottom:2px">${es?'Cuánto está sobrando del hogar':'How much is left over for the household'}</div>
+    <div style="font-size:24px;font-weight:800;color:${(calc.mySharedPart+calc.partnerSharedPart-sharedTotal)<0?'var(--red)':'var(--g-main)'}">${fmt(calc.mySharedPart+calc.partnerSharedPart-sharedTotal)}</div>
+    <div style="font-size:10px;color:var(--text3);margin-top:2px">${es?'Aportado':'Contributed'} ${fmt(calc.mySharedPart+calc.partnerSharedPart)} − ${es?'Gastado':'Spent'} ${fmt(sharedTotal)}</div>
   </div>
 
   ` + renderFondosCards(calc, es);
 }
 
-/* ── FONDOS DEL HOGAR (Emergencia + Meta) ── */
-function renderFondosCards(calc, es){
+/* ── PESTAÑA METAS (separada de Emergencia por pedido — emergencia no se mueve) ── */
+function renderMetasTab(calc){
+  const es = lang==='es';
+  return renderFondosCards(calc, es, 'metas');
+}
+
+/* ── FONDOS DEL HOGAR (Emergencia + Meta) — modo 'emerg' (default, usado en Resumen) o 'metas' (pestaña Metas) ── */
+function renderFondosCards(calc, es, modo){
+  modo = modo || 'emerg';
   const fondos = loadFondos();
   // Sobrante real = fondo aportado (cheques × 60%) - gastos del hogar del mes
   const _mesKey = (()=>{ const n=new Date(); return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0'); })();
@@ -1269,7 +1276,10 @@ function renderFondosCards(calc, es){
     +'<button onclick="agregarNuevaMeta()" style="background:var(--purple);color:white;border:none;border-radius:12px;padding:12px 24px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">+ '+(es?'Nueva meta compartida':'New shared goal')+'</button>'
     +'</div>';
 
-  return emergCard + metasCards + addMetaBtn;
+  if(modo==='metas'){
+    return (metasCards || '<div class="card" style="text-align:center;padding:24px;color:var(--text3);font-size:12px">'+(es?'Todavía no hay metas compartidas':'No shared goals yet')+'</div>') + addMetaBtn;
+  }
+  return emergCard;
 }
 
 

@@ -166,7 +166,8 @@ body {
 .btn-new:hover { opacity:.88; }
 
 /* ─── PAGE ─── */
-.page { padding:24px 28px; max-width:1280px; }
+.page { padding:24px 28px; max-width:1280px; overflow-x:hidden; }
+.page [style*="grid-template-columns"] > *{min-width:0;}
 
 /* ══════════════════════════════════════════════════════════
    ⬇️⬇️⬇️ REDISEÑO — HERO CARD (Liquid Glass) ⬇️⬇️⬇️
@@ -239,7 +240,7 @@ body {
 ────────────────────────────────────────────────────────────── */
 
 /* ─── KPI ROW ─── */
-.kpi-row { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:20px; }
+.kpi-row { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; margin-bottom:20px; }
 
 /* ⬇️ REDISEÑO — KPI cards (más redondeadas, sombra flotante en vez de borde plano) ⬇️ */
 .kpi {
@@ -516,7 +517,7 @@ body {
   .tb-title { font-size:16px; white-space:normal; }
   .tb-right { width:100%; justify-content:space-between; gap:8px; flex-wrap:wrap; }
   .page { padding:16px; max-width:100%; }
-  .kpi-row { grid-template-columns:1fr 1fr; }
+  .kpi-row { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .grid-2, .grid-3 { grid-template-columns:1fr; }
   .subs-grid { grid-template-columns:1fr 1fr; }
   .hero { grid-template-columns:1fr; }
@@ -713,21 +714,43 @@ input, select, textarea { font-size: 16px !important; }
           <div style="display:flex;gap:6px;flex-wrap:wrap" id="heroDistBtns"></div>
         </div>
       </div>
-
-      <!-- VER — mismo estilo de pills que ya tiene Hogar, para navegar sin buscar -->
-      <div style="font-size:11px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin:14px 4px 8px" data-es="Ver" data-en="View">Ver</div>
-      <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:14px">
-        <div style="flex-shrink:0;display:flex;align-items:center;gap:6px;padding:9px 14px;border-radius:20px;background:var(--g-main);color:white;font-size:12.5px;font-weight:700;white-space:nowrap">📊 <span data-es="Resumen" data-en="Summary">Resumen</span></div>
-        <div onclick="location.href='historial.html'" style="flex-shrink:0;cursor:pointer;display:flex;align-items:center;gap:6px;padding:9px 14px;border-radius:20px;border:1.5px solid var(--border);background:white;color:var(--text2);font-size:12.5px;font-weight:700;white-space:nowrap">📅 <span data-es="Historial gastos" data-en="Expense history">Historial gastos</span></div>
-        <div onclick="location.href='historial.html'" style="flex-shrink:0;cursor:pointer;display:flex;align-items:center;gap:6px;padding:9px 14px;border-radius:20px;border:1.5px solid var(--border);background:white;color:var(--text2);font-size:12.5px;font-weight:700;white-space:nowrap">💵 <span data-es="Historial ingresos" data-en="Income history">Historial ingresos</span></div>
-        <div onclick="location.href='analisis.html'" style="flex-shrink:0;cursor:pointer;display:flex;align-items:center;gap:6px;padding:9px 14px;border-radius:20px;border:1.5px solid var(--border);background:white;color:var(--text2);font-size:12.5px;font-weight:700;white-space:nowrap">📈 <span data-es="Análisis" data-en="Analysis">Análisis</span></div>
-      </div>
-
-      <!-- ACCESOS RÁPIDOS — antes había que buscar cada sección en el menú -->
-      <div style="font-size:11px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin:0 4px 8px" data-es="Accesos rápidos" data-en="Quick access">Accesos rápidos</div>
-      <div id="quickAccessGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px"></div>
-
     </div>
+
+    <!-- oculto: accesos rápidos viejos (Servicios/Deudas/Recurrentes/Inversiones) — reemplazados en pestaña Resumen, contenedor vivo para no romper renderQuickAccess() -->
+    <div style="display:none"><div id="quickAccessGrid"></div></div>
+
+    <!-- VER — pestañas reales -->
+    <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin:2px 0 14px" id="dashTabPills">
+      <div class="dash-tab-pill on" data-key="resumen" onclick="setDashTab('resumen')" style="flex-shrink:0;cursor:pointer;display:flex;align-items:center;gap:6px;padding:9px 14px;border-radius:20px;background:var(--g-main);color:white;font-size:12.5px;font-weight:700;white-space:nowrap">📊 <span data-es="Resumen" data-en="Summary">Resumen</span></div>
+      <div class="dash-tab-pill" data-key="metodo" onclick="setDashTab('metodo')" style="flex-shrink:0;cursor:pointer;display:flex;align-items:center;gap:6px;padding:9px 14px;border-radius:20px;border:1.5px solid var(--border);background:white;color:var(--text2);font-size:12.5px;font-weight:700;white-space:nowrap">📐 <span data-es="Método 50/30/20" data-en="50/30/20 Method">Método 50/30/20</span></div>
+    </div>
+
+    <!-- PESTAÑA: RESUMEN -->
+    <div id="dashPaneResumen">
+      <div style="font-size:11px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin:0 4px 8px" data-es="Accesos rápidos" data-en="Quick access">Accesos rápidos</div>
+      <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:14px">
+        <div onclick="go('historial.html')" style="cursor:pointer;background:var(--off);border:1.5px solid var(--border);border-radius:14px;padding:12px 6px;text-align:center">
+          <div style="font-size:20px;margin-bottom:4px">💰</div>
+          <div style="font-size:10.5px;font-weight:700" data-es="Ingresos" data-en="Income">Ingresos</div>
+        </div>
+        <div onclick="go('historial.html')" style="cursor:pointer;background:var(--off);border:1.5px solid var(--border);border-radius:14px;padding:12px 6px;text-align:center">
+          <div style="font-size:20px;margin-bottom:4px">💸</div>
+          <div style="font-size:10.5px;font-weight:700" data-es="Gastos" data-en="Expenses">Gastos</div>
+        </div>
+        <div onclick="go('emergencia.html')" style="cursor:pointer;background:var(--off);border:1.5px solid var(--border);border-radius:14px;padding:12px 6px;text-align:center">
+          <div style="font-size:20px;margin-bottom:4px">🛡️</div>
+          <div style="font-size:10.5px;font-weight:700" data-es="Emergencia" data-en="Emergency">Emergencia</div>
+        </div>
+        <div onclick="go('metas.html')" style="cursor:pointer;background:var(--off);border:1.5px solid var(--border);border-radius:14px;padding:12px 6px;text-align:center">
+          <div style="font-size:20px;margin-bottom:4px">🎯</div>
+          <div style="font-size:10.5px;font-weight:700" data-es="Saving goals" data-en="Saving goals">Saving goals</div>
+        </div>
+      </div>
+      <div id="aporteMesCard" style="display:none"></div>
+    </div>
+
+    <!-- PESTAÑA: MÉTODO 50/30/20 -->
+    <div id="dashPaneMetodo" style="display:none">
 
     <!-- KPI ROW -->
     <div class="kpi-row">
@@ -779,6 +802,17 @@ input, select, textarea { font-size: 16px !important; }
           <polyline fill="none" stroke="var(--amber)" stroke-width="2" stroke-dasharray="3,3" points="0,38 20,38 40,38 60,38 80,38 100,38 120,38"/>
         </svg></div>
       </div>
+    </div>
+
+    <!-- TENDENCIA — barras clickeables ingreso vs gasto, 6 meses -->
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-hd">📊 <span data-es="Ingreso vs. gasto (6 meses)" data-en="Income vs. expense (6 months)">Ingreso vs. gasto (6 meses)</span></div>
+      <div id="trendBarChart"></div>
+      <div style="display:flex;gap:12px;margin-top:8px;font-size:10.5px;color:var(--text3)">
+        <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--g-main);margin-right:4px"></span><span data-es="Ingreso" data-en="Income">Ingreso</span></span>
+        <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--amber);margin-right:4px"></span><span data-es="Gasto" data-en="Expense">Gasto</span></span>
+      </div>
+      <div id="trendMonthDetail" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--off);font-size:12px;color:var(--text2)"></div>
     </div>
 
     <!-- 50/30/20 + TRANSACTIONS -->
@@ -868,67 +902,60 @@ input, select, textarea { font-size: 16px !important; }
 
     </div>
 
-    <!-- EMERGENCY + SUBSCRIPTIONS -->
-    <div class="grid-2">
-
-      <!-- EMERGENCY -->
+    <!-- EMERGENCY + SUBSCRIPTIONS — ocultas: solo redirect button abajo, contenedores vivos para no romper sus funciones -->
+    <div class="grid-2" style="display:none">
       <div class="card">
-        <div class="card-hd">
-          🛡️ <span data-es="Fondo de emergencia" data-en="Emergency fund">Fondo de emergencia</span>
-          <span class="card-act" onclick="go('emergencia.html')" data-es="+ Depósito" data-en="+ Deposit">+ Depósito</span>
-        </div>
+        <div class="card-hd">🛡️ Fondo de emergencia</div>
         <div class="ef-nums">
-          <div>
-            <div class="ef-val" id="efVal">$0</div>
-            <div class="ef-goal" id="efGoal"></div>
-          </div>
-          <div class="ef-box">
-            <div class="ef-box-num" id="efMonths">0</div>
-            <div class="ef-box-lbl" data-es="meses cubiertos" data-en="months covered">meses cubiertos</div>
-          </div>
+          <div><div class="ef-val" id="efVal">$0</div><div class="ef-goal" id="efGoal"></div></div>
+          <div class="ef-box"><div class="ef-box-num" id="efMonths">0</div><div class="ef-box-lbl">meses cubiertos</div></div>
         </div>
         <div class="prog-track"><div class="prog-fill" id="efFill" style="width:0%;background:linear-gradient(90deg,var(--amber),#FFD580)"></div></div>
-        <div class="prog-lbl">
-          <span>$0</span>
-          <span id="efM1"></span>
-          <span id="efM3"></span>
-          <span id="efM6"></span>
-        </div>
+        <div class="prog-lbl"><span>$0</span><span id="efM1"></span><span id="efM3"></span><span id="efM6"></span></div>
         <div class="ms-row" id="efMilestones"></div>
       </div>
-
-      <!-- SUBSCRIPTIONS -->
       <div class="card">
-        <div class="card-hd">
-          🔄 <span data-es="Suscripciones" data-en="Subscriptions">Suscripciones</span>
-          <span style="font-size:12px;font-weight:500;color:var(--text3)" id="subTotal">$0/mes</span>
-        </div>
+        <div class="card-hd">🔄 Suscripciones <span id="subTotal">$0/mes</span></div>
         <div class="subs-grid" id="subGrid"></div>
       </div>
-
-      <!-- SERVICIOS DE LA CASA -->
-      <div class="card" id="serviciosCasaCard" style="display:none">
-        <div class="card-hd">
-          🏠 <span data-es="Servicios de la casa" data-en="Household services">Servicios de la casa</span>
-          <span class="card-act" onclick="location.href='servicios.html'" data-es="Ver todos →" data-en="See all →">Ver todos →</span>
-        </div>
-        <div style="font-size:11px;color:var(--text3);margin:-8px 0 12px" id="serviciosCasaSub"></div>
-        <div id="serviciosCasaList"></div>
-      </div>
-
     </div>
 
-    <!-- GOALS PREVIEW -->
-    <div class="card" style="margin-bottom:20px">
+    <!-- SERVICIOS DE LA CASA — se queda visible -->
+    <div class="card" id="serviciosCasaCard" style="display:none">
       <div class="card-hd">
-        🎯 <span data-es="Metas" data-en="Goals">Metas</span>
-        <span class="card-act" onclick="go('metas.html')" data-es="Ver todas" data-en="See all">Ver todas →</span>
+        🏠 <span data-es="Servicios de la casa" data-en="Household services">Servicios de la casa</span>
+        <span class="card-act" onclick="location.href='servicios.html'" data-es="Ver todos →" data-en="See all →">Ver todos →</span>
       </div>
+      <div style="font-size:11px;color:var(--text3);margin:-8px 0 12px" id="serviciosCasaSub"></div>
+      <div id="serviciosCasaList"></div>
+    </div>
+
+    <!-- GOALS PREVIEW — oculto: solo redirect button abajo -->
+    <div class="card" style="margin-bottom:20px;display:none">
+      <div class="card-hd">🎯 Metas</div>
       <div id="goalsPreview"></div>
     </div>
 
-    <!-- APORTE DEL MES -->
-    <div id="aporteMesCard" style="display:none"></div>
+    <!-- REDIRECT BUTTONS — Metas / Emergencia / Suscripciones solo navegan, sin contenido inline -->
+    <div class="card" style="padding:6px;margin-bottom:20px">
+      <div onclick="go('metas.html')" style="cursor:pointer;display:flex;align-items:center;gap:10px;padding:12px" data-es-full="1">
+        <div style="width:34px;height:34px;border-radius:50%;background:var(--off);display:grid;place-items:center;font-size:15px;flex-shrink:0">🎯</div>
+        <div style="flex:1;font-size:13px;font-weight:700" data-es="Metas" data-en="Goals">Metas</div>
+        <div style="color:var(--text3)">›</div>
+      </div>
+      <div onclick="go('emergencia.html')" style="cursor:pointer;display:flex;align-items:center;gap:10px;padding:12px;border-top:1px solid var(--off)">
+        <div style="width:34px;height:34px;border-radius:50%;background:var(--off);display:grid;place-items:center;font-size:15px;flex-shrink:0">🛡️</div>
+        <div style="flex:1;font-size:13px;font-weight:700" data-es="Fondo de emergencia" data-en="Emergency fund">Fondo de emergencia</div>
+        <div style="color:var(--text3)">›</div>
+      </div>
+      <div onclick="go('suscripciones.html')" style="cursor:pointer;display:flex;align-items:center;gap:10px;padding:12px;border-top:1px solid var(--off)">
+        <div style="width:34px;height:34px;border-radius:50%;background:var(--off);display:grid;place-items:center;font-size:15px;flex-shrink:0">🔄</div>
+        <div style="flex:1;font-size:13px;font-weight:700" data-es="Suscripciones" data-en="Subscriptions">Suscripciones</div>
+        <div style="color:var(--text3)">›</div>
+      </div>
+    </div>
+
+    </div><!-- /dashPaneMetodo -->
 
     <!-- MODAL CHEQUE - estático para iOS Safari -->
     <div id="chequeModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:400;align-items:flex-end;justify-content:center">
@@ -1258,6 +1285,70 @@ function getViewDate(){
   d.setMonth(d.getMonth() + selectedMonthOffset);
   return d;
 }
+// ── PESTAÑAS DASHBOARD (Resumen / Método 50-30-20) ──
+let dashTab = localStorage.getItem('ft_dash_tab') || 'resumen';
+function setDashTab(key){
+  dashTab = key;
+  localStorage.setItem('ft_dash_tab', key);
+  document.getElementById('dashPaneResumen').style.display = key==='resumen' ? '' : 'none';
+  document.getElementById('dashPaneMetodo').style.display = key==='metodo' ? '' : 'none';
+  document.querySelectorAll('#dashTabPills .dash-tab-pill').forEach(p=>{
+    const on = p.getAttribute('data-key')===key;
+    p.classList.toggle('on', on);
+    p.style.background = on ? 'var(--g-main)' : 'white';
+    p.style.color = on ? 'white' : 'var(--text2)';
+    p.style.border = on ? 'none' : '1.5px solid var(--border)';
+  });
+}
+
+// ── TENDENCIA 6 MESES — ingreso vs gasto, para la gráfica de barras clickeable ──
+function get6MonthTrend(){
+  const data = loadData();
+  const now = getViewDate();
+  const months = [];
+  for(let i=5;i>=0;i--){
+    const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
+    months.push({ y:d.getFullYear(), m:d.getMonth(), label:d.toLocaleDateString(lang==='es'?'es-MX':'en-US',{month:'short'}), ingreso:0, gasto:0 });
+  }
+  (data.transactions||[]).forEach(t=>{
+    if(!t.date) return;
+    const parts = String(t.date).split(/[-T]/);
+    const y = parseInt(parts[0]), m = parseInt(parts[1])-1;
+    const bucket = months.find(mo=>mo.y===y && mo.m===m);
+    if(!bucket) return;
+    const amt = parseFloat(t.amount)||0;
+    if(t.type==='ingreso') bucket.ingreso += amt;
+    else if(t.type==='gasto'||t.type==='suscripcion'||t.type==='hipoteca') bucket.gasto += amt;
+  });
+  return months;
+}
+let trendActiveIdx = 5;
+function renderTrendBarChart(){
+  const el = document.getElementById('trendBarChart');
+  if(!el) return;
+  const es = lang==='es';
+  const months = get6MonthTrend();
+  const max = Math.max(1, ...months.map(m=>Math.max(m.ingreso,m.gasto)));
+  el.innerHTML = `<div style="display:flex;align-items:flex-end;justify-content:space-between;gap:6px;height:120px;padding:0 2px">` +
+    months.map((m,i)=>{
+      const hi = Math.max(3, (m.ingreso/max)*90);
+      const hg = Math.max(3, (m.gasto/max)*90);
+      const active = i===trendActiveIdx;
+      return `<div onclick="trendActiveIdx=${i};renderTrendBarChart()" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer">
+        <div style="display:flex;align-items:flex-end;gap:2px;height:96px">
+          <div style="width:9px;border-radius:3px 3px 0 0;height:${hi}px;background:var(--g-main);opacity:${active?1:.35}"></div>
+          <div style="width:9px;border-radius:3px 3px 0 0;height:${hg}px;background:var(--amber);opacity:${active?1:.35}"></div>
+        </div>
+        <div style="font-size:9.5px;font-weight:700;color:${active?'var(--text)':'var(--text3)'}">${m.label}</div>
+      </div>`;
+    }).join('') + `</div>`;
+  const d = months[trendActiveIdx];
+  const sobro = d.ingreso - d.gasto;
+  document.getElementById('trendMonthDetail').innerHTML =
+    `<strong>${d.label}</strong> — ${es?'Ingreso':'Income'} ${fmt(d.ingreso)} · ${es?'Gasto':'Expense'} ${fmt(d.gasto)} · ` +
+    `<span style="color:${sobro>=0?'var(--g-main)':'var(--red)'};font-weight:700">${es?'Sobró':'Left over'} ${fmt(sobro)}</span>`;
+}
+
 function prevMonth(){ selectedMonthOffset--; renderDashboard(); }
 function nextMonth(){
   if(selectedMonthOffset>=0) return; // no dejar navegar a meses futuros que aún no pasaron
@@ -1631,6 +1722,12 @@ function renderDashboard() {
 
   // ── ACCESOS RÁPIDOS ──
   renderQuickAccess();
+
+  // ── TENDENCIA 6 MESES ──
+  renderTrendBarChart();
+
+  // ── SINCRONIZAR PESTAÑA GUARDADA ──
+  setDashTab(dashTab);
 
   // ── GOALS PREVIEW ──
   renderGoalsPreview();
