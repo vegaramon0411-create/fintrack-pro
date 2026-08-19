@@ -727,37 +727,7 @@ input, select, textarea { font-size: 16px !important; }
 
     <!-- PESTAÑA: RESUMEN -->
     <div id="dashPaneResumen">
-      <div style="font-size:11px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin:0 4px 8px" data-es="Accesos rápidos" data-en="Quick access">Accesos rápidos</div>
-      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:14px">
-        <div onclick="go('historial.html?filter=ingreso')" style="cursor:pointer;background:var(--off);border:1.5px solid var(--border);border-radius:14px;padding:12px 6px;text-align:center">
-          <div style="font-size:20px;margin-bottom:4px">💰</div>
-          <div style="font-size:10.5px;font-weight:700" data-es="Ingresos" data-en="Income">Ingresos</div>
-        </div>
-        <div onclick="go('historial.html?filter=gasto')" style="cursor:pointer;background:var(--off);border:1.5px solid var(--border);border-radius:14px;padding:12px 6px;text-align:center">
-          <div style="font-size:20px;margin-bottom:4px">💸</div>
-          <div style="font-size:10.5px;font-weight:700" data-es="Gastos" data-en="Expenses">Gastos</div>
-        </div>
-        <div onclick="go('emergencia.html')" style="cursor:pointer;background:var(--off);border:1.5px solid var(--border);border-radius:14px;padding:12px 6px;text-align:center">
-          <div style="font-size:20px;margin-bottom:4px">🛡️</div>
-          <div style="font-size:10.5px;font-weight:700" data-es="Emergencia" data-en="Emergency">Emergencia</div>
-        </div>
-        <div onclick="go('metas.html')" style="cursor:pointer;background:var(--off);border:1.5px solid var(--border);border-radius:14px;padding:12px 6px;text-align:center">
-          <div style="font-size:20px;margin-bottom:4px">🎯</div>
-          <div style="font-size:10.5px;font-weight:700" data-es="Saving goals" data-en="Saving goals">Saving goals</div>
-        </div>
-        <div onclick="go('suscripciones.html')" style="cursor:pointer;background:var(--off);border:1.5px solid var(--border);border-radius:14px;padding:12px 6px;text-align:center">
-          <div style="font-size:20px;margin-bottom:4px">🔄</div>
-          <div style="font-size:10.5px;font-weight:700" data-es="Suscripciones" data-en="Subscriptions">Suscripciones</div>
-        </div>
-        <div onclick="go('inversiones.html')" style="cursor:pointer;background:var(--off);border:1.5px solid var(--border);border-radius:14px;padding:12px 6px;text-align:center">
-          <div style="font-size:20px;margin-bottom:4px">📈</div>
-          <div style="font-size:10.5px;font-weight:700" data-es="Inversiones" data-en="Investments">Inversiones</div>
-        </div>
-      </div>
-
-      <div id="aporteMesCard" style="display:none"></div>
-
-      <!-- KPI ROW -->
+      <!-- RESUMEN DEL MES — mismo grupo visual que el hero: "dónde estoy parado" -->
       <div class="kpi-row">
         <div class="kpi">
           <div class="kpi-top">
@@ -809,8 +779,37 @@ input, select, textarea { font-size: 16px !important; }
         </div>
       </div>
 
-      <!-- TENDENCIA — barras clickeables ingreso vs gasto, 6 meses -->
-      <div class="card" style="margin-bottom:20px">
+      <!-- ACCESOS RÁPIDOS — "qué puedo hacer ahora", justo después de ver mi estado -->
+      <div style="font-size:11px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin:18px 4px 8px" data-es="Accesos rápidos" data-en="Quick access">Accesos rápidos</div>
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:20px">
+        <div onclick="go('historial.html?filter=ingreso')" style="cursor:pointer;background:var(--off);border:1.5px solid var(--border);border-radius:14px;padding:12px 6px;text-align:center">
+          <div style="font-size:20px;margin-bottom:4px">💰</div>
+          <div style="font-size:10.5px;font-weight:700" data-es="Ingresos" data-en="Income">Ingresos</div>
+        </div>
+        <div onclick="go('historial.html?filter=gasto')" style="cursor:pointer;background:var(--off);border:1.5px solid var(--border);border-radius:14px;padding:12px 6px;text-align:center">
+          <div style="font-size:20px;margin-bottom:4px">💸</div>
+          <div style="font-size:10.5px;font-weight:700" data-es="Gastos" data-en="Expenses">Gastos</div>
+        </div>
+        <div onclick="go('emergencia.html')" style="cursor:pointer;background:var(--off);border:1.5px solid var(--border);border-radius:14px;padding:12px 6px;text-align:center">
+          <div style="font-size:20px;margin-bottom:4px">🛡️</div>
+          <div style="font-size:10.5px;font-weight:700" data-es="Emergencia" data-en="Emergency">Emergencia</div>
+        </div>
+        <div onclick="go('metas.html')" style="cursor:pointer;background:var(--off);border:1.5px solid var(--border);border-radius:14px;padding:12px 6px;text-align:center">
+          <div style="font-size:20px;margin-bottom:4px">🎯</div>
+          <div style="font-size:10.5px;font-weight:700" data-es="Saving goals" data-en="Saving goals">Saving goals</div>
+        </div>
+        <div onclick="go('suscripciones.html')" style="cursor:pointer;background:var(--off);border:1.5px solid var(--border);border-radius:14px;padding:12px 6px;text-align:center">
+          <div style="font-size:20px;margin-bottom:4px">🔄</div>
+          <div style="font-size:10.5px;font-weight:700" data-es="Suscripciones" data-en="Subscriptions">Suscripciones</div>
+        </div>
+        <div onclick="go('inversiones.html')" style="cursor:pointer;background:var(--off);border:1.5px solid var(--border);border-radius:14px;padding:12px 6px;text-align:center">
+          <div style="font-size:20px;margin-bottom:4px">📈</div>
+          <div style="font-size:10.5px;font-weight:700" data-es="Inversiones" data-en="Investments">Inversiones</div>
+        </div>
+      </div>
+
+      <!-- TENDENCIA — "por qué estoy así", contexto antes del detalle -->
+      <div class="card" style="margin-bottom:14px">
         <div class="card-hd">📊 <span data-es="Tendencia (6 meses)" data-en="Trend (6 months)">Tendencia (6 meses)</span></div>
         <div id="trendBarChart"></div>
         <div style="display:flex;gap:12px;margin-top:8px;font-size:10.5px;color:var(--text3)">
@@ -819,6 +818,9 @@ input, select, textarea { font-size: 16px !important; }
         </div>
         <div id="trendMonthDetail" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--off);font-size:12px;color:var(--text2)"></div>
       </div>
+
+      <!-- MI CHEQUE — contextual, menor jerarquía que overview/acciones -->
+      <div id="aporteMesCard" style="display:none"></div>
 
       <!-- SERVICIOS DE LA CASA -->
       <div class="card" id="serviciosCasaCard" style="display:none;margin-bottom:20px">
@@ -830,7 +832,7 @@ input, select, textarea { font-size: 16px !important; }
         <div id="serviciosCasaList"></div>
       </div>
 
-      <!-- ÚLTIMOS MOVIMIENTOS — hasta abajo -->
+      <!-- ÚLTIMOS MOVIMIENTOS — el detalle más granular va hasta el final -->
       <div class="card" style="margin-bottom:20px">
         <div class="card-hd">
           🧾 <span data-es="Últimos movimientos" data-en="Recent transactions">Últimos movimientos</span>

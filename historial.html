@@ -177,16 +177,24 @@ input, select, textarea { font-size: 16px !important; }
     <button class="filter-btn" onclick="setFilter('hogar',this)" data-es="🏠 Hogar" data-en="🏠 Home">🏠 Hogar</button>
   </div>
 
-  <button onclick="buscarDuplicados()" style="width:100%;background:var(--amb-dim);color:#8A5A00;border:1.5px solid var(--amber);border-radius:12px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:8px">🔍 <span data-es="Buscar posibles duplicados" data-en="Find possible duplicates">Buscar posibles duplicados</span></button>
+  <div class="card" id="txList" style="margin-bottom:14px"></div>
 
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
-    <button onclick="exportarRespaldo()" style="background:var(--g-dim,rgba(26,122,74,.08));color:var(--g-main);border:1.5px solid var(--g-main);border-radius:12px;padding:11px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit">📤 <span data-es="Descargar respaldo" data-en="Download backup">Descargar respaldo</span></button>
-    <button onclick="document.getElementById('inputRestaurar').click()" style="background:var(--off);color:var(--text2);border:1.5px solid var(--border);border-radius:12px;padding:11px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit">📥 <span data-es="Restaurar respaldo" data-en="Restore backup">Restaurar respaldo</span></button>
+  <!-- HERRAMIENTAS — plegable: duplicados/respaldo son uso ocasional, no deben empujar la lista -->
+  <div class="card" style="padding:0;margin-bottom:20px">
+    <button onclick="toggleToolsPanel()" id="toolsToggleBtn" style="width:100%;background:none;border:none;padding:14px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;font-family:inherit">
+      <span style="font-size:12.5px;font-weight:700;color:var(--text2)">🛠️ <span data-es="Herramientas" data-en="Tools">Herramientas</span></span>
+      <span id="toolsChevron" style="color:var(--text3);transition:transform .2s ease">▾</span>
+    </button>
+    <div id="toolsPanel" style="display:none;padding:0 14px 14px">
+      <button onclick="buscarDuplicados()" style="width:100%;background:var(--amb-dim);color:#8A5A00;border:1.5px solid var(--amber);border-radius:12px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:8px">🔍 <span data-es="Buscar posibles duplicados" data-en="Find possible duplicates">Buscar posibles duplicados</span></button>
+      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px">
+        <button onclick="exportarRespaldo()" style="background:var(--g-dim,rgba(26,122,74,.08));color:var(--g-main);border:1.5px solid var(--g-main);border-radius:12px;padding:11px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit">📤 <span data-es="Descargar respaldo" data-en="Download backup">Descargar respaldo</span></button>
+        <button onclick="document.getElementById('inputRestaurar').click()" style="background:var(--off);color:var(--text2);border:1.5px solid var(--border);border-radius:12px;padding:11px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit">📥 <span data-es="Restaurar respaldo" data-en="Restore backup">Restaurar respaldo</span></button>
+      </div>
+      <input type="file" id="inputRestaurar" accept=".json" style="display:none" onchange="restaurarRespaldo(this.files[0])">
+      <div id="dupResults" style="margin-top:12px"></div>
+    </div>
   </div>
-  <input type="file" id="inputRestaurar" accept=".json" style="display:none" onchange="restaurarRespaldo(this.files[0])">
-  <div id="dupResults" style="display:none;margin-bottom:14px"></div>
-
-  <div class="card" id="txList"></div>
 </div>
 
 <!-- MODAL DETALLE -->
@@ -295,6 +303,14 @@ function changeMonth(dir){
   const d = new Date(y, m + dir, 1);
   selectedMonth = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
   render();
+}
+
+function toggleToolsPanel(){
+  const panel = document.getElementById('toolsPanel');
+  const chev = document.getElementById('toolsChevron');
+  const open = panel.style.display !== 'none';
+  panel.style.display = open ? 'none' : 'block';
+  chev.style.transform = open ? 'rotate(0deg)' : 'rotate(180deg)';
 }
 
 function setFilter(f, btn){
@@ -537,11 +553,7 @@ function renderList(){
       <div class="tx-amount" style="color:${t.type==='ingreso'?'var(--g-main)':'var(--red)'}">
         ${t.type==='ingreso'?'+':'-'}${fmt(parseFloat(t.amount)||0)}
       </div>
-      <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;padding-left:4px">
-        ${esDePareja ? '' : `
-        <div onclick="event.stopPropagation();showDetail('${t.id}');startEditDetail()" style="cursor:pointer;color:var(--blue);font-size:15px;line-height:1" title="Editar">✏️</div>
-        <div onclick="event.stopPropagation();deleteTx('${t.id}')" style="cursor:pointer;color:var(--text3);font-size:13px;line-height:1" title="Eliminar">🗑</div>`}
-      </div>
+      ${esDePareja ? '' : `<div style="color:var(--text3);font-size:16px;flex-shrink:0;padding-left:2px">›</div>`}
     </div>
   `;}).join('');
 }
