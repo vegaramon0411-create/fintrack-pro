@@ -1894,13 +1894,21 @@ function renderTx(filter) {
     const dp = String(t.date||'').split('-').map(Number);
     const d = dp.length===3 ? new Date(dp[0], dp[1]-1, dp[2]) : new Date(t.date);
     const dateStr = d.toLocaleDateString(lang==='es'?'es-MX':'en-US',{month:'short',day:'numeric'});
+    let extraTag = '';
+    if(t.type==='ingreso' && t.incomeKind==='cheque'){
+      const hogarCfg = (() => { try{ return JSON.parse(localStorage.getItem('ft_hogar')||'{}'); }catch(e){ return {}; } })();
+      const pct = (parseFloat(hogarCfg.payPctHogar)||50)+(parseFloat(hogarCfg.saveHogarPct)||10);
+      const amt = parseFloat(t.amount)||0;
+      const h = amt*pct/100, p = amt-h;
+      extraTag = `<span style="background:var(--amb-dim);color:#8A5A00;font-size:9px;font-weight:700;padding:2px 6px;border-radius:20px;margin-left:4px">🏠${fmtD(h)} + 👤${fmtD(p)}</span>`;
+    }
     return `
       ${i>0?'<div class="tx-sep"></div>':''}
       <div class="tx-item" onclick="showTxDetail(${t.id})" style="cursor:pointer">
         <div class="tx-ico" style="background:${c.bg}">${c.icon}</div>
         <div class="tx-info">
           <div class="tx-nm">${t.desc || tn}</div>
-          <div class="tx-meta">${dateStr}<span class="tx-cat" style="background:${c.bg};color:${c.color}">${tn}</span>${t.hogar===true?`<span style="background:var(--g-light);color:var(--g-dark);font-size:9px;font-weight:700;padding:2px 6px;border-radius:20px;margin-left:4px">🏠</span>`:''}</div>
+          <div class="tx-meta">${dateStr}<span class="tx-cat" style="background:${c.bg};color:${c.color}">${tn}</span>${t.hogar===true?`<span style="background:var(--g-light);color:var(--g-dark);font-size:9px;font-weight:700;padding:2px 6px;border-radius:20px;margin-left:4px">🏠</span>`:''}${extraTag}</div>
         </div>
         <div class="tx-amt" style="color:${isPositive?'var(--g-main)':'var(--red)'}">${sign}${fmtD(t.amount)}</div>
       </div>`;
@@ -2018,21 +2026,21 @@ function updateChequePreview(){
   } else if(preview){ preview.style.display='none'; }
 }
 
-function guardarCheque(){
+function guardarCheque(fechaOverride, silent){
   const monto = parseFloat(document.getElementById('chequeMonto').value);
-  if(!monto||monto<=0){ showToast(lang==='es'?'Ingresa el monto recibido':'Enter the amount received'); return; }
+  if(!monto||monto<=0){ if(!silent) showToast(lang==='es'?'Ingresa el monto recibido':'Enter the amount received'); return; }
   const hogar = (() => { try{ return JSON.parse(localStorage.getItem('ft_hogar')||'{}'); }catch(e){ return {}; } })();
   const totHogar = (parseFloat(hogar.payPctHogar)||50)+(parseFloat(hogar.saveHogarPct)||10);
   const hogarAmt = monto * totHogar/100;
   const personalAmt = monto * (100-totHogar)/100;
-  const now = new Date();
-  const fecha = now.toISOString().split('T')[0];
+  const now = fechaOverride ? new Date(fechaOverride+'T00:00:00') : new Date();
+  const fecha = fechaOverride || now.toISOString().split('T')[0];
   const mes = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
   const es = lang==='es';
 
   // Guardar en ft_cheques
   const cheques = JSON.parse(localStorage.getItem('ft_cheques')||'[]');
-  cheques.push({id:Date.now(),monto,hogarAmt,personalAmt,fecha,mes,tipo:chequeType});
+  cheques.push({id:Date.now()+Math.floor(Math.random()*1000),monto,hogarAmt,personalAmt,fecha,mes,tipo:chequeType});
   localStorage.setItem('ft_cheques',JSON.stringify(cheques));
 
   // Si es pago nuevo → registrar como ingreso en ft_data
@@ -2064,6 +2072,7 @@ function guardarCheque(){
     }
   }
 
+  if(silent) return;
   closeChequeModal();
   showToast(es
     ?`✅ $${monto.toFixed(2)} registrado · $${personalAmt.toFixed(2)} a tu cuenta personal${autoSavedAmt>0?` · $${autoSavedAmt.toFixed(2)} a Ahorro libre`:''}`
@@ -3969,22 +3978,61 @@ document.getElementById('chequeGuardarBtn').addEventListener('click', guardarChe
 document.getElementById('chequeMonto').addEventListener('input', updateChequePreview);
 document.getElementById('chequeModal').addEventListener('click', function(e){ if(e.target===this) closeChequeModal(); });
 
-// Auto-registro si es día de pago y está activado — se registra solo, sin pedir confirmación
-(function checkAutoPayday(){
-  if(!user.payAuto) return;
-  if(!isPayDay()) return;
-  const hoy = new Date().toISOString().split('T')[0];
+// Auto-registro con catch-up: si no abriste la app justo el día de pago, al
+// entrar de nuevo se registran TODOS los cheques que debieron caer entre el
+// último registrado y hoy — no solo el de hoy. Mismo principio que el motor
+// de recurrentes (nunca se pierde un periodo por no haber abierto la app a tiempo).
+function getMissingPaydays(){
+  if(!user.payAuto) return [];
+  const freq = user.payFreq||'weekly';
+  const payDay = user.payDay||'thursday';
+  const days = {sunday:0,monday:1,tuesday:2,wednesday:3,thursday:4,friday:5,saturday:6};
   const cheques = JSON.parse(localStorage.getItem('ft_cheques')||'[]');
-  const yaHoy = cheques.some(c=>c.fecha===hoy);
-  if(yaHoy) return;
+  const recordedDates = new Set(cheques.map(c=>c.fecha));
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  let start;
+  if(cheques.length){
+    const lastMs = Math.max(...cheques.map(c=>new Date(c.fecha+'T00:00:00').getTime()));
+    start = new Date(lastMs); start.setDate(start.getDate()+1);
+  } else {
+    // Sin cheques previos: solo revisa hacia atrás un máximo razonable (60 días)
+    // para no generar de golpe meses de historial la primera vez que se activa.
+    start = new Date(today); start.setDate(start.getDate()-60);
+  }
+
+  const missing = [];
+  let cursor = new Date(start);
+  let guard = 0;
+  while(cursor <= today && guard < 400){
+    const dateStr = cursor.toISOString().split('T')[0];
+    let matches;
+    if(freq==='weekly') matches = cursor.getDay()===(days[payDay]!==undefined?days[payDay]:4);
+    else matches = String(cursor.getDate())===String(payDay); // biweekly/monthly: día del mes
+    if(matches && !recordedDates.has(dateStr)) missing.push(dateStr);
+    cursor.setDate(cursor.getDate()+1);
+    guard++;
+  }
+  return missing;
+}
+
+(function checkAutoPayday(){
+  const missing = getMissingPaydays();
+  if(!missing.length) return;
+  const freq = user.payFreq||'weekly';
+  const checks = freq==='weekly'?4:freq==='biweekly'?2:1;
+  const expected = (user.income||0) / checks;
+  if(expected <= 0) return; // sin ingreso configurado, no se puede auto-registrar
   setTimeout(()=>{
-    const freq = user.payFreq||'weekly';
-    const checks = freq==='weekly'?4:freq==='biweekly'?2:1;
-    const expected = (user.income||0) / checks;
-    if(expected <= 0) return; // sin ingreso configurado, no se puede auto-registrar
-    document.getElementById('chequeMonto').value = expected.toFixed(2);
     chequeType = 'nuevo';
-    guardarCheque();
+    missing.forEach(fechaStr=>{
+      document.getElementById('chequeMonto').value = expected.toFixed(2);
+      guardarCheque(fechaStr, true); // silencioso, uno por cada fecha perdida
+    });
+    showToast(lang==='es'
+      ? `✅ Se pusieron al corriente ${missing.length} cheque(s) que faltaban`
+      : `✅ Caught up on ${missing.length} missed paycheck(s)`);
+    renderDashboard();
   }, 800);
 })();
 
