@@ -17,6 +17,11 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
 .page [style*="grid-template-columns"] > *{min-width:0;}
 .card{background:var(--white);border-radius:16px;padding:18px;margin-bottom:14px;box-shadow:var(--shadow);}
 .lang-toggle{display:flex;background:var(--off);border:1px solid var(--border);border-radius:20px;overflow:hidden;font-size:11px;font-weight:700;}
+.kebab-btn{cursor:pointer;width:36px;height:36px;border-radius:99px;background:var(--off);display:grid;place-items:center;font-size:18px;flex-shrink:0;color:var(--text2);border:none;font-family:inherit;line-height:1;}
+.kebab-menu{position:absolute;top:56px;right:16px;background:white;border:1px solid var(--border);border-radius:14px;box-shadow:0 12px 28px -8px rgba(20,20,30,.18);padding:6px;z-index:60;display:none;min-width:180px;}
+.kebab-menu.on{display:block;}
+.kebab-menu button{width:100%;text-align:left;background:none;border:none;padding:10px 12px;font-size:13px;font-weight:700;color:var(--text);cursor:pointer;font-family:inherit;border-radius:8px;display:flex;align-items:center;gap:8px;}
+.kebab-menu button:hover{background:var(--off);}
 .lt-opt{padding:5px 12px;cursor:pointer;color:var(--text3);}
 .lt-opt.on{background:var(--g-main);color:white;}
 .btn{border:none;border-radius:12px;padding:12px 18px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;}
@@ -113,16 +118,17 @@ input, select, textarea { font-size: 16px !important; }
 </aside>
 <div class="main">
 
-<div class="topbar">
+<div class="topbar" style="position:relative;">
   <div class="topbar-title">🛡️ <span data-es="Fondo de Emergencia" data-en="Emergency Fund">Fondo de Emergencia</span></div>
-  <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
-    <div class="lang-toggle">
-      <div class="lt-opt on" id="ltES" onclick="setLang('es')">ES</div>
-      <div class="lt-opt" id="ltEN" onclick="setLang('en')">EN</div>
-    </div>
-    <button class="btn btn-primary" style="width:auto;padding:8px 12px;font-size:12px;white-space:nowrap;background:var(--off);color:var(--text2);border:1.5px solid var(--border)" onclick="openWithdraw()">↩ <span data-es="Retirar" data-en="Withdraw">Retirar</span></button>
-    <button class="btn btn-primary" style="width:auto;padding:8px 12px;font-size:12px;white-space:nowrap;" onclick="openDeposit()">+ <span data-es="Depositar" data-en="Deposit">Depositar</span></button>
+  <button class="kebab-btn" onclick="document.getElementById('kebabMenu').classList.toggle('on')">⋯</button>
+  <div id="kebabMenu" class="kebab-menu" onclick="document.getElementById('kebabMenu').classList.remove('on')">
+    <button onclick="openDeposit()">💰 <span data-es="Depositar" data-en="Deposit">Depositar</span></button>
+    <button onclick="openWithdraw()">↩️ <span data-es="Retirar" data-en="Withdraw">Retirar</span></button>
   </div>
+</div>
+<div class="lang-toggle" style="display:none">
+  <div class="lt-opt on" id="ltES" onclick="setLang('es')">ES</div>
+  <div class="lt-opt" id="ltEN" onclick="setLang('en')">EN</div>
 </div>
 
 <div class="page">

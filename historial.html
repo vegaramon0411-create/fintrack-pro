@@ -155,22 +155,22 @@ input, select, textarea { font-size: 16px !important; }
 </aside>
 <div class="main">
 
-<div class="topbar">
-  <div class="topbar-title">📅 <span data-es="Historial" data-en="History">Historial</span></div>
-  <div class="lang-toggle" style="align-self:flex-end;">
-    <div class="lt-opt on" id="ltES" onclick="setLang('es')">ES</div>
-    <div class="lt-opt" id="ltEN" onclick="setLang('en')">EN</div>
+<div class="topbar" style="padding:10px 16px;">
+  <div style="display:flex;align-items:center;gap:2px;font-weight:800;font-size:15px;">
+    <span onclick="changeMonth(-1)" style="cursor:pointer;padding:6px 8px;color:var(--text3)">‹</span>
+    <span id="monthLabel">—</span>
+    <span onclick="changeMonth(1)" style="cursor:pointer;padding:6px 8px;color:var(--text3)">›</span>
   </div>
+  <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+    <div onclick="toggleToolsPanel()" style="cursor:pointer;width:36px;height:36px;border-radius:99px;background:var(--off);display:grid;place-items:center;font-size:16px;flex-shrink:0">🛠️</div>
+  </div>
+</div>
+<div class="lang-toggle" style="display:none">
+  <div class="lt-opt on" id="ltES" onclick="setLang('es')">ES</div>
+  <div class="lt-opt" id="ltEN" onclick="setLang('en')">EN</div>
 </div>
 
 <div class="page">
-  <!-- Month picker -->
-  <div class="month-row">
-    <button class="month-btn" onclick="changeMonth(-1)">◀</button>
-    <div class="month-label" id="monthLabel">—</div>
-    <button class="month-btn" onclick="changeMonth(1)">▶</button>
-  </div>
-
   <!-- Summary -->
   <div class="sum-grid" id="sumGrid"></div>
 

@@ -607,25 +607,28 @@ input, select, textarea { font-size: 16px !important; }
 <!-- ═══ MAIN ═══ -->
 <div class="main">
 
-  <!-- TOPBAR -->
-  <div class="topbar">
-    <div class="tb-title" data-es="Dashboard" data-en="Dashboard">Dashboard</div>
-    <div class="tb-right">
-      <div class="month-pill" id="monthPill">
-        <span onclick="prevMonth()" style="cursor:pointer;padding:2px 6px">◀</span>
-        &nbsp;<span id="monthPillLabel">— 2026</span>&nbsp;
-        <span onclick="nextMonth()" id="monthPillNext" style="cursor:pointer;padding:2px 6px">▶</span>
+  <!-- TOPBAR — estilo compacto: mes con flechas + campana + botón + circular. Sin idioma (vive en Config), sin botón grande (el + flotante de abajo ya abre el modal) -->
+  <div class="topbar" style="padding:10px 16px;">
+    <div class="tb-right" style="width:100%;justify-content:space-between;">
+      <div class="month-pill" id="monthPill" style="display:flex;align-items:center;gap:2px;font-weight:800;font-size:15px;">
+        <span onclick="prevMonth()" style="cursor:pointer;padding:6px 8px;color:var(--text3)">‹</span>
+        <span id="monthPillLabel">— 2026</span>
+        <span onclick="nextMonth()" id="monthPillNext" style="cursor:pointer;padding:6px 8px;color:var(--text3)">›</span>
       </div>
-      <div class="lang-toggle">
-        <div class="lt-opt on" id="ltES" onclick="setLang('es')">ES</div>
-        <div class="lt-opt"    id="ltEN" onclick="setLang('en')">EN</div>
-      </div>
-      <button class="btn-new" onclick="openModal()">＋ <span data-es="Nuevo registro" data-en="New entry">Nuevo registro</span></button>
-      <div id="notifBell" onclick="toggleNotifPanel()" style="position:relative;cursor:pointer;width:38px;height:38px;border-radius:12px;background:var(--off);display:grid;place-items:center;font-size:17px;flex-shrink:0">
-        🔔
-        <span id="notifBadge" style="display:none;position:absolute;top:-3px;right:-3px;background:var(--red);color:white;font-size:9.5px;font-weight:800;min-width:16px;height:16px;border-radius:99px;display:flex;align-items:center;justify-content:center;padding:0 3px;border:2px solid white"></span>
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+        <div id="notifBell" onclick="toggleNotifPanel()" style="position:relative;cursor:pointer;width:36px;height:36px;border-radius:99px;background:var(--off);display:grid;place-items:center;font-size:15px;flex-shrink:0">
+          🔔
+          <span id="notifBadge" style="display:none;position:absolute;top:-3px;right:-3px;background:var(--red);color:white;font-size:9.5px;font-weight:800;min-width:16px;height:16px;border-radius:99px;display:flex;align-items:center;justify-content:center;padding:0 3px;border:2px solid white"></span>
+        </div>
+        <button onclick="openModal()" style="width:36px;height:36px;border-radius:99px;background:var(--g-dark);color:white;border:none;font-size:18px;font-weight:700;cursor:pointer;display:grid;place-items:center;flex-shrink:0;line-height:1">＋</button>
       </div>
     </div>
+  </div>
+  <!-- botón viejo, oculto por si algo más del código lo referencia -->
+  <button class="btn-new" onclick="openModal()" style="display:none">＋ <span data-es="Nuevo registro" data-en="New entry">Nuevo registro</span></button>
+  <div class="lang-toggle" style="display:none">
+    <div class="lt-opt on" id="ltES" onclick="setLang('es')">ES</div>
+    <div class="lt-opt"    id="ltEN" onclick="setLang('en')">EN</div>
   </div>
 
   <!-- PANEL DE NOTIFICACIONES (desplegable, reemplaza los banners fijos) -->
