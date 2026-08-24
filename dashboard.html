@@ -633,7 +633,9 @@ input, select, textarea { font-size: 16px !important; }
       <button onclick="go('perfil.html')">👤 <span data-es="Mi perfil" data-en="My profile">Mi perfil</span></button>
       <button onclick="go('config.html')">⚙️ <span data-es="Configuración" data-en="Settings">Configuración</span></button>
       <button onclick="logout()">🚪 <span data-es="Cerrar sesión" data-en="Log out">Cerrar sesión</span></button>
-    </div>
+        <button onclick="showHelpModal()">❓ <span data-es="Ayuda" data-en="Help">Ayuda</span></button>
+    <button onclick="setLang(lang==='es'?'en':'es')">🌐 <span data-es="English" data-en="Español">English</span></button>
+</div>
   </div>
   <!-- botón viejo, oculto por si algo más del código lo referencia -->
   <button class="btn-new" onclick="openModal()" style="display:none">＋ <span data-es="Nuevo registro" data-en="New entry">Nuevo registro</span></button>

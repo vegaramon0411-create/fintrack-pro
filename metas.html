@@ -124,7 +124,9 @@ input, select, textarea { font-size: 16px !important; }
   <button class="kebab-btn" onclick="document.getElementById('kebabMenu').classList.toggle('on')">⋯</button>
   <div id="kebabMenu" class="kebab-menu" onclick="document.getElementById('kebabMenu').classList.remove('on')">
     <button onclick="openAddModal()">🎯 <span data-es="Nueva meta" data-en="New goal">Nueva meta</span></button>
-  </div>
+      <button onclick="showHelpModal()">❓ <span data-es="Ayuda" data-en="Help">Ayuda</span></button>
+    <button onclick="setLang(lang==='es'?'en':'es')">🌐 <span data-es="English" data-en="Español">English</span></button>
+</div>
 </div>
 <div class="lang-toggle" style="display:none">
   <div class="lt-opt on" id="ltES" onclick="setLang('es')">ES</div>
