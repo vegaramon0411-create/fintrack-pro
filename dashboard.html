@@ -2197,7 +2197,7 @@ function renderAporteMes(totals){
 
   card.style.display = '';
   card.innerHTML = `
-  <div class="card" style="border-left:4px solid var(--g-main);margin-top:14px">
+  <div class="card" style="border-left:4px solid var(--g-main);margin-top:14px;margin-bottom:16px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
       <div style="font-size:14px;font-weight:800">💵 ${es?'Mi cheque':'My paycheck'}</div>
       <button onclick="openChequeModal()" style="background:${esDiaPago?'var(--g-main)':'var(--off)'};color:${esDiaPago?'white':'var(--text2)'};border:${esDiaPago?'none':'1.5px solid var(--border)'};border-radius:10px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">
@@ -4029,9 +4029,9 @@ function getMissingPaydays(){
       document.getElementById('chequeMonto').value = expected.toFixed(2);
       guardarCheque(fechaStr, true); // silencioso, uno por cada fecha perdida
     });
-    showToast(lang==='es'
-      ? `✅ Se pusieron al corriente ${missing.length} cheque(s) que faltaban`
-      : `✅ Caught up on ${missing.length} missed paycheck(s)`);
+    showToast('✅', lang==='es'?'Cheques al corriente':'Paychecks caught up',
+      lang==='es' ? `${missing.length} cheque(s) que faltaban` : `${missing.length} missed paycheck(s)`,
+      'var(--g-main)');
     renderDashboard();
   }, 800);
 })();

@@ -55,6 +55,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
 @media(max-width:520px){
   .topbar{flex-wrap:wrap;row-gap:10px;height:auto;padding:14px 16px;}
   .tb-title{flex:1 1 100%;order:1;}
+  .kebab-btn{order:2;}
   .topbar > div:last-child{order:2;width:100%;flex-wrap:wrap;justify-content:flex-start!important;}
 }
 .btn-add{background:linear-gradient(135deg,var(--red),#B71C1C);color:white;border:none;border-radius:20px;padding:8px 18px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:6px;}
@@ -225,7 +226,7 @@ input, select, textarea { font-size: 16px !important; }
 <!-- MAIN -->
 <div class="main">
   <div class="topbar" style="position:relative;">
-    <div class="tb-title" data-es="Mis Deudas" data-en="My Debts">Mis Deudas</div>
+    <div class="tb-title">💳 <span data-es="Mis Deudas" data-en="My Debts">Mis Deudas</span></div>
     <button class="kebab-btn" onclick="document.getElementById('kebabMenu').classList.toggle('on')">⋯</button>
     <div id="kebabMenu" class="kebab-menu" onclick="document.getElementById('kebabMenu').classList.remove('on')">
       <button onclick="openAddModal()">💳 <span data-es="Nueva deuda" data-en="New debt">Nueva deuda</span></button>
