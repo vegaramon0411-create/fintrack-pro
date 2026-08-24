@@ -51,13 +51,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
 /* MAIN */
 .main{margin-left:var(--sidebar);flex:1;display:flex;flex-direction:column;}
 .topbar{background:var(--white);border-bottom:1px solid var(--border);height:var(--topbar);padding:0 28px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:40;}
-.tb-title{font-size:17px;font-weight:800;}
-@media(max-width:520px){
-  .topbar{flex-wrap:wrap;row-gap:10px;height:auto;padding:14px 16px;}
-  .tb-title{flex:1 1 100%;order:1;}
-  .kebab-btn{order:2;}
-  .topbar > div:last-child{order:2;width:100%;flex-wrap:wrap;justify-content:flex-start!important;}
-}
+.tb-title{font-size:17px;font-weight:800;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .btn-add{background:linear-gradient(135deg,var(--red),#B71C1C);color:white;border:none;border-radius:20px;padding:8px 18px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:6px;}
 .lang-toggle{display:flex;background:var(--off);border:1px solid var(--border);border-radius:20px;overflow:hidden;font-size:11px;font-weight:700;}
 .kebab-btn{cursor:pointer;width:36px;height:36px;border-radius:99px;background:var(--off);display:grid;place-items:center;font-size:18px;flex-shrink:0;color:var(--text2);border:none;font-family:inherit;line-height:1;}
