@@ -78,6 +78,11 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--off);color:var(
 .tb-title{font-size:17px;font-weight:800;white-space:nowrap;flex-shrink:0;}
 .tb-right{display:flex;align-items:center;gap:8px;flex-shrink:0;}
 .lang-toggle{display:flex;background:var(--off);border:1px solid var(--border);border-radius:20px;overflow:hidden;font-size:11px;font-weight:700;}
+.kebab-btn{cursor:pointer;width:36px;height:36px;border-radius:99px;background:var(--off);display:grid;place-items:center;font-size:18px;flex-shrink:0;color:var(--text2);border:none;font-family:inherit;line-height:1;}
+.kebab-menu{position:absolute;top:56px;right:16px;background:white;border:1px solid var(--border);border-radius:14px;box-shadow:0 12px 28px -8px rgba(20,20,30,.18);padding:6px;z-index:60;display:none;min-width:180px;}
+.kebab-menu.on{display:block;}
+.kebab-menu button{width:100%;text-align:left;background:none;border:none;padding:10px 12px;font-size:13px;font-weight:700;color:var(--text);cursor:pointer;font-family:inherit;border-radius:8px;display:flex;align-items:center;gap:8px;}
+.kebab-menu button:hover{background:var(--off);}
 .lt-opt{padding:5px 10px;cursor:pointer;color:var(--text3);border-radius:20px;transition:all .15s;}
 .lt-opt.on{background:var(--g-main);color:white;}
 
@@ -270,10 +275,15 @@ input, select, textarea { font-size: 16px !important; }
 <!-- MAIN -->
 <div class="main">
 
-<div class="topbar">
-  <div class="tb-title">
-    <button onclick="toggleSidebar()" style="background:none;border:none;font-size:20px;cursor:pointer;padding:0 8px 0 0;display:none" id="menuBtn">☰</button>
-    🏠 Hogar
+<div class="topbar" style="position:relative;">
+  <div class="tb-title">🏠 Hogar</div>
+  <button class="kebab-btn" onclick="document.getElementById('kebabMenu').classList.toggle('on')">⋯</button>
+  <div id="kebabMenu" class="kebab-menu" onclick="document.getElementById('kebabMenu').classList.remove('on')">
+    <button onclick="showHelpModal()">❓ <span data-es="Ayuda" data-en="Help">Ayuda</span></button>
+    <button onclick="setLang(lang==='es'?'en':'es')">🌐 <span data-es="English" data-en="Español">English</span></button>
+    <button onclick="go('perfil.html')">👤 <span data-es="Mi perfil" data-en="My profile">Mi perfil</span></button>
+    <button onclick="go('config.html')">⚙️ <span data-es="Configuración" data-en="Settings">Configuración</span></button>
+    <button onclick="logout()">🚪 <span data-es="Cerrar sesión" data-en="Log out">Cerrar sesión</span></button>
   </div>
 </div>
 <div class="lang-toggle" style="display:none">
@@ -2354,16 +2364,6 @@ function toggleSidebar(){
   const sb = document.querySelector('.sidebar');
   sb.classList.toggle('open');
 }
-
-// Show hamburger button on mobile
-if(window.innerWidth <= 860){
-  const btn = document.getElementById('menuBtn');
-  if(btn) btn.style.display = 'inline';
-}
-window.addEventListener('resize', ()=>{
-  const btn = document.getElementById('menuBtn');
-  if(btn) btn.style.display = window.innerWidth <= 860 ? 'inline' : 'none';
-});
 
 function setLang(l){
   lang=l;
