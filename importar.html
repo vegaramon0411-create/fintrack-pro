@@ -17,16 +17,16 @@ function setLang(l){
 function openMoreMenu(){
   if(document.getElementById('_moreOv')) return;
   const links=[
-    {ico:'📈',es:'An\u00e1lisis',en:'An\u00e1lisis',u:'analisis.html'},
+    {ico:'📈',es:'Análisis',en:'Análisis',u:'analisis.html'},
     {ico:'🎯',es:'Metas',en:'Goals',u:'metas.html'},
     {ico:'💳',es:'Deudas',en:'Debts',u:'deudas.html'},
     {ico:'🏦',es:'Inversiones',en:'Investments',u:'inversiones.html'},
     {ico:'📷',es:'Escanear',en:'Scan',u:'scanner.html'},
     {ico:'📥',es:'Importar CSV',en:'Import CSV',u:'importar.html'},
-    {ico:'🛡\ufe0f',es:'Emergencia',en:'Emergency',u:'emergencia.html'},
+    {ico:'🛡️',es:'Emergencia',en:'Emergency',u:'emergencia.html'},
     {ico:'💵',es:'Ahorro libre',en:'Free savings',u:'ahorro.html'},
     {ico:'🔄',es:'Suscripciones',en:'Subscriptions',u:'suscripciones.html'},
-    {ico:'\u2699\ufe0f',es:'Config',en:'Settings',u:'config.html'},
+    {ico:'⚙️',es:'Config',en:'Settings',u:'config.html'},
     {ico:'👤',es:'Perfil',en:'Profile',u:'perfil.html'},
   ];
   const ov=document.createElement('div');
@@ -347,7 +347,7 @@ function loadSession() {
     lang = localStorage.getItem('ft_lang') || user.lang || 'es';
     localStorage.setItem('ft_user', s);
     sessionStorage.setItem('ft_user', s);
-    {const nameEl=document.getElementById('sbName'), emailEl=document.getElementById('sbEmail'), avEl=document.getElementById('sbAvatar'); if(nameEl) nameEl.textContent=user.name||'\u2014'; if(emailEl) emailEl.textContent=user.email||'\u2014'; if(avEl) avEl.textContent=(user.name||'?').charAt(0).toUpperCase();}
+    {const nameEl=document.getElementById('sbName'), emailEl=document.getElementById('sbEmail'), avEl=document.getElementById('sbAvatar'); if(nameEl) nameEl.textContent=user.name||'—'; if(emailEl) emailEl.textContent=user.email||'—'; if(avEl) avEl.textContent=(user.name||'?').charAt(0).toUpperCase();}
   } catch(e) {
     try {
       const s = localStorage.getItem('ft_user');
@@ -484,6 +484,7 @@ function setStep(n){
 ══════════════════════════════════════ */
 function renderStep1(){
   setStep(1);
+  aiAnswers = {}; // aquí sí se limpia: elegir formato de nuevo = importación nueva de verdad
   document.getElementById('topTitle').textContent = lang==='es'?'Importar transacciones':'Import transactions';
 
   const isPrem = typeof isPremium!=='undefined' && isPremium();
@@ -570,6 +571,14 @@ function selectFormat(fmt){
 // ── CUESTIONARIO IA — respuestas guardadas en memoria mientras dura la sesión de import ──
 let aiAnswers = {};
 
+function toggleAiQuestions(){
+  const content = document.getElementById('aiQContent');
+  const chev = document.getElementById('aiQChevron');
+  const open = content.style.display !== 'none';
+  content.style.display = open ? 'none' : 'block';
+  chev.style.transform = open ? 'rotate(0deg)' : 'rotate(180deg)';
+}
+
 function toggleAiOpt(btn, single){
   const q = btn.dataset.q, v = btn.dataset.v;
   const group = document.querySelectorAll(`.ai-opt[data-q="${q}"]`);
@@ -597,6 +606,7 @@ function toggleAiOpt(btn, single){
   if(q==='pagaCredito') detalle('aiQ_pagaCreditoDetalle').style.display = v==='si' ? 'block' : 'none';
   if(q==='multiTarjeta') detalle('aiQ_multiTarjetaDetalle').style.display = v==='si' ? 'block' : 'none';
   if(q==='chequeCambio') detalle('aiQ_chequeCambioDetalle').style.display = v==='si' ? 'block' : 'none';
+  if(q==='vaults') detalle('aiQ_vaultsDetalle').style.display = v==='si' ? 'block' : 'none';
 }
 
 function buildAiInstructionsFromQuestions(){
@@ -629,11 +639,18 @@ function buildAiInstructionsFromQuestions(){
   }
 
   if(aiAnswers.chequeCambio==='si'){
-    const d = val('aiQ_chequeCambioDetalle');
+    const d = aiAnswers.chequeCambioDetalle || val('aiQ_chequeCambioDetalle');
     parts.push(es?`Su cheque de nómina cambió de cuenta destino recientemente.${d?` Detalle: ${d}`:''} Usa la fecha de cada transacción para saber a cuál cuenta debió haber llegado en ese momento.`:`Their paycheck destination account changed recently.${d?` Detail: ${d}`:''} Use each transaction's date to figure out which account it should have landed in at that time.`);
   }
 
-  const extra = val('aiQ_extra');
+  if(aiAnswers.vaults==='si'){
+    const d = aiAnswers.vaultsDetalle || val('aiQ_vaultsDetalle');
+    parts.push(es
+      ? `Su banco tiene bolsillos/sub-cuentas internas (como SoFi Vaults) donde mueve dinero propio de un lado a otro — esos movimientos NUNCA son gasto ni ingreso real, siempre son transferencias internas (is_transfer:true), sin importar el nombre que tenga el bolsillo.${d?` Detalle: ${d}`:''}`
+      : `Their bank has internal pockets/sub-accounts (like SoFi Vaults) where they move their own money around — those movements are NEVER real spending or income, always internal transfers (is_transfer:true), no matter what the pocket is named.${d?` Detail: ${d}`:''}`);
+  }
+
+  const extra = aiAnswers.extra || val('aiQ_extra');
   if(extra) parts.push(extra);
 
   return parts.join(' ');
@@ -641,7 +658,10 @@ function buildAiInstructionsFromQuestions(){
 
 function renderStep2(){
   setStep(2);
-  aiAnswers = {};
+  // aiAnswers NO se borra aquí a propósito: si el usuario se equivoca y regresa
+  // desde el paso 3 (revisar) o cambia de archivo sin haber elegido otro formato,
+  // sus respuestas ya dadas se quedan y no tiene que repetir el cuestionario.
+  // Solo se limpia en renderStep1() — ahí sí es una importación nueva de verdad.
 
   const isAI = importMode === 'ai';
   const isFid = importMode === 'fidelity';
@@ -671,70 +691,86 @@ function renderStep2(){
     </div>` : ''}
 
     ${isAI ? `
-    <div class="card" id="aiQBox" style="margin-top:14px;background:var(--off);border:1.5px solid var(--border)">
-      <div style="font-size:12.5px;font-weight:800;color:var(--text2);margin-bottom:2px">
-        💬 ${lang==='es'?'Cuéntale a la IA cómo te administras':'Tell the AI how you manage your money'}
-      </div>
-      <div style="font-size:10.5px;color:var(--text3);margin-bottom:12px">
-        ${lang==='es'?'Opcional, pero evita que duplique transferencias entre tus propias cuentas.':'Optional, but it prevents duplicating transfers between your own accounts.'}
-      </div>
+    <div class="card" id="aiQBox" style="margin-top:14px;background:var(--off);border:1.5px solid var(--border);padding:14px">
+      <button type="button" onclick="toggleAiQuestions()" style="width:100%;background:none;border:none;padding:0;display:flex;align-items:center;justify-content:space-between;cursor:pointer;font-family:inherit;text-align:left">
+        <div>
+          <div style="font-size:12.5px;font-weight:800;color:var(--text2)">
+            💬 ${lang==='es'?'¿Cuéntale a la IA cómo te administras?':'Tell the AI how you manage your money?'}
+          </div>
+          <div style="font-size:10.5px;color:var(--text3);margin-top:2px">
+            ${lang==='es'?'Opcional · 30 seg · evita que confunda transferencias con gasto real':'Optional · 30 sec · avoids confusing transfers with real spending'}
+          </div>
+        </div>
+        <span id="aiQChevron" style="color:var(--text3);font-size:14px;transition:transform .2s ease;flex-shrink:0;margin-left:10px;display:inline-block;transform:rotate(${Object.keys(aiAnswers).length>0?'180':'0'}deg)">▾</span>
+      </button>
 
+      <div id="aiQContent" style="display:${Object.keys(aiAnswers).length>0?'block':'none'};margin-top:14px">
       <div class="ai-q">
         <div class="ai-q-label">${lang==='es'?'¿Con qué pagas la mayoría de tus compras?':'What do you pay for most purchases with?'}</div>
         <div class="ai-q-opts">
-          <button type="button" class="ai-opt" data-q="pago" data-v="credito" onclick="toggleAiOpt(this)">💳 ${lang==='es'?'Crédito':'Credit'}</button>
-          <button type="button" class="ai-opt" data-q="pago" data-v="debito" onclick="toggleAiOpt(this)">🏦 ${lang==='es'?'Débito / cheques':'Debit / checking'}</button>
-          <button type="button" class="ai-opt" data-q="pago" data-v="ambos" onclick="toggleAiOpt(this)">🔀 ${lang==='es'?'Ambos':'Both'}</button>
+          <button type="button" class="ai-opt ${aiAnswers.pago==='credito'?'on':''}" data-q="pago" data-v="credito" onclick="toggleAiOpt(this)">💳 ${lang==='es'?'Crédito':'Credit'}</button>
+          <button type="button" class="ai-opt ${aiAnswers.pago==='debito'?'on':''}" data-q="pago" data-v="debito" onclick="toggleAiOpt(this)">🏦 ${lang==='es'?'Débito / cheques':'Debit / checking'}</button>
+          <button type="button" class="ai-opt ${aiAnswers.pago==='ambos'?'on':''}" data-q="pago" data-v="ambos" onclick="toggleAiOpt(this)">🔀 ${lang==='es'?'Ambos':'Both'}</button>
         </div>
       </div>
 
-      <div class="ai-q" id="aiQ_pagaCredito" style="display:none">
+      <div class="ai-q" id="aiQ_pagaCredito" style="display:${(aiAnswers.pago==='credito'||aiAnswers.pago==='ambos')?'block':'none'}">
         <div class="ai-q-label">${lang==='es'?'¿Pagas esa tarjeta desde OTRA cuenta que también quieres que se registre aquí?':'Do you pay that card from ANOTHER account you also want tracked here?'}</div>
         <div class="ai-q-opts">
-          <button type="button" class="ai-opt" data-q="pagaCredito" data-v="si" onclick="toggleAiOpt(this,true)">${lang==='es'?'Sí':'Yes'}</button>
-          <button type="button" class="ai-opt" data-q="pagaCredito" data-v="no" onclick="toggleAiOpt(this,true)">${lang==='es'?'No, ya viene reflejado':"No, it's already reflected"}</button>
+          <button type="button" class="ai-opt ${aiAnswers.pagaCredito==='si'?'on':''}" data-q="pagaCredito" data-v="si" onclick="toggleAiOpt(this,true)">${lang==='es'?'Sí':'Yes'}</button>
+          <button type="button" class="ai-opt ${aiAnswers.pagaCredito==='no'?'on':''}" data-q="pagaCredito" data-v="no" onclick="toggleAiOpt(this,true)">${lang==='es'?'No, ya viene reflejado':"No, it's already reflected"}</button>
         </div>
-        <input type="text" id="aiQ_pagaCreditoDetalle" style="display:none" class="ai-q-input" placeholder="${lang==='es'?'Ej: pago mi Capital One desde mi saving de SoFi':'Ex: I pay my Capital One from my SoFi savings'}">
+        <input type="text" id="aiQ_pagaCreditoDetalle" oninput="aiAnswers.pagaCreditoDetalle=this.value" value="${aiAnswers.pagaCreditoDetalle||''}" style="display:${aiAnswers.pagaCredito==='si'?'block':'none'}" class="ai-q-input" placeholder="${lang==='es'?'Ej: pago mi Capital One desde mi saving de SoFi':'Ex: I pay my Capital One from my SoFi savings'}">
       </div>
 
       <div class="ai-q">
         <div class="ai-q-label">${lang==='es'?'¿Tienes más de una tarjeta de crédito que quieras que distinga?':'Do you have more than one credit card you want it to tell apart?'}</div>
         <div class="ai-q-opts">
-          <button type="button" class="ai-opt" data-q="multiTarjeta" data-v="si" onclick="toggleAiOpt(this,true)">${lang==='es'?'Sí':'Yes'}</button>
-          <button type="button" class="ai-opt" data-q="multiTarjeta" data-v="no" onclick="toggleAiOpt(this,true)">${lang==='es'?'No':'No'}</button>
+          <button type="button" class="ai-opt ${aiAnswers.multiTarjeta==='si'?'on':''}" data-q="multiTarjeta" data-v="si" onclick="toggleAiOpt(this,true)">${lang==='es'?'Sí':'Yes'}</button>
+          <button type="button" class="ai-opt ${aiAnswers.multiTarjeta==='no'?'on':''}" data-q="multiTarjeta" data-v="no" onclick="toggleAiOpt(this,true)">${lang==='es'?'No':'No'}</button>
         </div>
-        <input type="text" id="aiQ_multiTarjetaDetalle" style="display:none" class="ai-q-input" placeholder="${lang==='es'?'Ej: Chase y Capital One':'Ex: Chase and Capital One'}">
+        <input type="text" id="aiQ_multiTarjetaDetalle" oninput="aiAnswers.multiTarjetaDetalle=this.value" value="${aiAnswers.multiTarjetaDetalle||''}" style="display:${aiAnswers.multiTarjeta==='si'?'block':'none'}" class="ai-q-input" placeholder="${lang==='es'?'Ej: Chase y Capital One':'Ex: Chase and Capital One'}">
+      </div>
+
+      <div class="ai-q">
+        <div class="ai-q-label">${lang==='es'?'¿Tu banco tiene "bolsillos" o sub-cuentas internas (como SoFi Vaults) donde mueves dinero entre ellas?':'Does your bank have internal "pockets" or sub-accounts (like SoFi Vaults) where you move money between them?'}</div>
+        <div class="ai-q-opts">
+          <button type="button" class="ai-opt ${aiAnswers.vaults==='si'?'on':''}" data-q="vaults" data-v="si" onclick="toggleAiOpt(this,true)">${lang==='es'?'Sí':'Yes'}</button>
+          <button type="button" class="ai-opt ${aiAnswers.vaults==='no'?'on':''}" data-q="vaults" data-v="no" onclick="toggleAiOpt(this,true)">${lang==='es'?'No':'No'}</button>
+        </div>
+        <input type="text" id="aiQ_vaultsDetalle" oninput="aiAnswers.vaultsDetalle=this.value" value="${aiAnswers.vaultsDetalle||''}" style="display:${aiAnswers.vaults==='si'?'block':'none'}" class="ai-q-input" placeholder="${lang==='es'?'Ej: tengo vaults de Casa, Tarjetas, Boda — son míos, no gasto real':'Ex: I have House, Cards, Wedding vaults — they\'re mine, not real spending'}">
       </div>
 
       <div class="ai-q">
         <div class="ai-q-label">${lang==='es'?'¿Usas Zelle/Venmo seguido?':'Do you use Zelle/Venmo often?'}</div>
         <div class="ai-q-opts">
-          <button type="button" class="ai-opt" data-q="zelle" data-v="si" onclick="toggleAiOpt(this,true)">${lang==='es'?'Sí':'Yes'}</button>
-          <button type="button" class="ai-opt" data-q="zelle" data-v="no" onclick="toggleAiOpt(this,true)">${lang==='es'?'No':'No'}</button>
+          <button type="button" class="ai-opt ${aiAnswers.zelle==='si'?'on':''}" data-q="zelle" data-v="si" onclick="toggleAiOpt(this,true)">${lang==='es'?'Sí':'Yes'}</button>
+          <button type="button" class="ai-opt ${aiAnswers.zelle==='no'?'on':''}" data-q="zelle" data-v="no" onclick="toggleAiOpt(this,true)">${lang==='es'?'No':'No'}</button>
         </div>
       </div>
-      <div class="ai-q" id="aiQ_zelleSi" style="display:none">
+      <div class="ai-q" id="aiQ_zelleSi" style="display:${aiAnswers.zelle==='si'?'block':'none'}">
         <div class="ai-q-label">${lang==='es'?'Generalmente, ¿qué son esos movimientos?':'What are those movements usually?'}</div>
         <div class="ai-q-opts">
-          <button type="button" class="ai-opt" data-q="zelleTipo" data-v="cobro" onclick="toggleAiOpt(this)">${lang==='es'?'Gente pagándome su parte':'People paying me back their share'}</button>
-          <button type="button" class="ai-opt" data-q="zelleTipo" data-v="pago" onclick="toggleAiOpt(this)">${lang==='es'?'Pagos míos a alguien':'My payments to someone'}</button>
-          <button type="button" class="ai-opt" data-q="zelleTipo" data-v="varia" onclick="toggleAiOpt(this)">${lang==='es'?'Varía':'It varies'}</button>
+          <button type="button" class="ai-opt ${aiAnswers.zelleTipo==='cobro'?'on':''}" data-q="zelleTipo" data-v="cobro" onclick="toggleAiOpt(this)">${lang==='es'?'Gente pagándome su parte':'People paying me back their share'}</button>
+          <button type="button" class="ai-opt ${aiAnswers.zelleTipo==='pago'?'on':''}" data-q="zelleTipo" data-v="pago" onclick="toggleAiOpt(this)">${lang==='es'?'Pagos míos a alguien':'My payments to someone'}</button>
+          <button type="button" class="ai-opt ${aiAnswers.zelleTipo==='varia'?'on':''}" data-q="zelleTipo" data-v="varia" onclick="toggleAiOpt(this)">${lang==='es'?'Varía':'It varies'}</button>
         </div>
       </div>
 
       <div class="ai-q">
         <div class="ai-q-label">${lang==='es'?'¿Tu cheque de nómina cambió de cuenta destino recientemente?':'Has your paycheck destination account changed recently?'}</div>
         <div class="ai-q-opts">
-          <button type="button" class="ai-opt" data-q="chequeCambio" data-v="si" onclick="toggleAiOpt(this,true)">${lang==='es'?'Sí':'Yes'}</button>
-          <button type="button" class="ai-opt" data-q="chequeCambio" data-v="no" onclick="toggleAiOpt(this,true)">${lang==='es'?'No':'No'}</button>
+          <button type="button" class="ai-opt ${aiAnswers.chequeCambio==='si'?'on':''}" data-q="chequeCambio" data-v="si" onclick="toggleAiOpt(this,true)">${lang==='es'?'Sí':'Yes'}</button>
+          <button type="button" class="ai-opt ${aiAnswers.chequeCambio==='no'?'on':''}" data-q="chequeCambio" data-v="no" onclick="toggleAiOpt(this,true)">${lang==='es'?'No':'No'}</button>
         </div>
-        <input type="text" id="aiQ_chequeCambioDetalle" style="display:none" class="ai-q-input" placeholder="${lang==='es'?'Ej: antes a mi saving personal, ahora al joint saving, desde hace ~1 mes':'Ex: before to my personal savings, now to the joint savings, since ~1 month ago'}">
+        <input type="text" id="aiQ_chequeCambioDetalle" oninput="aiAnswers.chequeCambioDetalle=this.value" value="${aiAnswers.chequeCambioDetalle||''}" style="display:${aiAnswers.chequeCambio==='si'?'block':'none'}" class="ai-q-input" placeholder="${lang==='es'?'Ej: antes a mi saving personal, ahora al joint saving, desde hace ~1 mes':'Ex: before to my personal savings, now to the joint savings, since ~1 month ago'}">
       </div>
 
       <div class="ai-q" style="border-bottom:none;padding-bottom:0">
         <div class="ai-q-label">${lang==='es'?'¿Algo más que deba saber?':'Anything else it should know?'}</div>
-        <textarea id="aiQ_extra" rows="2" placeholder="${lang==='es'?'Opcional — cualquier otro detalle de tus finanzas':'Optional — any other detail about your finances'}" class="ai-q-input" style="resize:vertical"></textarea>
+        <textarea id="aiQ_extra" oninput="aiAnswers.extra=this.value" rows="2" placeholder="${lang==='es'?'Opcional — cualquier otro detalle de tus finanzas':'Optional — any other detail about your finances'}" class="ai-q-input" style="resize:vertical">${aiAnswers.extra||''}</textarea>
       </div>
+      </div><!-- /aiQContent -->
     </div>` : ''}
 
     <style>
@@ -810,7 +846,7 @@ function processFile(file){
       const reader = new FileReader();
       reader.onload = e => {
         const text = e.target.result;
-        const clean = text.replace(/^\uFEFF/,'').replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+        const clean = text.replace(/^﻿/,'').replace(/\r\n/g,'\n').replace(/\r/g,'\n');
         const lines = clean.split('\n').filter(l=>l.trim());
         const header = lines.length > 0 ? parseCSVLine(lines[0]).map(h=>h.trim().toLowerCase()) : [];
 
@@ -854,7 +890,7 @@ function processFile(file){
 ══════════════════════════════════════ */
 function parseCSV(text, filename){
   // Clean BOM and normalize line endings
-  const clean = text.replace(/^\uFEFF/, '').replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+  const clean = text.replace(/^﻿/, '').replace(/\r\n/g,'\n').replace(/\r/g,'\n');
   const lines = clean.split('\n').filter(l=>l.trim());
 
   // Find header line (skip empty/metadata lines at top)
@@ -881,7 +917,7 @@ function parseCSV(text, filename){
     );
     if(!seguir){
       const zone = document.getElementById('dropZone');
-      if(zone) zone.innerHTML = `<div class="uz-ico">📅</div><div class="uz-title">${lang==='es'?'Agrega una columna de fecha':'Add a date column'}</div><div class="uz-sub">${lang==='es'?'Vuelve a subir el archivo cuando esté lista':'Re-upload the file once it\u2019s ready'}</div>`;
+      if(zone) zone.innerHTML = `<div class="uz-ico">📅</div><div class="uz-title">${lang==='es'?'Agrega una columna de fecha':'Add a date column'}</div><div class="uz-sub">${lang==='es'?'Vuelve a subir el archivo cuando esté lista':'Re-upload the file once it’s ready'}</div>`;
       return;
     }
   }
