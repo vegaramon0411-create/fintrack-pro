@@ -14,7 +14,9 @@ function getActivePlan() {
     const p = JSON.parse(raw);
     if (!p || !p.plan) return 'free';
     if (p.expiresAt && new Date(p.expiresAt) < new Date()) return 'free';
-    return p.plan;
+    // Normalizado a minúsculas: el Sheet puede tener "PREMIUM", "Premium" o "premium"
+    // y no debe importar — esto fue justo la causa del bug del 25 de agosto.
+    return String(p.plan).trim().toLowerCase();
   } catch(e) { return 'free'; }
 }
 
@@ -47,17 +49,38 @@ function canUse(feature) {
 
 /* ── GAS ACCESS CHECK ── */
 async function checkAccessWithGAS(email) {
-  try {
-    const url = GAS_URL + '?action=checkAccess&email=' + encodeURIComponent(email.trim());
-    const res = await fetch(url);
-    if (!res.ok) throw new Error('GAS error ' + res.status);
-    const data = await res.json();
-    return data;
-  } catch(err) {
-    console.warn('GAS unreachable, allowing free access:', err);
-    // If GAS is unreachable, allow free access so users aren't blocked
-    return { access: true, plan: 'free', expiresAt: null };
+  const url = GAS_URL + '?action=checkAccess&email=' + encodeURIComponent(email.trim());
+
+  // Reintenta una vez — la red del celular a veces falla la primera llamada
+  // y no hay por qué tratar eso como "ya no eres premium".
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('GAS error ' + res.status);
+      const data = await res.json();
+      return data;
+    } catch(err) {
+      console.warn(`GAS intento ${attempt+1} falló:`, err);
+      if (attempt === 0) await new Promise(r => setTimeout(r, 800));
+    }
   }
+
+  // Los 2 intentos fallaron de verdad (Sheet inalcanzable, sin internet, etc.).
+  // Antes esto bajaba a "free" en silencio, causando que a veces sí y a veces no
+  // se reconociera premium — dependía solo de si esa llamada específica jaló.
+  // Ahora: si ya había un premium guardado y vigente, se mantiene mientras se
+  // puede verificar de nuevo, en vez de quitarlo por un simple hipo de red.
+  try {
+    const cached = JSON.parse(localStorage.getItem(PREMIUM_KEY) || '{}');
+    const cachedPlan = cached.plan ? String(cached.plan).trim().toLowerCase() : '';
+    const notExpired = !cached.expiresAt || new Date(cached.expiresAt) > new Date();
+    if (cachedPlan === 'premium' && notExpired) {
+      console.warn('GAS inalcanzable — se mantiene el premium local hasta poder reverificar.');
+      return { access: true, plan: cached.plan, expiresAt: cached.expiresAt || null };
+    }
+  } catch(e) {}
+
+  return { access: true, plan: 'free', expiresAt: null };
 }
 
 /* ── UPGRADE MODAL ── */
