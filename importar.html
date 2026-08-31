@@ -400,6 +400,11 @@ function creditsLeft(){
   const mensual=Math.max(0,MAX_AI_PREMIUM-c.used);
   return mensual+(c.extra||0);
 }
+function addExtraCredits(qty){
+  const c=getCredits();
+  c.extra=(c.extra||0)+qty;
+  localStorage.setItem(AI_KEY,JSON.stringify(c));
+}
 function showUpgradeModal(){
   const es=lang==='es';
   const prem=typeof isPremium!=='undefined'&&isPremium();

@@ -2532,7 +2532,7 @@ function updateHeroDinero(){
   const myExtraReceivedNow = _incomeTxsNow.filter(t=>t.incomeKind==='extra').reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
 
   // "Disponible personal" = 40% del cheque + 100% del dinero extra, menos lo gastado y lo ya apartado (págate primero) — puede ir negativo
-  const personalBudget2 = hogarConn ? (myChequeReceivedNow * persPct2/100 + myExtraReceivedNow) : income;
+  const personalBudget2 = myChequeReceivedNow * persPct2/100 + myExtraReceivedNow; // SIEMPRE lo ya recibido, nunca el ingreso mensual completo de golpe
   const personalGastado2 = personalSpent;
   const _personalAhorroNow = (totals.txs||[]).filter(t=>t.type==='ahorro' && !(t.hogar==true)).reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
   const personalDisponible2 = personalBudget2 - personalGastado2 - _personalAhorroNow - (totals.inversion||0); // puede ser negativo
