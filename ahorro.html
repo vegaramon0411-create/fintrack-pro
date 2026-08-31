@@ -339,7 +339,10 @@ function render(){
           <div style="font-size:10px;color:var(--text3)">${h.fecha}${h.cat?' · '+h.cat:''}</div>
         </div>
       </div>
-      <div style="font-size:14px;font-weight:800;color:${isRet?'var(--red)':'var(--purple)'}">${isRet?'-':'+'}$${h.monto.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div style="font-size:14px;font-weight:800;color:${isRet?'var(--red)':'var(--purple)'}">${isRet?'-':'+'}$${h.monto.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+        <button onclick="deleteAhorroHistEntry('${h.id}')" style="background:none;border:none;font-size:15px;cursor:pointer;padding:4px;flex-shrink:0" title="${es?'Eliminar':'Delete'}">🗑️</button>
+      </div>
     </div>`;
   }).join('');
 
@@ -449,6 +452,39 @@ function showAhorroRecurringList(){
   } else {
     warnEl.style.display='none';
   }
+}
+
+function deleteAhorroHistEntry(id){
+  const es = lang==='es';
+  if(!confirm(es?'¿Eliminar este movimiento?':'Delete this entry?')) return;
+  let hist=[]; try{ hist = JSON.parse(localStorage.getItem(HIST_KEY)||'[]'); }catch(e){}
+  const idx = hist.findIndex(h=>String(h.id)===String(id));
+  if(idx<0) return;
+  const entry = hist[idx];
+
+  // Revertir el efecto en el saldo disponible
+  let bal = parseFloat(localStorage.getItem('ft_available_savings')||'0');
+  if(entry.tipo==='retiro') bal += parseFloat(entry.monto)||0;
+  else bal -= parseFloat(entry.monto)||0;
+  localStorage.setItem('ft_available_savings', Math.max(0,bal).toFixed(2));
+
+  hist.splice(idx,1);
+  localStorage.setItem(HIST_KEY, JSON.stringify(hist));
+
+  // Si este registro viene de una transacción vinculada (id "tx_<id real>"), también
+  // se quita de ft_data — si no, Historial seguiría mostrando un movimiento que aquí
+  // ya se borró, y viceversa.
+  if(String(id).startsWith('tx_')){
+    try{
+      const txId = String(id).slice(3);
+      const data = JSON.parse(localStorage.getItem('ft_data')||'{}');
+      data.transactions = (data.transactions||[]).filter(t=>String(t.id)!==txId);
+      localStorage.setItem('ft_data', JSON.stringify(data));
+    }catch(e){}
+  }
+
+  showToast(es?'🗑️ Movimiento eliminado':'🗑️ Entry deleted');
+  render();
 }
 
 function deleteAhorroRecurring(recId){

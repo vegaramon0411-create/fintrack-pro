@@ -702,9 +702,16 @@ function revertirEfectosSecundarios(data, tx){
     }
   } else if(tx.type==='inversion'){
     try{
-      let inv = JSON.parse(localStorage.getItem('ft_investments')||'[]');
-      inv = inv.filter(i=>i.id!==('tx_'+tx.id));
-      localStorage.setItem('ft_investments', JSON.stringify(inv));
+      let invs=[]; try{ invs = JSON.parse(localStorage.getItem('ft_investments')||'[]'); }catch(e){}
+      let invsH=[]; try{ invsH = JSON.parse(localStorage.getItem('ft_hogar_inv')||'[]'); }catch(e){}
+      // El id real de la posición es tx.id sin el prefijo 'inv_' que le pone inversiones.html
+      // al crearla (id:'inv_'+entry.id). Antes esto buscaba 'tx_'+tx.id, que nunca coincidía
+      // con nada — por eso borrar en Historial nunca reflejaba en Inversiones.
+      const filtrar = (arr) => arr.filter(i => ('inv_'+i.id) !== String(tx.id) && String(i.id) !== String(tx.id));
+      const invs2 = filtrar(invs);
+      const invsH2 = filtrar(invsH);
+      if(invs2.length !== invs.length) localStorage.setItem('ft_investments', JSON.stringify(invs2));
+      if(invsH2.length !== invsH.length) localStorage.setItem('ft_hogar_inv', JSON.stringify(invsH2));
     }catch(e){}
   }
 
