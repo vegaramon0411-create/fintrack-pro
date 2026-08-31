@@ -1984,7 +1984,7 @@ Rules:
         messages: [{
           role: 'user',
           content: [
-            { type: 'image', source: { type: 'base64', media_type: mediaType, data: b64 } },
+            { type: isImage ? 'image' : 'document', source: { type: 'base64', media_type: mediaType, data: b64 } },
             { type: 'text', text: basePrompt }
           ]
         }]
@@ -2031,7 +2031,7 @@ Rules:
             headers:{'Content-Type':'application/json'},
             body: JSON.stringify({
               image: isCSVText ? null : requestBody?.messages?.[0]?.content?.[0]?.source?.data,
-              mediaType: isCSVText ? null : 'image/jpeg',
+              mediaType: isCSVText ? null : (requestBody?.messages?.[0]?.content?.[0]?.source?.media_type || 'image/jpeg'),
               prompt: simplePrompt,
               isTextOnly: isCSVText,
               csvContent: isCSVText ? csvText.slice(0,4000) : null,
