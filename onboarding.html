@@ -188,14 +188,19 @@ function saveOnboarding(){
       localStorage.setItem('ft_savings_hist', JSON.stringify(hist));
 
     } else if(tipo === 'emergencia'){
-      // Fondo de emergencia — mismo trato: un pool por persona, nombrado en el historial.
-      let f = { emerg:{meta:0,actual:0,fecha:'',hist:[]}, metas:[] };
-      try{ const d = JSON.parse(localStorage.getItem('ft_hogar_fondos')); if(d) f = d; }catch(e){}
-      if(!f.emerg) f.emerg = {meta:0,actual:0,fecha:'',hist:[]};
-      if(!f.emerg.hist) f.emerg.hist = [];
-      f.emerg.hist.push({ id:'onb_'+Date.now()+'_'+Math.random().toString(36).slice(2,5), monto, fecha:hoy, desdePres:false, nota:'Saldo inicial: '+nombre });
-      f.emerg.actual = f.emerg.hist.reduce((a,h)=>a+(h.monto||0),0);
-      localStorage.setItem('ft_hogar_fondos', JSON.stringify(f));
+      // Fondo de emergencia PERSONAL — antes esto escribía a ft_hogar_fondos (la
+      // estructura que usa Hogar), pero emergencia.html en realidad lee el saldo
+      // de ft_data.emergency y el historial de ft_emerg_hist. Por eso el saldo
+      // inicial nunca aparecía ahí — se guardaba en un lugar que esa pantalla
+      // jamás consulta.
+      let d = {transactions:[],emergency:0,subscriptions:[]};
+      try{ const existing = JSON.parse(localStorage.getItem('ft_data')); if(existing) d = existing; }catch(e){}
+      d.emergency = (parseFloat(d.emergency)||0) + monto;
+      localStorage.setItem('ft_data', JSON.stringify(d));
+
+      let ehist = []; try{ ehist = JSON.parse(localStorage.getItem('ft_emerg_hist')||'[]'); }catch(e){}
+      ehist.push({ id:'onb_'+Date.now()+'_'+Math.random().toString(36).slice(2,5), amount: monto, note:'Saldo inicial: '+nombre, date:hoy, tipo:'deposito' });
+      localStorage.setItem('ft_emerg_hist', JSON.stringify(ehist));
 
     } else if(tipo === 'inversion'){
       // Inversión — ya es una lista, cada cuenta que agregues es su propia posición nombrada.

@@ -606,7 +606,13 @@ function saveInv(){
     else { var l2=loadInv();l2.push(entry);saveInvPersonal(l2); }
 
     // Si es nueva → registrar en ft_data como transaccion del mes (descuenta del 40%)
-    if(invModo==='nueva'){
+    // SOLO si la fecha ya llegó o es hoy. Si el usuario puso una fecha futura (ej.
+    // "empieza el 25 de agosto"), no se registra todavía — antes esto restaba del
+    // presupuesto de inmediato sin importar que la fecha fuera futura. El motor de
+    // recurrentes (applyDueRecurring en dashboard.html) se encarga de registrarla
+    // justo cuando esa fecha llegue.
+    const hoyStr0 = new Date().toISOString().split('T')[0];
+    if(invModo==='nueva' && fecha <= hoyStr0){
       try{
         var data=JSON.parse(localStorage.getItem('ft_data')||'{}');
         data.transactions=data.transactions||[];
@@ -627,13 +633,17 @@ function saveInv(){
       try{
         const freqMap = {semanal:'weekly', quincenal:'biweekly', mensual:'monthly', weekly:'weekly', biweekly:'biweekly', monthly:'monthly'};
         const freqKey = freqMap[invFreq] || 'monthly';
-        const nextDate = (function(freq, fromDateStr){
+        const avanzar = (freq, fromDateStr) => {
           const dt = new Date(fromDateStr+'T00:00:00');
           if(freq==='weekly') dt.setDate(dt.getDate()+7);
           else if(freq==='biweekly') dt.setDate(dt.getDate()+14);
           else dt.setMonth(dt.getMonth()+1);
           return dt.toISOString().split('T')[0];
-        })(freqKey, new Date().toISOString().split('T')[0]);
+        };
+        // Si la fecha elegida es futura, ESA es el primer cobro (aún no pasó nada).
+        // Si ya pasó o es hoy, ya se registró arriba como transacción inmediata,
+        // así que el próximo cobro es un periodo después de esa fecha.
+        const nextDate = fecha > hoyStr0 ? fecha : avanzar(freqKey, fecha);
         const recurring = JSON.parse(localStorage.getItem('ft_recurring')||'[]');
         recurring.push({ id:'rec_'+Date.now(), kind:'inversion', desc:ticker, amount:amount, freq:freqKey, hogar:invIsHogar&&isHogarConnected(), nextDate, active:true, createdBy:user.name||'' });
         localStorage.setItem('ft_recurring', JSON.stringify(recurring));

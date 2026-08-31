@@ -1747,8 +1747,8 @@ function deleteAbono(debtId, abonoId){
   }
 
   closeAbonoDetail();
-  closeDetail();
-  render();
+  render(); // refresca totales del listado general en segundo plano
+  openDetail(debtId); // pero te deja viendo la MISMA deuda, ya actualizada — antes cerraba todo y te mandaba al listado
   showToast(es?'🗑️ Abono eliminado':'🗑️ Payment deleted');
 }
 
