@@ -1114,6 +1114,18 @@ function openDetail(id){
     return d2.toLocaleDateString(es?'es-MX':'en-US',{month:'long',year:'numeric'});
   })() : (es?'Indefinido':'Indefinite');
 
+  // Costo total REAL del préstamo en toda su vida — no solo lo que falta desde hoy.
+  // = capital original + interés que ya pagaste en abonos pasados + interés que
+  // falta (proyectado desde el saldo actual). Antes no existía forma de saber
+  // cuánto interés ya se había pagado, así que esta cifra nunca se podía armar.
+  const interesYaPagado = (debt.abonos||[]).reduce((a,ab)=>a+(ab.interesPagado||0),0);
+  const costoTotalReal = debt.type==='hipoteca'
+    ? original + interesYaPagado + (amort.payoffPossible ? amort.totalInterest : 0)
+    : null;
+  const interesTotalVida = debt.type==='hipoteca'
+    ? interesYaPagado + (amort.payoffPossible ? amort.totalInterest : 0)
+    : null;
+
   // Monthly breakdown
   const monthlyR = (apr/100)/12;
   const firstInt = balance * monthlyR;
@@ -1241,6 +1253,25 @@ function openDetail(id){
           </div>
           <div style="font-size:13px;font-weight:800;color:var(--g-main)">-${fmtD(a.monto)}</div>
         </div>`).join('')}
+    </div>`:''}
+
+    <!-- Costo total real del préstamo (solo hipoteca) -->
+    ${costoTotalReal!=null?`
+    <div style="background:linear-gradient(135deg,rgba(230,57,70,.08),rgba(230,57,70,.03));border:1.5px solid rgba(230,57,70,.2);border-radius:14px;padding:16px;margin-bottom:14px">
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">${es?'Lo que realmente terminas pagando':'What you actually end up paying'}</div>
+      <div style="font-size:26px;font-weight:800;color:var(--red)">${fmtD(costoTotalReal)}</div>
+      <div style="font-size:11px;color:var(--text2);margin-top:4px">${es?'Casa de':'House of'} ${fmtD(original)} + ${fmtD(interesTotalVida)} ${es?'en intereses a lo largo de todo el préstamo':'in interest over the life of the loan'}</div>
+      <div style="display:flex;gap:16px;margin-top:10px;padding-top:10px;border-top:1px dashed rgba(230,57,70,.2)">
+        <div>
+          <div style="font-size:10px;color:var(--text3)">${es?'Interés ya pagado':'Interest paid so far'}</div>
+          <div style="font-size:14px;font-weight:700;color:var(--text)">${fmtD(interesYaPagado)}</div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--text3)">${es?'Interés que falta':'Interest remaining'}</div>
+          <div style="font-size:14px;font-weight:700;color:var(--text)">${fmtD(amort.payoffPossible?amort.totalInterest:0)}</div>
+        </div>
+      </div>
+      ${savedExtra>0?`<div style="font-size:11.5px;color:var(--g-dark);background:var(--g-light);border-radius:8px;padding:8px 10px;margin-top:10px">💰 ${es?`Pagando $100 extra al mes te ahorrarías`:`Paying $100 extra a month would save you`} <b>${fmtD(savedExtra)}</b> ${es?`en intereses y terminarías`:`in interest and finish`} ${monthsSaved} ${es?'meses antes':'months sooner'}.</div>`:''}
     </div>`:''}
 
     <!-- Amortization table -->
@@ -1551,7 +1582,15 @@ function guardarAbono(){
     } catch(e){}
   }
 
-  debts[idx].abonos.push({ id:abonoId, monto, fecha, nota, saldoAntes:oldBalance, saldoDespues:newBalance, tipo:abonoTipo, createdBy:user.name||'', txId:linkedTxId });
+  // Split capital/interés de ESTE abono en particular — antes no se guardaba nada de
+  // esto, así que no existía forma de saber cuánto interés ya se pagó de verdad a lo
+  // largo de la vida del préstamo (solo se proyectaba interés FUTURO desde el saldo
+  // actual). Sin esto, el "costo total real con intereses" nunca puede mostrarse bien.
+  const _aprAbono = parseFloat(d.apr)||0;
+  const _interesEsteAbono = _aprAbono>0 ? +(oldBalance*(_aprAbono/100/12)).toFixed(2) : 0;
+  const _capitalEsteAbono = +Math.max(0, monto-_interesEsteAbono).toFixed(2);
+
+  debts[idx].abonos.push({ id:abonoId, monto, fecha, nota, saldoAntes:oldBalance, saldoDespues:newBalance, tipo:abonoTipo, createdBy:user.name||'', txId:linkedTxId, interesPagado:_interesEsteAbono, capitalPagado:_capitalEsteAbono });
 
   saveDebts(debts);
 
