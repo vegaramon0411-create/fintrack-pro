@@ -2269,7 +2269,7 @@ function showAcceptCode(){
     <div style="font-size:16px;font-weight:800;margin-bottom:6px">${es?'Ingresar código':'Enter code'}</div>
     <div style="font-size:12px;color:var(--text3);margin-bottom:16px">${es?'Pide el código a quien te invitó':'Ask the person who invited you for their code'}</div>
     <input id="codeInput" style="width:100%;background:var(--off);border:2px solid var(--border);border-radius:10px;padding:14px;font-size:20px;font-weight:800;letter-spacing:3px;text-align:center;font-family:inherit;outline:none;margin-bottom:12px" placeholder="FT-XXXX" oninput="this.value=this.value.toUpperCase()">
-    <button onclick="acceptCode()" style="width:100%;background:linear-gradient(135deg,var(--g-dark),var(--g-main));color:white;border:none;border-radius:12px;padding:14px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:8px">${es?'Unirme al hogar':'Join household'}</button>
+    <button id="btnAcceptCode" onclick="acceptCode()" style="width:100%;background:linear-gradient(135deg,var(--g-dark),var(--g-main));color:white;border:none;border-radius:12px;padding:14px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:8px">${es?'Unirme al hogar':'Join household'}</button>
     <button onclick="this.closest('[style]').remove()" style="width:100%;background:var(--off);border:1.5px solid var(--border);color:var(--text2);border-radius:12px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">${es?'Cancelar':'Cancel'}</button>
   </div>`;
   document.body.appendChild(overlay);
@@ -2279,7 +2279,22 @@ async function acceptCode(){
   const code = (document.getElementById('codeInput')?.value||'').trim().toUpperCase();
   if(!code){ showToast(lang==='es'?'⚠️ Ingresa el código':'⚠️ Enter the code'); return; }
 
-  showToast(lang==='es'?'⏳ Verificando...':'⏳ Verifying...');
+  const btn = document.getElementById('btnAcceptCode');
+  // Antes: el aviso "Verificando..." se autoocultaba a los 3 segundos SIN IMPORTAR si
+  // Google Apps Script ya había contestado — cosa común si GAS tarda (arranque en frío).
+  // El usuario veía que "no pasaba nada" y volvía a tocar el botón, mandando una SEGUNDA
+  // petición con el mismo código — que entonces sí truena con "código ya usado", aunque
+  // el primer intento probablemente sí había funcionado en segundo plano.
+  // Ahora: el botón se deshabilita de inmediato y muestra su propio estado de carga
+  // hasta que la respuesta real llega — no hay forma de mandar dos veces por accidente.
+  if(btn){
+    if(btn.dataset.loading === '1') return; // ya está en proceso, ignora toques repetidos
+    btn.dataset.loading = '1';
+    btn.disabled = true;
+    btn.dataset.originalText = btn.textContent;
+    btn.textContent = lang==='es' ? '⏳ Verificando…' : '⏳ Verifying…';
+    btn.style.opacity = '0.7';
+  }
 
   try {
     const url = `${GAS_URL_HOGAR}?action=acceptInvite&code=${encodeURIComponent(code)}&email=${encodeURIComponent(user.email)}&name=${encodeURIComponent(user.name||'')}`;
@@ -2305,7 +2320,16 @@ async function acceptCode(){
     showToast(`🏠 ${lang==='es'?'¡Conectado!':'Connected!'} ${data.partnerName||''}`, 4000);
     render();
   } catch(e){
-    showToast(lang==='es'?'❌ Error de conexión':'❌ Connection error', 4000);
+    showToast(lang==='es'?'❌ Error de conexión — intenta de nuevo':'❌ Connection error — try again', 4000);
+  } finally {
+    // Se limpia SIEMPRE, incluso si el modal ya se cerró (éxito) o si falló — para
+    // que el botón nunca quede bloqueado permanentemente por accidente.
+    if(btn && document.body.contains(btn)){
+      btn.dataset.loading = '0';
+      btn.disabled = false;
+      btn.textContent = btn.dataset.originalText || (lang==='es'?'Unirme al hogar':'Join household');
+      btn.style.opacity = '1';
+    }
   }
 }
 
