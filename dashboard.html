@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>FinTrack Pro · Dashboard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
 <script src="premium.js"></script>
 <style>
 :root {
@@ -39,20 +39,44 @@
   --topbar:  58px;
   --shadow:  0 2px 12px rgba(0,0,0,0.06);
   --shadow-md: 0 4px 24px rgba(0,0,0,0.09);
+
+  /* ⬇️ BLOQUE 7 — REDISEÑO GLASS + PASTELES ⬇️ */
+  --round-font: 'Nunito', -apple-system, 'SF Pro Rounded', sans-serif;
+  --glass-bg:     rgba(255,255,255,.55);
+  --glass-border: rgba(255,255,255,.6);
+  --glass-shadow: 0 8px 32px -12px rgba(20,20,30,.10);
+  --bg-gradient: linear-gradient(160deg, #FDEEE3 0%, #E9F3FC 45%, #EAF8EF 100%);
+  --pastel-peach-bg: #FCE4D3; --pastel-peach-fg: #C97A3D;
+  --pastel-pink-bg:  #FBDCE6; --pastel-pink-fg:  #C25C82;
+  --pastel-coral-bg: #FCD9CE; --pastel-coral-fg: #D0654A;
+  --pastel-sky-bg:   #DCEEFB; --pastel-sky-fg:   #3C7FB0;
+  --pastel-mint-bg:  #DEF3E6; --pastel-mint-fg:  #2F8F5B;
+  --tag-bg: #EFEFF1;
+  /* ⬆️ FIN BLOQUE 7 ⬆️ */
 }
 
 * { margin:0; padding:0; box-sizing:border-box; }
 
 body {
-  /* ⬇️ REDISEÑO — tipografía estilo Apple (usa SF Pro nativa en iPhone/Mac) ⬇️ */
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Plus Jakarta Sans', sans-serif;
-  /* ANTERIOR: font-family: 'Plus Jakarta Sans', sans-serif; */
-  /* ⬆️ FIN ⬆️ */
-  background: var(--off);
+  /* BLOQUE 7 — el degradado pastel es necesario para que el efecto glass se note;
+     sobre blanco liso el vidrio esmerilado es invisible. */
+  background: var(--bg-gradient);
+  background-attachment: fixed;
   color: var(--text);
   min-height: 100vh;
   overflow-x: hidden;
 }
+
+/* ─── GLASS — vidrio esmerilado reutilizable, Bloque 7 ─── */
+.glass{
+  background: var(--glass-bg);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+.round-num{ font-family: var(--round-font); font-weight:800; }
 
 /* ─── LAYOUT ─── */
 .app { display:flex; min-height:100vh; }
@@ -129,8 +153,10 @@ body {
 
 /* ─── TOPBAR ─── */
 .topbar {
-  background: var(--white);
-  border-bottom: 1px solid var(--border);
+  background: var(--glass-bg);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border-bottom: 1px solid var(--glass-border);
   height: var(--topbar);
   padding: 0 28px;
   display:flex; align-items:center; justify-content:space-between;
@@ -181,12 +207,13 @@ body {
    y descomenta el bloque "DISEÑO ANTERIOR" más abajo.
    ══════════════════════════════════════════════════════════ */
 .hero {
-  background-image: linear-gradient(white, white), linear-gradient(90deg, var(--g-main), #4F8CFF);
+  background-image: linear-gradient(var(--glass-bg), var(--glass-bg)), linear-gradient(90deg, var(--g-main), #4F8CFF);
+  backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
   background-origin: border-box; background-clip: padding-box, border-box;
   border-style: solid; border-color: transparent;
   border-width: 3px 0 0 0; /* el acento solo va arriba — sin esto se ve en los 4 lados */
   border-radius:26px; padding:26px 30px; color:var(--text);
-  box-shadow: 0 4px 14px -6px rgba(20,20,30,.09);
+  box-shadow: var(--glass-shadow);
   margin-bottom:20px; position:relative; overflow:hidden;
   display:grid; grid-template-columns:1fr auto; gap:20px; align-items:center;
 }
@@ -195,7 +222,7 @@ body {
 
 .hero-left { position:relative;z-index:1; }
 .hero-greeting { font-size:13px; opacity:.6; margin-bottom:4px; color:var(--text2); }
-.hero-amount   { font-size:46px; font-weight:800; letter-spacing:-2px; line-height:1; color:var(--text); }
+.hero-amount   { font-family:var(--round-font); font-size:46px; font-weight:900; letter-spacing:-2px; line-height:1; color:var(--text); }
 .hero-note     { font-size:12px; opacity:.6; margin-top:5px; color:var(--text2); }
 
 .hero-bar-wrap { margin-top:18px; }
@@ -206,13 +233,14 @@ body {
 
 .hero-chips { display:flex; flex-direction:column; gap:8px; position:relative;z-index:1; flex-shrink:0; }
 .hero-chip  {
-  background:rgba(255,255,255,.9); border:1px solid rgba(20,20,30,.05);
+  background: var(--glass-bg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border:1px solid var(--glass-border);
   box-shadow:0 2px 6px -2px rgba(20,20,30,.08);
   border-radius:14px;
   padding:10px 12px; min-width:120px;
   font-size:10px; font-weight:600; opacity:.85; color:var(--text2);
 }
-.hc-val { font-size:16px; font-weight:800; letter-spacing:-.5px; margin-top:2px; opacity:1; color:var(--text); }
+.hc-val { font-family:var(--round-font); font-size:16px; font-weight:800; letter-spacing:-.5px; margin-top:2px; opacity:1; color:var(--text); }
 /* ⬆️⬆️⬆️ FIN REDISEÑO HERO ⬆️⬆️⬆️ */
 
 /* ─── DISEÑO ANTERIOR (comentado, no borrado — descomenta para volver) ───
@@ -250,8 +278,9 @@ body {
 
 /* ⬇️ REDISEÑO — KPI cards (más redondeadas, sombra flotante en vez de borde plano) ⬇️ */
 .kpi {
-  background:white; border:1px solid rgba(20,20,30,.05);
-  border-radius:20px; padding:16px 18px; box-shadow:0 8px 24px -14px rgba(20,20,30,.14);
+  background:var(--glass-bg); backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px);
+  border:1px solid var(--glass-border);
+  border-radius:20px; padding:16px 18px; box-shadow:var(--glass-shadow);
   transition:transform .2s;
 }
 /* DISEÑO ANTERIOR:
@@ -268,7 +297,7 @@ body {
 .dr{background:var(--red-dim);color:var(--red)}
 .da{background:var(--amb-dim);color:var(--amber)}
 .db{background:var(--blu-dim);color:var(--blue)}
-.kpi-val { font-size:24px;font-weight:800;letter-spacing:-.8px;line-height:1;margin-bottom:3px; }
+.kpi-val { font-family:var(--round-font); font-size:24px;font-weight:800;letter-spacing:-.8px;line-height:1;margin-bottom:3px; }
 .kpi-lbl { font-size:11px;color:var(--text3);font-weight:500; }
 
 /* Sparkline */
@@ -285,7 +314,7 @@ body {
    ══════════════════════════════════════════════════════════ */
 
 /* ─── CARD ─── */
-.card { background:white; border:1px solid rgba(20,20,30,.05); border-radius:22px; padding:20px; box-shadow:0 8px 24px -14px rgba(20,20,30,.14); }
+.card { background:var(--glass-bg); backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px); border:1px solid var(--glass-border); border-radius:22px; padding:20px; box-shadow:var(--glass-shadow); }
 .card-hd { font-size:14px;font-weight:800;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center; }
 .card-act { font-size:11px;font-weight:600;color:var(--g-main);cursor:pointer; }
 
@@ -332,9 +361,9 @@ body {
 .tx-item:hover { background:white; border-color:rgba(20,20,30,.06); box-shadow:0 4px 14px -8px rgba(20,20,30,.15); transform:translateX(2px); }
 .tx-ico  { width:40px;height:40px;border-radius:13px;display:grid;place-items:center;font-size:18px;flex-shrink:0; }
 .tx-info { flex:1;min-width:0; }
-.tx-nm   { font-size:13px;font-weight:600; }
-.tx-meta { font-size:11px;color:var(--text3);margin-top:2px; }
-.tx-cat  { display:inline-block;font-size:9px;font-weight:700;padding:2px 7px;border-radius:20px;margin-left:4px; }
+.tx-nm   { font-family:var(--round-font); font-size:14.5px;font-weight:800; margin:1px 0 4px; }
+.tx-cat-label { font-size:10px;font-weight:600;color:var(--text3); }
+.tx-tag  { display:inline-block;font-size:9.5px;font-weight:600;padding:2px 8px;border-radius:20px; }
 .tx-amt  { font-size:14px;font-weight:800;letter-spacing:-.3px;flex-shrink:0; }
 .tx-sep  { display:none; } /* las cards de tx-item ya no necesitan separador — el espaciado da la división */
 
@@ -1920,10 +1949,11 @@ function renderTx(filter) {
       <div class="tx-item" onclick="showTxDetail(${t.id})" style="cursor:pointer">
         <div class="tx-ico" style="background:${c.bg}">${c.icon}</div>
         <div class="tx-info">
+          <div class="tx-cat-label">${dateStr}${t.hogar===true?` · 🏠`:''}</div>
           <div class="tx-nm">${t.desc || tn}</div>
-          <div class="tx-meta">${dateStr}<span class="tx-cat" style="background:${c.bg};color:${c.color}">${tn}</span>${t.hogar===true?`<span style="background:var(--g-light);color:var(--g-dark);font-size:9px;font-weight:700;padding:2px 6px;border-radius:20px;margin-left:4px">🏠</span>`:''}${extraTag}</div>
+          <span class="tx-tag" style="background:var(--tag-bg);color:var(--text2)">#${tn.toLowerCase().replace(/\s+/g,'')}</span>${extraTag}
         </div>
-        <div class="tx-amt" style="color:${isPositive?'var(--g-main)':'var(--red)'}">${sign}${fmtD(t.amount)}</div>
+        <div class="tx-amt round-num" style="color:${isPositive?'var(--g-main)':'var(--red)'}">${sign}${fmtD(t.amount)}</div>
       </div>`;
   }).join('');
 }
