@@ -153,12 +153,10 @@ body {
 
 /* ─── TOPBAR ─── */
 .topbar {
-  background: var(--glass-bg);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-  border-bottom: 1px solid var(--glass-border);
+  background: transparent;
+  border-bottom: none;
   height: var(--topbar);
-  padding: 0 28px;
+  padding: 0 20px;
   display:flex; align-items:center; justify-content:space-between;
   position: sticky; top:0; z-index:40;
 }
@@ -180,7 +178,7 @@ body {
 .lt-opt { padding:5px 11px; cursor:pointer; color:var(--text3); border-radius:20px; transition:all .15s; }
 .lt-opt.on { background:var(--g-main); color:white; }
 
-.kebab-btn{cursor:pointer;width:36px;height:36px;border-radius:99px;background:var(--off);display:grid;place-items:center;font-size:18px;flex-shrink:0;color:var(--text2);border:none;font-family:inherit;line-height:1;}
+.kebab-btn{cursor:pointer;width:36px;height:36px;border-radius:99px;background:var(--glass-bg);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid var(--glass-border);display:grid;place-items:center;font-size:18px;flex-shrink:0;color:var(--text2);font-family:inherit;line-height:1;}
 .kebab-menu{position:absolute;top:56px;right:16px;background:white;border:1px solid var(--border);border-radius:14px;box-shadow:0 12px 28px -8px rgba(20,20,30,.18);padding:6px;z-index:60;display:none;min-width:180px;}
 .kebab-menu.on{display:block;}
 .kebab-menu button{width:100%;text-align:left;background:none;border:none;padding:10px 12px;font-size:13px;font-weight:700;color:var(--text);cursor:pointer;font-family:inherit;border-radius:8px;display:flex;align-items:center;gap:8px;}
@@ -563,7 +561,7 @@ body {
 @media(min-width:861px){
   .mob-nav { display:none !important; }
 }
-.mob-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--white);border-top:1px solid var(--border);padding:8px 0 calc(8px + env(safe-area-inset-bottom));z-index:100;align-items:center;}
+.mob-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--glass-bg);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-top:1px solid var(--glass-border);padding:8px 0 calc(8px + env(safe-area-inset-bottom));z-index:100;align-items:center;}
 .mob-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:9px;font-weight:600;color:var(--text3);cursor:pointer;-webkit-tap-highlight-color:transparent;padding:2px 0;}
 .mob-item.on{color:var(--g-main);}
 .mob-item.mob-center{flex:1.2;}
@@ -651,7 +649,7 @@ input, select, textarea { font-size: 16px !important; }
         <span onclick="nextMonth()" id="monthPillNext" style="cursor:pointer;padding:6px 8px;color:var(--text3)">›</span>
       </div>
       <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
-        <div id="notifBell" onclick="toggleNotifPanel()" style="position:relative;cursor:pointer;width:36px;height:36px;border-radius:99px;background:var(--off);display:grid;place-items:center;font-size:15px;flex-shrink:0">
+        <div id="notifBell" onclick="toggleNotifPanel()" class="glass" style="position:relative;cursor:pointer;width:36px;height:36px;border-radius:99px;display:grid;place-items:center;font-size:15px;flex-shrink:0">
           🔔
           <span id="notifBadge" style="display:none;position:absolute;top:-3px;right:-3px;background:var(--red);color:white;font-size:9.5px;font-weight:800;min-width:16px;height:16px;border-radius:99px;display:flex;align-items:center;justify-content:center;padding:0 3px;border:2px solid white"></span>
         </div>
@@ -700,7 +698,7 @@ input, select, textarea { font-size: 16px !important; }
       <div id="heroViewGastos">
         <div style="display:flex;justify-content:space-between;align-items:flex-start">
           <div class="hero-greeting" id="heroGreetingInner" data-es="Gastado este mes" data-en="Spent this month">Gastado este mes</div>
-          <div style="background:rgba(20,20,30,.06);border-radius:20px;padding:4px 10px;font-size:10px;font-weight:700;opacity:.8">💰 →</div>
+          <div class="glass" style="border-radius:20px;padding:4px 10px;font-size:10px;font-weight:700;opacity:.9">💰 →</div>
         </div>
         <div style="display:flex;align-items:baseline;gap:8px">
           <span style="width:22px;height:22px;border-radius:99px;background:var(--red);color:white;font-size:13px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;margin-bottom:4px">−</span>
@@ -733,7 +731,7 @@ input, select, textarea { font-size: 16px !important; }
         <div style="display:flex;justify-content:space-between;align-items:flex-start">
           <div style="font-size:12px;opacity:.7;margin-bottom:4px" data-es="💰 Mi patrimonio personal" data-en="💰 My personal assets">💰 Mi patrimonio personal</div>
           <!-- REDISEÑO: gris sutil en vez de blanco transparente (antes: rgba(255,255,255,.15)) -->
-          <div style="background:rgba(20,20,30,.06);border-radius:20px;padding:4px 10px;font-size:10px;font-weight:700;opacity:.8">← 📊</div>
+          <div class="glass" style="border-radius:20px;padding:4px 10px;font-size:10px;font-weight:700;opacity:.9">← 📊</div>
         </div>
         <div class="hero-amount" id="heroPatrimony">$0</div>
         <div style="font-size:12px;opacity:.7;margin-bottom:14px" data-es="total acumulado · privado" data-en="total accumulated · private">total acumulado · privado</div>
