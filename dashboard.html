@@ -687,6 +687,9 @@ input, select, textarea { font-size: 16px !important; }
   <!-- PAGE -->
   <div class="page">
 
+    <!-- BLOQUE 7 — saludo como su propia fila, fuera del hero, como en la simulación aprobada -->
+    <div class="hero-greeting" id="heroGreeting" style="font-size:15px;font-weight:700;margin-bottom:14px;color:var(--text);opacity:1">Buenos días, Ramon 👋</div>
+
     <!-- DEBT BANNERS -->
     <div id="debtBanners"></div>
 
@@ -696,10 +699,13 @@ input, select, textarea { font-size: 16px !important; }
       <!-- VIEW 1: Gastos (default) -->
       <div id="heroViewGastos">
         <div style="display:flex;justify-content:space-between;align-items:flex-start">
-          <div class="hero-greeting" id="heroGreeting">Buenos días, Ramon 👋</div>
+          <div class="hero-greeting" id="heroGreetingInner" data-es="Gastado este mes" data-en="Spent this month">Gastado este mes</div>
           <div style="background:rgba(20,20,30,.06);border-radius:20px;padding:4px 10px;font-size:10px;font-weight:700;opacity:.8">💰 →</div>
         </div>
-        <div class="hero-amount" id="heroAmount">$0</div>
+        <div style="display:flex;align-items:baseline;gap:8px">
+          <span style="width:22px;height:22px;border-radius:99px;background:var(--red);color:white;font-size:13px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;margin-bottom:4px">−</span>
+          <div class="hero-amount" id="heroAmount">$0</div>
+        </div>
         <div class="hero-note" id="heroNote" data-es="gastados este mes" data-en="spent this month">gastados este mes</div>
         <div id="heroBreakdown" style="display:none;font-size:12px;opacity:.85;margin-top:2px;margin-bottom:4px;gap:14px"></div>
         <div class="hero-bar-wrap">
@@ -760,6 +766,9 @@ input, select, textarea { font-size: 16px !important; }
         </div>
       </div>
     </div>
+
+    <!-- BLOQUE 7 — barras de categoría con datos reales del mes -->
+    <div id="categoryPillsWrap"></div>
 
     <!-- oculto: accesos rápidos viejos (Servicios/Deudas/Recurrentes/Inversiones) — reemplazados en pestaña Resumen, contenedor vivo para no romper renderQuickAccess() -->
     <div style="display:none"><div id="quickAccessGrid"></div></div>
@@ -1665,6 +1674,43 @@ function getPartnerHogarSpentThisMonth(){
 /* ══════════════════════════════════════════
    RENDER DASHBOARD
 ══════════════════════════════════════════ */
+// BLOQUE 7 — barras de categoría pastel, con datos reales de gasto del mes (no decorativo)
+const CAT_PALETTE = [
+  {bg:'#FCE4D3',fg:'#C97A3D'}, {bg:'#FBDCE6',fg:'#C25C82'},
+  {bg:'#FCD9CE',fg:'#D0654A'}, {bg:'#DCEEFB',fg:'#3C7FB0'},
+];
+function renderCategoryPills(){
+  const wrap = document.getElementById('categoryPillsWrap');
+  if(!wrap) return;
+  const data = loadData();
+  const now = getViewDate();
+  const y = now.getFullYear(), m = now.getMonth();
+  const gastos = (data.transactions||[]).filter(t=>{
+    if(t.type!=='gasto' || t.hogar===true) return false;
+    if(!t.date) return false;
+    const parts = String(t.date).split(/[-T]/);
+    return parseInt(parts[0])===y && (parseInt(parts[1])-1)===m;
+  });
+  const byCat = {};
+  gastos.forEach(t=>{
+    const cat = (t.cat||(lang==='es'?'Otros':'Other')).replace(/^[^\s]+\s/,''); // quita el emoji del inicio
+    byCat[cat] = (byCat[cat]||0) + (parseFloat(t.amount)||0);
+  });
+  const top = Object.entries(byCat).sort((a,b)=>b[1]-a[1]).slice(0,4);
+  if(!top.length){ wrap.innerHTML=''; return; }
+  const maxVal = Math.max(...top.map(([,v])=>v));
+  wrap.innerHTML = `<div style="display:flex;align-items:end;gap:10px;justify-content:center;height:150px;margin-bottom:16px">` +
+    top.map(([cat,val],i)=>{
+      const pal = CAT_PALETTE[i%CAT_PALETTE.length];
+      const h = 48 + (val/maxVal)*90;
+      const pct = Math.round((val/gastos.reduce((a,t)=>a+(parseFloat(t.amount)||0),0))*100)||0;
+      return `<div onclick="go('historial.html')" style="flex:1;max-width:80px;cursor:pointer;height:${h}px;border-radius:22px;background:${pal.bg}CC;backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.5);display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding-bottom:10px;gap:2px">
+        <span class="round-num" style="font-size:13px;color:var(--text)">${fmtD(val)}</span>
+        <span style="font-size:9px;font-weight:600;color:${pal.fg}">${cat}</span>
+      </div>`;
+    }).join('') + `</div>`;
+}
+
 function renderDashboard() {
   // Safety: if user is empty, reload from localStorage
   if (!user || !user.income) {
@@ -1695,6 +1741,7 @@ function renderDashboard() {
 
   // Render debt payment banners
   renderDebtBanners();
+  renderCategoryPills();
 
   // Update Mi Dinero hero values
   updateHeroDinero();
