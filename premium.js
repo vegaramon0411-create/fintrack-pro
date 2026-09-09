@@ -1,269 +1,1260 @@
-/* ═══════════════════════════════════════════════════════════
-   FinTrack Pro — Premium Engine
-   Access verified via Google Apps Script + Google Sheets
-   ═══════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════════════════
+   FinTrack Pro — RUNTIME COMPARTIDO
+   Cargado por las 18 pantallas vía <script src="premium.js">.
+   Contiene: sistema de diseño (.ft-*), capa de datos, formato LatAm,
+   automatizaciones (cheques / recurrentes / suscripciones), premium + créditos,
+   Google Apps Script, componentes de UI y el chrome (header + menú inferior).
 
-const PREMIUM_KEY = 'ft_premium';
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbwITyU4qld-IOEVKyLU9XHI46T8g_LjJaNp3nlQgler8-nMeIlztMmG_lZMVMm9cBkP/exec';
+   API pública: window.FT.*
+   Compatibilidad: al final se exponen los nombres globales viejos (SHIM).
+   ═══════════════════════════════════════════════════════════════════════════ */
+(function (window, document) {
+'use strict';
 
-/* ── STATE ── */
-function getActivePlan() {
+var FT = window.FT || {};
+window.FT = FT;
+
+/* ─────────────────────────────────────────────────────────────────────────
+   1 · CONSTANTES
+   ───────────────────────────────────────────────────────────────────────── */
+var GAS_URL = 'https://script.google.com/macros/s/AKfycbwITyU4qld-IOEVKyLU9XHI46T8g_LjJaNp3nlQgler8-nMeIlztMmG_lZMVMm9cBkP/exec';
+FT.GAS_URL = GAS_URL;
+
+var K = {
+  user:'ft_user', setup:'ft_user_setup', lang:'ft_lang',
+  data:'ft_data', cheques:'ft_cheques',
+  emergHist:'ft_emerg_hist', emergHistLegacy:'ft_emergency_history',
+  savings:'ft_available_savings', savingsHist:'ft_savings_hist',
+  investments:'ft_investments', hogarInv:'ft_hogar_inv',
+  debts:'ft_debts', goals:'ft_goals', subs:'ft_subs', servicios:'ft_servicios',
+  recurring:'ft_recurring', recurringInvLegacy:'ft_inv_recurrentes',
+  checking:'ft_checking_balance', partnerChecking:'ft_partner_checking',
+  hogar:'ft_hogar', hogarFondos:'ft_hogar_fondos',
+  premium:'ft_premium', aiCredits:'ft_ai_credits', usedCodes:'ft_used_codes',
+  distPcts:'ft_dist_pcts', dashTab:'ft_dash_tab',
+  onbSaldos:'ft_onboarding_saldos_done', openAbonar:'ft_open_abonar',
+  shortcuts:'ft_shortcuts', googleUser:'ft_google_user',
+  investSuggest:'ft_invest_suggest', importAnswers:'ft_import_answers',
+  navStack:'ft_nav_stack', profileB:'ft_profile_B'
+};
+FT.K = K;
+
+var MAX_AI_PREMIUM = 10;
+
+// Pasteles de categoría (§4.1) — ciclan en este orden
+var PASTELS = ['peach','pink','coral','sky','mint'];
+
+// Mapa emoji/etiqueta → pastel para el ícono de fila y las barras
+var CAT_PASTEL = {
+  '🛒':'peach','🍔':'pink','⛽':'coral','💊':'coral','📱':'sky','📶':'sky',
+  '🏠':'mint','🎬':'pink','👕':'peach','✈️':'sky','🔧':'coral','💳':'coral',
+  '💰':'mint','🛡️':'sky','📈':'mint','🎯':'pink'
+};
+
+/* ─────────────────────────────────────────────────────────────────────────
+   2 · FORMATO — LatAm: millar con punto, decimal con coma
+   ───────────────────────────────────────────────────────────────────────── */
+function groupInt(s) { return String(s).replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
+
+/**
+ * FT.money(n, opts)
+ *  opts.cents   → 2 decimales (montos de transacción). Por defecto 0.
+ *  opts.compact → abrevia con k / M (solo barras). "1.240" → "1,2k"
+ *  opts.sign    → antepone + / − explícito
+ *  opts.noSymbol→ sin "$"
+ */
+FT.money = function (n, opts) {
+  opts = opts || {};
+  n = Number(n) || 0;
+  var neg = n < 0, abs = Math.abs(n), sym = opts.noSymbol ? '' : '$';
+  var pfx = opts.sign ? (neg ? '−' : '+') : (neg ? '−' : '');
+
+  if (opts.compact && abs >= 1000) {
+    var big = abs >= 1e6, div = big ? 1e6 : 1e3, unit = big ? 'M' : 'k';
+    var v = abs / div;
+    var str = v >= 100 ? String(Math.round(v)) : v.toFixed(1).replace(/\.0$/, '').replace('.', ',');
+    return pfx + sym + str + unit;
+  }
+  var dec = opts.cents ? 2 : 0;
+  var parts = abs.toFixed(dec).split('.');
+  return pfx + sym + groupInt(parts[0]) + (dec ? ',' + parts[1] : '');
+};
+
+/** Partes del monto para render custom (hero con "$" chico al final). */
+FT.moneyParts = function (n, opts) {
+  opts = opts || {};
+  n = Number(n) || 0;
+  var neg = n < 0, dec = opts.cents ? 2 : 0;
+  var parts = Math.abs(n).toFixed(dec).split('.');
+  return { neg: neg, sign: neg ? '−' : '+', int: groupInt(parts[0]), dec: parts[1] || '', sym: '$' };
+};
+
+/** FT.date(x, fmt) — fmt: 'DD/MM/AA' (def) | 'DD/MM/AAAA' | 'D MMM' | 'ISO' */
+FT.date = function (x, fmt) {
+  var d = x instanceof Date ? x : new Date(String(x).indexOf('T') > -1 ? x : x + 'T00:00:00');
+  if (isNaN(d.getTime())) return '';
+  var dd = String(d.getDate()).padStart(2, '0'), mm = String(d.getMonth() + 1).padStart(2, '0');
+  var yy = d.getFullYear();
+  if (fmt === 'ISO') return yy + '-' + mm + '-' + dd;
+  if (fmt === 'DD/MM/AAAA') return dd + '/' + mm + '/' + yy;
+  if (fmt === 'D MMM') {
+    var M = (FT.lang === 'es'
+      ? ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
+      : ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec']);
+    return d.getDate() + ' ' + M[d.getMonth()];
+  }
+  return dd + '/' + mm + '/' + String(yy).slice(-2);
+};
+
+FT.todayISO = function () { return FT.date(new Date(), 'ISO'); };
+
+/* ─────────────────────────────────────────────────────────────────────────
+   3 · CAPA DE DATOS — único punto que toca localStorage
+   ───────────────────────────────────────────────────────────────────────── */
+FT.get = function (key, fallback) {
+  try { var v = localStorage.getItem(key); return v == null ? fallback : JSON.parse(v); }
+  catch (e) { return fallback; }
+};
+FT.set = function (key, val) {
+  try { localStorage.setItem(key, typeof val === 'string' ? val : JSON.stringify(val)); } catch (e) {}
+};
+FT.getRaw = function (key, fallback) { try { var v = localStorage.getItem(key); return v == null ? (fallback || '') : v; } catch (e) { return fallback || ''; } };
+FT.setRaw = function (key, val) { try { localStorage.setItem(key, val); } catch (e) {} };
+FT.del = function (key) { try { localStorage.removeItem(key); } catch (e) {} };
+
+/* ── ft_data ── */
+FT.data = function () {
+  var d = FT.get(K.data, null);
+  if (!d || typeof d !== 'object') d = {};
+  if (!Array.isArray(d.transactions)) d.transactions = [];
+  if (typeof d.emergency !== 'number') d.emergency = parseFloat(d.emergency) || 0;
+  if (!Array.isArray(d.subscriptions)) d.subscriptions = [];
+  return d;
+};
+FT.saveData = function (d) { FT.set(K.data, d); FT._changed(); };
+FT.txs = function () { return FT.data().transactions; };
+
+/* ── ft_user ── */
+FT.user = function () { return FT._user || FT.loadUser() || {}; };
+FT.loadUser = function () {
+  var s = null;
+  try { s = localStorage.getItem(K.user); } catch (e) {}
+  if (s) {
+    try { var p = JSON.parse(s); if (!p || !p.income || p.income <= 0) { var ss = sessionStorage.getItem(K.user); if (ss) { var pss = JSON.parse(ss); if (pss && pss.income > 0) s = ss; } } } catch (e) {}
+  } else { try { s = sessionStorage.getItem(K.user); } catch (e) {} }
+  if (!s) return null;
   try {
-    const raw = localStorage.getItem(PREMIUM_KEY);
-    if (!raw) return 'free';
-    const p = JSON.parse(raw);
+    var u = JSON.parse(s);
+    try { localStorage.setItem(K.user, s); sessionStorage.setItem(K.user, s); } catch (e) {}
+    FT._user = u;
+    return u;
+  } catch (e) { return null; }
+};
+FT.saveUser = function (u) {
+  var s = JSON.stringify(u);
+  try { localStorage.setItem(K.user, s); sessionStorage.setItem(K.user, s); } catch (e) {}
+  FT._user = u;
+};
+FT.userName = function () { var u = FT._user || FT.loadUser() || {}; return u.name || ''; };
+
+/* ── ft_hogar ── */
+FT.hogar = function () { return FT.get(K.hogar, {}) || {}; };
+FT.saveHogar = function (h) { FT.set(K.hogar, h); FT._changed(); };
+FT.hogarConnected = function () { var h = FT.hogar(); return h.connected === true && !h.manuallyLeft; };
+/** % del cheque que es personal (§ contrato) */
+FT.personalPct = function () {
+  if (!FT.hogarConnected()) return 100;
+  var h = FT.hogar();
+  return 100 - (parseFloat(h.payPctHogar) || 50) - (parseFloat(h.saveHogarPct) || 10);
+};
+
+/* ── deudas ── */
+FT.debts = function () { return FT.get(K.debts, []) || []; };
+FT.saveDebts = function (d) { FT.set(K.debts, d); FT._changed(); };
+
+/* ── recurrentes ── */
+FT.recurring = function () { return FT.get(K.recurring, []) || []; };
+FT.saveRecurring = function (r) { FT.set(K.recurring, r); FT._changed(); };
+
+/* ── Ahorro libre ── */
+FT.savingsBalance = function () { return parseFloat(FT.getRaw(K.savings, '0')) || 0; };
+FT.savingsHist = function () { return FT.get(K.savingsHist, []) || []; };
+FT.addSavings = function (entry) {
+  var cur = FT.savingsBalance();
+  FT.setRaw(K.savings, (cur + (parseFloat(entry.amount) || 0)).toFixed(2));
+  var hist = FT.savingsHist();
+  hist.push({ id: 'tx_' + entry.id, tipo: entry.tipo || 'deposito', monto: parseFloat(entry.amount) || 0, fecha: entry.date, nota: entry.note || '', cat: entry.cat || '', recId: entry.recId || null });
+  FT.set(K.savingsHist, hist);
+  FT._changed();
+};
+FT.reverseSavings = function (txId) {
+  var hist = FT.savingsHist();
+  var i = hist.findIndex(function (h) { return h.id === 'tx_' + txId || h.id === txId; });
+  if (i < 0) return;
+  var cur = FT.savingsBalance();
+  var sign = hist[i].tipo === 'retiro' ? 1 : -1;
+  FT.setRaw(K.savings, Math.max(0, cur + sign * (parseFloat(hist[i].monto) || 0)).toFixed(2));
+  hist.splice(i, 1);
+  FT.set(K.savingsHist, hist);
+  FT._changed();
+};
+
+/* ── Fondo de emergencia (saldo en ft_data.emergency; historial en 2 claves) ── */
+FT.emergencyBalance = function () { return FT.data().emergency || 0; };
+/** Historial de emergencia — funde ft_emerg_hist + ft_emergency_history (legado), dedup por id. */
+FT.emergencyHist = function () {
+  var a = FT.get(K.emergHist, []) || [];
+  var b = (FT.get(K.emergHistLegacy, []) || []).map(function (h) {
+    return { id: h.id, amount: h.amount, note: h.note, date: h.date, tipo: h.tipo || (h.type === 'retiro' ? 'retiro' : 'deposito') };
+  });
+  var seen = {}, out = [];
+  a.concat(b).forEach(function (h) { var id = h.id != null ? String(h.id) : (h.date + '|' + h.amount); if (!seen[id]) { seen[id] = 1; out.push(h); } });
+  return out;
+};
+FT.addEmergency = function (entry) {
+  var d = FT.data();
+  var amt = parseFloat(entry.amount) || 0;
+  var tipo = entry.tipo || 'deposito';
+  d.emergency = Math.max(0, (d.emergency || 0) + (tipo === 'retiro' ? -amt : amt));
+  FT.set(K.data, d);
+  var row = { id: entry.id != null ? String(entry.id) : ('e_' + Date.now()), amount: amt, note: entry.note || '', date: entry.date || FT.todayISO(), tipo: tipo };
+  var h1 = FT.get(K.emergHist, []) || []; h1.push(row); FT.set(K.emergHist, h1);
+  var h2 = FT.get(K.emergHistLegacy, []) || []; h2.push({ id: 'tx_' + row.id, amount: amt, date: row.date, type: tipo, note: row.note }); FT.set(K.emergHistLegacy, h2);
+  FT._changed();
+};
+FT.reverseEmergency = function (id) {
+  var target = String(id).replace(/^tx_/, '');
+  var d = FT.data();
+  var h1 = FT.get(K.emergHist, []) || [];
+  var row = h1.find(function (r) { return String(r.id) === target || String(r.id) === 'tx_' + target; });
+  if (row) {
+    var amt = parseFloat(row.amount) || 0;
+    d.emergency = Math.max(0, (d.emergency || 0) + (row.tipo === 'retiro' ? amt : -amt));
+    FT.set(K.data, d);
+  }
+  FT.set(K.emergHist, h1.filter(function (r) { return String(r.id) !== target && String(r.id) !== 'tx_' + target; }));
+  var h2 = FT.get(K.emergHistLegacy, []) || [];
+  FT.set(K.emergHistLegacy, h2.filter(function (r) { return String(r.id) !== 'tx_' + target && String(r.id) !== target; }));
+  FT._changed();
+};
+
+/* ── Cuentas de cheques (array de cuentas nombradas; migra objeto único) ── */
+FT.checking = function () {
+  var raw = FT.get(K.checking, []);
+  if (Array.isArray(raw)) return raw;
+  if (raw && typeof raw === 'object') return [{ id: 'chk_legacy', name: 'Cuenta', amount: parseFloat(raw.amount || raw) || 0, hogar: !!raw.hogar, updatedAt: FT.todayISO() }];
+  return [];
+};
+FT.saveChecking = function (list) { FT.set(K.checking, list); FT._changed(); };
+
+/* ── Inversiones ── */
+FT.investments = function (scope) { return FT.get(scope === 'hogar' ? K.hogarInv : K.investments, []) || []; };
+FT.saveInvestments = function (list, scope) { FT.set(scope === 'hogar' ? K.hogarInv : K.investments, list); FT._changed(); };
+FT.investmentValue = function (i) {
+  var shares = parseFloat(i.shares) || 1, avg = parseFloat(i.avgPrice) || 0, cur = parseFloat(i.curPrice) || avg, amt = parseFloat(i.amount) || 0;
+  return (avg > 0 || cur > 0) ? shares * cur : amt;
+};
+
+/* ── Otros ── */
+FT.cheques = function () { return FT.get(K.cheques, []) || []; };
+FT.goals = function () { return FT.get(K.goals, []) || []; };
+FT.saveGoals = function (g) { FT.set(K.goals, g); FT._changed(); };
+FT.subs = function () { return FT.get(K.subs, []) || []; };
+FT.saveSubs = function (s) { FT.set(K.subs, s); FT._changed(); };
+FT.servicios = function () { return FT.get(K.servicios, []) || []; };
+FT.saveServicios = function (s) { FT.set(K.servicios, s); FT._changed(); };
+FT.hogarFondos = function () {
+  var f = FT.get(K.hogarFondos, null);
+  if (!f || typeof f !== 'object') f = {};
+  if (!f.emerg) f.emerg = { meta: 0, actual: 0, fecha: '', hist: [] };
+  if (!Array.isArray(f.metas)) f.metas = [];
+  return f;
+};
+FT.saveHogarFondos = function (f) { FT.set(K.hogarFondos, f); FT._changed(); };
+FT.distPcts = function () { return FT.get(K.distPcts, null) || { ahorro: 50, emergencia: 25, inversion: 25 }; };
+
+/* Evento global cuando cambian los datos — cada pantalla lo escucha para re-render */
+FT._changed = function () { try { document.dispatchEvent(new CustomEvent('ft:datachanged')); } catch (e) {} };
+
+/* ─────────────────────────────────────────────────────────────────────────
+   4 · BORRADO CON EFECTO CRUZADO
+   ───────────────────────────────────────────────────────────────────────── */
+FT.deleteTx = function (id) {
+  var d = FT.data();
+  var t = d.transactions.find(function (x) { return String(x.id) === String(id); });
+  if (!t) return false;
+
+  // Fuente vinculada
+  if (t.type === 'ahorro' && (t.dest === 'libre' || t.cat === '💰 Ahorro')) {
+    FT.reverseSavings(t.id);
+  } else if (t.type === 'ahorro' || t.cat === '🛡️ Emergencia') {
+    FT.reverseEmergency(t.id);
+  } else if (t.type === 'inversion' || t.fromInvPage) {
+    ['', 'hogar'].forEach(function (sc) {
+      var list = FT.investments(sc);
+      var f = list.filter(function (i) { return i.id !== 'inv_' + t.id && i.id !== 'tx_' + t.id && String(i.txId) !== String(t.id); });
+      if (f.length !== list.length) FT.saveInvestments(f, sc);
+    });
+  } else if (t.cat === '💳 Deudas') {
+    var debts = FT.debts(), touched = false;
+    debts.forEach(function (deb) {
+      if (!deb.abonos) return;
+      var keep = deb.abonos.filter(function (a) { return String(a.txId) !== String(t.id); });
+      if (keep.length !== deb.abonos.length) {
+        var removed = deb.abonos.find(function (a) { return String(a.txId) === String(t.id); });
+        if (removed) deb.balance = (parseFloat(deb.balance) || 0) + (parseFloat(removed.monto) || 0);
+        deb.abonos = keep; touched = true;
+      }
+    });
+    if (touched) FT.saveDebts(debts);
+  }
+
+  d.transactions = d.transactions.filter(function (x) { return String(x.id) !== String(id); });
+  FT.saveData(d);
+  return true;
+};
+
+/* ─────────────────────────────────────────────────────────────────────────
+   5 · AUTOMATIZACIONES — corren al cargar cualquier pantalla
+   ───────────────────────────────────────────────────────────────────────── */
+FT.recordCheque = function (o) {
+  var monto = parseFloat(o.monto); if (!monto || monto <= 0) return null;
+  var h = FT.hogar();
+  var totHogar = (parseFloat(h.payPctHogar) || 50) + (parseFloat(h.saveHogarPct) || 10);
+  var hogarAmt = monto * totHogar / 100, personalAmt = monto - hogarAmt;
+  var fecha = o.fecha || FT.todayISO();
+  var dObj = new Date(fecha + 'T00:00:00');
+  var mes = dObj.getFullYear() + '-' + String(dObj.getMonth() + 1).padStart(2, '0');
+  var tipo = o.tipo || 'nuevo';
+  var es = FT.lang === 'es';
+
+  var cheques = FT.cheques();
+  cheques.push({ id: Date.now() + Math.floor(Math.random() * 1000), monto: monto, hogarAmt: hogarAmt, personalAmt: personalAmt, fecha: fecha, mes: mes, tipo: tipo });
+  FT.set(K.cheques, cheques);
+
+  var autoSaved = 0;
+  if (tipo === 'nuevo') {
+    var d = FT.data();
+    d.transactions.push({ id: Date.now(), type: 'ingreso', desc: es ? 'Cheque recibido' : 'Paycheck received', amount: monto, date: fecha, cat: '💰 Ingreso', incomeKind: 'cheque', createdBy: FT.userName() });
+    FT.set(K.data, d);
+
+    var u = FT._user || FT.loadUser() || {};
+    var savPct = u.savingsPct != null ? u.savingsPct : 20;
+    autoSaved = Math.round(personalAmt * savPct / 100);
+    if (autoSaved > 0) {
+      var savId = Date.now() + 1;
+      FT.addSavings({ id: savId, amount: autoSaved, date: fecha, note: es ? 'Págate primero (automático del cheque)' : 'Pay yourself first (automatic from paycheck)' });
+      var d2 = FT.data();
+      d2.transactions.push({ id: savId, type: 'ahorro', desc: es ? 'Ahorro automático del cheque' : 'Automatic paycheck savings', amount: autoSaved, date: fecha, cat: '💰 Ahorro', dest: 'libre', createdBy: FT.userName() });
+      FT.set(K.data, d2);
+    }
+  }
+  FT._changed();
+  return { monto: monto, hogarAmt: hogarAmt, personalAmt: personalAmt, autoSaved: autoSaved };
+};
+
+FT.getMissingPaydays = function () {
+  var u = FT._user || FT.loadUser() || {};
+  if (!u.payAuto) return [];
+  var freq = u.payFreq || 'weekly', payDay = u.payDay || 'thursday';
+  var days = { sunday: 0, monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6 };
+  var cheques = FT.cheques();
+  var recorded = {}; cheques.forEach(function (c) { recorded[c.fecha] = 1; });
+  var today = new Date(); today.setHours(0, 0, 0, 0);
+  var start;
+  if (cheques.length) {
+    var lastMs = Math.max.apply(null, cheques.map(function (c) { return new Date(c.fecha + 'T00:00:00').getTime(); }));
+    start = new Date(lastMs); start.setDate(start.getDate() + 1);
+  } else { start = new Date(today); start.setDate(start.getDate() - 60); }
+  var missing = [], cursor = new Date(start), guard = 0;
+  while (cursor <= today && guard < 400) {
+    var ds = FT.date(cursor, 'ISO'), matches;
+    if (freq === 'weekly') matches = cursor.getDay() === (days[payDay] !== undefined ? days[payDay] : 4);
+    else matches = String(cursor.getDate()) === String(payDay);
+    if (matches && !recorded[ds]) missing.push(ds);
+    cursor.setDate(cursor.getDate() + 1); guard++;
+  }
+  return missing;
+};
+FT.catchUpCheques = function () {
+  var missing = FT.getMissingPaydays();
+  if (!missing.length) return 0;
+  var u = FT._user || FT.loadUser() || {};
+  var freq = u.payFreq || 'weekly';
+  var checks = freq === 'weekly' ? 4 : freq === 'biweekly' ? 2 : 1;
+  var expected = (u.income || 0) / checks;
+  if (expected <= 0) return 0;
+  missing.forEach(function (f) { FT.recordCheque({ monto: expected, fecha: f, tipo: 'nuevo' }); });
+  return missing.length;
+};
+
+function _advanceRecDate(freq, fromStr) {
+  var dt = new Date(fromStr + 'T00:00:00');
+  if (freq === 'weekly') dt.setDate(dt.getDate() + 7);
+  else if (freq === 'biweekly') dt.setDate(dt.getDate() + 14);
+  else dt.setMonth(dt.getMonth() + 1);
+  return FT.date(dt, 'ISO');
+}
+FT._advanceRecDate = _advanceRecDate;
+
+function _applyRecMeta(rec, hoy) {
+  try {
+    var f = FT.hogarFondos();
+    var meta = rec.metaTipo === 'emerg' ? f.emerg : (rec.metaId != null ? f.metas.find(function (m) { return m.id === rec.metaId; }) : f.metas[rec.metaIdx]);
+    if (!meta) return 'broken';
+    meta.hist = meta.hist || [];
+    if (meta.hist.some(function (h) { return h.fecha === hoy && (h.recId === rec.id || !h.recId); })) return 'already';
+    meta.hist.push({ id: 'd_' + Date.now() + '_' + Math.floor(Math.random() * 1000), monto: rec.amount, fecha: hoy, desdePres: rec.desdePres, auto: true, recId: rec.id });
+    meta.actual = meta.hist.reduce(function (a, h) { return a + (h.monto || 0); }, 0);
+    FT.set(K.hogarFondos, f);
+    if (rec.desdePres) {
+      var d = FT.data();
+      d.transactions.push({ id: Date.now(), type: 'ahorro', desc: rec.desc, amount: rec.amount, date: hoy, cat: '🏠 Hogar', hogar: true, createdBy: FT.userName(), auto: true, recId: rec.id });
+      FT.set(K.data, d);
+    }
+    return 'applied';
+  } catch (e) { return 'broken'; }
+}
+function _applyRecAhorro(rec, hoy) {
+  try {
+    var hist = FT.savingsHist();
+    if (hist.some(function (h) { return h.fecha === hoy && (h.recId === rec.id || !h.recId); })) return 'already';
+    FT.addSavings({ id: Date.now(), amount: rec.amount, date: hoy, note: rec.desc, recId: rec.id });
+    return 'applied';
+  } catch (e) { return 'broken'; }
+}
+function _applyRecInversion(rec, hoy) {
+  try {
+    var invs = FT.investments();
+    if (invs.some(function (i) { return i.recId === rec.id && i.date === hoy; })) return 'already';
+    invs.push({ id: 'tx_' + Date.now(), name: rec.desc, ticker: rec.desc, amount: rec.amount, date: hoy, fecha: hoy, platform: FT.lang === 'es' ? 'Sin asignar' : 'Unassigned', invType: 'varias', recId: rec.id, fromDashboard: true });
+    FT.saveInvestments(invs);
+    return 'applied';
+  } catch (e) { return 'broken'; }
+}
+function _applyRecDebt(rec, hoy) {
+  try {
+    var debts = FT.debts();
+    var i = debts.findIndex(function (d) { return String(d.id) === String(rec.debtId); });
+    if (i < 0) return 'broken';
+    var d = debts[i];
+    if ((d.abonos || []).some(function (a) { return a.fecha === hoy && (a.recId === rec.id || !a.recId); })) return 'already';
+    var old = parseFloat(d.balance) || 0, nu = Math.max(0, old - rec.amount);
+    d.balance = nu; d.updatedAt = new Date().toISOString();
+    d.paidMonths = d.paidMonths || {}; d.paidMonths[String(hoy).slice(0, 7)] = true;
+    d.abonos = d.abonos || [];
+    var apr = parseFloat(d.apr) || 0;
+    var interes = apr > 0 ? +(old * (apr / 100 / 12)).toFixed(2) : 0;
+    var capital = +Math.max(0, rec.amount - interes).toFixed(2);
+    var abonoId = Date.now(), txId = abonoId + 1;
+    var dt = FT.data();
+    dt.transactions.push({ id: txId, type: 'gasto', desc: (FT.lang === 'es' ? 'Abono a ' : 'Payment to ') + d.name, amount: rec.amount, date: hoy, cat: '💳 Deudas', hogar: rec.hogar, createdBy: FT.userName(), auto: true, recId: rec.id });
+    FT.set(K.data, dt);
+    d.abonos.push({ id: abonoId, monto: rec.amount, fecha: hoy, nota: '', saldoAntes: old, saldoDespues: nu, tipo: 'nuevo', createdBy: FT.userName(), txId: txId, interesPagado: interes, capitalPagado: capital, auto: true, recId: rec.id });
+    FT.set(K.debts, debts);
+    return 'applied';
+  } catch (e) { return 'broken'; }
+}
+FT.applyDueRecurring = function () {
+  var rec = FT.recurring();
+  if (!rec.length) return 0;
+  var hoy = FT.todayISO(), applied = 0;
+  rec.forEach(function (r) {
+    if (!r.active || !r.nextDate) return;
+    var guard = 0;
+    while (r.nextDate && r.nextDate <= hoy && guard < 60) {
+      var st = 'broken';
+      if (r.kind === 'meta') st = _applyRecMeta(r, r.nextDate);
+      else if (r.kind === 'ahorro') st = _applyRecAhorro(r, r.nextDate);
+      else if (r.kind === 'inversion') st = _applyRecInversion(r, r.nextDate);
+      else if (r.kind === 'debt') st = _applyRecDebt(r, r.nextDate);
+      if (st === 'broken') { r.active = false; break; }
+      if (st === 'applied') applied++;
+      r.nextDate = _advanceRecDate(r.freq, r.nextDate);
+      guard++;
+    }
+  });
+  FT.set(K.recurring, rec);
+  if (applied) FT._changed();
+  return applied;
+};
+
+function _applyDueList(key, defCat) {
+  try {
+    var list = FT.get(key, []) || [];
+    if (!list.length) return 0;
+    var today = new Date(); today.setHours(0, 0, 0, 0);
+    var d = FT.data(), applied = 0, name = FT.userName();
+    list.forEach(function (s) {
+      if (s.paused || !s.date) return;
+      var guard = 0;
+      while (guard < 60) {
+        var p = s.date.split('-').map(Number);
+        var dd = new Date(p[0], p[1] - 1, p[2]);
+        if (!(dd < today)) break;
+        d.transactions.push({ id: Date.now() + guard, type: 'suscripcion', desc: s.name, amount: parseFloat(s.amount) || 0, date: s.date, cat: s.cat || defCat, hogar: s.hogar === true, createdBy: name, auto: true });
+        applied++;
+        if (s.freq === 'annual') dd.setFullYear(dd.getFullYear() + 1);
+        else if (s.freq === 'weekly') dd.setDate(dd.getDate() + 7);
+        else dd.setMonth(dd.getMonth() + 1);
+        s.date = FT.date(dd, 'ISO');
+        guard++;
+      }
+    });
+    if (applied) { FT.set(K.data, d); FT.set(key, list); FT._changed(); }
+    return applied;
+  } catch (e) { return 0; }
+}
+FT.applyDueSubscriptions = function () { return _applyDueList(K.subs, '🔄 Suscripción'); };
+FT.applyDueServicios = function () { return _applyDueList(K.servicios, '🏠 Servicio'); };
+
+FT.runAutomations = function () {
+  var n = 0;
+  try { n += FT.catchUpCheques(); } catch (e) {}
+  try { n += FT.applyDueRecurring(); } catch (e) {}
+  try { n += FT.applyDueSubscriptions(); } catch (e) {}
+  try { n += FT.applyDueServicios(); } catch (e) {}
+  if (n > 0 && FT.toast) FT.toast(FT.t('automations_done'), { icon: '🔄' });
+};
+
+/* ─────────────────────────────────────────────────────────────────────────
+   6 · PREMIUM
+   ───────────────────────────────────────────────────────────────────────── */
+FT.getPremiumInfo = function () { return FT.get(K.premium, null); };
+FT.getActivePlan = function () {
+  try {
+    var p = FT.get(K.premium, null);
     if (!p || !p.plan) return 'free';
     if (p.expiresAt && new Date(p.expiresAt) < new Date()) return 'free';
-    // Normalizado a minúsculas: el Sheet puede tener "PREMIUM", "Premium" o "premium"
-    // y no debe importar — esto fue justo la causa del bug del 25 de agosto.
     return String(p.plan).trim().toLowerCase();
-  } catch(e) { return 'free'; }
+  } catch (e) { return 'free'; }
+};
+FT.isPremium = function () { return FT.getActivePlan() === 'premium'; };
+FT.isFree = function () { return FT.getActivePlan() === 'free'; };
+FT.savePlan = function (plan, email, expiresAt) {
+  FT.set(K.premium, { plan: plan, email: email, activatedAt: new Date().toISOString(), expiresAt: expiresAt || null });
+};
+FT.clearPlan = function () { FT.del(K.premium); };
+var FREE_FEATURES = ['dashboard', 'nuevo_registro', 'historial', 'analisis_basico', 'emergencia', 'metas_basico', 'suscripciones_basico', 'voz', 'atajos', 'csv_import', 'deudas_simple'];
+FT.canUse = function (feature) { return FREE_FEATURES.indexOf(feature) > -1 || FT.isPremium(); };
+
+FT.checkAccess = function (email) {
+  var url = GAS_URL + '?action=checkAccess&email=' + encodeURIComponent((email || '').trim());
+  return (function attempt(n) {
+    return fetch(url).then(function (r) { if (!r.ok) throw new Error('GAS ' + r.status); return r.json(); })
+      .catch(function (err) {
+        if (n < 1) return new Promise(function (res) { setTimeout(res, 800); }).then(function () { return attempt(n + 1); });
+        // 2 intentos fallidos → mantener premium local vigente
+        try {
+          var c = FT.get(K.premium, {}) || {};
+          var plan = c.plan ? String(c.plan).trim().toLowerCase() : '';
+          var vig = !c.expiresAt || new Date(c.expiresAt) > new Date();
+          if (plan === 'premium' && vig) return { access: true, plan: c.plan, expiresAt: c.expiresAt || null };
+        } catch (e) {}
+        return { access: true, plan: 'free', expiresAt: null };
+      });
+  })(0);
+};
+
+/* ─────────────────────────────────────────────────────────────────────────
+   7 · CRÉDITOS IA
+   ───────────────────────────────────────────────────────────────────────── */
+FT.getCredits = function () {
+  var c = FT.get(K.aiCredits, {}) || {};
+  var mo = new Date().toISOString().slice(0, 7);
+  if (c.month !== mo) { c = { used: 0, month: mo, extra: c.extra || 0 }; FT.set(K.aiCredits, c); }
+  return c;
+};
+FT.creditsLeft = function () { var c = FT.getCredits(); return Math.max(0, MAX_AI_PREMIUM + (c.extra || 0) - (c.used || 0)); };
+FT.useCredit = function () { var c = FT.getCredits(); c.used = (c.used || 0) + 1; FT.set(K.aiCredits, c); return FT.creditsLeft(); };
+FT.addExtraCredits = function (n) { var c = FT.getCredits(); c.extra = (c.extra || 0) + (parseInt(n, 10) || 0); FT.set(K.aiCredits, c); return FT.creditsLeft(); };
+FT.redeemCode = function (code) {
+  code = String(code || '').trim().toUpperCase();
+  var m = code.match(/^FZ(5|15)-[A-Z0-9]{3,}$/);
+  if (!m) return { ok: false, msg: FT.lang === 'es' ? 'Código inválido' : 'Invalid code' };
+  var used = FT.get(K.usedCodes, []) || [];
+  if (used.indexOf(code) > -1) return { ok: false, msg: FT.lang === 'es' ? 'Este código ya se usó en este dispositivo' : 'This code was already used on this device' };
+  var add = m[1] === '15' ? 15 : 5;
+  used.push(code); FT.set(K.usedCodes, used);
+  FT.addExtraCredits(add);
+  return { ok: true, added: add, left: FT.creditsLeft() };
+};
+
+/* ─────────────────────────────────────────────────────────────────────────
+   8 · GOOGLE APPS SCRIPT
+   ───────────────────────────────────────────────────────────────────────── */
+FT.gas = function (action, params) {
+  var qs = Object.keys(params || {}).map(function (k) { return k + '=' + encodeURIComponent(params[k]); }).join('&');
+  return fetch(GAS_URL + '?action=' + action + (qs ? '&' + qs : '')).then(function (r) { return r.json(); });
+};
+FT.getPartnerProfile = function (email) { return FT.gas('getProfile', { email: email }); };
+FT.createInvite = function (email, name, code) { return FT.gas('createInvite', { email: email, name: name || '', code: code }); };
+FT.acceptInvite = function (code, email, name) { return FT.gas('acceptInvite', { code: code, email: email, name: name || '' }); };
+FT.checkPartner = function (email) { return FT.gas('checkPartner', { email: email }); };
+FT.getHogarTxs = function (email) { return FT.gas('getHogarTxs', { email: email }); };
+
+function _mergeById(oldArr, newArr) {
+  var by = {};
+  (oldArr || []).forEach(function (x) { if (x && x.id != null) by[x.id] = x; });
+  (newArr || []).forEach(function (x) { if (x && x.id != null) by[x.id] = x; });
+  return Object.keys(by).map(function (k) { return by[k]; });
 }
-
-function isPremium() { return getActivePlan() === 'premium'; }
-function isFree()    { return getActivePlan() === 'free'; }
-function hasAccess() { return true; } // access controlled by login + GAS
-
-function getPremiumInfo() {
-  try { return JSON.parse(localStorage.getItem(PREMIUM_KEY) || 'null'); }
-  catch(e) { return null; }
-}
-
-function savePlan(plan, email, expiresAt) {
-  const info = { plan, email, activatedAt: new Date().toISOString(), expiresAt: expiresAt || null };
-  localStorage.setItem(PREMIUM_KEY, JSON.stringify(info));
-}
-
-function clearPlan() { localStorage.removeItem(PREMIUM_KEY); }
-
-/* ── FEATURE FLAGS ── */
-function canUse(feature) {
-  const FREE_FEATURES = [
-    'dashboard','nuevo_registro','historial','analisis_basico',
-    'emergencia','metas_basico','suscripciones_basico',
-    'voz','atajos','csv_import','deudas_simple'
-  ];
-  if (FREE_FEATURES.includes(feature)) return true;
-  return isPremium();
-}
-
-/* ── GAS ACCESS CHECK ── */
-async function checkAccessWithGAS(email) {
-  const url = GAS_URL + '?action=checkAccess&email=' + encodeURIComponent(email.trim());
-
-  // Reintenta una vez — la red del celular a veces falla la primera llamada
-  // y no hay por qué tratar eso como "ya no eres premium".
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error('GAS error ' + res.status);
-      const data = await res.json();
-      return data;
-    } catch(err) {
-      console.warn(`GAS intento ${attempt+1} falló:`, err);
-      if (attempt === 0) await new Promise(r => setTimeout(r, 800));
-    }
-  }
-
-  // Los 2 intentos fallaron de verdad (Sheet inalcanzable, sin internet, etc.).
-  // Antes esto bajaba a "free" en silencio, causando que a veces sí y a veces no
-  // se reconociera premium — dependía solo de si esa llamada específica jaló.
-  // Ahora: si ya había un premium guardado y vigente, se mantiene mientras se
-  // puede verificar de nuevo, en vez de quitarlo por un simple hipo de red.
+FT.syncPartner = function () {
   try {
-    const cached = JSON.parse(localStorage.getItem(PREMIUM_KEY) || '{}');
-    const cachedPlan = cached.plan ? String(cached.plan).trim().toLowerCase() : '';
-    const notExpired = !cached.expiresAt || new Date(cached.expiresAt) > new Date();
-    if (cachedPlan === 'premium' && notExpired) {
-      console.warn('GAS inalcanzable — se mantiene el premium local hasta poder reverificar.');
-      return { access: true, plan: cached.plan, expiresAt: cached.expiresAt || null };
-    }
-  } catch(e) {}
+    var h = FT.hogar();
+    if (!h.connected || !h.partnerEmail || h.manuallyLeft) return;
+    var pkey = 'profile_' + h.partnerEmail.replace(/[^a-z0-9]/gi, '_');
+    FT.getPartnerProfile(h.partnerEmail).then(function (data) {
+      if (!data || !data.success) return;
+      var nd = {}; try { nd = JSON.parse(data.dataJson || '{}'); } catch (e) {}
+      var old = FT.get(pkey, null); var od = (old && old.data) || {};
+      var merged = {
+        transactions: _mergeById(od.transactions, nd.transactions),
+        emergency: (nd.emergency != null ? nd.emergency : od.emergency) || 0,
+        subscriptions: _mergeById(od.subscriptions, nd.subscriptions),
+        sharedDebts: _mergeById(od.sharedDebts, nd.sharedDebts),
+        hogarInv: _mergeById(od.hogarInv, nd.hogarInv)
+      };
+      var pp = { name: data.name || (old && old.name) || '', email: data.email || h.partnerEmail, income: parseFloat(data.income) || 0, needs: parseFloat(data.needs) || 0, wants: parseFloat(data.wants) || 0, savings: parseFloat(data.savings) || 0, data: merged };
+      FT.set(pkey, pp);
+      FT.set(K.profileB, pp);
+      FT._changed();
+    }).catch(function () {});
+  } catch (e) {}
+};
 
-  return { access: true, plan: 'free', expiresAt: null };
+/* ─────────────────────────────────────────────────────────────────────────
+   9 · i18n
+   ───────────────────────────────────────────────────────────────────────── */
+FT.lang = 'es';
+var I18N = {
+  es: {
+    home: 'Inicio', history: 'Historial', household: 'Hogar', more: 'Más',
+    save: 'Guardar', cancel: 'Cancelar', delete: 'Eliminar', edit: 'Editar', close: 'Cerrar', confirm: 'Confirmar',
+    help: 'Ayuda', logout: 'Cerrar sesión', language: 'Idioma',
+    automations_done: 'Movimientos automáticos al día',
+    money_group_your: 'Tu dinero', money_group_debts: 'Deudas y pagos', money_group_input: 'Entrada de datos',
+    money_group_analysis: 'Análisis', money_group_account: 'Cuenta',
+    l_ahorro: 'Ahorro libre', l_emergencia: 'Fondo de emergencia', l_inversiones: 'Inversiones', l_metas: 'Metas',
+    l_deudas: 'Deudas', l_suscripciones: 'Suscripciones', l_servicios: 'Servicios', l_recurrentes: 'Recurrentes',
+    l_scanner: 'Escanear recibo', l_importar: 'Importar', l_analisis: 'Análisis', l_reporte: 'Reporte mensual',
+    l_perfil: 'Mi perfil', l_config: 'Configuración', l_saldos: 'Saldos iniciales',
+    notif_title: 'Notificaciones', notif_empty: 'Nada pendiente por ahora'
+  },
+  en: {
+    home: 'Home', history: 'History', household: 'Household', more: 'More',
+    save: 'Save', cancel: 'Cancel', delete: 'Delete', edit: 'Edit', close: 'Close', confirm: 'Confirm',
+    help: 'Help', logout: 'Log out', language: 'Language',
+    automations_done: 'Automatic entries caught up',
+    money_group_your: 'Your money', money_group_debts: 'Debts & payments', money_group_input: 'Data entry',
+    money_group_analysis: 'Analysis', money_group_account: 'Account',
+    l_ahorro: 'Free savings', l_emergencia: 'Emergency fund', l_inversiones: 'Investments', l_metas: 'Goals',
+    l_deudas: 'Debts', l_suscripciones: 'Subscriptions', l_servicios: 'Services', l_recurrentes: 'Recurring',
+    l_scanner: 'Scan receipt', l_importar: 'Import', l_analisis: 'Analysis', l_reporte: 'Monthly report',
+    l_perfil: 'My profile', l_config: 'Settings', l_saldos: 'Starting balances',
+    notif_title: 'Notifications', notif_empty: 'Nothing pending for now'
+  }
+};
+FT.t = function (key) { return (I18N[FT.lang] && I18N[FT.lang][key]) || (I18N.es[key]) || key; };
+FT.setLang = function (l) {
+  FT.lang = (l === 'en') ? 'en' : 'es';
+  FT.setRaw(K.lang, FT.lang);
+  FT.applyLang(document);
+  try { document.dispatchEvent(new CustomEvent('ft:langchange', { detail: FT.lang })); } catch (e) {}
+};
+FT.applyLang = function (root) {
+  root = root || document;
+  root.querySelectorAll('[data-es]').forEach(function (el) {
+    var v = el.getAttribute('data-' + FT.lang); if (v != null) el.textContent = v;
+  });
+  root.querySelectorAll('[data-es-ph]').forEach(function (el) {
+    var v = el.getAttribute('data-' + FT.lang + '-ph'); if (v != null) el.setAttribute('placeholder', v);
+  });
+};
+
+/* ─────────────────────────────────────────────────────────────────────────
+   10 · SISTEMA DE DISEÑO — inyección de <style id="ft-ds"> (look v3)
+   ───────────────────────────────────────────────────────────────────────── */
+var DS_CSS = `
+:root{
+  --g-dark:#0F5132; --g-main:#1A7A4A; --g-light:#E8F7EF;
+  --ink:#12141C; --text2:#585C6C; --text3:#9A9DAD;
+  --chip:#F2F2F4; --hair:#ECECEF; --sunk:#F7F7F9; --white:#fff;
+  --red:#E5484D; --red-dim:#FDECEC; --amber:#F4A261; --blue:#4A6CF7; --purple:#7B5EA7;
+  --round-font:'Nunito',-apple-system,'SF Pro Rounded',sans-serif;
+  --ui-font:'Plus Jakarta Sans',-apple-system,'Segoe UI',sans-serif;
+  --tag-bg:#EFEFF1;
+  --peach-bg:#FBE4CF; --peach-tx:#C77E3E; --pink-bg:#F9CBDD; --pink-tx:#C1487A;
+  --coral-bg:#F9D2C6; --coral-tx:#CE5E43; --sky-bg:#D6E9F7; --sky-tx:#3B7FB2;
+  --mint-bg:#DBF0E4; --mint-tx:#2E8C58;
+  --ft-appw:480px;
 }
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{font-family:var(--ui-font);background:#EDEEF1;color:var(--ink);-webkit-text-size-adjust:100%;}
+body.ft-ready .ft-app{background:var(--white);}
+.ft-app{max-width:var(--ft-appw);margin:0 auto;background:var(--white);min-height:100vh;position:relative;box-shadow:0 0 0 1px rgba(20,20,30,.04);}
+.ft-page{padding:22px 18px 104px;}
+.ft-num{font-family:var(--round-font);font-weight:900;font-variant-numeric:tabular-nums;letter-spacing:-.4px;}
+input,select,textarea{font-size:16px;font-family:var(--ui-font);}
+.tap{transition:transform .16s ease;}
+.tap:active{transform:scale(.95);}
+button{font-family:var(--ui-font);}
 
-/* ── UPGRADE MODAL ── */
-function injectUpgradeModal() {
-  if (document.getElementById('ftUpgradeOverlay')) return;
-  const lang = sessionStorage.getItem('ft_lang') || localStorage.getItem('ft_lang') || 'es';
-  const T = lang === 'es' ? {
-    title:'Función Premium',
-    sub:'Esta función está incluida en FinTrack Pro Premium.',
-    features:[
-      '📷 Escanear recibos e inversiones con IA',
-      '📧 Reporte financiero mensual',
-      '📥 Exportar todos tus datos',
-      '💡 Insights automáticos avanzados',
-      '🔄 Suscripciones ilimitadas',
-      '🎯 Metas ilimitadas',
-      '🏠 Hogar compartido',
-      '📐 Amortización real de deudas',
-    ],
-    buyBtn:'Obtener Premium en Etsy →',
-    close:'Cerrar',
-  } : {
-    title:'Premium Feature',
-    sub:'This feature is included in FinTrack Pro Premium.',
-    features:[
-      '📷 Scan receipts and investments with AI',
-      '📧 Monthly financial report',
-      '📥 Export all your data',
-      '💡 Advanced automatic insights',
-      '🔄 Unlimited subscriptions',
-      '🎯 Unlimited goals',
-      '🏠 Shared household',
-      '📐 Real debt amortization',
-    ],
-    buyBtn:'Get Premium on Etsy →',
-    close:'Close',
-  };
+/* HEADER (§4.5) */
+.ft-header{display:flex;align-items:center;justify-content:space-between;padding:6px 2px 20px;}
+.ft-title{font-family:var(--ui-font);font-size:15.5px;font-weight:800;color:var(--ink);display:inline-flex;align-items:center;gap:6px;background:none;border:none;cursor:pointer;padding:0;}
+.ft-title .car{color:var(--text3);font-size:12px;}
+.ft-head-actions{display:flex;gap:9px;align-items:center;}
+.ft-ico{width:36px;height:36px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;font-size:15px;cursor:pointer;background:var(--chip);color:var(--text2);border:none;position:relative;}
+.ft-ico .ft-dot{position:absolute;top:6px;right:7px;width:7px;height:7px;border-radius:50%;background:var(--red);border:1.5px solid #fff;}
+.ft-monthpick{display:inline-flex;align-items:center;gap:9px;padding:6px 11px;border-radius:99px;background:var(--chip);font-size:12.5px;}
+.ft-monthpick b{font-family:var(--round-font);font-weight:800;letter-spacing:-.3px;}
+.ft-monthpick span{color:var(--text3);cursor:pointer;padding:0 2px;}
 
-  const overlay = document.createElement('div');
-  overlay.id = 'ftUpgradeOverlay';
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:none;place-items:center;z-index:9999;backdrop-filter:blur(6px);';
-  overlay.onclick = e => { if(e.target===overlay) hideUpgradeModal(); };
-  overlay.innerHTML = `
-  <div style="background:#fff;border-radius:24px;padding:28px;width:460px;max-width:calc(100vw - 32px);max-height:90vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,.22);">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px">
-      <div>
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-          <div style="width:32px;height:32px;background:linear-gradient(135deg,#0F5132,#1A7A4A);border-radius:10px;display:grid;place-items:center;font-size:16px">💎</div>
-          <div style="font-size:19px;font-weight:800;font-family:'Plus Jakarta Sans',sans-serif">${T.title}</div>
-        </div>
-        <div style="font-size:13px;color:#9395A5;font-family:'Plus Jakarta Sans',sans-serif">${T.sub}</div>
-      </div>
-      <div onclick="hideUpgradeModal()" style="color:#9395A5;cursor:pointer;font-size:22px;flex-shrink:0">✕</div>
-    </div>
-    <div style="background:#F7F8FC;border-radius:14px;padding:16px;margin-bottom:18px">
-      ${T.features.map(f=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;font-family:'Plus Jakarta Sans',sans-serif;color:#1A1D2E"><span style="color:#1A7A4A;font-weight:700">✓</span> ${f}</div>`).join('')}
-    </div>
-    <a href="https://www.etsy.com/shop/finanzone" target="_blank"
-      style="display:block;text-align:center;background:linear-gradient(135deg,#0F5132,#1A7A4A);color:white;border-radius:14px;padding:14px;font-size:15px;font-weight:700;text-decoration:none;font-family:'Plus Jakarta Sans',sans-serif;margin-bottom:12px">
-      🛒 ${T.buyBtn}
-    </a>
-    <button onclick="hideUpgradeModal()"
-      style="width:100%;background:transparent;border:1.5px solid #E4E6F0;border-radius:10px;padding:10px;font-size:13px;font-weight:600;color:#9395A5;cursor:pointer;font-family:'Plus Jakarta Sans',sans-serif">
-      ${T.close}
-    </button>
-  </div>`;
-  document.body.appendChild(overlay);
+/* HERO (§4.6) */
+.ft-hero{text-align:center;margin-bottom:6px;}
+.ft-hero .cap{font-size:12px;font-weight:700;color:var(--text3);letter-spacing:.3px;}
+.ft-hero .row{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:6px;}
+.ft-sign{width:24px;height:24px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;color:#fff;font-size:15px;font-weight:900;line-height:1;}
+.ft-sign.neg{background:var(--red);}.ft-sign.pos{background:var(--g-main);}
+.ft-hero .amt{font-family:var(--round-font);font-weight:900;font-size:46px;letter-spacing:-2.4px;color:var(--ink);font-variant-numeric:tabular-nums;}
+.ft-hero .amt .cur{font-size:.44em;letter-spacing:0;color:var(--text3);font-weight:800;margin-left:3px;}
+.ft-split{display:flex;justify-content:center;gap:9px;margin-top:14px;flex-wrap:wrap;}
+.ft-split .chip{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:800;padding:7px 13px;border-radius:99px;background:var(--chip);color:var(--ink);font-variant-numeric:tabular-nums;}
+.ft-split .chip .mini{width:17px;height:17px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:11px;font-weight:900;line-height:1;}
+.ft-split .chip .mini.neg{background:var(--red);}.ft-split .chip .mini.pos{background:var(--g-main);}
+
+/* CARD (§4.3 → blanco sólido) */
+.ft-card{background:var(--white);border:1px solid var(--hair);border-radius:20px;padding:16px;margin-top:18px;box-shadow:0 2px 10px -4px rgba(20,20,30,.06);}
+.ft-section{margin-top:24px;}
+.ft-section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.ft-section-head h3{font-size:13.5px;font-weight:800;margin:0;}
+.ft-section-head .link{font-size:11.5px;font-weight:800;color:var(--g-main);cursor:pointer;background:none;border:none;}
+
+/* PROGRESO (§5) */
+.ft-track{height:9px;border-radius:99px;background:var(--sunk);overflow:hidden;}
+.ft-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--g-main),var(--g-dark));width:0;transition:width 1s cubic-bezier(.22,1,.36,1);}
+
+/* TABS (§5) */
+.ft-tabs{display:flex;gap:6px;background:var(--sunk);padding:4px;border-radius:13px;margin-bottom:14px;}
+.ft-tab{flex:1;text-align:center;padding:8px 6px;border-radius:10px;font-size:12px;font-weight:800;color:var(--text3);cursor:pointer;background:none;border:none;transition:background .2s,color .2s;white-space:nowrap;}
+.ft-tab.on{background:#fff;color:var(--ink);box-shadow:0 2px 8px -2px rgba(20,20,30,.14);}
+.ft-pane{transition:opacity .25s ease;}
+.ft-pane[hidden]{display:none;}
+
+/* BARRAS DE CATEGORÍA (§4.7) */
+.ft-catbars{display:flex;gap:10px;align-items:flex-end;height:196px;}
+.ft-catcol{flex:1;height:100%;display:flex;align-items:flex-end;position:relative;min-width:0;}
+.ft-catbudget{position:absolute;left:0;right:0;bottom:0;border:2px dashed #D9D9DF;border-radius:28px;}
+.ft-catfill{position:relative;width:100%;border-radius:28px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:3px;padding:0 4px 14px;min-height:66px;cursor:pointer;}
+.ft-catfill .emo{font-size:18px;line-height:1;margin-bottom:3px;}
+.ft-catfill .val{font-family:var(--round-font);font-weight:900;font-size:14px;letter-spacing:-.5px;color:var(--ink);}
+.ft-catfill .pct{font-size:10px;font-weight:900;}
+.ft-catcol.peach .ft-catfill{background:var(--peach-bg);}.ft-catcol.peach .pct{color:var(--peach-tx);}
+.ft-catcol.pink .ft-catfill{background:var(--pink-bg);}.ft-catcol.pink .pct{color:var(--pink-tx);}
+.ft-catcol.coral .ft-catfill{background:var(--coral-bg);}.ft-catcol.coral .pct{color:var(--coral-tx);}
+.ft-catcol.sky .ft-catfill{background:var(--sky-bg);}.ft-catcol.sky .pct{color:var(--sky-tx);}
+.ft-catcol.mint .ft-catfill{background:var(--mint-bg);}.ft-catcol.mint .pct{color:var(--mint-tx);}
+
+/* FILA DE TRANSACCIÓN (§4.8) */
+.ft-tx{padding:13px 0;border-bottom:1px solid var(--hair);cursor:pointer;}
+.ft-tx:last-child{border-bottom:none;}
+.ft-tx-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;}
+.ft-pill{background:var(--chip);border-radius:99px;padding:3px 10px;font-size:10.5px;font-weight:800;color:var(--text2);font-variant-numeric:tabular-nums;}
+.ft-tx-body{display:flex;align-items:center;gap:12px;}
+.ft-tx-ico{width:42px;height:42px;border-radius:13px;flex-shrink:0;display:grid;place-items:center;font-size:17px;}
+.ft-tx-ico.peach{background:var(--peach-bg);}.ft-tx-ico.pink{background:var(--pink-bg);}.ft-tx-ico.coral{background:var(--coral-bg);}.ft-tx-ico.sky{background:var(--sky-bg);}.ft-tx-ico.mint{background:var(--mint-bg);}
+.ft-tx-main{flex:1;min-width:0;}
+.ft-tx-label{font-size:10.5px;font-weight:700;color:var(--text3);letter-spacing:.2px;}
+.ft-tx-name{font-family:var(--round-font);font-weight:900;font-size:15px;letter-spacing:-.4px;color:var(--ink);margin:1px 0 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ft-hashtag{display:inline-block;font-size:10.5px;font-weight:700;color:var(--text2);background:var(--tag-bg);padding:2px 8px;border-radius:99px;}
+.ft-tx-breakdown{font-size:10.5px;font-weight:800;color:var(--text3);}
+.ft-tx-amt{font-family:var(--round-font);font-weight:900;font-size:14.5px;flex-shrink:0;font-variant-numeric:tabular-nums;letter-spacing:-.4px;}
+.ft-tx-amt.out{color:var(--ink);}.ft-tx-amt.in{color:var(--g-main);}
+
+/* BOTONES */
+.ft-btn{width:100%;border:none;border-radius:14px;padding:12px;cursor:pointer;font-size:13px;font-weight:800;}
+.ft-btn-primary{color:#fff;background:linear-gradient(135deg,var(--g-dark),var(--g-main));box-shadow:0 10px 20px -10px rgba(15,81,50,.6);}
+.ft-btn-ghost{background:var(--sunk);border:1.5px solid var(--hair);color:var(--ink);}
+
+/* MENÚ INFERIOR (§4.9) */
+.ft-nav{position:fixed;left:0;right:0;bottom:0;max-width:var(--ft-appw);margin:0 auto;display:flex;align-items:center;justify-content:space-around;padding:9px 14px calc(9px + env(safe-area-inset-bottom));background:var(--white);border-top:1px solid var(--hair);z-index:80;}
+.ft-nav-item{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:9.5px;font-weight:800;color:var(--text3);cursor:pointer;background:none;border:none;text-decoration:none;}
+.ft-nav-item.on{color:var(--g-main);}
+.ft-nav-item .i{font-size:19px;line-height:1;}
+.ft-nav-plus{width:52px;height:52px;border-radius:50%;margin-top:-24px;flex-shrink:0;display:grid;place-items:center;font-size:26px;color:#fff;cursor:pointer;background:linear-gradient(135deg,var(--g-dark),var(--g-main));box-shadow:0 12px 24px -8px rgba(15,81,50,.6);border:3px solid #fff;}
+
+/* OVERLAYS: modal centrado (blanco) + hoja inferior */
+.ft-overlay{position:fixed;inset:0;background:rgba(15,17,24,.42);z-index:200;display:flex;opacity:0;transition:opacity .2s ease;}
+.ft-overlay.on{opacity:1;}
+.ft-overlay.center{align-items:center;justify-content:center;padding:20px;}
+.ft-overlay.bottom{align-items:flex-end;justify-content:center;}
+.ft-modal-box{background:var(--white);border-radius:20px;width:min(420px,calc(100vw - 32px));max-height:88vh;overflow-y:auto;padding:20px;transform:scale(.96);transition:transform .2s ease;}
+.ft-overlay.on .ft-modal-box{transform:scale(1);}
+.ft-sheet-box{background:var(--white);width:100%;max-width:var(--ft-appw);border-radius:24px 24px 0 0;padding:12px 20px calc(24px + env(safe-area-inset-bottom));max-height:88vh;overflow-y:auto;transform:translateY(14px);transition:transform .2s ease;}
+.ft-overlay.on .ft-sheet-box{transform:translateY(0);}
+.ft-sheet-grab{width:38px;height:4px;background:var(--hair);border-radius:99px;margin:0 auto 14px;}
+.ft-modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
+.ft-modal-head h4{font-size:16px;font-weight:800;margin:0;}
+.ft-modal-head .x{cursor:pointer;font-size:20px;color:var(--text3);background:none;border:none;line-height:1;}
+.ft-field{margin-bottom:14px;}
+.ft-field label{display:block;font-size:10px;font-weight:900;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;}
+.ft-field input,.ft-field select,.ft-field textarea{width:100%;background:var(--sunk);border:1.5px solid var(--hair);border-radius:10px;padding:10px 12px;font-size:14px;outline:none;}
+.ft-field input:focus,.ft-field select:focus,.ft-field textarea:focus{border-color:var(--g-main);}
+.ft-row{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--hair);font-size:13px;}
+.ft-row:last-child{border-bottom:none;}
+.ft-row .k{color:var(--text2);}
+.ft-row .v{font-weight:800;font-variant-numeric:tabular-nums;}
+
+/* HOJA "MÁS" */
+.ft-more-group{margin-bottom:16px;}
+.ft-more-group h5{font-size:10px;font-weight:900;letter-spacing:.5px;text-transform:uppercase;color:var(--text3);margin:0 0 8px;}
+.ft-more-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px 6px;}
+.ft-more-item{display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;background:none;border:none;text-decoration:none;}
+.ft-more-item .ic{width:50px;height:50px;border-radius:15px;background:var(--sunk);display:grid;place-items:center;font-size:22px;}
+.ft-more-item span{font-size:10px;font-weight:700;color:var(--text2);text-align:center;line-height:1.2;}
+
+/* TOAST */
+.ft-toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%) translateY(8px);background:var(--ink);color:#fff;padding:11px 18px;border-radius:14px;font-size:12.5px;font-weight:700;z-index:400;opacity:0;transition:opacity .2s,transform .2s;max-width:calc(100vw - 40px);text-align:center;}
+.ft-toast.on{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* AYUDA */
+.ft-help-item{border-bottom:1px solid var(--hair);padding:10px 2px;}
+.ft-help-item summary{cursor:pointer;font-size:13.5px;font-weight:800;color:var(--ink);list-style:none;}
+.ft-help-item summary::-webkit-details-marker{display:none;}
+.ft-help-item .a{font-size:12.5px;color:var(--text2);margin-top:8px;line-height:1.55;}
+
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important;}}
+@media (min-width:520px){body{padding:0;}}
+`;
+FT.injectDS = function () {
+  if (document.getElementById('ft-ds')) return;
+  var st = document.createElement('style');
+  st.id = 'ft-ds';
+  st.textContent = DS_CSS;
+  (document.head || document.documentElement).appendChild(st);
+};
+FT.injectDS();
+
+/* ─────────────────────────────────────────────────────────────────────────
+   11 · UI PRIMITIVOS — toast, sheet, modal, confirm
+   ───────────────────────────────────────────────────────────────────────── */
+FT.toast = function (msg, opts) {
+  opts = opts || {};
+  var el = document.getElementById('ft-toast-el');
+  if (!el) { el = document.createElement('div'); el.id = 'ft-toast-el'; el.className = 'ft-toast'; document.body.appendChild(el); }
+  el.textContent = (opts.icon ? opts.icon + '  ' : '') + msg;
+  requestAnimationFrame(function () { el.classList.add('on'); });
+  clearTimeout(el._t);
+  el._t = setTimeout(function () { el.classList.remove('on'); }, opts.ms || 3000);
+};
+
+function _overlay(kind, innerHTML) {
+  var ov = document.createElement('div');
+  ov.className = 'ft-overlay ' + kind;
+  ov.innerHTML = innerHTML;
+  ov.addEventListener('click', function (e) { if (e.target === ov) FT.closeTop(); });
+  document.body.appendChild(ov);
+  requestAnimationFrame(function () { ov.classList.add('on'); });
+  return ov;
 }
+FT._stack = [];
+FT.closeTop = function () {
+  var ov = FT._stack.pop() || document.querySelector('.ft-overlay:last-of-type');
+  if (!ov) return;
+  ov.classList.remove('on');
+  setTimeout(function () { ov.remove(); }, 200);
+};
 
-function showUpgradeModal() {
-  injectUpgradeModal();
-  const overlay = document.getElementById('ftUpgradeOverlay');
-  if (overlay) overlay.style.display = 'grid';
-}
+FT.sheet = function (o) {
+  o = o || {};
+  var actions = (o.actions || []).map(function (a, i) {
+    return '<button class="ft-btn ' + (a.primary ? 'ft-btn-primary' : 'ft-btn-ghost') + ' tap" data-ai="' + i + '" style="margin-top:8px">' + a.label + '</button>';
+  }).join('');
+  var ov = _overlay('bottom',
+    '<div class="ft-sheet-box" role="dialog" aria-modal="true">' +
+      '<div class="ft-sheet-grab"></div>' +
+      (o.title ? '<div class="ft-modal-head"><h4>' + o.title + '</h4><button class="x" aria-label="' + FT.t('close') + '">✕</button></div>' : '') +
+      '<div class="ft-sheet-body">' + (o.html || '') + '</div>' + actions +
+    '</div>');
+  FT._stack.push(ov);
+  ov.querySelector('.x') && ov.querySelector('.x').addEventListener('click', FT.closeTop);
+  (o.actions || []).forEach(function (a, i) {
+    var b = ov.querySelector('[data-ai="' + i + '"]');
+    if (b) b.addEventListener('click', function () { if (!a.keepOpen) FT.closeTop(); a.onClick && a.onClick(); });
+  });
+  o.onOpen && o.onOpen(ov.querySelector('.ft-sheet-body'));
+  return ov;
+};
 
-function hideUpgradeModal() {
-  const overlay = document.getElementById('ftUpgradeOverlay');
-  if (overlay) overlay.style.display = 'none';
-}
+FT.modal = function (o) {
+  o = o || {};
+  var ov = _overlay('center',
+    '<div class="ft-modal-box" role="dialog" aria-modal="true">' +
+      '<div class="ft-modal-head"><h4>' + (o.title || '') + '</h4><button class="x" aria-label="' + FT.t('close') + '">✕</button></div>' +
+      '<div class="ft-modal-body">' + (o.html || '') + '</div>' +
+      (o.onSave ? '<button class="ft-btn ft-btn-primary tap" data-save style="margin-top:6px">' + (o.saveLabel || FT.t('save')) + '</button>' : '') +
+    '</div>');
+  FT._stack.push(ov);
+  ov.querySelector('.x').addEventListener('click', FT.closeTop);
+  var body = ov.querySelector('.ft-modal-body');
+  var sb = ov.querySelector('[data-save]');
+  if (sb) sb.addEventListener('click', function () { var keep = o.onSave(body); if (!keep) FT.closeTop(); });
+  o.onOpen && o.onOpen(body);
+  return ov;
+};
 
-function premiumBadge() {
-  return '<span style="display:inline-flex;align-items:center;gap:3px;background:linear-gradient(135deg,#0F5132,#1A7A4A);color:white;font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px;margin-left:6px;vertical-align:middle">💎 Premium</span>';
-}
+FT.confirm = function (msg, o) {
+  o = o || {};
+  return new Promise(function (resolve) {
+    FT.sheet({
+      title: o.title || FT.t('confirm'),
+      html: '<p style="font-size:13.5px;color:var(--text2);margin:2px 0 4px">' + msg + '</p>',
+      actions: [
+        { label: o.okLabel || FT.t('confirm'), primary: true, onClick: function () { resolve(true); } },
+        { label: FT.t('cancel'), onClick: function () { resolve(false); } }
+      ]
+    });
+  });
+};
 
-function protectPage() { return true; }
+/* ─────────────────────────────────────────────────────────────────────────
+   12 · COMPONENTES (devuelven HTML string)
+   ───────────────────────────────────────────────────────────────────────── */
+/** Parte "🛒 Supermercado" → { emoji:'🛒', label:'Supermercado', pastel:'peach' } */
+FT.catMeta = function (cat, idx) {
+  cat = String(cat || '').trim();
+  var m = cat.match(/^(\p{Extended_Pictographic}(?:️)?)\s*(.*)$/u);
+  var emoji = m ? m[1] : '', label = m ? m[2] : cat;
+  var pastel = CAT_PASTEL[emoji] || PASTELS[(idx || 0) % PASTELS.length];
+  return { emoji: emoji, label: label || cat, pastel: pastel };
+};
 
-/* ══════════════════════════════════════════
-   MODAL DE AYUDA — bilingüe, con búsqueda por palabra clave.
-   Vive en premium.js porque TODAS las páginas ya lo cargan —
-   así no hay que duplicar este bloque en cada archivo.
-══════════════════════════════════════════ */
-const FT_HELP_FAQ = [
-  { es:['ahorro libre','emergencia','diferencia','cuando retirar'], en:['free savings','emergency','difference','when withdraw'],
-    q:{es:'¿Cuál es la diferencia entre Ahorro libre y Fondo de emergencia?', en:'What\u2019s the difference between Free Savings and the Emergency Fund?'},
-    a:{es:'Ahorro libre se usa sin restricciones, para lo que quieras. El Fondo de emergencia está pensado solo para emergencias reales (perder el trabajo, un gasto médico grande) — sí puedes retirar de ahí cuando lo necesites de verdad, pero no está pensado para gastos normales del mes.', en:'Free Savings can be used for anything, no restrictions. The Emergency Fund is meant only for real emergencies (losing your job, a big medical expense) — you can withdraw when you truly need it, but it\u2019s not meant to cover regular monthly spending.'} },
-  { es:['cheque','reparte','hogar','personal','porcentaje','60','40'], en:['paycheck','split','household','personal','percentage'],
-    q:{es:'¿Cómo se reparte mi cheque entre hogar y personal?', en:'How does my paycheck get split between household and personal?'},
-    a:{es:'Configuras el % en Perfil → Frecuencia de pago (ejemplo: 60% al hogar, 40% personal). Cada vez que registras un cheque, la app calcula automáticamente cuánto es de cada lado con ese porcentaje.', en:'You set the % in Profile → Pay Frequency (example: 60% household, 40% personal). Every time you log a paycheck, the app automatically calculates each side using that percentage.'} },
-  { es:['pagate primero','ahorro automático','se aparta solo'], en:['pay yourself first','automatic savings'],
-    q:{es:'¿Qué es "Págate primero"?', en:'What is "Pay Yourself First"?'},
-    a:{es:'Cuando registras un cheque, un % de tu parte personal se aparta automáticamente a Ahorro libre al momento — antes de que puedas gastarlo, no al final del mes. Configuras ese % en Perfil.', en:'When you log a paycheck, a % of your personal share is automatically moved into Free Savings right away — before you can spend it, not at the end of the month. You set that % in Profile.'} },
-  { es:['recurrente','recurrentes','pago automático','se repite','cada semana','cada mes'], en:['recurring','automatic payment','repeats','every week','every month'],
-    q:{es:'¿Qué son los recurrentes y dónde los veo?', en:'What are recurring payments and where do I see them?'},
-    a:{es:'Son pagos que se repiten solos (abonos a deuda, ahorro, inversión) sin que tengas que registrarlos a mano cada vez. Todos juntos, sin importar el tipo, están en Más → Recurrentes — ahí ves cuándo fue el último y cuándo sigue.', en:'These are payments that repeat on their own (debt payments, savings, investments) without you registering them manually each time. All of them together, regardless of type, live in More → Recurring — you can see when the last one happened and when the next one is due.'} },
-  { es:['pareja','hogar','sincroniza','compartir','conectar','esposa','esposo'], en:['partner','household','sync','share','connect','spouse'],
-    q:{es:'¿Cómo conecto mi cuenta con la de mi pareja?', en:'How do I connect my account with my partner\u2019s?'},
-    a:{es:'En Hogar → Cambiar modo, generas un código y se lo compartes a tu pareja para que lo ingrese. Una vez conectados, las deudas y metas compartidas se sincronizan solas — tu ahorro y gasto personal siguen siendo privados.', en:'In Household → Change mode, you generate a code and share it with your partner so they can enter it. Once connected, shared debts and goals sync automatically — your personal savings and spending stay private.'} },
-  { es:['metodo','50 30 20','presupuesto','cambiar metodo'], en:['method','50 30 20','budget','change method'],
-    q:{es:'¿Puedo cambiar el método de presupuesto (50/30/20)?', en:'Can I change the budget method (50/30/20)?'},
-    a:{es:'Sí, en Perfil puedes elegir entre distintas reglas de presupuesto. Se te pregunta también la primera vez que usas la app.', en:'Yes, in Profile you can choose between different budgeting rules. You\u2019re also asked the first time you use the app.'} },
-  { es:['importar','ia','inteligencia artificial','creditos','escanear recibo','csv'], en:['import','ai','credits','scan receipt','csv'],
-    q:{es:'¿Cómo funcionan los créditos de análisis con IA?', en:'How do AI analysis credits work?'},
-    a:{es:'Con Premium tienes 10 análisis con IA al mes (para leer CSV, PDF o fotos de recibos en cualquier formato) — se resetean cada mes. Si se te acaban, puedes comprar más o usar la importación manual por formato de banco, que no gasta créditos.', en:'With Premium you get 10 AI analyses per month (to read CSV, PDF, or receipt photos in any format) — they reset monthly. If you run out, you can buy more or use manual import by bank format, which doesn\u2019t use credits.'} },
-  { es:['deuda','abono','tarjeta','prestamo','registrar deuda'], en:['debt','payment','credit card','loan','register debt'],
-    q:{es:'¿Cómo agrego una deuda y le registro un abono?', en:'How do I add a debt and log a payment?'},
-    a:{es:'En Deudas, toca "+ Nueva deuda" para agregarla. Para pagar, entra a la deuda y toca "Registrar abono" — puedes marcarlo como recurrente si se repite siempre el mismo día.', en:'In Debts, tap "+ New debt" to add one. To pay, open the debt and tap "Register payment" — you can mark it as recurring if it always happens on the same day.'} },
-  { es:['respaldo','backup','exportar','restaurar','perdi mis datos'], en:['backup','export','restore','lost my data'],
-    q:{es:'¿Cómo hago un respaldo de mis datos?', en:'How do I back up my data?'},
-    a:{es:'En Historial → Herramientas (ícono 🛠️) → Descargar respaldo. Guarda ese archivo — si algo pasa, lo restauras desde el mismo lugar con "Restaurar respaldo".', en:'In History → Tools (🛠️ icon) → Download backup. Keep that file — if something happens, restore it from the same place with "Restore backup".'} },
-  { es:['idioma','cambiar idioma','ingles','español'], en:['language','change language','english','spanish'],
-    q:{es:'¿Dónde cambio el idioma de la app?', en:'Where do I change the app\u2019s language?'},
-    a:{es:'En Configuración, o directo desde el menú "⋯" de cualquier pantalla.', en:'In Settings, or directly from the "⋯" menu on any screen.'} },
-  { es:['notificacion','campana','recordatorio','aviso'], en:['notification','bell','reminder','alert'],
-    q:{es:'¿Para qué sirve la campana de notificaciones?', en:'What is the notification bell for?'},
-    a:{es:'Te avisa cuando un pago está por vencer o ya venció. Se limpia sola cuando lo pagas ese mes.', en:'It alerts you when a payment is coming due or already overdue. It clears itself once you pay it that month.'} },
+FT.heroNumber = function (o) {
+  o = o || {};
+  var p = FT.moneyParts(o.amount, { cents: !!o.cents });
+  var neg = o.sign ? o.sign === '−' || o.sign === '-' || o.negative : p.neg;
+  return '' +
+    '<div class="ft-hero">' +
+      (o.label ? '<div class="cap">' + o.label + '</div>' : '') +
+      '<div class="row">' +
+        '<span class="ft-sign ' + (neg ? 'neg' : 'pos') + '">' + (neg ? '−' : '+') + '</span>' +
+        '<span class="amt">' + p.int + (o.cents ? '<span style="font-size:.5em">,' + p.dec + '</span>' : '') + '<span class="cur">$</span></span>' +
+      '</div>' +
+      (o.splitHTML ? '<div class="ft-split">' + o.splitHTML + '</div>' : '') +
+    '</div>';
+};
+
+FT.progress = function (pct) {
+  pct = Math.max(0, Math.min(100, pct || 0));
+  var id = 'ftp_' + Math.random().toString(36).slice(2, 7);
+  setTimeout(function () { var f = document.getElementById(id); if (f) f.style.width = pct + '%'; }, 60);
+  return '<div class="ft-track"><div class="ft-fill" id="' + id + '"></div></div>';
+};
+
+/** items: [{ cat|emoji|label, spent, budget }] — muestra las 4 mayores */
+FT.catBars = function (items, o) {
+  o = o || {};
+  items = (items || []).slice().sort(function (a, b) { return (b.spent || 0) - (a.spent || 0); }).slice(0, o.max || 4);
+  var maxRef = Math.max.apply(null, items.map(function (i) { return Math.max(i.spent || 0, i.budget || 0); }).concat([1]));
+  var total = items.reduce(function (a, i) { return a + (i.spent || 0); }, 0) || 1;
+  return '<div class="ft-catbars">' + items.map(function (it, idx) {
+    var meta = it.emoji ? { emoji: it.emoji, label: it.label, pastel: PASTELS[idx % PASTELS.length] } : FT.catMeta(it.cat, idx);
+    var spentH = Math.max(66 / 196 * 100, (it.spent || 0) / maxRef * 100);
+    var budH = it.budget ? (it.budget / maxRef * 100) : 0;
+    var pctTotal = Math.round((it.spent || 0) / total * 100);
+    return '<div class="ft-catcol ' + meta.pastel + '" data-cat="' + (it.cat || meta.label) + '">' +
+      (budH > spentH ? '<div class="ft-catbudget" style="height:' + budH + '%"></div>' : '') +
+      '<div class="ft-catfill tap" style="height:' + spentH + '%">' +
+        '<span class="emo">' + (meta.emoji || '•') + '</span>' +
+        '<span class="val">' + FT.money(it.spent || 0, { compact: true }) + '</span>' +
+        '<span class="pct">' + pctTotal + '%</span>' +
+      '</div></div>';
+  }).join('') + '</div>';
+};
+
+/** tx = transacción de ft_data. Devuelve una fila .ft-tx */
+FT.txRow = function (t, idx) {
+  var meta = FT.catMeta(t.cat, idx);
+  var isIn = t.type === 'ingreso';
+  var amt = FT.money(t.amount, { cents: true, sign: true });
+  amt = (isIn ? '+' : '−') + FT.money(t.amount, { cents: true });
+  var isCheque = t.incomeKind === 'cheque';
+  var mid;
+  if (isCheque) {
+    var h = FT.hogar();
+    var totH = (parseFloat(h.payPctHogar) || 50) + (parseFloat(h.saveHogarPct) || 10);
+    var hogarAmt = (t.amount || 0) * totH / 100, persAmt = (t.amount || 0) - hogarAmt;
+    mid = '<div class="ft-tx-name">' + (t.desc || FT.catMeta(t.cat).label) + '</div>' +
+          '<div class="ft-tx-breakdown">🏠 ' + FT.money(hogarAmt) + ' &nbsp;+&nbsp; 👤 ' + FT.money(persAmt) + '</div>';
+  } else {
+    mid = '<div class="ft-tx-name">' + (t.desc || meta.label) + '</div>' +
+          '<span class="ft-hashtag">#' + (meta.label || 'gasto').toLowerCase().replace(/\s+/g, '') + '</span>';
+  }
+  return '<div class="ft-tx tap" data-txid="' + t.id + '">' +
+    '<div class="ft-tx-top"><span class="ft-pill">' + FT.date(t.date) + '</span>' +
+      '<span class="ft-pill"' + (isIn ? ' style="color:var(--g-main)"' : '') + '>' + (isIn ? '+' : '−') + FT.money(t.amount, { cents: true, noSymbol: false }).replace('−', '') + '</span></div>' +
+    '<div class="ft-tx-body">' +
+      '<div class="ft-tx-ico ' + meta.pastel + '">' + (meta.emoji || '•') + '</div>' +
+      '<div class="ft-tx-main"><div class="ft-tx-label">' + meta.label + '</div>' + mid + '</div>' +
+      '<div class="ft-tx-amt ' + (isIn ? 'in' : 'out') + '">' + amt + '</div>' +
+    '</div></div>';
+};
+
+/* ─────────────────────────────────────────────────────────────────────────
+   13 · NAVEGACIÓN — pila para "atrás" real
+   ───────────────────────────────────────────────────────────────────────── */
+FT.go = function (url) {
+  try {
+    var st = JSON.parse(sessionStorage.getItem(K.navStack) || '[]');
+    st.push(location.pathname.split('/').pop() || 'dashboard.html');
+    sessionStorage.setItem(K.navStack, JSON.stringify(st.slice(-20)));
+  } catch (e) {}
+  location.href = url;
+};
+FT.back = function (fallback) {
+  try {
+    var st = JSON.parse(sessionStorage.getItem(K.navStack) || '[]');
+    var prev = st.pop();
+    sessionStorage.setItem(K.navStack, JSON.stringify(st));
+    if (prev) { location.href = prev; return; }
+  } catch (e) {}
+  location.href = fallback || 'dashboard.html';
+};
+
+/* ─────────────────────────────────────────────────────────────────────────
+   14 · SHELL — header + menú inferior + hoja "Más"
+   ───────────────────────────────────────────────────────────────────────── */
+var MORE_GROUPS = [
+  { key: 'money_group_your', items: [['l_ahorro', 'ahorro.html', '💵'], ['l_emergencia', 'emergencia.html', '🛡️'], ['l_inversiones', 'inversiones.html', '🏦'], ['l_metas', 'metas.html', '🎯']] },
+  { key: 'money_group_debts', items: [['l_deudas', 'deudas.html', '💳'], ['l_suscripciones', 'suscripciones.html', '🔄'], ['l_servicios', 'servicios.html', '🏠'], ['l_recurrentes', 'recurrentes.html', '♻️']] },
+  { key: 'money_group_input', items: [['l_scanner', 'scanner.html', '📷'], ['l_importar', 'importar.html', '📥']] },
+  { key: 'money_group_analysis', items: [['l_analisis', 'analisis.html', '📈'], ['l_reporte', 'reporte.html', '📄']] },
+  { key: 'money_group_account', items: [['l_perfil', 'perfil.html', '👤'], ['l_config', 'config.html', '⚙️'], ['l_saldos', 'onboarding.html', '🧮']] }
 ];
 
-function injectHelpModal(){
-  if(document.getElementById('ftHelpOverlay')) return;
-  const overlay = document.createElement('div');
-  overlay.id = 'ftHelpOverlay';
-  overlay.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:900;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto;';
-  overlay.innerHTML = `
-    <div style="background:white;border-radius:18px;padding:20px;max-width:420px;width:100%;margin-top:40px;max-height:85vh;display:flex;flex-direction:column">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-shrink:0">
-        <div style="font-size:16px;font-weight:800">❓ <span id="ftHelpTitle">Ayuda</span></div>
-        <div onclick="hideHelpModal()" style="cursor:pointer;font-size:20px;color:#8A9490">✕</div>
-      </div>
-      <input id="ftHelpSearch" type="text" oninput="filterHelpFAQ(this.value)" placeholder="Buscar tu problema…"
-        style="width:100%;padding:11px 14px;border:1.5px solid #E4E6F0;border-radius:12px;font-size:14px;font-family:inherit;margin-bottom:14px;box-sizing:border-box;outline:none;flex-shrink:0">
-      <div id="ftHelpList" style="overflow-y:auto;flex:1"></div>
-    </div>`;
-  document.body.appendChild(overlay);
-  overlay.addEventListener('click', e => { if(e.target===overlay) hideHelpModal(); });
-}
-
-function _ftHelpLang(){
-  try{ return (typeof lang!=='undefined' && lang) || localStorage.getItem('ft_lang') || 'es'; }catch(e){ return 'es'; }
-}
-
-function renderHelpFAQ(query){
-  const l = _ftHelpLang();
-  const es = l==='es';
-  document.getElementById('ftHelpTitle').textContent = es?'Ayuda':'Help';
-  document.getElementById('ftHelpSearch').placeholder = es?'Busca tu problema…':'Search your issue…';
-  const q = (query||'').toLowerCase().trim();
-  const list = FT_HELP_FAQ.filter(item=>{
-    if(!q) return true;
-    const kws = (es?item.es:item.en).concat(item.q[l].toLowerCase());
-    return kws.some(k=>k.toLowerCase().includes(q)) || item.q[l].toLowerCase().includes(q) || item.a[l].toLowerCase().includes(q);
+FT.openMore = function () {
+  var html = MORE_GROUPS.map(function (g) {
+    return '<div class="ft-more-group"><h5>' + FT.t(g.key) + '</h5><div class="ft-more-grid">' +
+      g.items.map(function (it) {
+        return '<a class="ft-more-item tap" href="' + it[1] + '"><span class="ic">' + it[2] + '</span><span>' + FT.t(it[0]) + '</span></a>';
+      }).join('') + '</div></div>';
+  }).join('') +
+  '<button class="ft-btn ft-btn-ghost tap" id="ft-logout-btn" style="margin-top:4px">🚪 ' + FT.t('logout') + '</button>';
+  var ov = FT.sheet({ title: FT.t('more'), html: html });
+  ov.querySelector('#ft-logout-btn').addEventListener('click', FT.logout);
+  ov.querySelectorAll('.ft-more-item').forEach(function (a) {
+    a.addEventListener('click', function (e) { e.preventDefault(); FT.go(a.getAttribute('href')); });
   });
-  const el = document.getElementById('ftHelpList');
-  if(!list.length){
-    el.innerHTML = `<div style="text-align:center;padding:30px 10px;color:#8A9490;font-size:13px">${es?'Sin resultados — intenta con otra palabra':'No results — try a different word'}</div>`;
-    return;
+};
+
+FT.openNotifications = function () {
+  var items = (FT._notifProvider ? FT._notifProvider() : []) || [];
+  var html = items.length
+    ? items.map(function (n) {
+        return '<button class="ft-row tap" style="width:100%;text-align:left;background:none;border:none;border-bottom:1px solid var(--hair)" data-go="' + (n.url || '') + '">' +
+          '<span class="k">' + (n.icon || '🔔') + ' ' + n.text + '</span>' + (n.amount != null ? '<span class="v">' + FT.money(n.amount) + '</span>' : '') + '</button>';
+      }).join('')
+    : '<p style="font-size:13px;color:var(--text3);text-align:center;padding:20px 0">' + FT.t('notif_empty') + '</p>';
+  var ov = FT.sheet({ title: FT.t('notif_title'), html: html });
+  ov.querySelectorAll('[data-go]').forEach(function (b) {
+    b.addEventListener('click', function () { var u = b.getAttribute('data-go'); if (u) FT.go(u); });
+  });
+};
+/** Una pantalla registra su lista de notificaciones: FT.setNotifications(fn) */
+FT.setNotifications = function (fn) { FT._notifProvider = fn; };
+
+FT.openKebab = function (extraActions) {
+  var base = [
+    { label: '🌐 ' + (FT.lang === 'es' ? 'English' : 'Español'), onClick: function () { FT.setLang(FT.lang === 'es' ? 'en' : 'es'); } },
+    { label: '❓ ' + FT.t('help'), onClick: function () { FT.showHelpModal(); } }
+  ];
+  FT.sheet({ title: '', html: '<div class="ft-sheet-grab" style="display:none"></div>', actions: (extraActions || []).concat(base) });
+};
+
+/**
+ * FT.shell({ active, title, month, onMonth, onPlus, kebab })
+ *  active: 'home'|'hist'|'hogar'  · title: string/HTML
+ *  month:  true → muestra selector de mes  · onMonth(delta)
+ *  onPlus: fn — qué hace el "＋" en esta pantalla (§3)
+ *  kebab:  [{label,onClick}] extra
+ */
+FT.shell = function (opts) {
+  opts = opts || {};
+  var app = document.querySelector('.ft-app');
+  if (!app) {
+    // Envuelve el body si la pantalla aún no trae .ft-app
+    app = document.createElement('div'); app.className = 'ft-app';
+    while (document.body.firstChild) app.appendChild(document.body.firstChild);
+    document.body.appendChild(app);
   }
-  el.innerHTML = list.map((item,i)=>`
-    <details style="border-bottom:1px solid #ECEAE4;padding:10px 2px" ${query&&i===0?'open':''}>
-      <summary style="cursor:pointer;font-size:13.5px;font-weight:700;color:#141B17">${item.q[l]}</summary>
-      <div style="font-size:12.5px;color:#4A4E69;margin-top:8px;line-height:1.5">${item.a[l]}</div>
-    </details>`).join('');
-}
+  document.body.classList.add('ft-ready');
 
-function filterHelpFAQ(query){ renderHelpFAQ(query); }
+  // HEADER
+  var hdr = document.createElement('header');
+  hdr.className = 'ft-header';
+  hdr.innerHTML =
+    '<button class="ft-title tap">' + (opts.title || '') + (opts.onSwitch ? ' <span class="car">⌄</span>' : '') + '</button>' +
+    '<div class="ft-head-actions">' +
+      (opts.month ? '<span class="ft-monthpick"><span data-m="-1">‹</span><b id="ft-month">' + (opts.monthLabel || '') + '</b><span data-m="1">›</span></span>' : '') +
+      '<button class="ft-ico tap" data-act="bell">🔔<span class="ft-dot" id="ft-bell-dot" hidden></span></button>' +
+      '<button class="ft-ico tap" data-act="kebab">⋯</button>' +
+    '</div>';
+  var page = app.querySelector('.ft-page') || app.firstElementChild;
+  app.insertBefore(hdr, app.firstChild);
 
-function showHelpModal(){
-  injectHelpModal();
-  renderHelpFAQ('');
-  document.getElementById('ftHelpSearch').value = '';
-  document.getElementById('ftHelpOverlay').style.display = 'flex';
-}
+  hdr.querySelector('.ft-title').addEventListener('click', function () { opts.onSwitch ? opts.onSwitch() : FT.back(); });
+  hdr.querySelector('[data-act="bell"]').addEventListener('click', FT.openNotifications);
+  hdr.querySelector('[data-act="kebab"]').addEventListener('click', function () { FT.openKebab(opts.kebab); });
+  if (opts.month) hdr.querySelectorAll('[data-m]').forEach(function (s) {
+    s.addEventListener('click', function () { opts.onMonth && opts.onMonth(parseInt(s.getAttribute('data-m'), 10)); });
+  });
 
-function hideHelpModal(){
-  const overlay = document.getElementById('ftHelpOverlay');
-  if(overlay) overlay.style.display = 'none';
-}
+  // NAV
+  var nav = document.createElement('nav');
+  nav.className = 'ft-nav';
+  function item(k, ico, label, url) {
+    return '<a class="ft-nav-item tap ' + (opts.active === k ? 'on' : '') + '" data-k="' + k + '" href="' + url + '"><span class="i">' + ico + '</span>' + label + '</a>';
+  }
+  nav.innerHTML =
+    item('home', '🏠', FT.t('home'), 'dashboard.html') +
+    item('hist', '📅', FT.t('history'), 'historial.html') +
+    '<button class="ft-nav-plus tap" data-act="plus" aria-label="+">＋</button>' +
+    item('hogar', '👥', FT.t('household'), 'hogar.html') +
+    '<button class="ft-nav-item tap" data-act="more"><span class="i">⋯</span>' + FT.t('more') + '</button>';
+  document.body.appendChild(nav);
+  nav.querySelectorAll('a[data-k]').forEach(function (a) {
+    a.addEventListener('click', function (e) { e.preventDefault(); FT.go(a.getAttribute('href')); });
+  });
+  nav.querySelector('[data-act="more"]').addEventListener('click', FT.openMore);
+  nav.querySelector('[data-act="plus"]').addEventListener('click', function () {
+    if (opts.onPlus) opts.onPlus();
+    else FT.go('dashboard.html');
+  });
+
+  FT.applyLang(hdr); FT.applyLang(nav);
+  return { header: hdr, nav: nav, setBellDot: function (on) { var d = document.getElementById('ft-bell-dot'); if (d) d.hidden = !on; }, setMonth: function (s) { var m = document.getElementById('ft-month'); if (m) m.textContent = s; } };
+};
+
+FT.logout = function () {
+  try { sessionStorage.clear(); } catch (e) {}
+  [K.user, K.setup, K.premium].forEach(FT.del);
+  location.replace('login.html');
+};
+
+/* ─────────────────────────────────────────────────────────────────────────
+   15 · MODAL DE AYUDA — bilingüe con búsqueda
+   ───────────────────────────────────────────────────────────────────────── */
+var FT_HELP_FAQ = [
+  { es: ['ahorro libre', 'emergencia', 'diferencia', 'cuando retirar'], en: ['free savings', 'emergency', 'difference', 'when withdraw'],
+    q: { es: '¿Cuál es la diferencia entre Ahorro libre y Fondo de emergencia?', en: 'What’s the difference between Free Savings and the Emergency Fund?' },
+    a: { es: 'Ahorro libre se usa sin restricciones, para lo que quieras. El Fondo de emergencia está pensado solo para emergencias reales (perder el trabajo, un gasto médico grande).', en: 'Free Savings can be used for anything. The Emergency Fund is meant only for real emergencies (losing your job, a big medical expense).' } },
+  { es: ['cheque', 'reparte', 'hogar', 'personal', 'porcentaje'], en: ['paycheck', 'split', 'household', 'personal', 'percentage'],
+    q: { es: '¿Cómo se reparte mi cheque entre hogar y personal?', en: 'How does my paycheck get split between household and personal?' },
+    a: { es: 'Configuras el % en Perfil → Frecuencia de pago. Cada vez que registras un cheque, la app calcula automáticamente cuánto es de cada lado.', en: 'You set the % in Profile → Pay Frequency. Every time you log a paycheck, the app splits it automatically.' } },
+  { es: ['pagate primero', 'ahorro automático'], en: ['pay yourself first', 'automatic savings'],
+    q: { es: '¿Qué es "Págate primero"?', en: 'What is "Pay Yourself First"?' },
+    a: { es: 'Cuando registras un cheque, un % de tu parte personal se aparta automáticamente a Ahorro libre al momento — antes de que puedas gastarlo.', en: 'When you log a paycheck, a % of your personal share is automatically moved into Free Savings right away.' } },
+  { es: ['recurrente', 'pago automático', 'se repite'], en: ['recurring', 'automatic payment', 'repeats'],
+    q: { es: '¿Qué son los recurrentes y dónde los veo?', en: 'What are recurring payments and where do I see them?' },
+    a: { es: 'Pagos que se repiten solos (abonos a deuda, ahorro, inversión). Todos juntos están en Más → Recurrentes.', en: 'Payments that repeat on their own (debt payments, savings, investments). All of them live in More → Recurring.' } },
+  { es: ['pareja', 'hogar', 'sincroniza', 'conectar'], en: ['partner', 'household', 'sync', 'connect'],
+    q: { es: '¿Cómo conecto mi cuenta con la de mi pareja?', en: 'How do I connect my account with my partner’s?' },
+    a: { es: 'En Hogar → Cambiar modo, generas un código y se lo compartes a tu pareja para que lo ingrese.', en: 'In Household → Change mode, you generate a code and share it with your partner.' } },
+  { es: ['importar', 'ia', 'creditos', 'escanear recibo'], en: ['import', 'ai', 'credits', 'scan receipt'],
+    q: { es: '¿Cómo funcionan los créditos de análisis con IA?', en: 'How do AI analysis credits work?' },
+    a: { es: 'Con Premium tienes 10 análisis con IA al mes; se resetean cada mes. Si se acaban, puedes comprar más o usar la importación por formato de banco, que no gasta créditos.', en: 'With Premium you get 10 AI analyses per month, reset monthly. If you run out, buy more or use bank-format import, which uses no credits.' } },
+  { es: ['idioma', 'cambiar idioma'], en: ['language', 'change language'],
+    q: { es: '¿Dónde cambio el idioma de la app?', en: 'Where do I change the app’s language?' },
+    a: { es: 'En Configuración, o directo desde el menú "⋯" de cualquier pantalla.', en: 'In Settings, or from the "⋯" menu on any screen.' } }
+];
+FT.showHelpModal = function () {
+  var render = function (q) {
+    var l = FT.lang, ql = (q || '').toLowerCase().trim();
+    var list = FT_HELP_FAQ.filter(function (it) {
+      if (!ql) return true;
+      var kws = (l === 'es' ? it.es : it.en).concat(it.q[l].toLowerCase());
+      return kws.some(function (k) { return k.indexOf(ql) > -1; }) || it.a[l].toLowerCase().indexOf(ql) > -1;
+    });
+    return list.length
+      ? list.map(function (it, i) {
+          return '<details class="ft-help-item"' + (ql && i === 0 ? ' open' : '') + '><summary>' + it.q[l] + '</summary><div class="a">' + it.a[l] + '</div></details>';
+        }).join('')
+      : '<p style="text-align:center;padding:24px 0;color:var(--text3);font-size:13px">' + (FT.lang === 'es' ? 'Sin resultados' : 'No results') + '</p>';
+  };
+  var ov = FT.sheet({
+    title: '❓ ' + FT.t('help'),
+    html: '<input id="ft-help-q" type="text" placeholder="' + (FT.lang === 'es' ? 'Busca tu problema…' : 'Search your issue…') + '" style="width:100%;padding:11px 14px;border:1.5px solid var(--hair);border-radius:12px;font-size:14px;margin-bottom:12px;outline:none"><div id="ft-help-list">' + render('') + '</div>'
+  });
+  var inp = ov.querySelector('#ft-help-q'), listEl = ov.querySelector('#ft-help-list');
+  inp.addEventListener('input', function () { listEl.innerHTML = render(inp.value); });
+};
+
+/* ─────────────────────────────────────────────────────────────────────────
+   16 · UPGRADE MODAL
+   ───────────────────────────────────────────────────────────────────────── */
+FT.showUpgradeModal = function () {
+  var es = FT.lang === 'es';
+  var feats = es
+    ? ['📷 Escanear recibos con IA', '📧 Reporte mensual por email', '📥 Exportar todos tus datos', '💡 Insights avanzados', '🔄 Suscripciones ilimitadas', '🎯 Metas ilimitadas', '🏠 Hogar compartido', '📐 Amortización real de deudas']
+    : ['📷 Scan receipts with AI', '📧 Monthly email report', '📥 Export all your data', '💡 Advanced insights', '🔄 Unlimited subscriptions', '🎯 Unlimited goals', '🏠 Shared household', '📐 Real debt amortization'];
+  FT.sheet({
+    title: '💎 ' + (es ? 'Función Premium' : 'Premium feature'),
+    html: '<p style="font-size:12.5px;color:var(--text3);margin:0 0 12px">' + (es ? 'Incluida en FinTrack Pro Premium.' : 'Included in FinTrack Pro Premium.') + '</p>' +
+      '<div style="background:var(--sunk);border-radius:12px;padding:14px;margin-bottom:6px">' +
+      feats.map(function (f) { return '<div style="font-size:12.5px;padding:4px 0">✓ ' + f + '</div>'; }).join('') + '</div>',
+    actions: [{ label: '🛒 ' + (es ? 'Obtener Premium' : 'Get Premium'), primary: true, onClick: function () { window.open('https://www.etsy.com/shop/finanzone', '_blank'); } }]
+  });
+};
+FT.premiumBadge = function () {
+  return '<span style="display:inline-flex;align-items:center;gap:3px;background:linear-gradient(135deg,var(--g-dark),var(--g-main));color:#fff;font-size:9px;font-weight:800;padding:2px 8px;border-radius:20px;margin-left:6px;vertical-align:middle">💎 Premium</span>';
+};
+
+/* ─────────────────────────────────────────────────────────────────────────
+   17 · BOOT
+   ───────────────────────────────────────────────────────────────────────── */
+FT.lang = (function () { try { return sessionStorage.getItem(K.lang) || localStorage.getItem(K.lang) || 'es'; } catch (e) { return 'es'; } })();
+
+FT.boot = function () {
+  var isPublic = document.documentElement.hasAttribute('data-ft-public');
+  var u = FT.loadUser();
+  if (!u && !isPublic) {
+    if (!FT.getRaw(K.setup)) { location.replace('login.html'); return; }
+  }
+  if (u && !sessionStorage.getItem(K.user)) { try { sessionStorage.setItem(K.user, JSON.stringify(u)); } catch (e) {} }
+  FT.lang = (u && u.lang) ? (localStorage.getItem(K.lang) || u.lang) : FT.lang;
+  FT.applyLang(document);
+  if (!isPublic) {
+    try { FT.runAutomations(); } catch (e) {}
+    try { FT.syncPartner(); } catch (e) {}
+  }
+  document.dispatchEvent(new CustomEvent('ft:ready'));
+};
+
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', FT.boot);
+else FT.boot();
+
+/* ─────────────────────────────────────────────────────────────────────────
+   18 · SHIM — nombres globales viejos (quitar cuando todas las pantallas usen FT.*)
+   ───────────────────────────────────────────────────────────────────────── */
+window.isPremium = FT.isPremium;
+window.isFree = FT.isFree;
+window.getActivePlan = FT.getActivePlan;
+window.getPremiumInfo = FT.getPremiumInfo;
+window.savePlan = FT.savePlan;
+window.clearPlan = FT.clearPlan;
+window.canUse = FT.canUse;
+window.hasAccess = function () { return true; };
+window.protectPage = function () { return true; };
+window.checkAccessWithGAS = FT.checkAccess;
+window.premiumBadge = FT.premiumBadge;
+window.showHelpModal = FT.showHelpModal;
+window.showUpgradeModal = FT.showUpgradeModal;
+window.hideUpgradeModal = FT.closeTop;
+window.getCredits = FT.getCredits;
+window.creditsLeft = FT.creditsLeft;
+window.useCredit = FT.useCredit;
+window.addExtraCredits = FT.addExtraCredits;
+
+})(window, document);
