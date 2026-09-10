@@ -1052,19 +1052,28 @@ button{font-family:var(--ui-font);}
 .ft-nav-item .i{font-size:19px;line-height:1;}
 .ft-nav-plus{width:52px;height:52px;border-radius:50%;margin-top:-24px;flex-shrink:0;display:grid;place-items:center;font-size:26px;color:#fff;cursor:pointer;background:linear-gradient(135deg,var(--g-dark),var(--g-main));box-shadow:0 12px 24px -8px rgba(15,81,50,.6);border:3px solid #fff;}
 
-/* OVERLAYS: modal centrado (blanco) + hoja inferior */
+/* OVERLAYS: modal + hoja inferior — encabezado y pie FIJOS, solo el centro hace scroll */
 .ft-overlay{position:fixed;inset:0;background:rgba(15,17,24,.42);z-index:200;display:flex;opacity:0;transition:opacity .2s ease;}
 .ft-overlay.on{opacity:1;}
-.ft-overlay.center{align-items:center;justify-content:center;padding:20px;}
+.ft-overlay.center{align-items:flex-end;justify-content:center;}
 .ft-overlay.bottom{align-items:flex-end;justify-content:center;}
-.ft-modal-box{background:var(--white);border-radius:20px;width:min(420px,calc(100vw - 32px));max-height:88vh;overflow-y:auto;padding:20px;transform:scale(.96);transition:transform .2s ease;}
-.ft-overlay.on .ft-modal-box{transform:scale(1);}
-.ft-sheet-box{background:var(--white);width:100%;max-width:var(--ft-appw);border-radius:24px 24px 0 0;padding:12px 20px calc(24px + env(safe-area-inset-bottom));max-height:88vh;overflow-y:auto;transform:translateY(14px);transition:transform .2s ease;}
+@media(min-width:560px){.ft-overlay.center{align-items:center;padding:20px;}}
+
+.ft-modal-box{background:var(--white);width:100%;max-width:var(--ft-appw);max-height:92vh;display:flex;flex-direction:column;overflow:hidden;border-radius:22px 22px 0 0;transform:translateY(16px);transition:transform .2s ease;}
+.ft-overlay.on .ft-modal-box{transform:translateY(0);}
+@media(min-width:560px){.ft-modal-box{width:min(420px,calc(100vw - 32px));border-radius:18px;transform:scale(.96);}.ft-overlay.on .ft-modal-box{transform:scale(1);}}
+
+.ft-sheet-box{background:var(--white);width:100%;max-width:var(--ft-appw);max-height:90vh;display:flex;flex-direction:column;overflow:hidden;border-radius:24px 24px 0 0;transform:translateY(16px);transition:transform .2s ease;}
 .ft-overlay.on .ft-sheet-box{transform:translateY(0);}
-.ft-sheet-grab{width:38px;height:4px;background:var(--hair);border-radius:99px;margin:0 auto 14px;}
-.ft-modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
-.ft-modal-head h4{font-size:16px;font-weight:800;margin:0;}
-.ft-modal-head .x{cursor:pointer;font-size:20px;color:var(--text3);background:none;border:none;line-height:1;}
+
+.ft-sheet-grab{width:38px;height:4px;background:var(--hair);border-radius:99px;margin:10px auto 4px;flex-shrink:0;}
+.ft-modal-head{flex-shrink:0;display:flex;justify-content:space-between;align-items:center;padding:16px 20px 12px;border-bottom:1px solid var(--hair);}
+.ft-modal-head h4{font-size:16px;font-weight:800;margin:0;line-height:1.3;}
+.ft-modal-head .x{cursor:pointer;font-size:20px;color:var(--text3);background:none;border:none;line-height:1;flex-shrink:0;padding:0 0 0 12px;}
+.ft-modal-body,.ft-sheet-body{overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 20px;flex:1;}
+.ft-modal-foot,.ft-sheet-foot{flex-shrink:0;padding:12px 20px calc(14px + env(safe-area-inset-bottom));border-top:1px solid var(--hair);display:flex;flex-direction:column;gap:8px;}
+.ft-sheet-box > .ft-modal-head{border-bottom:1px solid var(--hair);}
+.ft-sheet-box.noscroll{max-height:none;}
 .ft-field{margin-bottom:14px;}
 .ft-field label{display:block;font-size:10px;font-weight:900;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;}
 .ft-field input,.ft-field select,.ft-field textarea{width:100%;background:var(--sunk);border:1.5px solid var(--hair);border-radius:10px;padding:10px 12px;font-size:14px;outline:none;}
@@ -1163,18 +1172,21 @@ FT.closeTop = function () {
 
 FT.sheet = function (o) {
   o = o || {};
-  var actions = (o.actions || []).map(function (a, i) {
-    return '<button class="ft-btn ' + (a.primary ? 'ft-btn-primary' : 'ft-btn-ghost') + ' tap" data-ai="' + i + '" style="margin-top:8px">' + a.label + '</button>';
-  }).join('');
+  var acts = o.actions || [];
+  var foot = acts.length
+    ? '<div class="ft-sheet-foot">' + acts.map(function (a, i) {
+        return '<button class="ft-btn ' + (a.primary ? 'ft-btn-primary' : 'ft-btn-ghost') + ' tap" data-ai="' + i + '" style="margin:0">' + a.label + '</button>';
+      }).join('') + '</div>'
+    : '';
   var ov = _overlay('bottom',
     '<div class="ft-sheet-box" role="dialog" aria-modal="true">' +
       '<div class="ft-sheet-grab"></div>' +
       (o.title ? '<div class="ft-modal-head"><h4>' + o.title + '</h4><button class="x" aria-label="' + FT.t('close') + '">✕</button></div>' : '') +
-      '<div class="ft-sheet-body">' + (o.html || '') + '</div>' + actions +
+      '<div class="ft-sheet-body">' + (o.html || '') + '</div>' + foot +
     '</div>');
   FT._stack.push(ov);
-  ov.querySelector('.x') && ov.querySelector('.x').addEventListener('click', FT.closeTop);
-  (o.actions || []).forEach(function (a, i) {
+  var x = ov.querySelector('.x'); if (x) x.addEventListener('click', FT.closeTop);
+  acts.forEach(function (a, i) {
     var b = ov.querySelector('[data-ai="' + i + '"]');
     if (b) b.addEventListener('click', function () { if (!a.keepOpen) FT.closeTop(); a.onClick && a.onClick(); });
   });
@@ -1188,13 +1200,15 @@ FT.modal = function (o) {
     '<div class="ft-modal-box" role="dialog" aria-modal="true">' +
       '<div class="ft-modal-head"><h4>' + (o.title || '') + '</h4><button class="x" aria-label="' + FT.t('close') + '">✕</button></div>' +
       '<div class="ft-modal-body">' + (o.html || '') + '</div>' +
-      (o.onSave ? '<button class="ft-btn ft-btn-primary tap" data-save style="margin-top:6px">' + (o.saveLabel || FT.t('save')) + '</button>' : '') +
+      (o.onSave ? '<div class="ft-modal-foot"><button class="ft-btn ft-btn-primary tap" data-save style="margin:0">' + (o.saveLabel || FT.t('save')) + '</button>' + (o.cancelLabel ? '<button class="ft-btn ft-btn-ghost tap" data-cancel style="margin:0">' + o.cancelLabel + '</button>' : '') + '</div>' : '') +
     '</div>');
   FT._stack.push(ov);
   ov.querySelector('.x').addEventListener('click', FT.closeTop);
   var body = ov.querySelector('.ft-modal-body');
   var sb = ov.querySelector('[data-save]');
   if (sb) sb.addEventListener('click', function () { var keep = o.onSave(body); if (!keep) FT.closeTop(); });
+  var cb = ov.querySelector('[data-cancel]');
+  if (cb) cb.addEventListener('click', FT.closeTop);
   o.onOpen && o.onOpen(body);
   return ov;
 };
