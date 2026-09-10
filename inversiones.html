@@ -4,828 +4,320 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>FinTrack Pro · Inversiones</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
 <script src="premium.js"></script>
 <style>
-:root{--g-dark:#0F5132;--g-main:#1A7A4A;--g-light:#E8F7EF;--white:#fff;--off:#F7F8FC;--border:#E4E6F0;--text:#1A1D2E;--text2:#4A4E69;--text3:#9395A5;--red:#E63946;--red-dim:rgba(230,57,70,.1);--amber:#F4A261;--blue:#4A6CF7;--blu-dim:rgba(74,108,247,.1);--shadow:0 2px 12px rgba(0,0,0,.06);--round-font:'Nunito',-apple-system,'SF Pro Rounded',sans-serif;--glass-bg:rgba(255,255,255,.55);--glass-border:rgba(255,255,255,.6);--glass-shadow:0 8px 32px -12px rgba(20,20,30,.10);--bg-gradient:linear-gradient(160deg,#FDEEE3 0%,#E9F3FC 45%,#EAF8EF 100%);--tag-bg:#EFEFF1;}
-*{margin:0;padding:0;box-sizing:border-box;}
-html,body{overflow-x:hidden;max-width:100vw;}
-body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg-gradient);background-attachment:fixed;color:var(--text);min-height:100vh;padding-bottom:90px;}
-.glass{background:var(--glass-bg);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid var(--glass-border);box-shadow:var(--glass-shadow);}
-.round-num{font-family:var(--round-font);font-weight:800;}
-.topbar{background:var(--glass-bg);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-bottom:1px solid var(--glass-border);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
-.topbar-title{font-size:17px;font-weight:800;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.page{padding:16px;overflow-x:hidden;}
-.page [style*="grid-template-columns"] > *{min-width:0;}
-.card{background:var(--glass-bg);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid var(--glass-border);border-radius:16px;padding:14px;margin-bottom:12px;box-shadow:var(--glass-shadow);}
-.lang-toggle{display:flex;background:var(--off);border:1px solid var(--border);border-radius:20px;overflow:hidden;font-size:11px;font-weight:700;}
-.kebab-btn{cursor:pointer;width:36px;height:36px;border-radius:99px;background:var(--off);display:grid;place-items:center;font-size:18px;flex-shrink:0;color:var(--text2);border:none;font-family:inherit;line-height:1;}
-.kebab-menu{position:absolute;top:56px;right:16px;background:white;border:1px solid var(--border);border-radius:14px;box-shadow:0 12px 28px -8px rgba(20,20,30,.18);padding:6px;z-index:60;display:none;min-width:180px;}
-.kebab-menu.on{display:block;}
-.kebab-menu button{width:100%;text-align:left;background:none;border:none;padding:10px 12px;font-size:13px;font-weight:700;color:var(--text);cursor:pointer;font-family:inherit;border-radius:8px;display:flex;align-items:center;gap:8px;}
-.kebab-menu button:hover{background:var(--off);}
-.lt-opt{padding:5px 12px;cursor:pointer;color:var(--text3);}
-.lt-opt.on{background:var(--g-main);color:white;}
-.btn{border:none;border-radius:12px;padding:11px 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;}
-.btn-primary{background:var(--g-main);color:white;}
-.inv-item{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--off);}
-.inv-item:last-child{border-bottom:none;}
-.inv-ico{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;font-size:11px;font-weight:800;background:var(--g-light);color:var(--g-dark);flex-shrink:0;text-align:center;line-height:1.1;word-break:break-all;padding:2px;}
-.inv-info{flex:1;min-width:0;}
-.inv-name{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.inv-meta{font-size:10px;color:var(--text3);margin-top:2px;}
-.overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;place-items:center;z-index:150;}
-.overlay.open{display:grid;}
-.modal{background:var(--white);border-radius:20px;width:min(480px,calc(100vw - 24px));max-height:88vh;overflow-y:auto;padding:20px;}
-.field{margin-bottom:14px;}
-.field label{display:block;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;}
-.field input,.field select{width:100%;background:var(--off);border:1.5px solid var(--border);border-radius:10px;padding:11px 13px;font-size:14px;font-family:inherit;outline:none;}
-.field input:focus{border-color:var(--g-main);}
-.app{display:flex;min-height:100vh;}
-.sidebar{width:var(--sidebar,240px);background:var(--white);border-right:1px solid var(--border);position:fixed;top:0;left:0;bottom:0;display:flex;flex-direction:column;z-index:50;overflow-y:auto;transition:width .18s ease;}
-.sidebar.collapsed{width:64px;}
-.sidebar.collapsed .sb-name,.sidebar.collapsed .sb-tag,.sidebar.collapsed .sb-section,.sidebar.collapsed .sb-link span:last-child{display:none;}
-.sidebar.collapsed .sb-link{justify-content:center;padding:10px 0;}
-.sidebar.collapsed .sb-logo{justify-content:center;padding:0 8px;}
-.sidebar.collapsed .sb-logo>div:last-child{display:none;}
-.sb-collapse-btn{position:absolute;top:14px;right:-13px;width:26px;height:26px;border-radius:50%;background:var(--white);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;z-index:51;box-shadow:0 2px 6px rgba(0,0,0,.08);}
-.sidebar.collapsed ~ .main{margin-left:64px;}
-.sb-logo{display:flex;align-items:center;gap:10px;padding:22px 18px 18px;border-bottom:1px solid var(--border);}
-.sb-mark{width:36px;height:36px;background:linear-gradient(135deg,var(--g-dark),var(--g-main));border-radius:11px;display:grid;place-items:center;color:white;font-size:17px;}
-.sb-name{font-size:15px;font-weight:800;}.sb-tag{font-size:10px;color:var(--text3);}
-.sb-nav{padding:14px 10px;flex:1;}
-.sb-section{font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);padding:10px 8px 5px;}
-.sb-link{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:10px;font-size:13px;font-weight:600;color:var(--text2);cursor:pointer;margin-bottom:2px;transition:all .15s;}
-.sb-link:hover{background:var(--off);}
-.sb-link.on{background:var(--g-light);color:var(--g-main);}
-.sb-ico{font-size:15px;width:20px;text-align:center;flex-shrink:0;}
-.sb-footer{border-top:1px solid var(--border);padding:12px 10px;}
-.sb-user{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:10px;cursor:pointer;}
-.sb-user:hover{background:var(--off);}
-.sb-avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--g-dark),var(--g-main));display:grid;place-items:center;color:white;font-size:13px;font-weight:700;}
-.sb-uname{font-size:13px;font-weight:700;}.sb-umail{font-size:10px;color:var(--text3);}
-.main{margin-left:var(--sidebar,240px);flex:1;display:flex;flex-direction:column;}
-.mob-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--white);border-top:1px solid var(--border);padding:8px 0 calc(8px + env(safe-area-inset-bottom));z-index:100;gap:0;}
-.mob-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:9px;font-weight:700;color:var(--text3);cursor:pointer;padding:4px 0;}
-.mob-item.on{color:var(--g-main);}
-.mob-ico{font-size:22px;line-height:1.2;}
-.mob-plus{width:52px;height:52px;border-radius:50%;background:var(--g-main);display:flex;align-items:center;justify-content:center;font-size:26px;color:white;margin-top:-18px;box-shadow:0 4px 14px rgba(26,122,74,.4);}
-.more-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;align-items:flex-end;z-index:200;}
-.more-overlay.open{display:flex;}
-.more-panel{background:var(--white);width:100%;border-radius:24px 24px 0 0;padding:12px 20px calc(28px + env(safe-area-inset-bottom));}
-.more-handle{width:36px;height:4px;background:var(--border);border-radius:100px;margin:0 auto 16px;}
-.more-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
-.more-item{display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;}
-.more-ico{width:52px;height:52px;border-radius:16px;display:grid;place-items:center;font-size:24px;}
-.more-item span{font-size:11px;font-weight:600;color:var(--text2);text-align:center;}
-#toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#1A1D2E;color:white;padding:12px 20px;border-radius:20px;font-size:13px;font-weight:600;display:none;z-index:300;}
-
-input, select, textarea { font-size: 16px !important; }
-@media(max-width:860px){.sidebar{display:none;}.main{margin-left:0;max-width:100vw;overflow-x:hidden;min-width:0;}.mob-nav{display:flex!important;}}
-
+  .iv-vt{display:flex;gap:5px;background:var(--sunk);border-radius:11px;padding:4px;margin-bottom:16px;}
+  .iv-vt button{flex:1;padding:7px;border-radius:8px;border:none;background:none;font-family:var(--ui-font);font-size:12px;font-weight:800;color:var(--text3);cursor:pointer;}
+  .iv-vt button.on{background:#fff;color:var(--ink);box-shadow:0 1px 4px rgba(20,20,30,.1);}
+  .iv-sum{background:#fff;border:1px solid var(--hair);border-radius:18px;padding:18px 16px;box-shadow:0 1px 3px rgba(20,20,30,.035);text-align:center;}
+  .iv-sum .vl{font-size:10px;font-weight:800;letter-spacing:.5px;margin-bottom:4px;}
+  .iv-sum .cap{font-size:10.5px;color:var(--text3);}
+  .iv-sum .val{font-family:var(--round-font);font-weight:900;font-size:36px;letter-spacing:-1.4px;color:var(--g-main);margin:3px 0;font-variant-numeric:tabular-nums;}
+  .iv-sum .g{font-size:12.5px;font-weight:800;}
+  .iv-sum .stats{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:13px;}
+  .iv-sum .stats .s{background:var(--sunk);border-radius:10px;padding:9px 4px;}
+  .iv-sum .stats .s .n{font-family:var(--round-font);font-weight:900;font-size:14px;}
+  .iv-sum .stats .s .k{font-size:9.5px;color:var(--text3);font-weight:700;margin-top:1px;}
+  .iv-pos{display:flex;align-items:center;gap:11px;padding:12px 0;border-bottom:1px solid var(--hair);cursor:pointer;}
+  .iv-pos:last-child{border-bottom:none;}
+  .iv-pos .tk{width:42px;height:42px;border-radius:12px;flex-shrink:0;display:grid;place-items:center;font-size:11px;font-weight:900;background:var(--g-light);color:var(--g-dark);text-align:center;line-height:1.05;word-break:break-all;padding:2px;}
+  .iv-pos .m{flex:1;min-width:0;}
+  .iv-pos .m .n{font-family:var(--round-font);font-weight:900;font-size:14px;letter-spacing:-.3px;}
+  .iv-pos .m .d{font-size:10px;color:var(--text3);font-weight:700;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .iv-pos .r{text-align:right;flex-shrink:0;}
+  .iv-pos .r .v{font-family:var(--round-font);font-weight:900;font-size:14px;font-variant-numeric:tabular-nums;}
+  .iv-pos .r .g{font-size:10.5px;font-weight:800;}
+  .iv-recb{font-size:9px;font-weight:900;color:var(--blue);background:var(--sky-bg);border-radius:6px;padding:1px 5px;margin-left:5px;}
+  .iv-hint{font-size:11px;color:var(--text3);padding:8px 0 2px;}
+  .iv-empty{text-align:center;color:var(--text3);font-size:12.5px;padding:22px 10px;}
+  .iv-seg{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;}
+  .iv-seg.three{grid-template-columns:1fr 1fr 1fr;}
+  .iv-seg button{padding:9px 6px;border-radius:10px;border:1.5px solid var(--hair);background:var(--sunk);font-family:var(--ui-font);font-size:11.5px;font-weight:800;color:var(--text2);cursor:pointer;line-height:1.35;}
+  .iv-seg button.on{border-color:var(--g-main);background:var(--g-light);color:var(--g-dark);}
+  .iv-seg button small{font-weight:600;font-size:9.5px;opacity:.8;display:block;}
+  .iv-recpanel{background:var(--sky-bg);border-radius:12px;padding:11px;margin-bottom:12px;}
+  .iv-recpanel .top{display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:800;color:#2A4CC0;}
 </style>
 </head>
 <body>
-<div class="app">
-<aside class="sidebar" id="sidebar">
-  <div class="sb-collapse-btn" id="sbCollapseBtn" onclick="toggleSidebar()">◀</div>
-  <div class="sb-logo"><div class="sb-mark">💎</div><div><div class="sb-name">FinTrack Pro</div><div class="sb-tag">Panel financiero</div></div></div>
-  <nav class="sb-nav">
-    <div class="sb-section">Principal</div>
-    <div class="sb-link" onclick="go('dashboard.html')"><span class="sb-ico">📊</span><span>Dashboard</span></div>
-    <div class="sb-link" onclick="go('dashboard.html')"><span class="sb-ico">➕</span><span data-es="Nuevo registro" data-en="New entry">Nuevo registro</span></div>
-    <div class="sb-link" onclick="go('suscripciones.html')"><span class="sb-ico">🔄</span><span data-es="Suscripciones" data-en="Subscriptions">Suscripciones</span></div>
-    <div class="sb-link" onclick="go('metas.html')"><span class="sb-ico">🎯</span><span data-es="Metas" data-en="Goals">Metas</span></div>
-    <div class="sb-link" onclick="go('deudas.html')"><span class="sb-ico">💳</span><span data-es="Deudas" data-en="Debts">Deudas</span></div>
-    <div class="sb-section">Análisis</div>
-    <div class="sb-link" onclick="go('analisis.html')"><span class="sb-ico">📈</span><span data-es="Por categoría" data-en="By category">Por categoría</span></div>
-    <div class="sb-link" onclick="go('historial.html')"><span class="sb-ico">📅</span><span data-es="Historial" data-en="History">Historial</span></div>
-    <div class="sb-link on"><span class="sb-ico">🏦</span><span data-es="Inversiones" data-en="Investments">Inversiones</span></div>
-    <div class="sb-link" onclick="go('reporte.html')"><span class="sb-ico">📄</span><span data-es="Reporte mensual" data-en="Monthly report">Reporte mensual</span></div>
-    <div class="sb-section">Herramientas</div>
-    <div class="sb-link" onclick="go('scanner.html')"><span class="sb-ico">📷</span><span data-es="Escanear recibo" data-en="Scan receipt">Escanear recibo</span></div>
-    <div class="sb-link" onclick="go('importar.html')"><span class="sb-ico">📥</span><span data-es="Importar CSV" data-en="Import CSV">Importar CSV</span></div>
-    <div class="sb-link" onclick="go('emergencia.html')"><span class="sb-ico">🛡️</span><span data-es="Fondo emergencia" data-en="Emergency fund">Fondo emergencia</span></div>
-    <div class="sb-link" onclick="go('ahorro.html')"><span class="sb-ico">💵</span><span data-es="Ahorro libre" data-en="Free savings">Ahorro libre</span></div>
-    <div class="sb-link" onclick="go('hogar.html')"><span class="sb-ico">🏠</span><span data-es="Hogar" data-en="Household">Hogar</span></div>
-    <div class="sb-section">Cuenta</div>
-    <div class="sb-link" onclick="go('perfil.html')"><span class="sb-ico">👤</span><span data-es="Mi perfil" data-en="My profile">Mi perfil</span></div>
-    <div class="sb-link" onclick="go('config.html')"><span class="sb-ico">⚙️</span><span data-es="Configuración" data-en="Settings">Configuración</span></div>
-    <div class="sb-link" onclick="logout()"><span class="sb-ico">🚪</span><span data-es="Cerrar sesión" data-en="Log out">Cerrar sesión</span></div>
-  </nav>
-  <div class="sb-footer"><div class="sb-user" onclick="go('perfil.html')"><div class="sb-avatar" id="sbAvatar">R</div><div><div class="sb-uname" id="sbName">—</div><div class="sb-umail" id="sbEmail">—</div></div></div></div>
-</aside>
-<div class="main">
-
-<div class="topbar" style="position:relative;">
-  <div class="topbar-title">📈 <span data-es="Inversiones" data-en="Investments">Inversiones</span></div>
-  <button class="kebab-btn" onclick="document.getElementById('kebabMenu').classList.toggle('on')">⋯</button>
-  <div id="kebabMenu" class="kebab-menu" onclick="document.getElementById('kebabMenu').classList.remove('on')">
-    <button onclick="openAdd()">📈 <span data-es="Nueva" data-en="New">Nueva</span></button>
-      <button onclick="showHelpModal()">❓ <span data-es="Ayuda" data-en="Help">Ayuda</span></button>
-    <button onclick="setLang(lang==='es'?'en':'es')">🌐 <span data-es="English" data-en="Español">English</span></button>
-</div>
-</div>
-<div class="lang-toggle" style="display:none">
-  <div class="lt-opt on" id="ltES" onclick="setLang('es')">ES</div>
-  <div class="lt-opt" id="ltEN" onclick="setLang('en')">EN</div>
-</div>
-
-<div class="page">
-  <div class="card" id="summaryCard"></div>
-  <div class="card" id="recurrentesList" style="display:none"></div>
-  <div class="card" id="invList"></div>
-</div>
-
-<div class="overlay" id="overlay" onclick="if(event.target===this)closeModal()">
-  <div class="modal">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-      <div style="font-size:16px;font-weight:800" id="modalTitle">Nueva inversion</div>
-      <div onclick="closeModal()" style="cursor:pointer;font-size:20px;color:var(--text3)">x</div>
-    </div>
-
-    <!-- PASO 1: Nueva o existente (solo al crear) -->
-    <div id="invTipoPanel" style="margin-bottom:14px">
-      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Tipo de registro</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <button id="btnNuevaInv" onclick="setInvModo('nueva')" type="button"
-          style="padding:10px;border-radius:10px;border:2px solid var(--g-main);background:var(--g-light);color:var(--g-dark);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;line-height:1.4">
-          Nueva<br><span style="font-size:10px;font-weight:400">Sale del disponible del mes</span>
-        </button>
-        <button id="btnExisteInv" onclick="setInvModo('existente')" type="button"
-          style="padding:10px;border-radius:10px;border:2px solid var(--border);background:var(--off);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;color:var(--text2);line-height:1.4">
-          Ya la tenia<br><span style="font-size:10px;font-weight:400">Solo capturar</span>
-        </button>
-      </div>
-    </div>
-
-    <!-- TOGGLE PERSONAL/HOGAR -->
-    <div id="invHogarField" style="display:none;margin-bottom:14px">
-      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Es para:</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <button id="invBtnPersonal" onclick="setInvHogar(false)" type="button"
-          style="padding:10px;border-radius:10px;border:2px solid var(--g-main);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--g-light);color:var(--g-dark)">Personal</button>
-        <button id="invBtnHogar" onclick="setInvHogar(true)" type="button"
-          style="padding:10px;border-radius:10px;border:2px solid var(--border);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--off);color:var(--text2)">Hogar</button>
-      </div>
-    </div>
-
-    <!-- MODO SIMPLE / AVANZADO -->
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px">Datos</div>
-      <div style="display:flex;gap:6px">
-        <button id="btnSimple" onclick="setInvComplexity('simple')" type="button"
-          style="padding:4px 10px;border-radius:20px;border:1.5px solid var(--g-main);background:var(--g-main);color:white;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit">Simple</button>
-        <button id="btnAvanzado" onclick="setInvComplexity('avanzado')" type="button"
-          style="padding:4px 10px;border-radius:20px;border:1.5px solid var(--border);background:var(--off);font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;color:var(--text2)">Avanzado</button>
-      </div>
-    </div>
-
-    <div class="field"><label>Ticker / Nombre</label><input type="text" id="fTicker" placeholder="AAPL, FXAIX, QQQM..." oninput="autoDetectInvHogar(this.value)"></div>
-    <div class="field"><label>Tipo</label>
-      <select id="fType">
-        <option value="etf">ETF</option>
-        <option value="stock">Accion / Stock</option>
-        <option value="crypto">Cripto</option>
-        <option value="bond">Bono</option>
-        <option value="ahorro">Ahorro / Fondo</option>
-        <option value="other">Otro</option>
-      </select>
-    </div>
-
-    <!-- SIMPLE: solo monto -->
-    <div id="panelSimple">
-      <div class="field"><label>Monto invertido ($)</label><input type="number" id="fMontoSimple" placeholder="0.00" step="0.01" min="0"></div>
-    </div>
-
-    <!-- AVANZADO: shares + precios -->
-    <div id="panelAvanzado" style="display:none">
-      <div class="field"><label>Acciones / Unidades</label><input type="number" id="fShares" placeholder="0" step="0.0001" min="0"></div>
-      <div class="field"><label>Precio promedio de compra ($)</label><input type="number" id="fAvgPrice" placeholder="0.00" step="0.01" min="0"></div>
-      <div class="field"><label>Precio actual ($)</label><input type="number" id="fCurPrice" placeholder="0.00" step="0.01" min="0"></div>
-    </div>
-
-    <div class="field"><label>Fecha</label><input type="date" id="fFecha"></div>
-    <div class="field"><label>Plataforma (opcional)</label><input type="text" id="fPlatform" placeholder="Fidelity, Robinhood..."></div>
-
-    <!-- RECURRENTE (solo si nueva) -->
-    <div id="recurrentePanel" style="display:none;background:var(--g-light);border-radius:12px;padding:12px;margin-bottom:14px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <div style="font-size:12px;font-weight:700;color:var(--g-dark)">Es recurrente?</div>
-        <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
-          <input type="checkbox" id="fRecurrente" onchange="toggleRecurrente(this.checked)" style="width:18px;height:18px;cursor:pointer">
-          <span style="font-size:11px;font-weight:600;color:var(--g-dark)">Si</span>
-        </label>
-      </div>
-      <div id="recurrenteFreqPanel" style="display:none">
-        <div style="font-size:11px;color:var(--g-dark);margin-bottom:8px">Frecuencia:</div>
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">
-          <button type="button" id="freqW" onclick="setFreqInv('weekly')"
-            style="padding:8px;border-radius:8px;border:1.5px solid var(--g-main);background:var(--g-main);color:white;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">Semanal</button>
-          <button type="button" id="freqBW" onclick="setFreqInv('biweekly')"
-            style="padding:8px;border-radius:8px;border:1.5px solid var(--border);background:var(--off);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;color:var(--text2)">Quincenal</button>
-          <button type="button" id="freqM" onclick="setFreqInv('monthly')"
-            style="padding:8px;border-radius:8px;border:1.5px solid var(--border);background:var(--off);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;color:var(--text2)">Mensual</button>
-        </div>
-      </div>
-    </div>
-
-    <button class="btn btn-primary" onclick="saveInv()" style="width:100%;margin-bottom:8px">Guardar</button>
-    <button class="btn" style="width:100%;background:var(--off);border:1.5px solid var(--border)" onclick="closeModal()">Cancelar</button>
-  </div>
-</div>
-
-<div id="toast"></div>
-
-<!-- INV DETAIL OVERLAY -->
-<div class="overlay" id="invDetailOverlay" onclick="if(event.target===this)closeInvDetail()">
-  <div class="modal" id="invDetailBox" style="max-width:380px"></div>
-</div>
-
-<div class="more-overlay" id="moreOverlay" onclick="if(event.target===this)closeMoreMenu()">
-  <div class="more-panel">
-    <div class="more-handle"></div>
-    <div class="more-grid">
-      <div class="more-item" onclick="go('analisis.html')"><div class="more-ico" style="background:var(--g-light)">📈</div><span data-es="Análisis" data-en="Analysis">Análisis</span></div>
-      <div class="more-item" onclick="go('metas.html')"><div class="more-ico" style="background:var(--amb-dim)">🎯</div><span data-es="Metas" data-en="Goals">Metas</span></div>
-      <div class="more-item" onclick="go('deudas.html')"><div class="more-ico" style="background:var(--red-dim)">💳</div><span data-es="Deudas" data-en="Debts">Deudas</span></div>
-      <div class="more-item" onclick="go('ahorro.html')"><div class="more-ico" style="background:var(--pur-dim,rgba(123,94,167,.1))">💵</div><span data-es="Ahorro libre" data-en="Free savings">Ahorro libre</span></div>
-      <div class="more-item" onclick="go('inversiones.html')"><div class="more-ico" style="background:var(--blu-dim)">🏦</div><span data-es="Inversiones" data-en="Investments">Inversiones</span></div>
-      <div class="more-item" onclick="go('scanner.html')"><div class="more-ico" style="background:rgba(123,94,167,.1)">📷</div><span data-es="Escanear" data-en="Scan">Escanear</span></div>
-      <div class="more-item" onclick="go('importar.html')"><div class="more-ico" style="background:var(--blu-dim)">📥</div><span data-es="Importar CSV" data-en="Import CSV">Importar CSV</span></div>
-      <div class="more-item" onclick="go('emergencia.html')"><div class="more-ico" style="background:var(--amb-dim)">🛡️</div><span data-es="Emergencia" data-en="Emergency">Emergencia</span></div>
-      <div class="more-item" onclick="go('suscripciones.html')"><div class="more-ico" style="background:rgba(123,94,167,.1)">🔄</div><span data-es="Suscripciones" data-en="Subscriptions">Suscripciones</span></div>
-      <div class="more-item" onclick="go('config.html')"><div class="more-ico" style="background:var(--off)">⚙️</div><span data-es="Config" data-en="Settings">Config</span></div>
-      <div class="more-item" onclick="go('perfil.html')"><div class="more-ico" style="background:var(--blu-dim)">👤</div><span data-es="Perfil" data-en="Profile">Perfil</span></div>
-    </div>
-  </div>
-</div>
-
-</div><!-- /main -->
-</div><!-- /app -->
-
-<nav class="mob-nav">
-  <div class="mob-item" onclick="go('dashboard.html')"><div class="mob-ico">📊</div><span data-es="Inicio" data-en="Home">Inicio</span></div>
-  <div class="mob-item" onclick="go('historial.html')"><div class="mob-ico">📅</div><span data-es="Historial" data-en="History">Historial</span></div>
-  <div class="mob-item" onclick="openAdd()"><div class="mob-plus">＋</div></div>
-  <div class="mob-item" onclick="go('hogar.html')"><div class="mob-ico">🏠</div><span data-es="Hogar" data-en="Household">Hogar</span></div>
-  <div class="mob-item" onclick="openMoreMenu()"><div class="mob-ico">☰</div><span data-es="Más" data-en="More">Más</span></div>
-</nav>
-
+<div class="ft-app"><div class="ft-page" id="root"></div></div>
 <script>
-let user={},lang='es',editingId=null,invView='personal',invIsHogar=false;
-const KEY='ft_investments';
-const HOGAR_INV_KEY='ft_hogar_inv';
-const HOGAR_INV_KW=/casa|hogar|renta|hipoteca|fondo.?(comun|familiar|casa|hogar)|ahorro.?(hogar|casa|familiar|juntos)|viaje.?juntos|emergencia.?hogar|VNQ|REIT/i;
+var VIEW = 'personal';
+var addSt = null;
 
-function isHogarConnected(){try{const h=JSON.parse(localStorage.getItem('ft_hogar')||'{}');return h.connected===true&&!h.manuallyLeft;}catch(e){return false;}}
-function loadInv(){try{return JSON.parse(localStorage.getItem(KEY))||[];}catch(e){return[];}}
-function saveInvPersonal(d){localStorage.setItem(KEY,JSON.stringify(d));}
-function loadHogarInv(){try{return JSON.parse(localStorage.getItem(HOGAR_INV_KEY))||[];}catch(e){return[];}}
-function saveHogarInv(d){localStorage.setItem(HOGAR_INV_KEY,JSON.stringify(d));}
-function fmt(n){return '$'+Math.abs(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
-function fmtN(n){return Math.abs(n||0).toLocaleString('en-US',{minimumFractionDigits:4,maximumFractionDigits:4});}
-function go(url){window.location.href=url;}
+function L() { return FT.lang === 'es'; }
+function scopeKey() { return VIEW === 'hogar' ? 'hogar' : ''; }
+function money(n, d) { return FT.money(n, { cents: !!d }); }
+function posVal(i) { var s = parseFloat(i.shares) || 1, a = parseFloat(i.avgPrice) || parseFloat(i.amount) || 0, c = parseFloat(i.curPrice) || a; return s * c; }
+function posCost(i) { var s = parseFloat(i.shares) || 1, a = parseFloat(i.avgPrice) || parseFloat(i.amount) || 0; return s * a; }
 
-/* ── SIDEBAR COLLAPSE (desktop only) ── */
-function toggleSidebar(){
-  const sb = document.getElementById('sidebar');
-  const btn = document.getElementById('sbCollapseBtn');
-  if(!sb) return;
-  const collapsed = sb.classList.toggle('collapsed');
-  if(btn) btn.textContent = collapsed ? '▶' : '◀';
-  localStorage.setItem('ft_sidebar_collapsed', collapsed ? '1' : '0');
-}
-(function initSidebarState(){
-  if(window.innerWidth <= 860) return;
-  const sb = document.getElementById('sidebar');
-  const btn = document.getElementById('sbCollapseBtn');
-  if(!sb) return;
-  if(localStorage.getItem('ft_sidebar_collapsed') === '1'){
-    sb.classList.add('collapsed');
-    if(btn) btn.textContent = '▶';
-  }
-})();
-function logout(){sessionStorage.clear();['ft_user','ft_user_setup','ft_premium','ft_lang'].forEach(k=>localStorage.removeItem(k));window.location.replace('login.html');}
-function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.style.display='block';setTimeout(()=>t.style.display='none',3000);}
-function openMoreMenu(){document.getElementById('moreOverlay').classList.add('open');}
-function closeMoreMenu(){document.getElementById('moreOverlay').classList.remove('open');}
+var TYPES = [['etf', 'ETF'], ['stock', L() ? 'Acción / Stock' : 'Stock'], ['crypto', L() ? 'Cripto' : 'Crypto'], ['bond', L() ? 'Bono' : 'Bond'], ['ahorro', L() ? 'Ahorro / Fondo' : 'Savings / Fund'], ['other', L() ? 'Otro' : 'Other']];
 
-function setLang(l){
-  lang=l;localStorage.setItem('ft_lang',l);
-  document.getElementById('ltES').classList.toggle('on',l==='es');
-  document.getElementById('ltEN').classList.toggle('on',l==='en');
-  document.querySelectorAll('[data-es]').forEach(el=>{const v=el.getAttribute('data-'+l);if(v)el.textContent=v;});
-  render();
-}
+function render() {
+  var es = L(), list = FT.investments(scopeKey());
+  var tv = list.reduce(function (a, i) { return a + posVal(i); }, 0);
+  var tc = list.reduce(function (a, i) { return a + posCost(i); }, 0);
+  var g = tv - tc, gp = tc > 0 ? g / tc * 100 : 0;
+  var conn = FT.hogarConnected();
 
-function switchView(v){
-  invView=v;
-  const bP=document.getElementById('btnViewPersonal');
-  const bH=document.getElementById('btnViewHogar');
-  if(!bP||!bH) return;
-  bP.style.background=v==='personal'?'var(--g-main)':'transparent';
-  bP.style.color=v==='personal'?'white':'var(--text3)';
-  bH.style.background=v==='hogar'?'var(--g-main)':'transparent';
-  bH.style.color=v==='hogar'?'white':'var(--text3)';
-  render();
-}
+  var vt = conn ? '<div class="iv-vt"><button class="' + (VIEW === 'personal' ? 'on' : '') + '" data-v="personal">👤 ' + (es ? 'Personal' : 'Personal') + '</button><button class="' + (VIEW === 'hogar' ? 'on' : '') + '" data-v="hogar">🏠 ' + (es ? 'Hogar' : 'Household') + '</button></div>' : '';
 
-function setInvHogar(val){
-  invIsHogar=val;
-  const bH=document.getElementById('invBtnHogar');
-  const bP=document.getElementById('invBtnPersonal');
-  const hint=document.getElementById('invHogarHint');
-  if(!bH||!bP) return;
-  bH.style.background=val?'var(--g-light)':'var(--off)';
-  bH.style.borderColor=val?'var(--g-main)':'var(--border)';
-  bH.style.color=val?'var(--g-dark)':'';
-  bP.style.background=!val?'var(--blu-dim)':'var(--off)';
-  bP.style.borderColor=!val?'var(--blue)':'var(--border)';
-  bP.style.color=!val?'var(--blue)':'';
-  if(hint) hint.textContent=val
-    ?(lang==='es'?'Visible para tu pareja - inversion compartida':'Visible to partner - shared investment')
-    :(lang==='es'?'Solo tuyo - privado - no visible para tu pareja':'Only yours - private');
+  var sum = '<div class="iv-sum">' +
+    '<div class="vl" style="color:' + (VIEW === 'hogar' ? 'var(--g-main)' : 'var(--blue)') + '">' + (VIEW === 'hogar' ? '🏠 ' + (es ? 'Hogar' : 'Household') : '👤 ' + (es ? 'Personal' : 'Personal')) + '</div>' +
+    '<div class="cap">' + (es ? 'Valor total del portafolio' : 'Total portfolio value') + '</div>' +
+    '<div class="val">' + money(tv) + '</div>' +
+    '<div class="g" style="color:' + (g >= 0 ? 'var(--g-main)' : 'var(--red)') + '">' + (g >= 0 ? '+' : '−') + money(g) + ' (' + (g >= 0 ? '+' : '−') + Math.abs(gp).toFixed(2) + '%)</div>' +
+    '<div class="stats"><div class="s"><div class="n">' + money(tc) + '</div><div class="k">' + (es ? 'Invertido' : 'Invested') + '</div></div>' +
+    '<div class="s"><div class="n">' + list.length + '</div><div class="k">' + (es ? 'Posiciones' : 'Positions') + '</div></div></div></div>';
+
+  // Recurrentes — siempre visible, filtrado por vista
+  var recs = FT.recurList(function (r) { return r.kind === 'inversion' && (!!r.hogar === (VIEW === 'hogar')); });
+  var recSec = '<div class="ft-section-head" style="margin-top:22px"><h3>🔄 ' + (es ? 'Recurrentes' : 'Recurring') + (VIEW === 'hogar' ? ' · ' + (es ? 'hogar' : 'household') : '') + '</h3>' +
+    '<button class="link" data-go="recurrentes.html">' + (es ? 'Ver todos' : 'See all') + '</button></div>' +
+    (recs.length ? recs.map(function (r) {
+      var RL = FT.recurLabel(r);
+      return '<div class="iv-pos" data-rec="' + r.id + '"><div class="tk" style="background:var(--sky-bg);color:#2A4CC0">🔄</div>' +
+        '<div class="m"><div class="n">' + RL.name + '</div><div class="d">' + RL.sub + '</div></div>' +
+        '<div class="r"><div class="v">' + money(r.amount) + '</div></div></div>';
+    }).join('') : '<div class="iv-hint">' + (es ? 'Sin recurrentes aquí · actívalos al agregar una inversión.' : 'None here · turn one on when adding an investment.') + '</div>');
+
+  var posList = list.length ? list.map(function (i) {
+    var v = posVal(i), c = posCost(i), pg = v - c;
+    var tk = String(i.ticker || '?').slice(0, 5);
+    return '<div class="iv-pos" data-pos="' + i.id + '"><div class="tk">' + tk + '</div>' +
+      '<div class="m"><div class="n">' + tk + (i.recId ? '<span class="iv-recb">🔄</span>' : '') + '</div>' +
+      '<div class="d">' + (i.platform && i.platform !== 'Importado' ? i.platform + ' · ' : '') + (parseFloat(i.shares) || 1) + ' u · $' + (parseFloat(i.avgPrice) || parseFloat(i.amount) || 0) + ' avg' + ((parseFloat(i.curPrice) && parseFloat(i.curPrice) !== parseFloat(i.avgPrice)) ? ' → $' + i.curPrice : '') + '</div></div>' +
+      '<div class="r"><div class="v">' + money(v) + '</div><div class="g" style="color:' + (pg >= 0 ? 'var(--g-main)' : 'var(--red)') + '">' + (pg >= 0 ? '+' : '−') + money(pg) + '</div></div></div>';
+  }).join('') : '<div class="iv-empty">' + (es ? 'Sin inversiones aún — toca ＋ para agregar' : 'No investments yet — tap ＋ to add') + '</div>';
+
+  document.getElementById('root').innerHTML = vt + sum + recSec +
+    '<div class="ft-section-head" style="margin-top:22px"><h3>' + (es ? 'Posiciones' : 'Positions') + '</h3></div>' + posList;
+
+  document.querySelectorAll('[data-v]').forEach(function (el) { el.onclick = function () { VIEW = el.getAttribute('data-v'); render(); }; });
+  document.querySelectorAll('[data-pos]').forEach(function (el) { el.onclick = function () { posDetail(el.getAttribute('data-pos')); }; });
+  document.querySelectorAll('[data-rec]').forEach(function (el) { el.onclick = function () { recDetail(el.getAttribute('data-rec')); }; });
+  document.querySelectorAll('[data-go]').forEach(function (el) { el.onclick = function () { FT.go(el.getAttribute('data-go')); }; });
 }
 
-function autoDetectInvHogar(val){
-  if(!isHogarConnected()) return;
-  if(HOGAR_INV_KW.test(val)) setInvHogar(true);
-}
-
-function render(){
-  const es=lang==='es';
-  const invs=invView==='hogar'?loadHogarInv():loadInv();
-  let totalCost=0,totalValue=0;
-  invs.forEach(i=>{
-    const shares=parseFloat(i.shares)||1;
-    const avg=parseFloat(i.avgPrice)||parseFloat(i.amount)||0;
-    const cur=parseFloat(i.curPrice)||avg;
-    totalCost+=shares*avg;
-    totalValue+=shares*cur;
+/* ── AGREGAR ── */
+function openAdd() {
+  addSt = { modo: 'nueva', scope: VIEW === 'hogar' ? 'hogar' : 'personal', complexity: 'simple', rec: false, freq: 'monthly' };
+  var mod = FT.modal({
+    title: L() ? 'Nueva inversión' : 'New investment',
+    html: addFormHTML(),
+    saveLabel: L() ? 'Guardar' : 'Save',
+    cancelLabel: L() ? 'Cancelar' : 'Cancel',
+    onOpen: wireAddForm,
+    onSave: saveAdd
   });
-  const gain=totalValue-totalCost;
-  const gainPct=totalCost>0?((gain/totalCost)*100):0;
-  const viewLabel=invView==='hogar'?'🏠 '+(es?'Hogar':'Household'):'👤 '+(es?'Personal':'Personal');
-  const viewColor=invView==='hogar'?'var(--g-main)':'var(--blue)';
+}
+function addFormHTML() {
+  var s = addSt, es = L();
+  var scopeSeg = FT.hogarConnected()
+    ? '<div class="ft-field"><label>' + (es ? 'Es para' : 'For') + '</label><div class="iv-seg" data-g="scope">' +
+      '<button data-o="personal" class="' + (s.scope === 'personal' ? 'on' : '') + '">👤 ' + (es ? 'Personal' : 'Personal') + '</button>' +
+      '<button data-o="hogar" class="' + (s.scope === 'hogar' ? 'on' : '') + '">🏠 ' + (es ? 'Hogar' : 'Household') + '</button></div></div>' : '';
+  var recPanel = s.modo === 'nueva'
+    ? '<div class="iv-recpanel"><div class="top">🔄 ' + (es ? '¿Es recurrente?' : 'Recurring?') +
+      '<label style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="ivRec" ' + (s.rec ? 'checked' : '') + ' style="width:17px;height:17px;accent-color:var(--g-main)"><span style="font-size:11px">' + (es ? 'Sí' : 'Yes') + '</span></label></div>' +
+      (s.rec ? '<div class="iv-seg three" data-g="freq" style="margin:9px 0 0">' +
+        '<button data-o="weekly" class="' + (s.freq === 'weekly' ? 'on' : '') + '">' + (es ? 'Semanal' : 'Weekly') + '</button>' +
+        '<button data-o="biweekly" class="' + (s.freq === 'biweekly' ? 'on' : '') + '">' + (es ? 'Quincenal' : 'Biweekly') + '</button>' +
+        '<button data-o="monthly" class="' + (s.freq === 'monthly' ? 'on' : '') + '">' + (es ? 'Mensual' : 'Monthly') + '</button></div>' : '') + '</div>'
+    : '';
+  var typeOpts = TYPES.map(function (t) { return '<option value="' + t[0] + '">' + t[1] + '</option>'; }).join('');
+  return '<div class="ft-field"><label>' + (es ? 'Tipo de registro' : 'Entry type') + '</label><div class="iv-seg" data-g="modo">' +
+      '<button data-o="nueva" class="' + (s.modo === 'nueva' ? 'on' : '') + '">' + (es ? 'Nueva' : 'New') + '<small>' + (es ? 'sale de tu disponible del mes' : 'from this month') + '</small></button>' +
+      '<button data-o="existente" class="' + (s.modo === 'existente' ? 'on' : '') + '">' + (es ? 'Ya la tenía' : 'Already had it') + '<small>' + (es ? 'solo capturar' : 'just capture') + '</small></button></div></div>' +
+    scopeSeg +
+    '<div class="ft-field"><label>' + (es ? 'Datos' : 'Detail') + '</label><div class="iv-seg" data-g="complexity">' +
+      '<button data-o="simple" class="' + (s.complexity === 'simple' ? 'on' : '') + '">' + (es ? 'Simple' : 'Simple') + '<small>' + (es ? 'solo monto' : 'amount only') + '</small></button>' +
+      '<button data-o="avanzado" class="' + (s.complexity === 'avanzado' ? 'on' : '') + '">' + (es ? 'Avanzado' : 'Advanced') + '<small>' + (es ? 'acciones + precios' : 'shares + prices') + '</small></button></div></div>' +
+    '<div class="ft-field"><label>Ticker / ' + (es ? 'Nombre' : 'Name') + '</label><input id="ivTicker" placeholder="VOO, FXAIX, BTC…"></div>' +
+    '<div class="ft-field"><label>' + (es ? 'Tipo' : 'Type') + '</label><select id="ivType">' + typeOpts + '</select></div>' +
+    (s.complexity === 'simple'
+      ? '<div class="ft-field"><label>' + (es ? 'Monto invertido' : 'Amount invested') + '</label><input id="ivMonto" inputmode="decimal" placeholder="$0"></div>'
+      : '<div class="ft-field"><label>' + (es ? 'Acciones / Unidades' : 'Shares / Units') + '</label><input id="ivShares" inputmode="decimal" placeholder="0"></div>' +
+        '<div class="ft-field"><label>' + (es ? 'Precio promedio de compra' : 'Avg buy price') + '</label><input id="ivAvg" inputmode="decimal" placeholder="$0"></div>' +
+        '<div class="ft-field"><label>' + (es ? 'Precio actual' : 'Current price') + '</label><input id="ivCur" inputmode="decimal" placeholder="$0"></div>') +
+    '<div class="ft-field"><label>' + (es ? 'Fecha' : 'Date') + (s.modo === 'nueva' && s.rec ? ' (' + (es ? 'inicio' : 'start') + ')' : '') + '</label><input id="ivDate" type="date" value="' + FT.todayISO() + '"></div>' +
+    '<div class="ft-field"><label>' + (es ? 'Plataforma (opcional)' : 'Platform (optional)') + '</label><input id="ivPlatform" placeholder="Fidelity, Robinhood…"></div>' +
+    recPanel;
+}
+function _snap(body) {
+  addSt._vals = {};
+  body.querySelectorAll('input,select').forEach(function (el) { if (el.id) addSt._vals[el.id] = el.value; });
+}
+function _restore(body) {
+  var v = addSt._vals || {};
+  body.querySelectorAll('input,select').forEach(function (el) { if (el.id && v[el.id] != null && v[el.id] !== '') el.value = v[el.id]; });
+}
+function redrawAddForm(body) { _snap(body); body.innerHTML = addFormHTML(); _restore(body); wireAddForm(body); }
+function wireAddForm(body) {
+  body.querySelectorAll('[data-g]').forEach(function (grp) {
+    grp.querySelectorAll('button').forEach(function (b) {
+      b.onclick = function () { addSt[grp.getAttribute('data-g')] = b.getAttribute('data-o'); redrawAddForm(body); };
+    });
+  });
+  var rc = body.querySelector('#ivRec');
+  if (rc) rc.onchange = function () { addSt.rec = rc.checked; redrawAddForm(body); };
+}
+function saveAdd(body) {
+  var es = L(), s = addSt;
+  var ticker = (body.querySelector('#ivTicker').value || '').trim().toUpperCase();
+  if (!ticker) { FT.toast(es ? 'Ingresa el ticker o nombre' : 'Enter ticker or name'); return true; }
+  var type = body.querySelector('#ivType').value;
+  var platform = (body.querySelector('#ivPlatform').value || '').trim();
+  var date = body.querySelector('#ivDate').value || FT.todayISO();
+  var shares, avg, cur, amount;
+  if (s.complexity === 'avanzado') {
+    shares = parseFloat(body.querySelector('#ivShares').value) || 1;
+    avg = parseFloat(body.querySelector('#ivAvg').value) || 0;
+    cur = parseFloat(body.querySelector('#ivCur').value) || avg;
+    amount = shares * avg;
+  } else {
+    amount = parseFloat(body.querySelector('#ivMonto').value) || 0;
+    shares = 1; avg = amount; cur = amount;
+    if (amount <= 0) { FT.toast(es ? 'Ingresa el monto invertido' : 'Enter the amount'); return true; }
+  }
+  var scope = s.scope === 'hogar' ? 'hogar' : '';
+  var isHogar = scope === 'hogar';
 
-  document.getElementById('summaryCard').innerHTML=
-    '<div style="text-align:center;margin-bottom:14px">'
-    +'<div style="font-size:10px;font-weight:700;color:'+viewColor+';margin-bottom:4px;letter-spacing:.5px">'+viewLabel+'</div>'
-    +'<div style="font-size:11px;color:var(--text3);margin-bottom:4px">'+(es?'Valor total del portafolio':'Total portfolio value')+'</div>'
-    +'<div style="font-size:32px;font-weight:800;color:var(--g-main)">'+fmt(totalValue)+'</div>'
-    +'<div style="font-size:13px;color:'+(gain>=0?'var(--g-main)':'var(--red)')+';font-weight:700">'+(gain>=0?'+':'')+fmt(gain)+' ('+(gain>=0?'+':'')+gainPct.toFixed(2)+'%)</div>'
-    +'</div>'
-    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
-    +'<div style="background:var(--off);border-radius:10px;padding:10px;text-align:center"><div style="font-size:14px;font-weight:800">'+fmt(totalCost)+'</div><div style="font-size:10px;color:var(--text3)">'+(es?'Invertido':'Invested')+'</div></div>'
-    +'<div style="background:var(--off);border-radius:10px;padding:10px;text-align:center"><div style="font-size:14px;font-weight:800">'+invs.length+'</div><div style="font-size:10px;color:var(--text3)">'+(es?'Posiciones':'Positions')+'</div></div>'
-    +'</div>';
-
-  const list=document.getElementById('invList');
-  if(!invs.length){
-    list.innerHTML='<p style="color:var(--text3);font-size:13px;text-align:center;padding:30px 0">'
-      +(invView==='hogar'?(es?'Sin inversiones del hogar aun. Agrega una para empezar.':'No household investments yet.'):(es?'Sin inversiones aun':'No investments yet'))
-      +'</p>';
+  // NUEVA + RECURRENTE → solo el recurrente; el motor lo aplica en su fecha (aunque sea futura)
+  if (s.modo === 'nueva' && s.rec) {
+    var rec = FT.recurring();
+    rec.push({ id: 'rec_' + Date.now(), kind: 'inversion', hogar: isHogar, desc: ticker, amount: amount, freq: s.freq, nextDate: date, active: true, createdBy: FT.userName() });
+    FT.set(FT.K.recurring, rec);
+    if (date <= FT.todayISO()) { try { FT.applyDueRecurring(); } catch (e) {} }
+    FT.toast(es ? '🔄 Inversión recurrente activada' : '🔄 Recurring investment on');
+    render();
     return;
   }
 
-  list.innerHTML=invs.map(function(i){
-    var shares=parseFloat(i.shares)||1;
-    var avg=parseFloat(i.avgPrice)||parseFloat(i.amount)||0;
-    var cur=parseFloat(i.curPrice)||avg;
-    var cost=shares*avg;
-    var val=shares*cur;
-    var g=val-cost;
-    var hogarBadge=invView==='hogar'?'<span style="background:var(--g-light);color:var(--g-dark);font-size:9px;font-weight:700;padding:2px 6px;border-radius:20px;margin-left:4px">🏠</span>':'';
-    var tick=(i.ticker||'?').slice(0,4);
-    var platform=i.platform&&i.platform!=='Importado'?i.platform:'';
-    return '<div class="inv-item" onclick="showInvDetail(\''+i.id+'\')" style="cursor:pointer">'
-      +'<div class="inv-ico">'+tick+'</div>'
-      +'<div class="inv-info">'
-      +'<div class="inv-name">'+tick+' '+hogarBadge+(platform?'<span style="font-size:10px;color:var(--text3);font-weight:500"> · '+platform+'</span>':'')+'</div>'
-      +'<div class="inv-meta">'+fmtN(shares)+' u · $'+avg.toFixed(2)+' avg'+(cur!==avg?' → $'+cur.toFixed(2):'')+'</div>'
-      +'</div>'
-      +'<div style="text-align:right;flex-shrink:0">'
-      +'<div style="font-size:13px;font-weight:800">'+fmt(val)+'</div>'
-      +'<div style="font-size:11px;color:'+(g>=0?'var(--g-main)':'var(--red)')+';font-weight:700">'+(g>=0?'+':'')+fmt(g)+'</div>'
-      +'</div>'
-      +'<div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;padding-left:4px">'
-      +'<div onclick="event.stopPropagation();editInv(\''+i.id+'\')" style="cursor:pointer;color:var(--blue);font-size:16px;line-height:1" title="Editar">✏️</div>'
-      +'<div onclick="event.stopPropagation();deleteInv(\''+i.id+'\')" style="cursor:pointer;color:var(--text3);font-size:14px;line-height:1" title="Eliminar">🗑</div>'
-      +'</div>'
-      +'</div>';
-  }).join('');
-  renderRecurrentes();
+  var id = Date.now();
+  var pos = { id: 'i_' + id, ticker: ticker, type: type, shares: shares, avgPrice: avg, curPrice: cur, amount: amount, platform: platform, modo: s.modo === 'nueva' ? 'nueva' : 'yaLaTenia', fecha: date, addedBy: FT.userName(), addedAt: new Date().toISOString() };
+  var list = FT.investments(scope);
+
+  if (s.modo === 'nueva' && date <= FT.todayISO()) {
+    // cuenta contra el disponible del mes
+    var d = FT.data();
+    d.transactions.push({ id: id, type: 'inversion', desc: ticker, amount: amount, date: date, cat: '📈 Inversión', hogar: isHogar, createdBy: FT.userName(), fromInvPage: true });
+    FT.set(FT.K.data, d);
+    pos.txId = id;
+  }
+  list.push(pos);
+  FT.saveInvestments(list, scope);
+  FT.toast(s.modo === 'nueva'
+    ? (date > FT.todayISO() ? (es ? 'Registrada · empieza el ' + FT.date(date) : 'Saved · starts ' + FT.date(date)) : (es ? '✅ Inversión registrada' : '✅ Investment recorded'))
+    : (es ? '✅ Posición capturada' : '✅ Position captured'));
+  render();
 }
 
-var invModo = 'nueva'; // 'nueva' | 'existente'
-var invComplexity = 'simple'; // 'simple' | 'avanzado'
-var invFreq = 'weekly';
-
-function setInvModo(modo){
-  invModo = modo;
-  var bN=document.getElementById('btnNuevaInv'), bE=document.getElementById('btnExisteInv');
-  bN.style.borderColor = modo==='nueva'?'var(--g-main)':'var(--border)';
-  bN.style.background  = modo==='nueva'?'var(--g-light)':'var(--off)';
-  bN.style.color       = modo==='nueva'?'var(--g-dark)':'var(--text2)';
-  bE.style.borderColor = modo==='existente'?'var(--g-main)':'var(--border)';
-  bE.style.background  = modo==='existente'?'var(--g-light)':'var(--off)';
-  bE.style.color       = modo==='existente'?'var(--g-dark)':'var(--text2)';
-  document.getElementById('recurrentePanel').style.display = modo==='nueva' ? '' : 'none';
+/* ── DETALLE DE POSICIÓN ── */
+function posDetail(id) {
+  var es = L(), scope = scopeKey();
+  var list = FT.investments(scope);
+  var i = list.find(function (x) { return x.id === id; });
+  if (!i) return;
+  var v = posVal(i), c = posCost(i), g = v - c;
+  var rows = [
+    [es ? 'Tipo' : 'Type', (TYPES.find(function (t) { return t[0] === i.type; }) || [0, i.type || '—'])[1]],
+    [es ? 'Unidades' : 'Units', String(parseFloat(i.shares) || 1)],
+    [es ? 'Precio promedio' : 'Avg price', '$' + (parseFloat(i.avgPrice) || parseFloat(i.amount) || 0)],
+    [es ? 'Precio actual' : 'Current price', '$' + (parseFloat(i.curPrice) || parseFloat(i.avgPrice) || 0)],
+    [es ? 'Plataforma' : 'Platform', i.platform || '—'],
+    [es ? 'Fecha' : 'Date', FT.date(i.fecha || (i.addedAt || '').slice(0, 10))]
+  ];
+  if (i.recId) rows.push(['🔄 ' + (es ? 'Recurrente' : 'Recurring'), es ? 'activo' : 'active']);
+  if (i.modo === 'yaLaTenia') rows.push([es ? 'Origen' : 'Source', es ? 'Ya la tenía (no contó al mes)' : 'Pre-owned (not counted)']);
+  FT.sheet({
+    title: i.ticker,
+    html: '<div style="text-align:center;margin-bottom:12px"><div style="font-family:var(--round-font);font-weight:900;font-size:26px">' + money(v) + '</div>' +
+      '<div style="font-size:13px;font-weight:800;color:' + (g >= 0 ? 'var(--g-main)' : 'var(--red)') + '">' + (g >= 0 ? '+' : '−') + money(g) + '</div></div>' +
+      rows.map(function (r) { return '<div class="ft-row"><span class="k">' + r[0] + '</span><span class="v">' + r[1] + '</span></div>'; }).join(''),
+    actions: [
+      { label: '✏️ ' + (es ? 'Editar' : 'Edit'), onClick: function () { editPos(id); } },
+      { label: '🗑️ ' + (es ? 'Eliminar' : 'Delete'), onClick: function () {
+          FT.confirm(es ? '¿Eliminar esta posición? Si contó al mes, también se quita de Historial.' : 'Delete this position? If it counted this month, it is also removed from History.').then(function (ok) {
+            if (!ok) return;
+            if (i.txId) FT.deleteTx(i.txId);
+            else FT.saveInvestments(FT.investments(scope).filter(function (x) { return x.id !== id; }), scope);
+            FT.toast(es ? 'Eliminada' : 'Deleted'); render();
+          });
+        } }
+    ]
+  });
 }
-
-function setInvComplexity(c){
-  invComplexity = c;
-  var bS=document.getElementById('btnSimple'), bA=document.getElementById('btnAvanzado');
-  bS.style.background = c==='simple'?'var(--g-main)':'var(--off)';
-  bS.style.borderColor = c==='simple'?'var(--g-main)':'var(--border)';
-  bS.style.color = c==='simple'?'white':'var(--text2)';
-  bA.style.background = c==='avanzado'?'var(--g-main)':'var(--off)';
-  bA.style.borderColor = c==='avanzado'?'var(--g-main)':'var(--border)';
-  bA.style.color = c==='avanzado'?'white':'var(--text2)';
-  document.getElementById('panelSimple').style.display = c==='simple'?'':'none';
-  document.getElementById('panelAvanzado').style.display = c==='avanzado'?'':'none';
-}
-
-function setFreqInv(f){
-  invFreq = f;
-  ['weekly','biweekly','monthly'].forEach(function(x){
-    var id = x==='weekly'?'freqW':x==='biweekly'?'freqBW':'freqM';
-    var btn = document.getElementById(id);
-    btn.style.background = x===f?'var(--g-main)':'var(--off)';
-    btn.style.borderColor = x===f?'var(--g-main)':'var(--border)';
-    btn.style.color = x===f?'white':'var(--text2)';
+function editPos(id) {
+  var es = L(), scope = scopeKey();
+  var i = FT.investments(scope).find(function (x) { return x.id === id; });
+  if (!i) return;
+  var adv = (parseFloat(i.shares) || 1) !== 1;
+  FT.modal({
+    title: es ? 'Editar posición' : 'Edit position',
+    saveLabel: es ? 'Guardar' : 'Save', cancelLabel: es ? 'Cancelar' : 'Cancel',
+    html: '<div class="ft-field"><label>Ticker</label><input id="pTicker" value="' + (i.ticker || '') + '"></div>' +
+      '<div class="ft-field"><label>' + (es ? 'Plataforma' : 'Platform') + '</label><input id="pPlat" value="' + (i.platform || '') + '"></div>' +
+      (adv
+        ? '<div class="ft-field"><label>' + (es ? 'Unidades' : 'Units') + '</label><input id="pShares" inputmode="decimal" value="' + (i.shares || 1) + '"></div>' +
+          '<div class="ft-field"><label>' + (es ? 'Precio promedio' : 'Avg price') + '</label><input id="pAvg" inputmode="decimal" value="' + (i.avgPrice || '') + '"></div>' +
+          '<div class="ft-field"><label>' + (es ? 'Precio actual' : 'Current price') + '</label><input id="pCur" inputmode="decimal" value="' + (i.curPrice || i.avgPrice || '') + '"></div>'
+        : '<div class="ft-field"><label>' + (es ? 'Monto' : 'Amount') + '</label><input id="pMonto" inputmode="decimal" value="' + ((parseFloat(i.shares) || 1) * (parseFloat(i.curPrice) || parseFloat(i.avgPrice) || parseFloat(i.amount) || 0)) + '"></div>'),
+    onSave: function (body) {
+      var list = FT.investments(scope);
+      var idx = list.findIndex(function (x) { return x.id === id; });
+      if (idx < 0) return;
+      list[idx].ticker = (body.querySelector('#pTicker').value || i.ticker).toUpperCase();
+      list[idx].platform = body.querySelector('#pPlat').value.trim();
+      if (adv) {
+        list[idx].shares = parseFloat(body.querySelector('#pShares').value) || 1;
+        list[idx].avgPrice = parseFloat(body.querySelector('#pAvg').value) || 0;
+        list[idx].curPrice = parseFloat(body.querySelector('#pCur').value) || list[idx].avgPrice;
+        list[idx].amount = list[idx].shares * list[idx].avgPrice;
+      } else {
+        var m = parseFloat(body.querySelector('#pMonto').value) || 0;
+        list[idx].shares = 1; list[idx].avgPrice = m; list[idx].curPrice = m; list[idx].amount = m;
+      }
+      FT.saveInvestments(list, scope);
+      FT.toast(es ? 'Actualizada' : 'Updated'); render();
+    }
   });
 }
 
-function toggleRecurrente(checked){
-  document.getElementById('recurrenteFreqPanel').style.display = checked ? '' : 'none';
-}
-
-function openAdd(){
-  editingId=null;
-  invModo='nueva'; invComplexity='simple'; invFreq='weekly';
-  ['fTicker','fPlatform','fMontoSimple','fShares','fAvgPrice','fCurPrice'].forEach(function(id){
-    var el=document.getElementById(id); if(el) el.value='';
+/* ── DETALLE DE RECURRENTE ── */
+function recDetail(id) {
+  var es = L(), r = FT.recurGet(id); if (!r) return;
+  var RL = FT.recurLabel(r);
+  FT.sheet({
+    title: RL.name,
+    html: '<div class="ft-row"><span class="k">' + (es ? 'Monto' : 'Amount') + '</span><span class="v">' + money(r.amount) + '</span></div>' +
+      '<div class="ft-row"><span class="k">' + (es ? 'Frecuencia' : 'Frequency') + '</span><span class="v">' + RL.sub + '</span></div>',
+    actions: [
+      { label: '✏️ ' + (es ? 'Editar' : 'Edit'), onClick: function () {
+          FT.modal({
+            title: es ? 'Editar recurrente' : 'Edit recurring', saveLabel: es ? 'Guardar' : 'Save', cancelLabel: es ? 'Cancelar' : 'Cancel',
+            html: '<div class="ft-field"><label>' + (es ? 'Monto' : 'Amount') + '</label><input id="rA" inputmode="decimal" value="' + r.amount + '"></div>' +
+              '<div class="ft-field"><label>' + (es ? 'Próxima fecha' : 'Next date') + '</label><input id="rN" type="date" value="' + (r.nextDate || FT.todayISO()) + '"></div>',
+            onSave: function (b) { FT.recurUpdate(id, { amount: b.querySelector('#rA').value, nextDate: b.querySelector('#rN').value }); FT.toast(es ? 'Actualizado' : 'Updated'); render(); }
+          });
+        } },
+      { label: r.paused ? '▶️ ' + (es ? 'Reanudar' : 'Resume') : '⏸ ' + (es ? 'Pausar' : 'Pause'), onClick: function () { FT.recurPause(id, !r.paused); FT.toast(r.paused ? (es ? 'Reanudado' : 'Resumed') : (es ? 'Pausado' : 'Paused')); render(); } },
+      { label: '🗑️ ' + (es ? 'Eliminar' : 'Delete'), onClick: function () { FT.confirm(es ? '¿Eliminar este recurrente?' : 'Delete this recurring item?').then(function (ok) { if (ok) { FT.recurDelete(id); FT.toast(es ? 'Eliminado' : 'Deleted'); render(); } }); } },
+      { label: es ? 'Ver en Recurrentes →' : 'Open in Recurring →', onClick: function () { FT.go('recurrentes.html'); } }
+    ]
   });
-  document.getElementById('fType').value='etf';
-  document.getElementById('fFecha').value=new Date().toISOString().split('T')[0];
-  document.getElementById('fRecurrente').checked=false;
-  document.getElementById('recurrenteFreqPanel').style.display='none';
-  setInvModo('nueva');
-  setInvComplexity('simple');
-  setFreqInv('weekly');
-  var field=document.getElementById('invHogarField');
-  if(field) field.style.display=isHogarConnected()?'':'none';
-  invIsHogar=invView==='hogar';
-  setInvHogar(invIsHogar);
-  document.getElementById('invTipoPanel').style.display='';
-  document.getElementById('modalTitle').textContent=lang==='es'?'Nueva inversion':'New investment';
-  document.getElementById('overlay').classList.add('open');
 }
 
-function showInvDetail(id){
-  var es=lang==='es';
-  var list=invView==='hogar'?loadHogarInv():loadInv();
-  var inv=list.find(function(i){return i.id===id;});
-  if(!inv) return;
-
-  var shares=parseFloat(inv.shares)||1;
-  var avg=parseFloat(inv.avgPrice)||parseFloat(inv.amount)||0;
-  var cur=parseFloat(inv.curPrice)||avg;
-  var cost=shares*avg;
-  var val=shares*cur;
-  var g=val-cost;
-
-  var addedAt = inv.addedAt ? new Date(inv.addedAt) : null;
-  var fechaFmt = addedAt && !isNaN(addedAt.getTime()) ? addedAt.toLocaleDateString(es?'es-MX':'en-US',{day:'numeric',month:'long',year:'numeric'}) : '—';
-  var hora = addedAt && !isNaN(addedAt.getTime()) ? addedAt.toLocaleTimeString(es?'es-MX':'en-US',{hour:'2-digit',minute:'2-digit'}) : '—';
-  var autor = inv.addedBy || (es?'Desconocido':'Unknown');
-  var esHogar = invView==='hogar';
-
-  document.getElementById('invDetailBox').innerHTML=
-    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">'
-    +'<div style="font-size:16px;font-weight:800">'+(inv.ticker||'?')+'</div>'
-    +'<div onclick="closeInvDetail()" style="cursor:pointer;font-size:20px;color:var(--text3)">x</div>'
-    +'</div>'
-    +'<div style="text-align:center;margin-bottom:16px">'
-    +'<div style="font-size:26px;font-weight:800">'+fmt(val)+'</div>'
-    +'<div style="font-size:13px;font-weight:700;color:'+(g>=0?'var(--g-main)':'var(--red)')+'">'+(g>=0?'+':'')+fmt(g)+'</div>'
-    +(esHogar?'<span style="background:var(--g-light);color:var(--g-dark);font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;display:inline-block;margin-top:4px">🏠 '+(es?'Del hogar':'Household')+'</span>':'')
-    +'</div>'
-    +'<div style="display:flex;flex-direction:column;gap:10px;font-size:13px;margin-bottom:16px">'
-    +'<div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">'+(es?'Tipo':'Type')+'</span><span style="font-weight:600">'+(inv.type||'—')+'</span></div>'
-    +'<div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">'+(es?'Fecha':'Date')+'</span><span style="font-weight:600">'+(inv.fecha||(inv.addedAt?inv.addedAt.split('T')[0]:'—'))+'</span></div>'
-    +'<div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">'+(es?'Plataforma':'Platform')+'</span><span style="font-weight:600">'+(inv.platform||'—')+'</span></div>'
-    +'<div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">'+(es?'Unidades':'Shares')+'</span><span style="font-weight:600">'+fmtN(shares)+'</span></div>'
-    +'<div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">'+(es?'Precio promedio':'Avg price')+'</span><span style="font-weight:600">$'+avg.toFixed(2)+'</span></div>'
-    +'<div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">'+(es?'Precio actual':'Current price')+'</span><span style="font-weight:600">$'+cur.toFixed(2)+'</span></div>'
-    +'<div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">'+(es?'Fecha de registro':'Date recorded')+'</span><span style="font-weight:600">'+fechaFmt+'</span></div>'
-    +'<div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">'+(es?'Hora de registro':'Time recorded')+'</span><span style="font-weight:600">'+hora+'</span></div>'
-    +'<div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">'+(es?'Registrado por':'Recorded by')+'</span><span style="font-weight:600">'+autor+'</span></div>'
-    +'</div>'
-    +'<div style="display:flex;gap:8px">'
-    +'<button onclick="closeInvDetail();editInv(\''+id+'\')" style="flex:1;background:var(--off);color:var(--text);border:none;border-radius:12px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">✏️ '+(es?'Editar':'Edit')+'</button>'
-    +'<button onclick="closeInvDetail();deleteInv(\''+id+'\')" style="flex:1;background:var(--red-dim);color:var(--red);border:none;border-radius:12px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">🗑️ '+(es?'Eliminar':'Delete')+'</button>'
-    +'</div>';
-
-  document.getElementById('invDetailOverlay').classList.add('open');
-}
-
-function closeInvDetail(){
-  document.getElementById('invDetailOverlay').classList.remove('open');
-}
-
-function editInv(id){
-  var list=invView==='hogar'?loadHogarInv():loadInv();
-  var inv=list.find(function(i){return i.id===id;});
-  if(!inv) return;
-  editingId=id;
-  // Al editar, ocultar el panel de tipo y recurrente
-  document.getElementById('invTipoPanel').style.display='none';
-  document.getElementById('recurrentePanel').style.display='none';
-  // Determinar si es simple o avanzado según los datos guardados
-  var esAvanzado = inv.shares && parseFloat(inv.shares) !== 1;
-  setInvComplexity(esAvanzado ? 'avanzado' : 'simple');
-  document.getElementById('fTicker').value=inv.ticker||'';
-  document.getElementById('fType').value=inv.type||'etf';
-  document.getElementById('fPlatform').value=inv.platform||'';
-  document.getElementById('fFecha').value = inv.fecha || (inv.addedAt?inv.addedAt.split('T')[0]:new Date().toISOString().split('T')[0]);
-  if(esAvanzado){
-    document.getElementById('fShares').value=inv.shares||1;
-    document.getElementById('fAvgPrice').value=inv.avgPrice||inv.amount||'';
-    document.getElementById('fCurPrice').value=inv.curPrice||inv.avgPrice||inv.amount||'';
-  } else {
-    var monto = (parseFloat(inv.shares)||1) * (parseFloat(inv.curPrice)||parseFloat(inv.avgPrice)||parseFloat(inv.amount)||0);
-    document.getElementById('fMontoSimple').value=monto||inv.amount||'';
-  }
-  var field=document.getElementById('invHogarField');
-  if(field) field.style.display=isHogarConnected()?'':'none';
-  invIsHogar=invView==='hogar';
-  setInvHogar(invIsHogar);
-  document.getElementById('modalTitle').textContent=lang==='es'?'Editar inversion':'Edit investment';
-  document.getElementById('overlay').classList.add('open');
-}
-
-function closeModal(){document.getElementById('overlay').classList.remove('open');}
-
-function saveInv(){
-  var ticker=document.getElementById('fTicker').value.trim().toUpperCase();
-  var type=document.getElementById('fType').value;
-  var platform=document.getElementById('fPlatform').value.trim();
-  if(!ticker){showToast(lang==='es'?'Ingresa el ticker o nombre':'Enter ticker or name');return;}
-
-  var shares, avgPrice, curPrice, amount;
-  if(invComplexity==='avanzado'){
-    shares=parseFloat(document.getElementById('fShares').value)||1;
-    avgPrice=parseFloat(document.getElementById('fAvgPrice').value)||0;
-    curPrice=parseFloat(document.getElementById('fCurPrice').value)||avgPrice;
-    amount=shares*avgPrice;
-  } else {
-    amount=parseFloat(document.getElementById('fMontoSimple').value)||0;
-    shares=1; avgPrice=amount; curPrice=amount;
-    if(amount<=0){showToast(lang==='es'?'Ingresa el monto invertido':'Enter the amount invested');return;}
-  }
-
-  var fecha = document.getElementById('fFecha').value || new Date().toISOString().split('T')[0];
-  var esRecurrente = !editingId && invModo==='nueva' && document.getElementById('fRecurrente').checked;
-
-  if(editingId){
-    // EDITAR posicion existente
-    var list = invView==='hogar'?loadHogarInv():loadInv();
-    var idx = list.findIndex(function(i){return i.id===editingId;});
-    if(idx>=0){
-      list[idx]=Object.assign({},list[idx],{ticker:ticker,type:type,shares:shares,avgPrice:avgPrice,curPrice:curPrice,amount:amount,platform:platform,fecha:fecha});
-    }
-    if(invView==='hogar') saveHogarInv(list); else saveInvPersonal(list);
-    showToast(lang==='es'?'Inversion actualizada':'Investment updated');
-
-  } else {
-    // NUEVA posicion
-    var entry={id:'i_'+Date.now(),ticker:ticker,type:type,shares:shares,avgPrice:avgPrice,curPrice:curPrice,amount:amount,platform:platform,modo:invModo,fecha:fecha,addedBy:user.name||'',addedAt:new Date().toISOString()};
-
-    if(invView==='hogar'){ var l=loadHogarInv();l.push(entry);saveHogarInv(l); }
-    else { var l2=loadInv();l2.push(entry);saveInvPersonal(l2); }
-
-    // Si es nueva → registrar en ft_data como transaccion del mes (descuenta del 40%)
-    // SOLO si la fecha ya llegó o es hoy. Si el usuario puso una fecha futura (ej.
-    // "empieza el 25 de agosto"), no se registra todavía — antes esto restaba del
-    // presupuesto de inmediato sin importar que la fecha fuera futura. El motor de
-    // recurrentes (applyDueRecurring en dashboard.html) se encarga de registrarla
-    // justo cuando esa fecha llegue.
-    const hoyStr0 = new Date().toISOString().split('T')[0];
-    if(invModo==='nueva' && fecha <= hoyStr0){
-      try{
-        var data=JSON.parse(localStorage.getItem('ft_data')||'{}');
-        data.transactions=data.transactions||[];
-        data.transactions.push({
-          id:'inv_'+entry.id,type:'inversion',
-          desc:ticker,amount:amount,
-          date:fecha,
-          cat:'Inversion',note:platform,
-          hogar:invIsHogar&&isHogarConnected(),
-          fromInvPage:true
-        });
-        localStorage.setItem('ft_data',JSON.stringify(data));
-      }catch(e){}
-    }
-
-    // Si es recurrente → auto-aplica solo (motor unificado ft_recurring), ya no solo un recordatorio
-    if(esRecurrente){
-      try{
-        const freqMap = {semanal:'weekly', quincenal:'biweekly', mensual:'monthly', weekly:'weekly', biweekly:'biweekly', monthly:'monthly'};
-        const freqKey = freqMap[invFreq] || 'monthly';
-        const avanzar = (freq, fromDateStr) => {
-          const dt = new Date(fromDateStr+'T00:00:00');
-          if(freq==='weekly') dt.setDate(dt.getDate()+7);
-          else if(freq==='biweekly') dt.setDate(dt.getDate()+14);
-          else dt.setMonth(dt.getMonth()+1);
-          return dt.toISOString().split('T')[0];
-        };
-        // Si la fecha elegida es futura, ESA es el primer cobro (aún no pasó nada).
-        // Si ya pasó o es hoy, ya se registró arriba como transacción inmediata,
-        // así que el próximo cobro es un periodo después de esa fecha.
-        const nextDate = fecha > hoyStr0 ? fecha : avanzar(freqKey, fecha);
-        const recurring = JSON.parse(localStorage.getItem('ft_recurring')||'[]');
-        recurring.push({ id:'rec_'+Date.now(), kind:'inversion', desc:ticker, amount:amount, freq:freqKey, hogar:invIsHogar&&isHogarConnected(), nextDate, active:true, createdBy:user.name||'' });
-        localStorage.setItem('ft_recurring', JSON.stringify(recurring));
-      }catch(e){}
-      showToast(lang==='es'?('🔄 Inversión recurrente activada — se aplicará sola cada '+invFreq):'🔄 Recurring investment enabled — applies automatically each '+invFreq);
-    } else {
-      showToast(lang==='es'?(invModo==='nueva'?'Nueva inversion registrada':'Inversion capturada'):(invModo==='nueva'?'Investment registered':'Investment captured'));
-    }
-  }
-  closeModal();render();
-}
-
-function renderRecurrentes(){
-  var es=lang==='es';
-  var recs=[];
-  try{recs=JSON.parse(localStorage.getItem('ft_recurring')||'[]');}catch(e){}
-  var activos=recs.filter(function(r){return r.kind==='inversion' && r.active;});
-  var el=document.getElementById('recurrentesList');
-  if(!el) return;
-  if(!activos.length){el.style.display='none';return;}
-  el.style.display='';
-  var freqLabel={weekly:es?'Semanal':'Weekly',biweekly:es?'Quincenal':'Bi-weekly',monthly:es?'Mensual':'Monthly'};
-  el.innerHTML='<div style="font-size:13px;font-weight:800;margin-bottom:10px">🔄 '+(es?'Inversiones recurrentes':'Recurring investments')+'</div>'
-    +activos.map(function(r){
-      return '<div id="invRecRow_'+r.id+'" style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--off);gap:8px">'
-        +'<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700">'+(r.desc||r.ticker||'—')+'</div>'
-        +'<div style="font-size:10px;color:var(--text3)">'+(freqLabel[r.freq]||r.freq)+' · $'+Math.abs(r.amount||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+' · '+(es?'próximo ':'next ')+r.nextDate+'</div></div>'
-        +'<div style="display:flex;gap:4px;flex-shrink:0">'
-        +'<button onclick="editInvRecurring(\''+r.id+'\')" style="background:none;border:none;font-size:15px;cursor:pointer;padding:4px">✏️</button>'
-        +'<button onclick="deleteInvRecurring(\''+r.id+'\')" style="background:none;border:none;font-size:15px;cursor:pointer;padding:4px">🗑️</button>'
-        +'</div></div>';
-    }).join('');
-}
-
-function deleteInvRecurring(recId){
-  var es = lang==='es';
-  if(!confirm(es?'¿Eliminar esta inversión recurrente?':'Delete this recurring investment?')) return;
-  var recurring = JSON.parse(localStorage.getItem('ft_recurring')||'[]');
-  var i = recurring.findIndex(function(r){ return String(r.id)===String(recId); });
-  if(i>=0) recurring[i].active = false;
-  localStorage.setItem('ft_recurring', JSON.stringify(recurring));
-  showToast(es?'🗑️ Recurrente eliminado':'🗑️ Recurring investment deleted');
-  renderRecurrentes();
-}
-
-function editInvRecurring(recId){
-  var es = lang==='es';
-  var recurring = JSON.parse(localStorage.getItem('ft_recurring')||'[]');
-  var rec = recurring.find(function(r){ return String(r.id)===String(recId); });
-  if(!rec) return;
-  var row = document.getElementById('invRecRow_'+recId);
-  if(!row) return;
-  row.innerHTML = '<div style="width:100%">'
-    +'<div style="display:flex;gap:6px;margin-bottom:6px">'
-    +'<input type="number" id="invEditMonto_'+recId+'" value="'+rec.amount+'" step="0.01" style="flex:1;padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-family:inherit">'
-    +'<select id="invEditFreq_'+recId+'" style="flex:1;padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-family:inherit">'
-    +'<option value="weekly"'+(rec.freq==='weekly'?' selected':'')+'>'+(es?'Semanal':'Weekly')+'</option>'
-    +'<option value="biweekly"'+(rec.freq==='biweekly'?' selected':'')+'>'+(es?'Quincenal':'Biweekly')+'</option>'
-    +'<option value="monthly"'+(rec.freq==='monthly'?' selected':'')+'>'+(es?'Mensual':'Monthly')+'</option>'
-    +'</select></div>'
-    +'<div style="display:flex;gap:6px">'
-    +'<button onclick="saveInvRecurringEdit(\''+recId+'\')" style="flex:1;background:var(--g-main);color:white;border:none;border-radius:8px;padding:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">'+(es?'Guardar':'Save')+'</button>'
-    +'<button onclick="renderRecurrentes()" style="flex:1;background:var(--off);border:1px solid var(--border);border-radius:8px;padding:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">'+(es?'Cancelar':'Cancel')+'</button>'
-    +'</div></div>';
-}
-
-function saveInvRecurringEdit(recId){
-  var es = lang==='es';
-  var monto = parseFloat(document.getElementById('invEditMonto_'+recId)?.value);
-  var freq = document.getElementById('invEditFreq_'+recId)?.value;
-  if(!monto||monto<=0){ showToast(es?'⚠️ Monto inválido':'⚠️ Invalid amount'); return; }
-  var recurring = JSON.parse(localStorage.getItem('ft_recurring')||'[]');
-  var i = recurring.findIndex(function(r){ return String(r.id)===String(recId); });
-  if(i<0) return;
-  recurring[i].amount = monto;
-  recurring[i].freq = freq;
-  localStorage.setItem('ft_recurring', JSON.stringify(recurring));
-  showToast(es?'✅ Recurrente actualizado':'✅ Recurring investment updated');
-  renderRecurrentes();
-}
-
-function ejecutarRecurrente(rid){
-  var recs=[];
-  try{recs=JSON.parse(localStorage.getItem('ft_inv_recurrentes')||'[]');}catch(e){}
-  var r=recs.find(function(x){return x.id===rid;});
-  if(!r) return;
-  // Registrar como transaccion del mes
-  try{
-    var data=JSON.parse(localStorage.getItem('ft_data')||'{}');
-    data.transactions=data.transactions||[];
-    data.transactions.push({id:'rec_'+Date.now(),type:'inversion',desc:r.ticker,amount:r.amount,date:new Date().toISOString().split('T')[0],cat:'Inversion',note:r.platform||'Recurrente'});
-    localStorage.setItem('ft_data',JSON.stringify(data));
-  }catch(e){}
-  // Actualizar o agregar la posicion en ft_investments
-  var invs=[];
-  try{invs=JSON.parse(localStorage.getItem('ft_investments')||'[]');}catch(e){}
-  var idx=invs.findIndex(function(i){return i.ticker===r.ticker;});
-  if(idx>=0){
-    var oldAmt=parseFloat(invs[idx].amount)||0;
-    invs[idx].amount=oldAmt+r.amount;
-    invs[idx].curPrice=invs[idx].amount;
-    invs[idx].avgPrice=invs[idx].amount;
-  } else {
-    invs.push({id:'rec_'+Date.now(),ticker:r.ticker,type:r.type||'etf',shares:1,avgPrice:r.amount,curPrice:r.amount,amount:r.amount,platform:r.platform||'',addedAt:new Date().toISOString()});
-  }
-  localStorage.setItem('ft_investments',JSON.stringify(invs));
-  showToast((lang==='es'?'Depositado: ':'Deposited: ')+'$'+r.amount);
+/* ── INIT ── */
+document.addEventListener('ft:ready', function () {
+  var t = function () { return FT.lang === 'es' ? 'Inversiones' : 'Investments'; };
+  var sh = FT.shell({ active: '', title: t(), onPlus: openAdd });
   render();
-}
-
-function deleteInv(id){
-  if(!confirm(lang==='es'?'Eliminar esta inversion?':'Delete this investment?')) return;
-  if(invView==='hogar'){saveHogarInv(loadHogarInv().filter(function(i){return i.id!==id;}));}
-  else{saveInvPersonal(loadInv().filter(function(i){return i.id!==id;}));}
-  render();
-}
-
-(function init(){
-  var s=localStorage.getItem('ft_user')||sessionStorage.getItem('ft_user');
-  if(!s){window.location.replace('login.html');return;}
-  try{user=JSON.parse(s);}catch(e){window.location.replace('login.html');return;}
-  
-  {const nameEl=document.getElementById('sbName'), emailEl=document.getElementById('sbEmail'), avEl=document.getElementById('sbAvatar'); if(nameEl) nameEl.textContent=user.name||'—'; if(emailEl) emailEl.textContent=user.email||'—'; if(avEl) avEl.textContent=(user.name||'?').charAt(0).toUpperCase();}lang=localStorage.getItem('ft_lang')||user.lang||'es';
-  if(!sessionStorage.getItem('ft_user')) sessionStorage.setItem('ft_user',s);
-  var tog=document.getElementById('invViewToggle');
-  if(tog && isHogarConnected()) tog.style.display='flex';
-  setLang(lang);
-  render();
-})();
-
-
-
-
-/* ══════════════════════════════════════════
-   SYNC EN SEGUNDO PLANO — mantiene fresco el perfil de tu pareja
-   sin importar en qué pantalla estés. COMBINA con lo que ya había
-   en caché en vez de reemplazar, para que un pull incompleto/viejo
-   de Sheets no borre transacciones que ya tenías vistas.
-══════════════════════════════════════════ */
-(function backgroundSyncPartner(){
-  try {
-    const _bgHogar = JSON.parse(localStorage.getItem('ft_hogar')||'{}');
-    if(!_bgHogar.connected || !_bgHogar.partnerEmail || _bgHogar.manuallyLeft) return;
-    const _bgGasUrl = 'https://script.google.com/macros/s/AKfycbwITyU4qld-IOEVKyLU9XHI46T8g_LjJaNp3nlQgler8-nMeIlztMmG_lZMVMm9cBkP/exec';
-    const _bgKey = 'profile_'+_bgHogar.partnerEmail.replace(/[^a-z0-9]/gi,'_');
-
-    function _bgMergeById(oldArr, newArr){
-      oldArr = oldArr||[]; newArr = newArr||[];
-      const byId = {};
-      oldArr.forEach(x=>{ if(x && x.id!=null) byId[x.id]=x; });
-      newArr.forEach(x=>{ if(x && x.id!=null) byId[x.id]=x; }); // lo nuevo pisa lo viejo si coincide el id
-      return Object.values(byId);
-    }
-
-    fetch(`${_bgGasUrl}?action=getProfile&email=${encodeURIComponent(_bgHogar.partnerEmail)}`)
-      .then(r=>r.json())
-      .then(data=>{
-        if(!data || !data.success) return;
-        let _bgNewData = {transactions:[],emergency:0,subscriptions:[],sharedDebts:[],hogarInv:[]};
-        try{ _bgNewData = JSON.parse(data.dataJson||'{}'); }catch(e){}
-
-        let _bgOld = null;
-        try{ _bgOld = JSON.parse(localStorage.getItem(_bgKey)||'null'); }catch(e){}
-        const _bgOldData = (_bgOld && _bgOld.data) || {};
-
-        const _bgMergedData = {
-          transactions: _bgMergeById(_bgOldData.transactions, _bgNewData.transactions),
-          emergency: (_bgNewData.emergency!=null ? _bgNewData.emergency : _bgOldData.emergency) || 0,
-          subscriptions: _bgMergeById(_bgOldData.subscriptions, _bgNewData.subscriptions),
-          sharedDebts: _bgMergeById(_bgOldData.sharedDebts, _bgNewData.sharedDebts),
-          hogarInv: _bgMergeById(_bgOldData.hogarInv, _bgNewData.hogarInv)
-        };
-
-        const _bgPp = { name:data.name||(_bgOld&&_bgOld.name)||'', email:data.email||_bgHogar.partnerEmail, income:parseFloat(data.income)||0, needs:parseFloat(data.needs)||0, wants:parseFloat(data.wants)||0, savings:parseFloat(data.savings)||0, data:_bgMergedData };
-        localStorage.setItem(_bgKey, JSON.stringify(_bgPp));
-        localStorage.setItem('ft_profile_B', JSON.stringify(_bgPp));
-      }).catch(()=>{});
-  } catch(e){}
-})();
-
+  document.addEventListener('ft:datachanged', render);
+  document.addEventListener('ft:langchange', function () { sh.setTitle(t()); render(); });
+});
 </script>
 </body>
 </html>

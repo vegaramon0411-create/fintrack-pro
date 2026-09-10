@@ -529,10 +529,24 @@ function _applyRecAhorro(rec, hoy) {
 }
 function _applyRecInversion(rec, hoy) {
   try {
-    var invs = FT.investments();
-    if (invs.some(function (i) { return i.recId === rec.id && i.date === hoy; })) return 'already';
-    invs.push({ id: 'tx_' + Date.now(), name: rec.desc, ticker: rec.desc, amount: rec.amount, date: hoy, fecha: hoy, platform: FT.lang === 'es' ? 'Sin asignar' : 'Unassigned', invType: 'varias', recId: rec.id, fromDashboard: true });
-    FT.saveInvestments(invs);
+    var scope = rec.hogar ? 'hogar' : '';
+    var invs = FT.investments(scope);
+    if (invs.some(function (i) { return i.recId === rec.id && i.fecha === hoy; })) return 'already';
+    var id = Date.now();
+    var tk = String(rec.desc || '').toUpperCase();
+    // suma a la posición existente del mismo ticker, o crea una nueva
+    var pos = invs.find(function (i) { return String(i.ticker || '').toUpperCase() === tk; });
+    if (pos) {
+      var oldAmt = parseFloat(pos.amount) || (parseFloat(pos.shares) || 1) * (parseFloat(pos.avgPrice) || 0);
+      pos.amount = oldAmt + rec.amount; pos.avgPrice = pos.amount; pos.curPrice = pos.amount; pos.shares = 1; pos.fecha = hoy; pos.recId = rec.id;
+    } else {
+      invs.push({ id: 'i_' + id, ticker: tk, type: 'other', shares: 1, avgPrice: rec.amount, curPrice: rec.amount, amount: rec.amount, platform: '', modo: 'nueva', fecha: hoy, addedBy: FT.userName(), addedAt: new Date().toISOString(), recId: rec.id, txId: id });
+    }
+    FT.saveInvestments(invs, scope);
+    // cuenta contra el disponible del mes (aporte planeado desde el ingreso)
+    var d = FT.data();
+    d.transactions.push({ id: id, type: 'inversion', desc: tk, amount: rec.amount, date: hoy, cat: '📈 Inversión', hogar: !!rec.hogar, createdBy: FT.userName(), auto: true, recId: rec.id, fromInvPage: true });
+    FT.set(K.data, d);
     return 'applied';
   } catch (e) { return 'broken'; }
 }
