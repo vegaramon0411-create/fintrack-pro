@@ -518,6 +518,145 @@ FT.runAutomations = function () {
 };
 
 /* ─────────────────────────────────────────────────────────────────────────
+   5b · ALTA DE REGISTRO — escritor universal del "＋" (usado por dashboard,
+        y como fallback del "＋" contextual). Maneja todas las escrituras
+        cruzadas (ahorro, emergencia, inversión, suscripción/servicio).
+   ───────────────────────────────────────────────────────────────────────── */
+FT.entryCategoryType = function (cat) {
+  cat = String(cat || '');
+  var NEEDS = ['Supermercado','Renta','Hipoteca','Gasolina','Salud','Teléfono','Internet','Mantenimiento','Deudas','Hogar','Luz','Agua','Gas','Servicio','Servicios'];
+  for (var i = 0; i < NEEDS.length; i++) if (cat.indexOf(NEEDS[i]) > -1) return 'needs';
+  return 'wants';
+};
+
+/**
+ * FT.addEntry(o) — o: { type, desc, amount, date, note, cat, hogar, dest,
+ *   incomeKind, invType, platform, recurrente:{freq}, esServicioHogar }
+ * Devuelve la transacción creada (o null si faltan datos).
+ */
+FT.addEntry = function (o) {
+  o = o || {};
+  var amount = parseFloat(o.amount) || 0;
+  if (!o.desc || !amount || !o.date) return null;
+  var es = FT.lang === 'es';
+  var name = FT.userName();
+  var hogar = FT.hogarConnected() ? !!o.hogar : undefined;
+
+  var cat = o.cat;
+  if (o.type === 'ingreso') cat = '💰 Ingreso';
+  else if (o.type === 'ahorro') cat = o.dest === 'libre' ? '💵 Ahorro' : '🛡️ Emergencia';
+  else if (o.type === 'inversion') cat = '📈 Inversión';
+
+  var id = Date.now();
+  var entry = {
+    id: id, type: o.type, desc: o.desc, amount: amount, date: o.date, note: o.note || '', cat: cat,
+    hogar: hogar, createdBy: name,
+    dest: o.type === 'ahorro' ? (o.dest || 'libre') : undefined,
+    incomeKind: o.type === 'ingreso' ? (o.incomeKind || 'extra') : undefined
+  };
+
+  // Escrituras cruzadas
+  if (o.type === 'ahorro') {
+    if (o.dest === 'libre') FT.addSavings({ id: id, amount: amount, date: o.date, tipo: 'deposito', note: o.desc });
+    else FT.addEmergency({ id: id, amount: amount, date: o.date, tipo: 'deposito', note: o.desc });
+  } else if (o.type === 'inversion') {
+    var scope = (hogar) ? 'hogar' : '';
+    var list = FT.investments(scope);
+    list.push({ id: 'i_' + id, ticker: String(o.desc).toUpperCase(), type: o.invType || 'other', shares: 1, avgPrice: amount, curPrice: amount, amount: amount, platform: o.platform || '', modo: 'nueva', fecha: o.date, addedBy: name, addedAt: new Date().toISOString() });
+    FT.saveInvestments(list, scope);
+    if (o.recurrente && o.recurrente.freq) {
+      var rec = FT.recurring();
+      rec.push({ id: 'rec_' + Date.now(), kind: 'inversion', desc: o.desc, amount: amount, freq: o.recurrente.freq, hogar: !!hogar, nextDate: _advanceRecDate(o.recurrente.freq, o.date), active: true, createdBy: name });
+      FT.set(K.recurring, rec);
+    }
+  } else if (o.type === 'suscripcion') {
+    if (o.esServicioHogar) {
+      var sv = FT.servicios();
+      sv.push({ id: 'sv_' + id, name: o.desc, amount: amount, freq: (o.recurrente && o.recurrente.freq) || 'monthly', date: o.date, cat: cat || '🏠 Servicio', paused: false, hogar: true, createdBy: name });
+      FT.set(K.servicios, sv);
+    } else {
+      var ss = FT.subs();
+      ss.push({ id: 's_' + id, name: o.desc, amount: amount, freq: (o.recurrente && o.recurrente.freq) || 'monthly', date: o.date, cat: cat || '📦 Otro', paused: false, hogar: !!hogar, createdBy: name });
+      FT.set(K.subs, ss);
+    }
+  }
+
+  var d = FT.data();
+  d.transactions.push(entry);
+  FT.saveData(d);
+
+  // Ingreso extra + reparto automático solicitado
+  if (o.type === 'ingreso' && entry.incomeKind === 'extra' && o.autoDist) FT.applyDist(amount, { note: o.desc });
+
+  return entry;
+};
+
+/** Reparto del sobrante segun ft_dist_pcts (ahorro / emergencia / inversion-sugerida). */
+FT.applyDist = function (leftover, opts) {
+  opts = opts || {};
+  var dist = FT.distPcts();
+  var es = FT.lang === 'es';
+  var note = opts.note || (es ? 'Distribución del sobrante' : 'Leftover distribution');
+  var a = Math.round(leftover * (dist.ahorro || 0) / 100);
+  var e = Math.round(leftover * (dist.emergencia || 0) / 100);
+  var inv = Math.round(leftover * (dist.inversion || 0) / 100);
+  if (a > 0) {
+    FT.addSavings({ id: Date.now(), amount: a, date: FT.todayISO(), tipo: 'deposito', note: note });
+    var d0 = FT.data();
+    d0.transactions.push({ id: Date.now() + 1, type: 'ahorro', desc: (es ? 'Ahorro libre — ' : 'Free savings — ') + note, amount: a, date: FT.todayISO(), cat: '💵 Ahorro', dest: 'libre', createdBy: FT.userName() });
+    FT.set(K.data, d0);
+  }
+  if (e > 0) FT.addEmergency({ id: Date.now() + 2, amount: e, date: FT.todayISO(), tipo: 'deposito', note: note });
+  if (inv > 0) FT.setRaw(K.investSuggest, ((parseFloat(FT.getRaw(K.investSuggest, '0')) || 0) + inv).toFixed(2));
+  FT._changed();
+  return { ahorro: a, emergencia: e, inversion: inv };
+};
+
+/* ─────────────────────────────────────────────────────────────────────────
+   5c · NOTIFICACIONES — ampliadas (§2): deuda por vencer, presupuesto
+        excedido, cheque registrado, dinero movido a ahorro/emergencia.
+        Devuelve [{ icon, text, url, tone }]. Cada pantalla puede añadir
+        las suyas via FT.setNotifications(fn) — esta es la base.
+   ───────────────────────────────────────────────────────────────────────── */
+FT.getNotifications = function () {
+  var out = [];
+  var es = FT.lang === 'es';
+  var today = new Date();
+  var mk = today.toISOString().slice(0, 7);
+
+  // 1 · Deudas por vencer (<=5 días, no pagadas este mes, no descartadas)
+  FT.debts().forEach(function (d) {
+    var payDay = d.payDay || 1;
+    var due = new Date(today.getFullYear(), today.getMonth(), payDay);
+    var diff = Math.ceil((due - today) / 86400000);
+    var paid = !!(d.paidMonths && d.paidMonths[mk]);
+    var hidden = FT.getRaw('ft_notif_hidden_' + d.id + '_' + mk) === '1';
+    if (!paid && !hidden && diff <= 5) {
+      out.push({ icon: '💳', tone: 'red', url: 'deudas.html',
+        text: (es ? d.name + ' vence ' + (diff <= 0 ? 'hoy' : 'en ' + diff + ' día' + (diff > 1 ? 's' : '')) : d.name + ' due ' + (diff <= 0 ? 'today' : 'in ' + diff + ' day' + (diff > 1 ? 's' : ''))) + ' · ' + FT.money(d.balance) });
+    }
+  });
+
+  // 2 · Cheque registrado hoy
+  FT.cheques().forEach(function (c) {
+    if (c.fecha === FT.todayISO()) {
+      out.push({ icon: '💵', tone: 'green', url: 'dashboard.html',
+        text: (es ? 'Cheque registrado · ' : 'Paycheck logged · ') + FT.money(c.monto) + ' · ' + FT.money(c.hogarAmt) + (es ? ' hogar / ' : ' household / ') + FT.money(c.personalAmt) + (es ? ' personal' : ' personal') });
+    }
+  });
+
+  // 3 · Dinero movido hoy a ahorro / emergencia (entradas automáticas)
+  var moved = FT.txs().filter(function (t) { return t.date === FT.todayISO() && t.type === 'ahorro' && t.auto; });
+  moved.forEach(function (t) {
+    var toEmerg = t.cat === '🛡️ Emergencia' || t.dest === 'emergencia';
+    out.push({ icon: toEmerg ? '🛡️' : '🏦', tone: 'blue', url: toEmerg ? 'emergencia.html' : 'ahorro.html',
+      text: FT.money(t.amount) + (es ? ' movido a ' : ' moved to ') + (toEmerg ? (es ? 'Emergencia' : 'Emergency') : (es ? 'Ahorro libre' : 'Free savings')) });
+  });
+
+  return out;
+};
+
+/* ─────────────────────────────────────────────────────────────────────────
    6 · PREMIUM
    ───────────────────────────────────────────────────────────────────────── */
 FT.getPremiumInfo = function () { return FT.get(K.premium, null); };
@@ -678,15 +817,15 @@ FT.applyLang = function (root) {
 var DS_CSS = `
 :root{
   --g-dark:#0F5132; --g-main:#1A7A4A; --g-light:#E8F7EF;
-  --ink:#12141C; --text2:#585C6C; --text3:#9A9DAD;
-  --chip:#F2F2F4; --hair:#ECECEF; --sunk:#F7F7F9; --white:#fff;
-  --red:#E5484D; --red-dim:#FDECEC; --amber:#F4A261; --blue:#4A6CF7; --purple:#7B5EA7;
+  --ink:#111318; --text2:#5A5F6E; --text3:#A0A3AF;
+  --chip:#F3F3F5; --hair:#EBECEF; --sunk:#F6F7F8; --white:#fff;
+  --red:#E14B4F; --red-dim:#FCECEC; --amber:#E0952E; --blue:#4361E0; --purple:#7B5EA7;
   --round-font:'Nunito',-apple-system,'SF Pro Rounded',sans-serif;
   --ui-font:'Plus Jakarta Sans',-apple-system,'Segoe UI',sans-serif;
-  --tag-bg:#EFEFF1;
-  --peach-bg:#FBE4CF; --peach-tx:#C77E3E; --pink-bg:#F9CBDD; --pink-tx:#C1487A;
-  --coral-bg:#F9D2C6; --coral-tx:#CE5E43; --sky-bg:#D6E9F7; --sky-tx:#3B7FB2;
-  --mint-bg:#DBF0E4; --mint-tx:#2E8C58;
+  --tag-bg:#F0F0F2;
+  --peach-bg:#FCE6D2; --peach-tx:#C67B3B; --pink-bg:#FACDDF; --pink-tx:#BF4677;
+  --coral-bg:#FAD4C9; --coral-tx:#CC5C41; --sky-bg:#D9EBF8; --sky-tx:#387CB0;
+  --mint-bg:#DDF1E5; --mint-tx:#2C8A56;
   --ft-appw:480px;
 }
 *{box-sizing:border-box;}
@@ -718,7 +857,9 @@ button{font-family:var(--ui-font);}
 .ft-hero .row{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:6px;}
 .ft-sign{width:24px;height:24px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;color:#fff;font-size:15px;font-weight:900;line-height:1;}
 .ft-sign.neg{background:var(--red);}.ft-sign.pos{background:var(--g-main);}
-.ft-hero .amt{font-family:var(--round-font);font-weight:900;font-size:46px;letter-spacing:-2.4px;color:var(--ink);font-variant-numeric:tabular-nums;}
+.ft-hero .amt{font-family:var(--round-font);font-weight:900;font-size:47px;letter-spacing:-1.8px;color:var(--ink);font-variant-numeric:tabular-nums;line-height:1;}
+.ft-info{width:14px;height:14px;border-radius:50%;border:1px solid var(--text3);color:var(--text3);font-size:9px;font-weight:900;display:inline-grid;place-items:center;opacity:.55;vertical-align:middle;}
+.ft-chev{color:var(--text3);font-weight:900;font-size:12px;}
 .ft-hero .amt .cur{font-size:.44em;letter-spacing:0;color:var(--text3);font-weight:800;margin-left:3px;}
 .ft-split{display:flex;justify-content:center;gap:9px;margin-top:14px;flex-wrap:wrap;}
 .ft-split .chip{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:800;padding:7px 13px;border-radius:99px;background:var(--chip);color:var(--ink);font-variant-numeric:tabular-nums;}
@@ -726,7 +867,7 @@ button{font-family:var(--ui-font);}
 .ft-split .chip .mini.neg{background:var(--red);}.ft-split .chip .mini.pos{background:var(--g-main);}
 
 /* CARD (§4.3 → blanco sólido) */
-.ft-card{background:var(--white);border:1px solid var(--hair);border-radius:20px;padding:16px;margin-top:18px;box-shadow:0 2px 10px -4px rgba(20,20,30,.06);}
+.ft-card{background:var(--white);border:1px solid var(--hair);border-radius:18px;padding:15px 16px;margin-top:22px;box-shadow:0 1px 3px rgba(20,20,30,.035);}
 .ft-section{margin-top:24px;}
 .ft-section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
 .ft-section-head h3{font-size:13.5px;font-weight:800;margin:0;}
@@ -1050,7 +1191,7 @@ FT.openMore = function () {
 };
 
 FT.openNotifications = function () {
-  var items = (FT._notifProvider ? FT._notifProvider() : []) || [];
+  var items = (FT._notifProvider ? FT._notifProvider() : FT.getNotifications()) || [];
   var html = items.length
     ? items.map(function (n) {
         return '<button class="ft-row tap" style="width:100%;text-align:left;background:none;border:none;border-bottom:1px solid var(--hair)" data-go="' + (n.url || '') + '">' +
@@ -1134,7 +1275,12 @@ FT.shell = function (opts) {
   });
 
   FT.applyLang(hdr); FT.applyLang(nav);
-  return { header: hdr, nav: nav, setBellDot: function (on) { var d = document.getElementById('ft-bell-dot'); if (d) d.hidden = !on; }, setMonth: function (s) { var m = document.getElementById('ft-month'); if (m) m.textContent = s; } };
+  return {
+    header: hdr, nav: nav,
+    setBellDot: function (on) { var d = document.getElementById('ft-bell-dot'); if (d) d.hidden = !on; },
+    setMonth: function (s) { var m = document.getElementById('ft-month'); if (m) m.textContent = s; },
+    setTitle: function (html) { var b = hdr.querySelector('.ft-title'); if (b) b.innerHTML = html + (opts.onSwitch ? ' <span class="car">⌄</span>' : ''); }
+  };
 };
 
 FT.logout = function () {
