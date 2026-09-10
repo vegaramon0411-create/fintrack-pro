@@ -176,14 +176,62 @@ FT.saveDebts = function (d) { FT.set(K.debts, d); FT._changed(); };
 FT.recurring = function () { return FT.get(K.recurring, []) || []; };
 FT.saveRecurring = function (r) { FT.set(K.recurring, r); FT._changed(); };
 
+/* ── Gestión de recurrentes (hub unificado + pantallas de dominio) ── */
+FT.recurList = function (filterFn) {
+  var l = FT.recurring().filter(function (r) { return r.active !== false; });
+  return filterFn ? l.filter(filterFn) : l;
+};
+FT.recurGet = function (id) { return FT.recurring().find(function (r) { return String(r.id) === String(id); }); };
+FT.recurUpdate = function (id, patch) {
+  var l = FT.recurring();
+  var r = l.find(function (x) { return String(x.id) === String(id); });
+  if (!r) return;
+  if (patch.amount != null) r.amount = parseFloat(patch.amount) || r.amount;
+  if (patch.nextDate) r.nextDate = patch.nextDate;
+  if (patch.freq) r.freq = patch.freq;
+  FT.set(K.recurring, l);
+};
+FT.recurPause = function (id, paused) {
+  var l = FT.recurring();
+  var r = l.find(function (x) { return String(x.id) === String(id); });
+  if (!r) return;
+  r.paused = !!paused;
+  // Al reanudar, si la próxima fecha ya pasó, avánzala hasta la siguiente futura
+  // (no queremos un "catch-up" de todos los periodos pausados).
+  if (!r.paused && r.nextDate) {
+    var today = FT.todayISO(), guard = 0;
+    while (r.nextDate < today && guard < 120) { r.nextDate = _advanceRecDate(r.freq, r.nextDate); guard++; }
+  }
+  FT.set(K.recurring, l);
+};
+FT.recurDelete = function (id) {
+  FT.set(K.recurring, FT.recurring().filter(function (r) { return String(r.id) !== String(id); }));
+};
+/** Nombre legible + subtítulo de un recurrente, según su tipo. */
+FT.recurLabel = function (r) {
+  var es = FT.lang === 'es';
+  var name = r.desc || '';
+  if (!name) {
+    if (r.kind === 'debt') name = es ? 'Abono a deuda' : 'Debt payment';
+    else if (r.kind === 'meta') name = es ? 'Aporte a meta' : 'Goal contribution';
+    else if (r.kind === 'ahorro') name = r.dest === 'emergencia' ? (es ? 'Aporte a Emergencia' : 'To Emergency') : (es ? 'Aporte a Ahorro libre' : 'To Free savings');
+    else if (r.kind === 'inversion') name = es ? 'Inversión recurrente' : 'Recurring investment';
+  }
+  var freq = { weekly: es ? 'cada semana' : 'weekly', biweekly: es ? 'cada quincena' : 'biweekly', monthly: es ? 'cada mes' : 'monthly' }[r.freq] || r.freq;
+  var sub = freq + ' · ' + (es ? 'próximo ' : 'next ') + FT.date(r.nextDate) + (r.paused ? (es ? ' · pausado' : ' · paused') : '');
+  return { name: name, sub: sub };
+};
+
 /* ── Ahorro libre ── */
 FT.savingsBalance = function () { return parseFloat(FT.getRaw(K.savings, '0')) || 0; };
 FT.savingsHist = function () { return FT.get(K.savingsHist, []) || []; };
 FT.addSavings = function (entry) {
   var cur = FT.savingsBalance();
-  FT.setRaw(K.savings, (cur + (parseFloat(entry.amount) || 0)).toFixed(2));
+  var amt = parseFloat(entry.amount) || 0;
+  var tipo = entry.tipo || 'deposito';
+  FT.setRaw(K.savings, Math.max(0, cur + (tipo === 'retiro' ? -amt : amt)).toFixed(2));
   var hist = FT.savingsHist();
-  hist.push({ id: 'tx_' + entry.id, tipo: entry.tipo || 'deposito', monto: parseFloat(entry.amount) || 0, fecha: entry.date, nota: entry.note || '', cat: entry.cat || '', recId: entry.recId || null });
+  hist.push({ id: 'tx_' + entry.id, tipo: tipo, monto: amt, fecha: entry.date, nota: entry.note || '', cat: entry.cat || '', recId: entry.recId || null, cobId: entry.cobId || null, cobFor: entry.cobFor || null });
   FT.set(K.savingsHist, hist);
   FT._changed();
 };
@@ -217,7 +265,7 @@ FT.addEmergency = function (entry) {
   var tipo = entry.tipo || 'deposito';
   d.emergency = Math.max(0, (d.emergency || 0) + (tipo === 'retiro' ? -amt : amt));
   FT.set(K.data, d);
-  var row = { id: entry.id != null ? String(entry.id) : ('e_' + Date.now()), amount: amt, note: entry.note || '', date: entry.date || FT.todayISO(), tipo: tipo };
+  var row = { id: entry.id != null ? String(entry.id) : ('e_' + Date.now()), amount: amt, note: entry.note || '', date: entry.date || FT.todayISO(), tipo: tipo, recId: entry.recId || null, cobId: entry.cobId || null, cobFor: entry.cobFor || null };
   var h1 = FT.get(K.emergHist, []) || []; h1.push(row); FT.set(K.emergHist, h1);
   var h2 = FT.get(K.emergHistLegacy, []) || []; h2.push({ id: 'tx_' + row.id, amount: amt, date: row.date, type: tipo, note: row.note }); FT.set(K.emergHistLegacy, h2);
   FT._changed();
@@ -284,6 +332,10 @@ FT.deleteTx = function (id) {
   var t = d.transactions.find(function (x) { return String(x.id) === String(id); });
   if (!t) return false;
 
+  // Cobertura de gasto: al borrar el gasto, deshacer también el ingreso de
+  // cobertura y devolver el dinero al pozo (ahorro / emergencia).
+  if (t.cobId) FT._unwindCobertura(t.cobId);
+
   // Fuente vinculada
   if (t.type === 'ahorro' && (t.dest === 'libre' || t.cat === '💰 Ahorro')) {
     FT.reverseSavings(t.id);
@@ -312,6 +364,46 @@ FT.deleteTx = function (id) {
   d.transactions = d.transactions.filter(function (x) { return String(x.id) !== String(id); });
   FT.saveData(d);
   return true;
+};
+
+/* ── Cobertura de gasto (opción C) ──────────────────────────────────────────
+   Cuando un gasto personal excede el disponible del mes, el faltante se cubre
+   de Ahorro libre o Emergencia. Se crean 3 registros ligados por `cobId`:
+     · el gasto            (ft_data, con cobId)
+     · un ingreso          (ft_data, incomeKind:'cobertura', con cobId) — equilibra el mes
+     · un movimiento       (ft_savings_hist | ft_emerg_hist, tipo:'retiro', con cobId)
+─────────────────────────────────────────────────────────────────────────── */
+/** Quita el ingreso de cobertura y devuelve el dinero al pozo. NO toca el gasto. */
+FT._unwindCobertura = function (cobId) {
+  var d = FT.data();
+  d.transactions = d.transactions.filter(function (x) { return !(x.cobId === cobId && x.incomeKind === 'cobertura'); });
+  FT.set(K.data, d);
+  var sh = FT.savingsHist();
+  var srow = sh.find(function (r) { return r.cobId === cobId; });
+  if (srow) FT.reverseSavings(String(srow.id).replace(/^tx_/, ''));
+  var eh = FT.get(K.emergHist, []) || [];
+  var erow = eh.find(function (r) { return r.cobId === cobId; });
+  if (erow) FT.reverseEmergency(erow.id);
+};
+/** "Deshacer cobertura" desde la pantalla del pozo: revierte el movimiento y el
+    ingreso, pero deja el gasto (que vuelve a contar contra tu disponible). */
+FT.undoCobertura = function (cobId) {
+  FT._unwindCobertura(cobId);
+  var d = FT.data();
+  d.transactions.forEach(function (x) { if (x.cobId === cobId) { delete x.cobId; } });
+  FT.saveData(d);
+};
+
+/** Disponible personal del mes en curso (solo cheques ya recibidos × % personal). */
+FT.personalAvailable = function () {
+  var mk = new Date().toISOString().slice(0, 7);
+  var txs = FT.txs();
+  var inc = txs.filter(function (t) { return t.type === 'ingreso' && String(t.date || '').slice(0, 7) === mk; });
+  var cheque = inc.filter(function (t) { return t.incomeKind !== 'extra' && t.incomeKind !== 'cobertura'; }).reduce(function (s, t) { return s + (parseFloat(t.amount) || 0); }, 0);
+  var extra = inc.filter(function (t) { return t.incomeKind === 'extra' || t.incomeKind === 'cobertura'; }).reduce(function (s, t) { return s + (parseFloat(t.amount) || 0); }, 0);
+  var mtx = txs.filter(function (t) { return String(t.date || '').slice(0, 7) === mk && t.hogar !== true; });
+  var sum = function (types) { return mtx.filter(function (t) { return types.indexOf(t.type) > -1; }).reduce(function (s, t) { return s + (parseFloat(t.amount) || 0); }, 0); };
+  return cheque * FT.personalPct() / 100 + extra - sum(['gasto', 'suscripcion', 'hipoteca']) - sum(['ahorro']) - sum(['inversion']);
 };
 
 /* ─────────────────────────────────────────────────────────────────────────
@@ -417,6 +509,12 @@ function _applyRecMeta(rec, hoy) {
 }
 function _applyRecAhorro(rec, hoy) {
   try {
+    if (rec.dest === 'emergencia') {
+      var eh = FT.get(K.emergHist, []) || [];
+      if (eh.some(function (h) { return h.date === hoy && h.recId === rec.id; })) return 'already';
+      FT.addEmergency({ id: 'r_' + Date.now(), amount: rec.amount, date: hoy, tipo: 'deposito', note: rec.desc, recId: rec.id });
+      return 'applied';
+    }
     var hist = FT.savingsHist();
     if (hist.some(function (h) { return h.fecha === hoy && (h.recId === rec.id || !h.recId); })) return 'already';
     FT.addSavings({ id: Date.now(), amount: rec.amount, date: hoy, note: rec.desc, recId: rec.id });
@@ -460,7 +558,7 @@ FT.applyDueRecurring = function () {
   if (!rec.length) return 0;
   var hoy = FT.todayISO(), applied = 0;
   rec.forEach(function (r) {
-    if (!r.active || !r.nextDate) return;
+    if (!r.active || r.paused || !r.nextDate) return;
     var guard = 0;
     while (r.nextDate && r.nextDate <= hoy && guard < 60) {
       var st = 'broken';
@@ -557,8 +655,13 @@ FT.addEntry = function (o) {
 
   // Escrituras cruzadas
   if (o.type === 'ahorro') {
-    if (o.dest === 'libre') FT.addSavings({ id: id, amount: amount, date: o.date, tipo: 'deposito', note: o.desc });
-    else FT.addEmergency({ id: id, amount: amount, date: o.date, tipo: 'deposito', note: o.desc });
+    if (o.dest === 'emergencia') FT.addEmergency({ id: id, amount: amount, date: o.date, tipo: 'deposito', note: o.desc });
+    else FT.addSavings({ id: id, amount: amount, date: o.date, tipo: 'deposito', note: o.desc });
+    if (o.recurrente && o.recurrente.freq) {
+      var recA = FT.recurring();
+      recA.push({ id: 'rec_' + Date.now(), kind: 'ahorro', dest: o.dest === 'emergencia' ? 'emergencia' : 'libre', desc: o.desc, amount: amount, freq: o.recurrente.freq, hogar: false, nextDate: _advanceRecDate(o.recurrente.freq, o.date), active: true, createdBy: name });
+      FT.set(K.recurring, recA);
+    }
   } else if (o.type === 'inversion') {
     var scope = (hogar) ? 'hogar' : '';
     var list = FT.investments(scope);
@@ -578,6 +681,23 @@ FT.addEntry = function (o) {
       var ss = FT.subs();
       ss.push({ id: 's_' + id, name: o.desc, amount: amount, freq: (o.recurrente && o.recurrente.freq) || 'monthly', date: o.date, cat: cat || '📦 Otro', paused: false, hogar: !!hogar, createdBy: name });
       FT.set(K.subs, ss);
+    }
+  }
+
+  // Cobertura de gasto (opción C): o.cobertura = { source:'libre'|'emergencia', monto:<faltante> }
+  var cobId = null;
+  if (o.type === 'gasto' && o.cobertura && parseFloat(o.cobertura.monto) > 0) {
+    var src = o.cobertura.source;
+    var poolBal = src === 'emergencia' ? FT.emergencyBalance() : FT.savingsBalance();
+    var take = Math.min(parseFloat(o.cobertura.monto), poolBal);   // no cubrir más de lo que hay en el pozo
+    if (take > 0) {
+      cobId = 'cob_' + id;
+      entry.cobId = cobId;
+      var d0 = FT.data();
+      d0.transactions.push({ id: id + 1, type: 'ingreso', incomeKind: 'cobertura', desc: (es ? 'Cobertura: ' : 'Coverage: ') + o.desc, amount: take, date: o.date, cat: '💰 Ingreso', cobId: cobId, cobFor: o.desc, createdBy: name });
+      FT.set(K.data, d0);
+      var cobEntry = { id: 'cobm_' + id, amount: take, date: o.date, tipo: 'retiro', note: (es ? 'Cobertura: ' : 'Coverage: ') + o.desc, cobId: cobId, cobFor: o.desc };
+      if (src === 'emergencia') FT.addEmergency(cobEntry); else FT.addSavings(cobEntry);
     }
   }
 
@@ -966,6 +1086,33 @@ button{font-family:var(--ui-font);}
 .ft-help-item summary::-webkit-details-marker{display:none;}
 .ft-help-item .a{font-size:12.5px;color:var(--text2);margin-top:8px;line-height:1.55;}
 
+/* Pantalla de saldo de dominio (ahorro / emergencia) */
+.ft-bs-hero{text-align:center;margin-bottom:6px;}
+.ft-bs-hero .cap{font-size:11.5px;font-weight:700;color:var(--text3);display:inline-flex;align-items:center;gap:5px;cursor:pointer;background:none;border:none;font-family:var(--ui-font);}
+.ft-bs-hero .amt{font-family:var(--round-font);font-weight:900;font-size:44px;letter-spacing:-1.6px;line-height:1;margin-top:7px;font-variant-numeric:tabular-nums;color:var(--g-main);}
+.ft-bs-hero.emerg .amt{color:var(--amber);}
+.ft-bs-hero .sub{font-size:11.5px;color:var(--text3);margin-top:6px;}
+.ft-bs-gtrack{height:9px;border-radius:99px;background:var(--sunk);overflow:hidden;margin:12px 0 6px;}
+.ft-bs-gfill{height:100%;border-radius:99px;background:var(--amber);transition:width .8s cubic-bezier(.22,1,.36,1);}
+.ft-bs-grow{display:flex;justify-content:space-between;font-size:10.5px;color:var(--text3);font-weight:700;}
+.ft-bs-acts{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:18px 0 6px;}
+.ft-bs-acts button{padding:11px 6px;border-radius:13px;border:1px solid var(--hair);background:var(--sunk);font-family:var(--ui-font);font-size:12px;font-weight:800;color:var(--ink);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;}
+.ft-bs-acts button .e{font-size:17px;}
+.ft-bs-acts button.prim{background:linear-gradient(135deg,var(--g-dark),var(--g-main));color:#fff;border:none;}
+.ft-bs-info{background:#FBF0DD;border-radius:14px;padding:13px 15px;margin:16px 0;}
+.ft-bs-info b{font-size:12px;color:#8A5A12;display:block;margin-bottom:5px;}
+.ft-bs-info p{font-size:11.5px;color:var(--text2);line-height:1.55;}
+.ft-mv{display:flex;align-items:center;gap:11px;padding:12px 0;border-bottom:1px solid var(--hair);cursor:pointer;}
+.ft-mv:last-child{border-bottom:none;}
+.ft-mv .ic{width:38px;height:38px;border-radius:11px;flex-shrink:0;display:grid;place-items:center;font-size:15px;}
+.ft-mv .ic.up{background:var(--mint-bg);}.ft-mv .ic.dn{background:var(--red-dim);}.ft-mv .ic.rec{background:var(--sky-bg);}
+.ft-mv .m{flex:1;min-width:0;}
+.ft-mv .m .n{font-family:var(--round-font);font-weight:900;font-size:14px;letter-spacing:-.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ft-mv .m .d{font-size:10.5px;color:var(--text3);font-weight:700;margin-top:1px;}
+.ft-mv .amt{font-family:var(--round-font);font-weight:900;font-size:14px;font-variant-numeric:tabular-nums;flex-shrink:0;}
+.ft-mv .amt.in{color:var(--g-main);}.ft-mv .amt.out{color:var(--ink);}
+.ft-empty{text-align:center;color:var(--text3);font-size:12.5px;padding:22px 10px;}
+
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important;}}
 @media (min-width:520px){body{padding:0;}}
 `;
@@ -1176,9 +1323,12 @@ var MORE_GROUPS = [
 ];
 
 FT.openMore = function () {
+  var here = (location.pathname.split('/').pop() || 'dashboard.html').toLowerCase();
   var html = MORE_GROUPS.map(function (g) {
+    var items = g.items.filter(function (it) { return it[1].toLowerCase() !== here; });
+    if (!items.length) return '';
     return '<div class="ft-more-group"><h5>' + FT.t(g.key) + '</h5><div class="ft-more-grid">' +
-      g.items.map(function (it) {
+      items.map(function (it) {
         return '<a class="ft-more-item tap" href="' + it[1] + '"><span class="ic">' + it[2] + '</span><span>' + FT.t(it[0]) + '</span></a>';
       }).join('') + '</div></div>';
   }).join('') +
@@ -1355,6 +1505,207 @@ FT.showUpgradeModal = function () {
 };
 FT.premiumBadge = function () {
   return '<span style="display:inline-flex;align-items:center;gap:3px;background:linear-gradient(135deg,var(--g-dark),var(--g-main));color:#fff;font-size:9px;font-weight:800;padding:2px 8px;border-radius:20px;margin-left:6px;vertical-align:middle">💎 Premium</span>';
+};
+
+/* ─────────────────────────────────────────────────────────────────────────
+   16b · PANTALLA DE SALDO DE DOMINIO — compartida por ahorro.html y
+         emergencia.html (mismo arquetipo, cambia el flag `emerg`).
+   Uso:  FT.balanceScreen({ emerg:false, mount:'#root' })
+   ───────────────────────────────────────────────────────────────────────── */
+FT.balanceScreen = function (opts) {
+  opts = opts || {};
+  var E = !!opts.emerg;
+  var mount = document.querySelector(opts.mount || '#root');
+  if (!mount) return;
+
+  function bal() { return E ? FT.emergencyBalance() : FT.savingsBalance(); }
+  function hist() { return E ? FT.emergencyHist() : FT.savingsHist(); }
+  function hAmt(h) { return E ? (parseFloat(h.amount) || 0) : (parseFloat(h.monto) || 0); }
+  function hTipo(h) { return h.tipo || (hAmt(h) < 0 ? 'retiro' : 'deposito'); }
+  function hNota(h) { return h.nota || h.note || ''; }
+  function hFecha(h) { return h.fecha || h.date || ''; }
+  function hId(h) { return String(h.id != null ? h.id : ''); }
+  function goal() { return (FT.user().income || 0) * 3; }
+  function es() { return FT.lang === 'es'; }
+
+  function render() {
+    var L = es(), b = bal();
+    var rows = hist().slice().sort(function (a, c) { return String(hFecha(c)).localeCompare(String(hFecha(a))); });
+
+    var hero = '<div class="ft-bs-hero' + (E ? ' emerg' : '') + '">' +
+      '<button class="cap" data-x="bal">' + (L ? 'Saldo' : 'Balance') + ' <span class="ft-info">i</span></button>' +
+      '<div class="amt">' + FT.money(b) + '</div>';
+    if (E) {
+      var g = goal(), pct = g > 0 ? Math.min(100, Math.round(b / g * 100)) : 0;
+      hero += '<button class="cap" data-x="goal" style="margin-top:4px">' + (L ? 'Meta: ' : 'Goal: ') + FT.money(g) + ' (' + (L ? '3 meses de ingreso' : '3 months income') + ') <span class="ft-info">i</span></button>' +
+        '<div class="ft-bs-gtrack"><div class="ft-bs-gfill" id="ftbsGf" style="width:0"></div></div>' +
+        '<div class="ft-bs-grow"><span>' + pct + '% ' + (L ? 'completado' : 'complete') + '</span><span>' + (L ? 'Faltan ' : 'Missing ') + FT.money(Math.max(0, g - b)) + '</span></div>';
+    } else {
+      hero += '<div class="sub">' + (L ? 'Sin restricciones — úsalo para lo que quieras' : 'No restrictions — use it for anything') + '</div>';
+    }
+    hero += '</div>';
+
+    var acts = '<div class="ft-bs-acts">' +
+      '<button class="prim tap" data-a="deposito"><span class="e">＋</span>' + (L ? 'Depositar' : 'Deposit') + '</button>' +
+      '<button class="tap" data-a="retiro"><span class="e">↩</span>' + (L ? 'Retirar' : 'Withdraw') + '</button>' +
+      '<button class="tap" data-a="rec"><span class="e">🔄</span>' + (L ? 'Recurrente' : 'Recurring') + '</button></div>';
+
+    var info = E ? '<div class="ft-bs-info"><b>⚠️ ' + (L ? '¿Cuándo puedo retirar de aquí?' : 'When can I withdraw?') + '</b><p>' +
+      (L ? 'Solo para emergencias reales (perder el trabajo, un gasto médico grande). Para gastos normales del mes usa el Ahorro libre.' : 'Only for real emergencies (job loss, a big medical bill). For regular monthly spending use Free savings.') + '</p></div>' : '';
+
+    var recs = FT.recurList(function (r) { return r.kind === 'ahorro' && (E ? r.dest === 'emergencia' : r.dest !== 'emergencia'); });
+    var recSec = recs.length ? '<div class="ft-section-head" style="margin-top:22px"><h3>🔄 ' + (L ? 'Recurrentes' : 'Recurring') + '</h3><button class="link" data-go="recurrentes.html">' + (L ? 'Ver todos' : 'See all') + '</button></div>' +
+      recs.map(function (r) { var RL = FT.recurLabel(r); return '<div class="ft-mv tap" data-rec="' + r.id + '"><div class="ic rec">🔄</div><div class="m"><div class="n">' + RL.name + '</div><div class="d">' + RL.sub + '</div></div><div class="amt in">' + FT.money(r.amount) + '</div></div>'; }).join('') : '';
+
+    var histSec = '<div class="ft-section-head" style="margin-top:22px"><h3>' + (L ? 'Historial' : 'History') + '</h3></div>' +
+      (rows.length ? rows.map(function (h) {
+        var t = hTipo(h), out = t === 'retiro', cob = !!h.cobId;
+        return '<div class="ft-mv tap" data-mv="' + hId(h) + '"><div class="ic ' + (cob || out ? 'dn' : 'up') + '">' + (cob ? '🔗' : out ? '↩' : '＋') + '</div>' +
+          '<div class="m"><div class="n">' + (hNota(h) || (out ? (L ? 'Retiro' : 'Withdrawal') : (L ? 'Depósito' : 'Deposit'))) + '</div>' +
+          '<div class="d">' + FT.date(hFecha(h)) + (h.auto ? (L ? ' · automático' : ' · automatic') : h.recId ? (L ? ' · recurrente' : ' · recurring') : cob ? (L ? ' · cubrió un gasto' : ' · covered an expense') : '') + '</div></div>' +
+          '<div class="amt ' + (out ? 'out' : 'in') + '">' + (out ? '−' : '+') + FT.money(Math.abs(hAmt(h)), { cents: true }) + '</div></div>';
+      }).join('') : '<div class="ft-empty">' + (L ? 'Sin movimientos aún' : 'No movements yet') + '</div>');
+
+    mount.innerHTML = hero + acts + info + recSec + histSec;
+
+    if (E) requestAnimationFrame(function () { var gf = document.getElementById('ftbsGf'); if (gf) { var g = goal(); gf.style.width = (g > 0 ? Math.min(100, b / g * 100) : 0) + '%'; } });
+
+    mount.querySelectorAll('[data-x]').forEach(function (el) { el.onclick = function () { el.getAttribute('data-x') === 'goal' ? explainGoal() : explainBal(); }; });
+    mount.querySelectorAll('[data-a]').forEach(function (el) { el.onclick = function () { var a = el.getAttribute('data-a'); a === 'rec' ? openRec() : openMove(a); }; });
+    mount.querySelectorAll('[data-mv]').forEach(function (el) { el.onclick = function () { openDetail(el.getAttribute('data-mv')); }; });
+    mount.querySelectorAll('[data-rec]').forEach(function (el) { el.onclick = function () { openRecDetail(el.getAttribute('data-rec')); }; });
+    mount.querySelectorAll('[data-go]').forEach(function (el) { el.onclick = function () { FT.go(el.getAttribute('data-go')); }; });
+  }
+
+  function explainBal() {
+    var L = es();
+    var rows = hist().slice().sort(function (a, c) { return String(hFecha(c)).localeCompare(String(hFecha(a))); }).slice(0, 6)
+      .map(function (h) { return [(hNota(h) || (L ? 'Movimiento' : 'Movement')) + ' · ' + FT.date(hFecha(h)), (hTipo(h) === 'retiro' ? '−' : '+') + FT.money(Math.abs(hAmt(h)))]; });
+    rows.push([L ? '= Saldo actual' : '= Current balance', FT.money(bal())]);
+    FT.sheet({ title: (L ? '¿Cómo se calcula?' : 'How is it calculated?') + ' · ' + (E ? (L ? 'Fondo de emergencia' : 'Emergency fund') : (L ? 'Ahorro libre' : 'Free savings')),
+      html: rows.map(function (r) { return '<div class="ft-row"><span class="k">' + r[0] + '</span><span class="v">' + r[1] + '</span></div>'; }).join('') });
+  }
+  function explainGoal() {
+    var L = es(), g = goal(), b = bal();
+    FT.sheet({ title: L ? 'Meta del fondo' : 'Fund goal', html: [
+      [L ? 'Tu ingreso mensual' : 'Your monthly income', FT.money(FT.user().income || 0)],
+      ['× 3 ' + (L ? 'meses (colchón estándar)' : 'months (standard cushion)'), FT.money(g)],
+      [L ? 'Tienes hoy' : 'You have today', FT.money(b)],
+      [L ? 'Falta' : 'Missing', FT.money(Math.max(0, g - b))]
+    ].map(function (r) { return '<div class="ft-row"><span class="k">' + r[0] + '</span><span class="v">' + r[1] + '</span></div>'; }).join('') });
+  }
+
+  function openMove(mode) {
+    var L = es(), isW = mode === 'retiro';
+    FT.modal({
+      title: isW ? (E ? (L ? 'Retirar del fondo' : 'Withdraw from fund') : (L ? 'Retirar del ahorro' : 'Withdraw from savings')) : (L ? 'Depositar' : 'Deposit'),
+      html: (isW && E ? '<div class="ft-bs-info" style="margin:0 0 12px"><p>⚠️ ' + (L ? 'Este fondo es solo para emergencias reales. ¿Esto es una emergencia, o debería salir de tu Ahorro libre?' : 'This fund is only for real emergencies. Is this an emergency, or should it come from Free savings?') + '</p></div>' : '') +
+        '<div class="ft-field"><label>' + (L ? 'Monto' : 'Amount') + '</label><input id="mAmt" inputmode="decimal" placeholder="$0"></div>' +
+        '<div class="ft-field"><label>' + (L ? 'Nota (opcional)' : 'Note (optional)') + '</label><input id="mNote"></div>' +
+        '<div class="ft-field"><label>' + (L ? 'Fecha' : 'Date') + '</label><input id="mDate" type="date" value="' + FT.todayISO() + '"></div>',
+      saveLabel: isW ? (L ? 'Confirmar retiro' : 'Confirm withdrawal') : (L ? 'Guardar depósito' : 'Save deposit'),
+      onSave: function (body) {
+        var amt = parseFloat(body.querySelector('#mAmt').value) || 0;
+        if (!amt || amt <= 0) { FT.toast(L ? 'Ingresa un monto' : 'Enter an amount'); return true; }
+        if (isW && amt > bal()) { FT.toast(L ? 'No tienes suficiente' : 'Not enough'); return true; }
+        var payload = { id: Date.now(), amount: amt, date: body.querySelector('#mDate').value || FT.todayISO(), tipo: mode, note: body.querySelector('#mNote').value.trim() || (isW ? (L ? 'Retiro' : 'Withdrawal') : '') };
+        if (E) FT.addEmergency(payload); else FT.addSavings(payload);
+        FT.toast(isW ? (L ? '✅ Retiro registrado' : '✅ Withdrawal recorded') : (L ? '✅ Depósito guardado' : '✅ Deposit saved'));
+        render();
+      }
+    });
+  }
+
+  function openRec() {
+    var L = es(), st = { freq: 'monthly' };
+    var seg = ['weekly:' + (L ? 'Semanal' : 'Weekly'), 'biweekly:' + (L ? 'Quincenal' : 'Biweekly'), 'monthly:' + (L ? 'Mensual' : 'Monthly')];
+    FT.modal({
+      title: L ? 'Depósito recurrente' : 'Recurring deposit',
+      html: '<div class="ft-field"><label>' + (L ? 'Monto' : 'Amount') + '</label><input id="rAmt" inputmode="decimal" placeholder="$0"></div>' +
+        '<div class="ft-field"><label>' + (L ? 'Frecuencia' : 'Frequency') + '</label><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px" id="rFreq">' +
+        seg.map(function (o) { var v = o.split(':')[0], on = v === 'monthly'; return '<button type="button" data-f="' + v + '" style="padding:8px;border-radius:9px;border:1.5px solid ' + (on ? 'var(--g-main)' : 'var(--hair)') + ';background:' + (on ? 'var(--g-light)' : 'var(--sunk)') + ';font-family:var(--ui-font);font-size:11.5px;font-weight:800;color:' + (on ? 'var(--g-dark)' : 'var(--text2)') + ';cursor:pointer">' + o.split(':')[1] + '</button>'; }).join('') + '</div></div>' +
+        '<div class="ft-field"><label>' + (L ? 'Primera fecha' : 'First date') + '</label><input id="rDate" type="date" value="' + FT.todayISO() + '"></div>' +
+        '<div style="background:var(--sky-bg);color:#2A4CC0;border-radius:10px;padding:9px 11px;font-size:11px;font-weight:600">' + (L ? 'Aparecerá en Recurrentes, donde podrás editar la fecha, pausarlo o eliminarlo.' : 'It will appear in Recurring for editing, pausing or deleting.') + '</div>',
+      saveLabel: L ? 'Activar recurrente' : 'Activate',
+      onOpen: function (body) {
+        body.querySelectorAll('#rFreq button').forEach(function (b) {
+          b.onclick = function () {
+            st.freq = b.getAttribute('data-f');
+            body.querySelectorAll('#rFreq button').forEach(function (x) { var on = x === b; x.style.borderColor = on ? 'var(--g-main)' : 'var(--hair)'; x.style.background = on ? 'var(--g-light)' : 'var(--sunk)'; x.style.color = on ? 'var(--g-dark)' : 'var(--text2)'; });
+          };
+        });
+      },
+      onSave: function (body) {
+        var amt = parseFloat(body.querySelector('#rAmt').value) || 0;
+        if (!amt || amt <= 0) { FT.toast(es() ? 'Ingresa un monto' : 'Enter an amount'); return true; }
+        var rec = FT.recurring();
+        rec.push({ id: 'rec_' + Date.now(), kind: 'ahorro', dest: E ? 'emergencia' : 'libre',
+          desc: E ? (es() ? 'Aporte a Emergencia' : 'To Emergency') : (es() ? 'Aporte a Ahorro libre' : 'To Free savings'),
+          amount: amt, freq: st.freq, hogar: false, nextDate: body.querySelector('#rDate').value || FT.todayISO(), active: true, createdBy: FT.userName() });
+        FT.set(K.recurring, rec);
+        FT.toast(es() ? '🔄 Recurrente activado' : '🔄 Recurring activated');
+        render();
+      }
+    });
+  }
+  function openRecDetail(id) {
+    var L = es(), r = FT.recurGet(id); if (!r) return;
+    var RL = FT.recurLabel(r);
+    FT.sheet({
+      title: RL.name,
+      html: '<div class="ft-row"><span class="k">' + (L ? 'Monto' : 'Amount') + '</span><span class="v">' + FT.money(r.amount) + '</span></div><div class="ft-row"><span class="k">' + (L ? 'Frecuencia' : 'Frequency') + '</span><span class="v">' + RL.sub + '</span></div>',
+      actions: [
+        { label: '✏️ ' + (L ? 'Editar' : 'Edit'), onClick: function () { editRec(id); } },
+        { label: r.paused ? '▶️ ' + (L ? 'Reanudar' : 'Resume') : '⏸ ' + (L ? 'Pausar' : 'Pause'), onClick: function () { FT.recurPause(id, !r.paused); FT.toast(r.paused ? (L ? 'Reanudado' : 'Resumed') : (L ? 'Pausado' : 'Paused')); render(); } },
+        { label: '🗑️ ' + (L ? 'Eliminar' : 'Delete'), onClick: function () { FT.confirm(L ? '¿Eliminar este recurrente?' : 'Delete this recurring item?').then(function (ok) { if (ok) { FT.recurDelete(id); FT.toast(L ? 'Eliminado' : 'Deleted'); render(); } }); } },
+        { label: L ? 'Ver en Recurrentes →' : 'Open in Recurring →', onClick: function () { FT.go('recurrentes.html'); } }
+      ]
+    });
+  }
+  function editRec(id) {
+    var L = es(), r = FT.recurGet(id); if (!r) return;
+    FT.modal({
+      title: L ? 'Editar recurrente' : 'Edit recurring',
+      html: '<div class="ft-field"><label>' + (L ? 'Monto' : 'Amount') + '</label><input id="eAmt" inputmode="decimal" value="' + r.amount + '"></div><div class="ft-field"><label>' + (L ? 'Próxima fecha' : 'Next date') + '</label><input id="eNext" type="date" value="' + (r.nextDate || FT.todayISO()) + '"></div>',
+      onSave: function (body) { FT.recurUpdate(id, { amount: body.querySelector('#eAmt').value, nextDate: body.querySelector('#eNext').value }); FT.toast(L ? 'Actualizado' : 'Updated'); render(); }
+    });
+  }
+
+  function openDetail(id) {
+    var L = es();
+    var h = hist().find(function (x) { return hId(x) === String(id); });
+    if (!h) return;
+    var t = hTipo(h), cob = !!h.cobId;
+    var rows = [
+      [L ? 'Tipo' : 'Type', cob ? (L ? 'Cobertura de gasto' : 'Expense coverage') : t === 'retiro' ? (L ? 'Retiro' : 'Withdrawal') : (L ? 'Depósito' : 'Deposit')],
+      [L ? 'Fecha' : 'Date', FT.date(hFecha(h))],
+      [L ? 'Monto' : 'Amount', FT.money(Math.abs(hAmt(h)), { cents: true })]
+    ];
+    if (h.auto) rows.push([L ? 'Origen' : 'Source', L ? 'Automático (cheque)' : 'Automatic (paycheck)']);
+    if (cob) rows.push(['🔗 ' + (L ? 'Gasto vinculado' : 'Linked expense'), h.cobFor || '—']);
+    FT.sheet({
+      title: hNota(h) || (L ? 'Movimiento' : 'Movement'),
+      html: rows.map(function (r) { return '<div class="ft-row"><span class="k">' + r[0] + '</span><span class="v">' + r[1] + '</span></div>'; }).join('') +
+        (cob ? '<p style="font-size:11px;color:var(--text3);margin-top:8px">' + (L ? 'Cubrió la parte de «' + (h.cobFor || '') + '» que excedía tu disponible del mes.' : 'Covered the part of "' + (h.cobFor || '') + '" over your monthly available.') + '</p>' : ''),
+      actions: [
+        { label: cob ? '↩ ' + (L ? 'Deshacer cobertura' : 'Undo coverage') : '🗑️ ' + (L ? 'Eliminar' : 'Delete'),
+          onClick: function () {
+            FT.confirm(cob ? (L ? '¿Deshacer la cobertura? El dinero vuelve al pozo y el gasto vuelve a contar contra tu disponible.' : 'Undo coverage? Money returns to the fund and the expense counts again.') : (L ? '¿Eliminar este movimiento? Se revierte el saldo.' : 'Delete this movement? The balance is reverted.')).then(function (ok) {
+              if (!ok) return;
+              if (cob) FT.undoCobertura(h.cobId);
+              else if (E) FT.reverseEmergency(h.id);
+              else FT.reverseSavings(h.id);
+              FT.toast(L ? 'Listo' : 'Done'); render();
+            });
+          } }
+      ]
+    });
+  }
+
+  document.addEventListener('ft:datachanged', render);
+  document.addEventListener('ft:langchange', render);
+  render();
+  return { render: render };
 };
 
 /* ─────────────────────────────────────────────────────────────────────────

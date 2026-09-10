@@ -396,14 +396,16 @@ function openEntry(type) {
       };
       if (!o.desc || !parseFloat(o.amount) || !o.date) { FT.toast(FT.lang === 'es' ? 'Completa descripción, monto y fecha' : 'Fill description, amount and date'); return true; }
 
-      // Aviso de sobregiro para gasto personal
+      // Gasto personal que excede el disponible → hoja de cobertura (opción C).
       if (realType === 'gasto' && !o.hogar) {
-        var disp = patrimonio().parts[3][1];
-        if (parseFloat(o.amount) > disp) {
-          FT.confirm(FT.lang === 'es'
-            ? 'Esto excede tu disponible personal por ' + FT.money(parseFloat(o.amount) - disp) + '. ¿Registrar de todos modos?'
-            : 'This exceeds your personal available by ' + FT.money(parseFloat(o.amount) - disp) + '. Log it anyway?'
-          ).then(function (ok) { if (ok) { commit(o); FT.closeTop(); } });
+        var disp = FT.personalAvailable();
+        var amt = parseFloat(o.amount);
+        if (amt > disp) {
+          var falt = Math.round((amt - Math.max(0, disp)) * 100) / 100;
+          coberturaSheet(o.desc, falt).then(function (choice) {
+            if (choice === 'libre' || choice === 'emergencia') o.cobertura = { source: choice, monto: falt };
+            commit(o); FT.closeTop();
+          });
           return true;
         }
       }
@@ -413,9 +415,30 @@ function openEntry(type) {
 
   function commit(o) {
     var e = FT.addEntry(o);
-    if (e) FT.toast((FT.lang === 'es' ? 'Registrado · ' : 'Logged · ') + FT.money(e.amount, { cents: true }), { icon: '✅' });
+    if (e) {
+      if (o.cobertura) FT.toast(FT.money(o.cobertura.monto) + (FT.lang === 'es' ? ' movido de ' : ' moved from ') + (o.cobertura.source === 'emergencia' ? (FT.lang === 'es' ? 'Emergencia' : 'Emergency') : (FT.lang === 'es' ? 'Ahorro libre' : 'Free savings')) + (FT.lang === 'es' ? ' para cubrir «' : ' to cover "') + o.desc + '»', { icon: '💵', ms: 4000 });
+      else FT.toast((FT.lang === 'es' ? 'Registrado · ' : 'Logged · ') + FT.money(e.amount, { cents: true }), { icon: '✅' });
+    }
     render();
   }
+}
+
+/** Hoja de cobertura: ¿de dónde cubrir el faltante de un gasto que excede el disponible? */
+function coberturaSheet(name, falt) {
+  var es = FT.lang === 'es';
+  return new Promise(function (resolve) {
+    FT.sheet({
+      title: es ? 'Excede tu disponible' : 'Over your available',
+      html: '<p style="font-size:13px;color:var(--text2);margin:2px 0 6px">' +
+        (es ? 'Este gasto supera tu disponible del mes por ' : 'This expense is over your monthly available by ') +
+        '<b>' + FT.money(falt) + '</b>. ' + (es ? '¿De dónde lo cubres?' : 'Where do you cover it from?') + '</p>',
+      actions: [
+        { label: '💵 ' + (es ? 'Ahorro libre' : 'Free savings') + ' · ' + FT.money(FT.savingsBalance()), primary: true, onClick: function () { resolve('libre'); } },
+        { label: '🛡️ ' + (es ? 'Emergencia' : 'Emergency') + ' · ' + FT.money(FT.emergencyBalance()), onClick: function () { resolve('emergencia'); } },
+        { label: es ? 'Dejarlo en rojo (gasto extra)' : 'Leave it negative', onClick: function () { resolve('rojo'); } }
+      ]
+    });
+  });
 }
 
 function openCheque() {
