@@ -231,7 +231,7 @@ FT.addSavings = function (entry) {
   var tipo = entry.tipo || 'deposito';
   FT.setRaw(K.savings, Math.max(0, cur + (tipo === 'retiro' ? -amt : amt)).toFixed(2));
   var hist = FT.savingsHist();
-  hist.push({ id: 'tx_' + entry.id, tipo: tipo, monto: amt, fecha: entry.date, nota: entry.note || '', cat: entry.cat || '', recId: entry.recId || null, cobId: entry.cobId || null, cobFor: entry.cobFor || null });
+  hist.push({ id: 'tx_' + entry.id, tipo: tipo, monto: amt, fecha: entry.date, nota: entry.note || '', cat: entry.cat || '', recId: entry.recId || null, cobId: entry.cobId || null, cobFor: entry.cobFor || null, monthTx: entry.monthTx || null });
   FT.set(K.savingsHist, hist);
   FT._changed();
 };
@@ -265,7 +265,7 @@ FT.addEmergency = function (entry) {
   var tipo = entry.tipo || 'deposito';
   d.emergency = Math.max(0, (d.emergency || 0) + (tipo === 'retiro' ? -amt : amt));
   FT.set(K.data, d);
-  var row = { id: entry.id != null ? String(entry.id) : ('e_' + Date.now()), amount: amt, note: entry.note || '', date: entry.date || FT.todayISO(), tipo: tipo, recId: entry.recId || null, cobId: entry.cobId || null, cobFor: entry.cobFor || null };
+  var row = { id: entry.id != null ? String(entry.id) : ('e_' + Date.now()), amount: amt, note: entry.note || '', date: entry.date || FT.todayISO(), tipo: tipo, recId: entry.recId || null, cobId: entry.cobId || null, cobFor: entry.cobFor || null, monthTx: entry.monthTx || null };
   var h1 = FT.get(K.emergHist, []) || []; h1.push(row); FT.set(K.emergHist, h1);
   var h2 = FT.get(K.emergHistLegacy, []) || []; h2.push({ id: 'tx_' + row.id, amount: amt, date: row.date, type: tipo, note: row.note }); FT.set(K.emergHistLegacy, h2);
   FT._changed();
@@ -509,15 +509,21 @@ function _applyRecMeta(rec, hoy) {
 }
 function _applyRecAhorro(rec, hoy) {
   try {
-    if (rec.dest === 'emergencia') {
+    var toEmerg = rec.dest === 'emergencia';
+    var id = Date.now();
+    if (toEmerg) {
       var eh = FT.get(K.emergHist, []) || [];
       if (eh.some(function (h) { return h.date === hoy && h.recId === rec.id; })) return 'already';
-      FT.addEmergency({ id: 'r_' + Date.now(), amount: rec.amount, date: hoy, tipo: 'deposito', note: rec.desc, recId: rec.id });
-      return 'applied';
+      FT.addEmergency({ id: id, amount: rec.amount, date: hoy, tipo: 'deposito', note: rec.desc, recId: rec.id, monthTx: true });
+    } else {
+      var hist = FT.savingsHist();
+      if (hist.some(function (h) { return h.fecha === hoy && (h.recId === rec.id || !h.recId); })) return 'already';
+      FT.addSavings({ id: id, amount: rec.amount, date: hoy, note: rec.desc, recId: rec.id, monthTx: true });
     }
-    var hist = FT.savingsHist();
-    if (hist.some(function (h) { return h.fecha === hoy && (h.recId === rec.id || !h.recId); })) return 'already';
-    FT.addSavings({ id: Date.now(), amount: rec.amount, date: hoy, note: rec.desc, recId: rec.id });
+    // Un recurrente de ahorro es un aporte planeado desde el ingreso → cuenta como ahorro del mes.
+    var d = FT.data();
+    d.transactions.push({ id: id, type: 'ahorro', desc: rec.desc, amount: rec.amount, date: hoy, cat: toEmerg ? '🛡️ Emergencia' : '💵 Ahorro', dest: toEmerg ? 'emergencia' : 'libre', createdBy: FT.userName(), auto: true, recId: rec.id });
+    FT.set(K.data, d);
     return 'applied';
   } catch (e) { return 'broken'; }
 }
@@ -1597,19 +1603,48 @@ FT.balanceScreen = function (opts) {
 
   function openMove(mode) {
     var L = es(), isW = mode === 'retiro';
+    var origen = 'previo'; // 'previo' = ya lo tenía (no toca el mes) · 'mes' = de mi disponible
+    var origToggle = isW ? '' :
+      '<div class="ft-field"><label>' + (L ? '¿De dónde sale este dinero?' : 'Where does this money come from?') + '</label>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px" id="mOrig">' +
+        '<button type="button" data-o="previo" style="padding:9px 6px;border-radius:10px;border:1.5px solid var(--g-main);background:var(--g-light);color:var(--g-dark);font-family:var(--ui-font);font-size:11px;font-weight:800;cursor:pointer;line-height:1.35">' + (L ? 'Ya lo tenía' : 'I already had it') + '<br><span style="font-weight:600;font-size:9.5px;opacity:.8">' + (L ? 'no afecta tu mes' : "doesn't affect your month") + '</span></button>' +
+        '<button type="button" data-o="mes" style="padding:9px 6px;border-radius:10px;border:1.5px solid var(--hair);background:var(--sunk);color:var(--text2);font-family:var(--ui-font);font-size:11px;font-weight:800;cursor:pointer;line-height:1.35">' + (L ? 'De mi disponible del mes' : "From this month's available") + '<br><span style="font-weight:600;font-size:9.5px;opacity:.8">' + (L ? 'cuenta como ahorro del mes' : 'counts as this-month saving') + '</span></button>' +
+      '</div></div>';
     FT.modal({
       title: isW ? (E ? (L ? 'Retirar del fondo' : 'Withdraw from fund') : (L ? 'Retirar del ahorro' : 'Withdraw from savings')) : (L ? 'Depositar' : 'Deposit'),
       html: (isW && E ? '<div class="ft-bs-info" style="margin:0 0 12px"><p>⚠️ ' + (L ? 'Este fondo es solo para emergencias reales. ¿Esto es una emergencia, o debería salir de tu Ahorro libre?' : 'This fund is only for real emergencies. Is this an emergency, or should it come from Free savings?') + '</p></div>' : '') +
         '<div class="ft-field"><label>' + (L ? 'Monto' : 'Amount') + '</label><input id="mAmt" inputmode="decimal" placeholder="$0"></div>' +
+        origToggle +
         '<div class="ft-field"><label>' + (L ? 'Nota (opcional)' : 'Note (optional)') + '</label><input id="mNote"></div>' +
         '<div class="ft-field"><label>' + (L ? 'Fecha' : 'Date') + '</label><input id="mDate" type="date" value="' + FT.todayISO() + '"></div>',
       saveLabel: isW ? (L ? 'Confirmar retiro' : 'Confirm withdrawal') : (L ? 'Guardar depósito' : 'Save deposit'),
+      onOpen: function (body) {
+        var seg = body.querySelector('#mOrig');
+        if (seg) seg.querySelectorAll('button').forEach(function (b) {
+          b.onclick = function () {
+            origen = b.getAttribute('data-o');
+            seg.querySelectorAll('button').forEach(function (x) {
+              var on = x === b;
+              x.style.borderColor = on ? 'var(--g-main)' : 'var(--hair)';
+              x.style.background = on ? 'var(--g-light)' : 'var(--sunk)';
+              x.style.color = on ? 'var(--g-dark)' : 'var(--text2)';
+            });
+          };
+        });
+      },
       onSave: function (body) {
         var amt = parseFloat(body.querySelector('#mAmt').value) || 0;
         if (!amt || amt <= 0) { FT.toast(L ? 'Ingresa un monto' : 'Enter an amount'); return true; }
         if (isW && amt > bal()) { FT.toast(L ? 'No tienes suficiente' : 'Not enough'); return true; }
-        var payload = { id: Date.now(), amount: amt, date: body.querySelector('#mDate').value || FT.todayISO(), tipo: mode, note: body.querySelector('#mNote').value.trim() || (isW ? (L ? 'Retiro' : 'Withdrawal') : '') };
+        var id = Date.now();
+        var counts = !isW && origen === 'mes';
+        var payload = { id: id, amount: amt, date: body.querySelector('#mDate').value || FT.todayISO(), tipo: mode, note: body.querySelector('#mNote').value.trim() || (isW ? (L ? 'Retiro' : 'Withdrawal') : ''), monthTx: counts || null };
         if (E) FT.addEmergency(payload); else FT.addSavings(payload);
+        if (counts) {
+          var d = FT.data();
+          d.transactions.push({ id: id, type: 'ahorro', desc: payload.note || (E ? (L ? 'Depósito a Emergencia' : 'To Emergency') : (L ? 'Depósito a Ahorro libre' : 'To Free savings')), amount: amt, date: payload.date, cat: E ? '🛡️ Emergencia' : '💵 Ahorro', dest: E ? 'emergencia' : 'libre', createdBy: FT.userName() });
+          FT.saveData(d);
+        }
         FT.toast(isW ? (L ? '✅ Retiro registrado' : '✅ Withdrawal recorded') : (L ? '✅ Depósito guardado' : '✅ Deposit saved'));
         render();
       }
@@ -1693,6 +1728,7 @@ FT.balanceScreen = function (opts) {
             FT.confirm(cob ? (L ? '¿Deshacer la cobertura? El dinero vuelve al pozo y el gasto vuelve a contar contra tu disponible.' : 'Undo coverage? Money returns to the fund and the expense counts again.') : (L ? '¿Eliminar este movimiento? Se revierte el saldo.' : 'Delete this movement? The balance is reverted.')).then(function (ok) {
               if (!ok) return;
               if (cob) FT.undoCobertura(h.cobId);
+              else if (h.monthTx) FT.deleteTx(String(h.id).replace(/^tx_/, ''));
               else if (E) FT.reverseEmergency(h.id);
               else FT.reverseSavings(h.id);
               FT.toast(L ? 'Listo' : 'Done'); render();
