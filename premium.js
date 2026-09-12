@@ -27,6 +27,7 @@ var K = {
   savings:'ft_available_savings', savingsHist:'ft_savings_hist',
   investments:'ft_investments', hogarInv:'ft_hogar_inv',
   debts:'ft_debts', goals:'ft_goals', subs:'ft_subs', servicios:'ft_servicios',
+  subsHist:'ft_subs_history', serviciosHist:'ft_servicios_history',
   recurring:'ft_recurring', recurringInvLegacy:'ft_inv_recurrentes',
   checking:'ft_checking_balance', partnerChecking:'ft_partner_checking',
   hogar:'ft_hogar', hogarFondos:'ft_hogar_fondos',
@@ -216,10 +217,121 @@ FT.recurLabel = function (r) {
     else if (r.kind === 'meta') name = es ? 'Aporte a meta' : 'Goal contribution';
     else if (r.kind === 'ahorro') name = r.dest === 'emergencia' ? (es ? 'Aporte a Emergencia' : 'To Emergency') : (es ? 'Aporte a Ahorro libre' : 'To Free savings');
     else if (r.kind === 'inversion') name = es ? 'Inversión recurrente' : 'Recurring investment';
+    else if (r.kind === 'metapersonal') { var _g = FT.goals().find(function (x) { return String(x.id) === String(r.goalId); }); name = (_g && _g.name) || (es ? 'Aporte a meta' : 'Goal contribution'); }
   }
   var freq = { weekly: es ? 'cada semana' : 'weekly', biweekly: es ? 'cada quincena' : 'biweekly', monthly: es ? 'cada mes' : 'monthly' }[r.freq] || r.freq;
   var sub = freq + ' · ' + (es ? 'próximo ' : 'next ') + FT.date(r.nextDate) + (r.paused ? (es ? ' · pausado' : ' · paused') : '');
   return { name: name, sub: sub };
+};
+
+/** Última vez que se aplicó un recurrente — para mostrar "último" en el hub. */
+function _recurLastApplied(kind, r) {
+  try {
+    if (kind === 'debt') {
+      var d = FT.debts().find(function (x) { return String(x.id) === String(r.debtId); });
+      var ab = (d && d.abonos || []).filter(function (a) { return a.recId === r.id; });
+      return ab.length ? ab.reduce(function (mx, a) { return a.fecha > mx ? a.fecha : mx; }, '') : null;
+    }
+    if (kind === 'ahorro') {
+      var hist = r.dest === 'emergencia' ? FT.emergencyHist() : FT.savingsHist();
+      var m = hist.filter(function (h) { return h.recId === r.id; });
+      return m.length ? m.reduce(function (mx, h) { return (h.date || h.fecha) > mx ? (h.date || h.fecha) : mx; }, '') : null;
+    }
+    if (kind === 'inversion') {
+      var invs = FT.investments('').concat(FT.investments('hogar'));
+      var mi = invs.filter(function (i) { return i.recId === r.id; });
+      return mi.length ? mi.reduce(function (mx, i) { return i.fecha > mx ? i.fecha : mx; }, '') : null;
+    }
+    if (kind === 'meta') {
+      var f = FT.hogarFondos();
+      var mh = r.metaTipo === 'emerg' ? (f.emerg.hist || []) : ((r.metaId != null ? f.metas.find(function (x) { return x.id === r.metaId; }) : f.metas[r.metaIdx]) || {}).hist || [];
+      var mm = mh.filter(function (h) { return h.recId === r.id; });
+      return mm.length ? mm.reduce(function (mx, h) { return h.fecha > mx ? h.fecha : mx; }, '') : null;
+    }
+    if (kind === 'metapersonal') {
+      var g = FT.goals().find(function (x) { return String(x.id) === String(r.goalId); });
+      var gh = (g && g.hist || []).filter(function (h) { return h.recId === r.id; });
+      return gh.length ? gh.reduce(function (mx, h) { return h.fecha > mx ? h.fecha : mx; }, '') : null;
+    }
+  } catch (e) {}
+  return null;
+}
+
+/** Hub unificado (recurrentes.html): junta ft_recurring (deuda/ahorro/emergencia/
+ *  inversión/meta de hogar/meta personal) + ft_subs + ft_servicios en una sola
+ *  lista, cada `uid` codifica su tienda real ("recurring:id"/"subs:id"/"servicios:id")
+ *  para que las acciones de abajo sepan a dónde escribir. */
+FT.recurAllList = function () {
+  var es = FT.lang === 'es';
+  var items = [], debts = FT.debts(), goals = FT.goals();
+  FT.recurring().filter(function (r) { return r.active !== false; }).forEach(function (r) {
+    var name, icon, pk, typeLabel;
+    if (r.kind === 'debt') {
+      var d = debts.find(function (x) { return String(x.id) === String(r.debtId); });
+      name = d ? d.name : (es ? 'Deuda' : 'Debt'); icon = '💳'; pk = 'debt'; typeLabel = es ? 'Abono a deuda' : 'Debt payment';
+    } else if (r.kind === 'ahorro') {
+      var toE = r.dest === 'emergencia';
+      typeLabel = r.desc || (toE ? (es ? 'Aporte a Emergencia' : 'To Emergency') : (es ? 'Aporte a Ahorro libre' : 'To Free savings'));
+      name = typeLabel; icon = toE ? '🛡️' : '💵'; pk = toE ? 'emerg' : 'ahorro';
+    } else if (r.kind === 'inversion') {
+      name = r.desc || (es ? 'Inversión' : 'Investment'); icon = '📈'; pk = 'inversion'; typeLabel = es ? 'Inversión recurrente' : 'Recurring investment';
+    } else if (r.kind === 'meta') {
+      name = r.desc || (es ? 'Aporte a meta del hogar' : 'Household goal deposit'); icon = '🏠'; pk = 'hogar'; typeLabel = es ? 'Aporte a meta del hogar' : 'Household goal deposit';
+    } else if (r.kind === 'metapersonal') {
+      var g = goals.find(function (x) { return String(x.id) === String(r.goalId); });
+      name = (g && g.name) || (es ? 'Meta' : 'Goal'); icon = (g && g.icon) || '🎯'; pk = 'metapersonal'; typeLabel = es ? 'Aporte a meta personal' : 'Personal goal deposit';
+    } else return;
+    items.push({
+      uid: 'recurring:' + r.id, kind: r.kind, pk: pk, name: name, icon: icon, typeLabel: typeLabel,
+      amount: parseFloat(r.amount) || 0, freq: r.freq, nextDate: r.nextDate, paused: !!r.paused,
+      page: { debt: 'deudas.html', ahorro: (r.dest === 'emergencia' ? 'emergencia.html' : 'ahorro.html'), inversion: 'inversiones.html', meta: 'hogar.html', metapersonal: 'metas.html' }[r.kind],
+      lastApplied: _recurLastApplied(r.kind, r)
+    });
+  });
+  FT.subs().forEach(function (s) {
+    items.push({ uid: 'subs:' + s.id, kind: 'sub', pk: 'sub', name: s.name, icon: '🔄', typeLabel: es ? 'Suscripción' : 'Subscription',
+      amount: parseFloat(s.amount) || 0, freq: s.freq, nextDate: s.date, paused: !!s.paused, page: 'suscripciones.html', lastApplied: null });
+  });
+  FT.servicios().forEach(function (s) {
+    items.push({ uid: 'servicios:' + s.id, kind: 'serv', pk: 'serv', name: s.name, icon: '🏠', typeLabel: es ? 'Servicio de casa' : 'Household service',
+      amount: parseFloat(s.amount) || 0, freq: s.freq, nextDate: s.date, paused: !!s.paused, page: 'servicios.html', lastApplied: null });
+  });
+  return items.sort(function (a, b) { return String(a.nextDate || '').localeCompare(String(b.nextDate || '')); });
+};
+function _recurAllSplit(uid) { var i = String(uid).indexOf(':'); return { store: uid.slice(0, i), id: uid.slice(i + 1) }; }
+FT.recurAllPause = function (uid, paused) {
+  var p = _recurAllSplit(uid);
+  if (p.store === 'recurring') { FT.recurPause(p.id, paused); return; }
+  var key = p.store === 'subs' ? K.subs : K.servicios;
+  var l = FT.get(key, []) || [];
+  var s = l.find(function (x) { return String(x.id) === p.id; });
+  if (s) { s.paused = !!paused; FT.set(key, l); FT._changed(); }
+};
+FT.recurAllUpdate = function (uid, patch) {
+  var p = _recurAllSplit(uid);
+  if (p.store === 'recurring') { FT.recurUpdate(p.id, patch); return; }
+  var key = p.store === 'subs' ? K.subs : K.servicios;
+  var l = FT.get(key, []) || [];
+  var s = l.find(function (x) { return String(x.id) === p.id; });
+  if (!s) return;
+  if (patch.amount != null) s.amount = parseFloat(patch.amount) || s.amount;
+  if (patch.freq) s.freq = patch.freq;
+  if (patch.nextDate) s.date = patch.nextDate;
+  FT.set(key, l); FT._changed();
+};
+FT.recurAllDelete = function (uid) {
+  var p = _recurAllSplit(uid);
+  if (p.store === 'recurring') {
+    FT.recurDelete(p.id);
+    // Si era el aporte automático de una meta personal, la meta queda como "sin recurrente".
+    var goals = FT.goals(), touched = false;
+    goals.forEach(function (g) { if (g.recId === p.id) { g.recId = null; g.recurring = false; touched = true; } });
+    if (touched) FT.saveGoals(goals);
+    return;
+  }
+  var key = p.store === 'subs' ? K.subs : K.servicios;
+  FT.set(key, (FT.get(key, []) || []).filter(function (x) { return String(x.id) !== p.id; }));
+  FT._changed();
 };
 
 /* ── Ahorro libre ── */
@@ -330,6 +442,48 @@ FT.investmentValue = function (i) {
 FT.cheques = function () { return FT.get(K.cheques, []) || []; };
 FT.goals = function () { return FT.get(K.goals, []) || []; };
 FT.saveGoals = function (g) { FT.set(K.goals, g); FT._changed(); };
+/** Abono a una meta personal (manual o automático) — guarda en `hist` para poder
+ *  deduplicar recurrentes y mostrar "último aporte" en el hub de Recurrentes. */
+FT.addGoalDeposit = function (goalId, amount, opts) {
+  opts = opts || {};
+  var goals = FT.goals();
+  var g = goals.find(function (x) { return String(x.id) === String(goalId); });
+  if (!g) return;
+  var amt = parseFloat(amount) || 0;
+  g.saved = (parseFloat(g.saved) || 0) + amt;
+  g.hist = g.hist || [];
+  g.hist.push({ id: 'gd_' + Date.now(), monto: amt, fecha: opts.date || FT.todayISO(), recId: opts.recId || null, auto: !!opts.auto });
+  FT.saveGoals(goals);
+};
+/** Activa/actualiza el aporte automático mensual de una meta personal. */
+FT.setGoalRecurring = function (goalId, amount, freq) {
+  var goals = FT.goals();
+  var g = goals.find(function (x) { return String(x.id) === String(goalId); });
+  if (!g) return;
+  var rec = FT.recurring();
+  if (g.recId) {
+    var r = rec.find(function (x) { return String(x.id) === String(g.recId); });
+    if (r) { r.amount = parseFloat(amount) || r.amount; r.freq = freq || r.freq; r.active = true; }
+    else { g.recId = null; }
+  }
+  if (!g.recId) {
+    var id = 'rec_' + Date.now();
+    rec.push({ id: id, kind: 'metapersonal', goalId: g.id, amount: parseFloat(amount) || 0, freq: freq || 'monthly', nextDate: FT.todayISO(), active: true, paused: false, createdBy: FT.userName() });
+    g.recId = id;
+  }
+  g.recurring = true;
+  FT.set(K.recurring, rec);
+  FT.saveGoals(goals);
+};
+/** Cancela el aporte automático de una meta (la meta en sí no se borra). */
+FT.clearGoalRecurring = function (goalId) {
+  var goals = FT.goals();
+  var g = goals.find(function (x) { return String(x.id) === String(goalId); });
+  if (!g) return;
+  if (g.recId) FT.recurDelete(g.recId);
+  g.recId = null; g.recurring = false;
+  FT.saveGoals(goals);
+};
 FT.subs = function () { return FT.get(K.subs, []) || []; };
 FT.saveSubs = function (s) { FT.set(K.subs, s); FT._changed(); };
 FT.servicios = function () { return FT.get(K.servicios, []) || []; };
@@ -596,6 +750,17 @@ function _applyRecDebt(rec, hoy) {
     return 'applied';
   } catch (e) { return 'broken'; }
 }
+function _applyRecMetaPersonal(rec, hoy) {
+  try {
+    var goals = FT.goals();
+    var g = goals.find(function (x) { return String(x.id) === String(rec.goalId); });
+    if (!g) return 'broken';
+    g.hist = g.hist || [];
+    if (g.hist.some(function (h) { return h.fecha === hoy && h.recId === rec.id; })) return 'already';
+    FT.addGoalDeposit(g.id, rec.amount, { date: hoy, recId: rec.id, auto: true });
+    return 'applied';
+  } catch (e) { return 'broken'; }
+}
 FT.applyDueRecurring = function () {
   var rec = FT.recurring();
   if (!rec.length) return 0;
@@ -609,6 +774,7 @@ FT.applyDueRecurring = function () {
       else if (r.kind === 'ahorro') st = _applyRecAhorro(r, r.nextDate);
       else if (r.kind === 'inversion') st = _applyRecInversion(r, r.nextDate);
       else if (r.kind === 'debt') st = _applyRecDebt(r, r.nextDate);
+      else if (r.kind === 'metapersonal') st = _applyRecMetaPersonal(r, r.nextDate);
       if (st === 'broken') { r.active = false; break; }
       if (st === 'applied') applied++;
       r.nextDate = _advanceRecDate(r.freq, r.nextDate);
@@ -1793,6 +1959,209 @@ FT.balanceScreen = function (opts) {
   document.addEventListener('ft:langchange', render);
   render();
   return { render: render };
+};
+
+/* ─────────────────────────────────────────────────────────────────────────
+   16c · PANTALLA DE ÍTEMS RECURRENTES DE CATÁLOGO — compartida por
+         suscripciones.html y servicios.html (mismo arquetipo: nombre + monto
+         + frecuencia + fecha de cobro, con historial/tendencia y próximas a
+         pagar). Cambia el flag `opts.kind` ('sub' | 'serv').
+   Uso:  FT.recurringItemsScreen({ kind:'sub', mount:'#root' })
+   ───────────────────────────────────────────────────────────────────────── */
+FT.recurringItemsScreen = function (opts) {
+  opts = opts || {};
+  var isSub = opts.kind !== 'serv';
+  var mount = document.querySelector(opts.mount || '#root');
+  if (!mount) return;
+
+  var key = isSub ? K.subs : K.servicios;
+  var histKey = isSub ? K.subsHist : K.serviciosHist;
+  var icon = isSub ? '🔄' : '🏠';
+  var pastel = isSub ? 'pink' : 'coral';
+  var pastelTx = isSub ? 'var(--pink-tx)' : 'var(--coral-tx)';
+  var CATS = isSub
+    ? ['Entretenimiento', 'Música', 'Trabajo', 'Salud', 'Fitness', 'Cloud/Tech', 'Otro']
+    : ['💡 Luz', '💧 Agua', '🔥 Gas', '📶 Internet', '🧹 Mantenimiento', 'Otro'];
+  var idPrefix = isSub ? 's_' : 'sv_';
+
+  function list() { return FT.get(key, []) || []; }
+  function saveList(l) { FT.set(key, l); FT._changed(); }
+  function es() { return FT.lang === 'es'; }
+  function toMonthly(s) { if (s.freq === 'annual') return (parseFloat(s.amount) || 0) / 12; if (s.freq === 'weekly') return (parseFloat(s.amount) || 0) * 4.33; return parseFloat(s.amount) || 0; }
+  function freqLbl(f) { var L = es(); return { monthly: L ? 'Mensual' : 'Monthly', annual: L ? 'Anual' : 'Annual', weekly: L ? 'Semanal' : 'Weekly' }[f] || f; }
+  function nextBillingDate(s) {
+    if (!s.date) return null;
+    var p = s.date.split('-').map(Number), d = new Date(p[0], p[1] - 1, p[2]);
+    var today = new Date(); today.setHours(0, 0, 0, 0);
+    var guard = 0;
+    while (d < today && guard < 1000) {
+      if (s.freq === 'annual') d.setFullYear(d.getFullYear() + 1);
+      else if (s.freq === 'weekly') d.setDate(d.getDate() + 7);
+      else d.setMonth(d.getMonth() + 1);
+      guard++;
+    }
+    return d;
+  }
+  function loadHistory6() {
+    var hist = FT.get(histKey, {}) || {}, now = new Date(), out = [];
+    for (var i = 5; i >= 0; i--) {
+      var d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      var k = d.toISOString().slice(0, 7);
+      out.push({ month: k, label: d.toLocaleDateString(es() ? 'es-MX' : 'en-US', { month: 'short' }), value: hist[k] != null ? hist[k] : null });
+    }
+    return out;
+  }
+  function updateHistorySnapshot(totalMonthly) {
+    var hist = FT.get(histKey, {}) || {};
+    hist[new Date().toISOString().slice(0, 7)] = totalMonthly;
+    FT.set(histKey, hist);
+  }
+
+  var filterMode = 'all';
+
+  function trendChartHTML(trend) {
+    var L = es(), W = 800, H = 150, padL = 16, padR = 16, padT = 14, padB = 26;
+    var vals = trend.map(function (t) { return t.value; }).filter(function (v) { return v != null; });
+    var maxVal = Math.max(1, vals.reduce(function (a, b) { return Math.max(a, b); }, 0));
+    var stepX = (W - padL - padR) / (trend.length - 1 || 1);
+    function scaleY(v) { return H - padB - (v / maxVal) * (H - padT - padB); }
+    var pts = trend.map(function (t, i) { return t.value != null ? { x: padL + i * stepX, y: scaleY(t.value) } : null; });
+    var path = '';
+    pts.forEach(function (p) { if (p) path += (path === '' ? 'M' : 'L') + p.x.toFixed(1) + ',' + p.y.toFixed(1) + ' '; });
+    var dots = pts.map(function (p) { return p ? '<circle cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="4" fill="var(--g-main)"/>' : ''; }).join('');
+    var labels = trend.map(function (t, i) { return '<text x="' + (padL + i * stepX).toFixed(1) + '" y="' + (H - 6) + '" font-size="12" fill="#A0A3AF" text-anchor="middle">' + t.label + '</text>'; }).join('');
+    var known = trend.filter(function (t) { return t.value != null; });
+    var msg = known.length > 1
+      ? (known[known.length - 1].value > known[known.length - 2].value
+          ? (L ? '⚠️ Tu gasto subió vs el mes pasado' : '⚠️ Your spending went up vs last month')
+          : (L ? '✅ Tu gasto bajó o se mantuvo' : '✅ Your spending went down or stayed the same'))
+      : (L ? 'Vamos guardando el histórico mes a mes' : "We're building your monthly history");
+    return '<div class="ft-card"><div style="font-size:13px;font-weight:800;margin-bottom:8px">📈 ' + (L ? 'Tendencia (6 meses)' : 'Trend (6 months)') + '</div>' +
+      '<svg style="width:100%;max-height:150px;display:block" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid meet">' +
+      (path ? '<path d="' + path + '" fill="none" stroke="var(--g-main)" stroke-width="3"/>' : '') + dots + labels + '</svg>' +
+      '<div style="font-size:11px;color:var(--text3);margin-top:4px">' + msg + '</div></div>';
+  }
+
+  function render() {
+    var L = es(), all = list();
+    var filtered = filterMode === 'all' ? all : all.filter(function (s) { return s.freq === filterMode; });
+    var active = all.filter(function (s) { return !s.paused; });
+    var total = active.reduce(function (a, s) { return a + toMonthly(s); }, 0);
+    updateHistorySnapshot(total);
+
+    var upcoming = active.map(function (s) { return { s: s, next: nextBillingDate(s) }; }).filter(function (x) { return x.next; })
+      .sort(function (a, b) { return a.next - b.next; }).slice(0, 5);
+
+    var h = '<div class="ft-card"><div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">' +
+      '<div style="text-align:center"><div class="ft-num" style="font-size:21px;color:' + pastelTx + '">' + FT.money(total) + '</div><div style="font-size:11px;color:var(--text3)">' + (L ? 'al mes' : 'per month') + '</div></div>' +
+      '<div style="text-align:center"><div class="ft-num" style="font-size:21px;color:var(--red)">' + FT.money(total * 12) + '</div><div style="font-size:11px;color:var(--text3)">' + (L ? 'al año' : 'per year') + '</div></div></div></div>';
+
+    h += trendChartHTML(loadHistory6());
+
+    if (upcoming.length) {
+      h += '<div class="ft-card"><div style="font-size:13px;font-weight:800;margin-bottom:8px">⏰ ' + (L ? 'Próximas a pagar' : 'Upcoming payments') + '</div>' +
+        upcoming.map(function (x) {
+          var days = Math.ceil((x.next - new Date(new Date().toDateString())) / 86400000);
+          return '<div class="tap" data-open="' + x.s.id + '" style="display:flex;align-items:center;gap:10px;padding:7px 0;cursor:pointer">' +
+            '<div class="ft-tx-ico ' + pastel + '" style="width:34px;height:34px;font-size:15px;display:grid;place-items:center;border-radius:10px">' + icon + '</div>' +
+            '<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:700">' + x.s.name + '</div>' +
+            '<div style="font-size:10px;color:' + (days <= 3 ? 'var(--red)' : 'var(--text3)') + '">' + FT.date(x.s.date) + ' · ' + (days === 0 ? (L ? 'hoy' : 'today') : days + 'd') + '</div></div>' +
+            '<div style="font-size:13px;font-weight:800">' + FT.money(parseFloat(x.s.amount) || 0) + '</div></div>';
+        }).join('') + '</div>';
+    }
+
+    h += '<div class="ft-chip-row" style="display:flex;gap:6px;overflow-x:auto;margin-bottom:12px">' +
+      ['all', 'monthly', 'annual'].map(function (f) {
+        var lbl = f === 'all' ? (L ? 'Todas' : 'All') : freqLbl(f) + (f === 'monthly' ? 's' : 'es');
+        return '<button class="ft-chip tap' + (filterMode === f ? ' on' : '') + '" data-f="' + f + '" style="flex-shrink:0;background:' + (filterMode === f ? 'var(--ink)' : 'var(--sunk)') + ';border:1.5px solid ' + (filterMode === f ? 'var(--ink)' : 'var(--hair)') + ';color:' + (filterMode === f ? '#fff' : 'var(--text2)') + ';border-radius:99px;padding:6px 13px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer">' + lbl + '</button>';
+      }).join('') + '</div>';
+
+    h += '<div class="ft-card" style="padding:2px 16px">';
+    if (!filtered.length) {
+      h += '<div class="ft-empty">' + (isSub ? (L ? 'Sin suscripciones' : 'No subscriptions') : (L ? 'Sin servicios registrados' : 'No services yet')) + '</div>';
+    } else {
+      h += filtered.map(function (s) {
+        return '<div class="tap" data-open="' + s.id + '" style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--hair);cursor:pointer;' + (s.paused ? 'opacity:.55' : '') + '">' +
+          '<div class="ft-tx-ico ' + pastel + '" style="width:42px;height:42px;font-size:19px;display:grid;place-items:center;border-radius:13px;flex-shrink:0">' + icon + '</div>' +
+          '<div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:800">' + s.name + (s.paused ? ' <span style="font-size:9px;background:var(--chip);color:var(--text3);padding:2px 7px;border-radius:20px;font-weight:800">' + (L ? 'PAUSADA' : 'PAUSED') + '</span>' : '') + '</div>' +
+          '<div style="font-size:11px;color:var(--text3)">' + freqLbl(s.freq) + ' · ' + (s.cat || '') + ' · ' + FT.date(s.date) + '</div></div>' +
+          '<div style="font-size:14px;font-weight:800;color:' + pastelTx + '">' + FT.money(parseFloat(s.amount) || 0) + '</div></div>';
+      }).join('');
+    }
+    h += '</div>';
+
+    h += '<div class="tap" data-go="recurrentes.html" style="font-size:12px;font-weight:700;color:var(--blue);text-align:center;padding:6px 0 4px">♻️ ' + (L ? 'Ver todos tus recurrentes' : 'See all your recurring items') + ' →</div>';
+
+    mount.innerHTML = h;
+    mount.querySelectorAll('[data-f]').forEach(function (b) { b.onclick = function () { filterMode = b.getAttribute('data-f'); render(); }; });
+    mount.querySelectorAll('[data-open]').forEach(function (b) { b.onclick = function () { openDetail(b.getAttribute('data-open')); }; });
+    mount.querySelectorAll('[data-go]').forEach(function (b) { b.onclick = function () { FT.go(b.getAttribute('data-go')); }; });
+  }
+
+  function formFields(s) {
+    var L = es();
+    return '<div class="ft-field"><label>' + (L ? 'Nombre' : 'Name') + '</label><input id="siName" value="' + (s ? s.name || '' : '') + '" placeholder="' + (isSub ? 'Netflix, Spotify...' : (L ? 'Luz, Agua, Internet...' : 'Power, Water, Internet...')) + '"></div>' +
+      '<div class="ft-field"><label>' + (L ? 'Monto' : 'Amount') + ' ($)</label><input id="siAmount" type="number" step="0.01" min="0" value="' + (s ? s.amount : '') + '"></div>' +
+      '<div class="ft-field"><label>' + (L ? 'Frecuencia' : 'Frequency') + '</label><select id="siFreq">' +
+        ['monthly', 'annual', 'weekly'].map(function (f) { return '<option value="' + f + '" ' + (s && s.freq === f ? 'selected' : '') + '>' + freqLbl(f) + '</option>'; }).join('') + '</select></div>' +
+      '<div class="ft-field"><label>' + (L ? 'Fecha de cobro' : 'Billing date') + '</label><input id="siDate" type="date" value="' + (s ? s.date : FT.todayISO()) + '"></div>' +
+      '<div class="ft-field"><label>' + (L ? 'Categoría' : 'Category') + '</label><select id="siCat">' +
+        CATS.map(function (c) { return '<option ' + (s && s.cat === c ? 'selected' : '') + '>' + c + '</option>'; }).join('') + '</select></div>';
+  }
+
+  function openForm(id) {
+    var L = es(), s = id ? list().find(function (x) { return String(x.id) === String(id); }) : null;
+    FT.modal({
+      title: s ? (L ? 'Editar' : 'Edit') : (isSub ? (L ? 'Nueva suscripción' : 'New subscription') : (L ? 'Nuevo servicio' : 'New service')),
+      html: formFields(s),
+      onSave: function (body) {
+        var name = body.querySelector('#siName').value.trim();
+        var amount = parseFloat(body.querySelector('#siAmount').value) || 0;
+        if (!name || !amount) { FT.toast(L ? '⚠️ Llena todos los campos' : '⚠️ Fill all fields'); return true; }
+        var freq = body.querySelector('#siFreq').value, date = body.querySelector('#siDate').value, cat = body.querySelector('#siCat').value;
+        var l = list();
+        if (s) {
+          var i = l.findIndex(function (x) { return String(x.id) === String(id); });
+          l[i] = isSub ? Object.assign({}, l[i], { name: name, amount: amount, freq: freq, date: date, cat: cat })
+                       : Object.assign({}, l[i], { name: name, amount: amount, freq: freq, date: date, cat: cat, hogar: true });
+        } else {
+          l.push(isSub
+            ? { id: idPrefix + Date.now(), name: name, amount: amount, freq: freq, date: date, cat: cat, paused: false }
+            : { id: idPrefix + Date.now(), name: name, amount: amount, freq: freq, date: date, cat: cat, paused: false, hogar: true, createdBy: FT.userName() });
+        }
+        saveList(l);
+        FT.toast(L ? '✅ Guardado' : '✅ Saved');
+        render();
+      }
+    });
+  }
+
+  function openDetail(id) {
+    var L = es(), s = list().find(function (x) { return String(x.id) === String(id); });
+    if (!s) return;
+    var next = nextBillingDate(s);
+    FT.sheet({
+      title: s.name,
+      html: '<div style="text-align:center;margin-bottom:16px">' +
+        '<div class="ft-tx-ico ' + pastel + '" style="width:54px;height:54px;font-size:24px;display:grid;place-items:center;border-radius:16px;margin:0 auto 8px">' + icon + '</div>' +
+        '<div class="ft-num" style="font-size:26px;color:' + pastelTx + '">' + FT.money(parseFloat(s.amount) || 0) + '</div>' +
+        (s.paused ? '<span style="background:var(--chip);color:var(--text3);font-size:10px;font-weight:800;padding:3px 10px;border-radius:20px;display:inline-block;margin-top:6px">⏸️ ' + (L ? 'Pausada' : 'Paused') + '</span>' : '') + '</div>' +
+        '<div class="ft-row"><span class="k">' + (L ? 'Frecuencia' : 'Frequency') + '</span><span class="v">' + freqLbl(s.freq) + '</span></div>' +
+        '<div class="ft-row"><span class="k">' + (L ? 'Categoría' : 'Category') + '</span><span class="v">' + (s.cat || '—') + '</span></div>' +
+        '<div class="ft-row"><span class="k">' + (L ? 'Equivalente mensual' : 'Monthly equivalent') + '</span><span class="v">' + FT.money(toMonthly(s)) + '</span></div>' +
+        (next && !s.paused ? '<div class="ft-row"><span class="k">' + (L ? 'Próximo cobro' : 'Next charge') + '</span><span class="v">' + FT.date(next) + '</span></div>' : ''),
+      actions: [
+        { label: '✏️ ' + (L ? 'Editar' : 'Edit'), onClick: function () { openForm(id); } },
+        { label: s.paused ? '▶️ ' + (L ? 'Reanudar' : 'Resume') : '⏸️ ' + (L ? 'Pausar' : 'Pause'), onClick: function () { var l = list(); var i = l.findIndex(function (x) { return String(x.id) === String(id); }); l[i].paused = !l[i].paused; saveList(l); FT.toast(l[i].paused ? (L ? '⏸️ Pausada' : '⏸️ Paused') : (L ? '▶️ Reanudada' : '▶️ Resumed')); render(); } },
+        { label: '🗑️ ' + (L ? 'Eliminar' : 'Delete'), onClick: function () { FT.confirm(L ? '¿Eliminar?' : 'Delete?').then(function (ok) { if (ok) { saveList(list().filter(function (x) { return String(x.id) !== String(id); })); FT.toast(L ? '🗑️ Eliminado' : '🗑️ Deleted'); render(); } }); } }
+      ]
+    });
+  }
+
+  document.addEventListener('ft:datachanged', render);
+  document.addEventListener('ft:langchange', render);
+  render();
+  return { render: render, openForm: openForm };
 };
 
 /* ─────────────────────────────────────────────────────────────────────────

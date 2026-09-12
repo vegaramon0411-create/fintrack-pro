@@ -242,7 +242,9 @@ function render() {
       '<div class="ft-section-head" style="margin:0"><h3>' + (es ? 'Mi cheque' : 'My paycheck') + '</h3><button class="link" onclick="FT.go(\'historial.html\')">' + (es ? 'Ver historial' : 'History') + '</button></div>' +
       '<div class="sub">' + chequeSub() + '</div>' +
       '<button class="ft-btn ft-btn-primary tap" onclick="openCheque()">＋ ' + (es ? 'Recibí mi cheque' : 'I got paid') + '</button>' +
-    '</div>';
+    '</div>' +
+
+    recurCardHTML(es);
 
   requestAnimationFrame(function () {
     var f = document.getElementById('dFill'); if (f) f.style.width = spentPct + '%';
@@ -267,6 +269,24 @@ function mrow(label, key, spent, limit, pct, color) {
     '<span class="n"><b>' + FT.money(spent) + '</b> / ' + FT.money(limit) + '</span></div>' +
     '<div class="d-mtrack"><div class="d-mfill" id="mf_' + key + '" data-pct="' + pct + '" style="width:0;background:' + color + '"></div></div>' +
     '<div class="foot"><span>' + Math.round(pct) + '% ' + (es ? 'usado' : 'used') + '</span><span>' + FT.money(Math.max(0, limit - spent)) + ' ' + (es ? 'disponible' : 'available') + '</span></div></div>';
+}
+
+/* Extracto de "Recurrentes" (♻️) — los 3 más próximos de cualquier categoría,
+   con botón a la lista completa. Resuelve la duda de que el hub central sea
+   difícil de encontrar si solo vive detrás del menú "Más". */
+function recurCardHTML(es) {
+  var all;
+  try { all = (FT.recurAllList() || []).filter(function (i) { return !i.paused; }); } catch (e) { all = []; }
+  if (!all.length) return '';
+  var upcoming = all.slice(0, 3);
+  return '<div class="ft-card">' +
+    '<div class="ft-section-head" style="margin:0 0 4px"><h3>♻️ ' + (es ? 'Recurrentes próximos' : 'Upcoming recurring') + '</h3><button class="link" onclick="FT.go(\'recurrentes.html\')">' + (es ? 'Ver todos' : 'See all') + '</button></div>' +
+    upcoming.map(function (i) {
+      return '<div class="ft-mv tap" onclick="FT.go(\'recurrentes.html\')"><div class="ic rec">' + i.icon + '</div>' +
+        '<div class="m"><div class="n">' + i.name + '</div><div class="d">' + (es ? 'próximo ' : 'next ') + FT.date(i.nextDate) + '</div></div>' +
+        '<div class="amt in">' + FT.money(i.amount) + '</div></div>';
+    }).join('') +
+  '</div>';
 }
 
 function chequeSub() {
