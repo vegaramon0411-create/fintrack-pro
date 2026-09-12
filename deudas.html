@@ -4,1898 +4,501 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>FinTrack Pro · Deudas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
 <script src="premium.js"></script>
 <style>
-:root{
-  --g-dark:#0F5132;--g-main:#1A7A4A;--g-light:#E8F7EF;
-  --white:#fff;--off:#F7F8FC;--border:#E4E6F0;
-  --text:#1A1D2E;--text2:#4A4E69;--text3:#9395A5;
-  --red:#E63946;--red-dim:rgba(230,57,70,.1);
-  --amber:#F4A261;--amb-dim:rgba(244,162,97,.12);
-  --blue:#4A6CF7;--blu-dim:rgba(74,108,247,.1);
-  --purple:#7B5EA7;--pur-dim:rgba(123,94,167,.1);
-  --sidebar:240px;--topbar:58px;
-  --shadow:0 2px 12px rgba(0,0,0,.06);
-  --shadow-md:0 4px 24px rgba(0,0,0,.09);
-  --round-font:'Nunito',-apple-system,'SF Pro Rounded',sans-serif;
-  --glass-bg:rgba(255,255,255,.55);--glass-border:rgba(255,255,255,.6);--glass-shadow:0 8px 32px -12px rgba(20,20,30,.10);
-  --bg-gradient:linear-gradient(160deg,#FDEEE3 0%,#E9F3FC 45%,#EAF8EF 100%);
-  --tag-bg:#EFEFF1;
-}
-*{margin:0;padding:0;box-sizing:border-box;}
-html,body{overflow-x:hidden;max-width:100vw;}
-body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg-gradient);background-attachment:fixed;color:var(--text);min-height:100vh;}
-.glass{background:var(--glass-bg);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid var(--glass-border);box-shadow:var(--glass-shadow);}
-.round-num{font-family:var(--round-font);font-weight:800;}
-.app{display:flex;min-height:100vh;}
+  .dt-sum{background:#fff;border:1px solid var(--hair);border-radius:18px;padding:20px 18px;box-shadow:0 1px 3px rgba(20,20,30,.035);margin-bottom:18px;text-align:center;}
+  .dt-sum .l{font-size:11px;font-weight:700;color:var(--text3);}
+  .dt-sum .v{font-family:var(--round-font);font-weight:900;font-size:34px;letter-spacing:-1.2px;color:var(--red);margin:5px 0 14px;font-variant-numeric:tabular-nums;}
+  .dt-sum .prow{display:flex;justify-content:space-between;font-size:10.5px;color:var(--text3);font-weight:700;margin:6px 0 16px;}
+  .dt-sum .g{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .dt-sum .g div{background:var(--sunk);border-radius:12px;padding:12px 10px;}
+  .dt-sum .g .k{font-size:10px;color:var(--text3);font-weight:700;}
+  .dt-sum .g .n{font-family:var(--round-font);font-weight:900;font-size:16px;margin-top:5px;letter-spacing:-.3px;}
 
-/* SIDEBAR */
-.sidebar{width:var(--sidebar);background:var(--white);border-right:1px solid var(--border);position:fixed;top:0;left:0;bottom:0;display:flex;flex-direction:column;z-index:50;overflow-y:auto;transition:width .18s ease;}
-.sidebar.collapsed{width:64px;}
-.sidebar.collapsed .sb-name,.sidebar.collapsed .sb-tag,.sidebar.collapsed .sb-section,.sidebar.collapsed .sb-link span:last-child{display:none;}
-.sidebar.collapsed .sb-link{justify-content:center;padding:10px 0;}
-.sidebar.collapsed .sb-logo{justify-content:center;padding:0 8px;}
-.sidebar.collapsed .sb-logo>div:last-child{display:none;}
-.sb-collapse-btn{position:absolute;top:14px;right:-13px;width:26px;height:26px;border-radius:50%;background:var(--white);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;z-index:51;box-shadow:0 2px 6px rgba(0,0,0,.08);}
-.sidebar.collapsed ~ .main{margin-left:64px;}
-.sb-logo{display:flex;align-items:center;gap:10px;padding:22px 18px 18px;border-bottom:1px solid var(--border);}
-.sb-mark{width:36px;height:36px;background:linear-gradient(135deg,var(--g-dark),var(--g-main));border-radius:11px;display:grid;place-items:center;color:white;font-size:17px;}
-.sb-name{font-size:15px;font-weight:800;}.sb-tag{font-size:10px;color:var(--text3);}
-.sb-nav{padding:14px 10px;flex:1;}
-.sb-section{font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);padding:10px 8px 5px;}
-.sb-link{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:10px;font-size:13px;font-weight:600;color:var(--text2);cursor:pointer;margin-bottom:2px;transition:all .15s;}
-.sb-link:hover{background:var(--off);}
-.sb-link.on{background:var(--red-dim);color:var(--red);}
-.sb-ico{font-size:15px;width:20px;text-align:center;flex-shrink:0;}
-.sb-footer{border-top:1px solid var(--border);padding:12px 10px;}
-.sb-user{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:10px;cursor:pointer;}
-.sb-user:hover{background:var(--off);}
-.sb-avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--g-dark),var(--g-main));display:grid;place-items:center;color:white;font-size:13px;font-weight:700;}
-.sb-uname{font-size:13px;font-weight:700;}.sb-umail{font-size:10px;color:var(--text3);}
+  .dt-card{background:#fff;border:1px solid var(--hair);border-radius:16px;padding:15px;margin-bottom:12px;box-shadow:0 1px 3px rgba(20,20,30,.035);cursor:pointer;}
+  .dt-card .top{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+  .dt-card .ic{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;font-size:17px;flex-shrink:0;}
+  .dt-card .nm{font-family:var(--round-font);font-weight:900;font-size:14px;}
+  .dt-card .mt{font-size:10px;color:var(--text3);font-weight:700;}
+  .dt-card .bal{margin-left:auto;text-align:right;}
+  .dt-card .bal .v{font-family:var(--round-font);font-weight:900;font-size:15px;}
+  .dt-card .bal .k{font-size:9px;color:var(--text3);}
+  .dt-card .qa{display:flex;flex-direction:column;gap:6px;margin-left:4px;}
+  .dt-card .qa span{cursor:pointer;font-size:14px;color:var(--text3);}
+  .dt-pctrow{display:flex;justify-content:space-between;font-size:10.5px;color:var(--text3);font-weight:700;margin-bottom:10px;}
+  .dt-thismonth{background:var(--sunk);border-radius:10px;padding:9px 11px;margin-bottom:10px;}
+  .dt-thismonth .top2{display:flex;justify-content:space-between;font-size:10.5px;font-weight:700;margin-bottom:6px;}
+  .dt-stats3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px;}
+  .dt-stats3 .s{text-align:center;}
+  .dt-stats3 .s .v{font-family:var(--round-font);font-weight:900;font-size:13px;}
+  .dt-stats3 .s .k{font-size:9px;color:var(--text3);font-weight:700;}
 
-/* MAIN */
-.main{margin-left:var(--sidebar);flex:1;display:flex;flex-direction:column;}
-.topbar{background:var(--glass-bg);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-bottom:1px solid var(--glass-border);height:var(--topbar);padding:0 28px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:40;}
-.tb-title{font-size:17px;font-weight:800;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.btn-add{background:linear-gradient(135deg,var(--red),#B71C1C);color:white;border:none;border-radius:20px;padding:8px 18px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:6px;}
-.lang-toggle{display:flex;background:var(--off);border:1px solid var(--border);border-radius:20px;overflow:hidden;font-size:11px;font-weight:700;}
-.kebab-btn{cursor:pointer;width:36px;height:36px;border-radius:99px;background:var(--off);display:grid;place-items:center;font-size:18px;flex-shrink:0;color:var(--text2);border:none;font-family:inherit;line-height:1;}
-.kebab-menu{position:absolute;top:56px;right:16px;background:white;border:1px solid var(--border);border-radius:14px;box-shadow:0 12px 28px -8px rgba(20,20,30,.18);padding:6px;z-index:60;display:none;min-width:180px;}
-.kebab-menu.on{display:block;}
-.kebab-menu button{width:100%;text-align:left;background:none;border:none;padding:10px 12px;font-size:13px;font-weight:700;color:var(--text);cursor:pointer;font-family:inherit;border-radius:8px;display:flex;align-items:center;gap:8px;}
-.kebab-menu button:hover{background:var(--off);}
-.lt-opt{padding:5px 11px;cursor:pointer;color:var(--text3);border-radius:20px;transition:all .15s;}
-.lt-opt.on{background:var(--g-main);color:white;}
+  .dt-typegrid{display:grid;grid-template-columns:1fr 1fr;gap:9px;}
+  .dt-typegrid .tc{border:1.5px solid var(--hair);border-radius:14px;padding:14px 10px;text-align:center;cursor:pointer;background:var(--sunk);}
+  .dt-typegrid .tc .e{font-size:24px;}
+  .dt-typegrid .tc .n{font-family:var(--round-font);font-weight:900;font-size:12.5px;margin-top:6px;}
+  .dt-typegrid .tc .s{font-size:9.5px;color:var(--text3);margin-top:2px;}
 
-/* PAGE */
-.page{padding:24px 28px 40px;overflow-x:hidden;}
-.page [style*="grid-template-columns"] > *{min-width:0;}
-
-/* DEBT CARDS */
-.debt-grid{display:grid;gap:14px;}
-.debt-card{background:var(--glass-bg);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid var(--glass-border);border-radius:16px;overflow:hidden;box-shadow:var(--glass-shadow);cursor:pointer;transition:box-shadow .15s;}
-.debt-card:hover{box-shadow:var(--shadow-md);}
-.dc-header{padding:16px 18px;display:flex;align-items:center;gap:12px;}
-.dc-ico{width:44px;height:44px;border-radius:13px;display:grid;place-items:center;font-size:22px;flex-shrink:0;}
-.dc-info{flex:1;min-width:0;}
-.dc-name{font-size:14px;font-weight:800;margin-bottom:2px;}
-.dc-meta{font-size:11px;color:var(--text3);}
-.dc-amount{text-align:right;flex-shrink:0;}
-.dc-balance{font-size:18px;font-weight:800;}
-.dc-label{font-size:10px;color:var(--text3);}
-.dc-progress{height:6px;background:var(--border);margin:0 18px 6px;}
-.dc-fill{height:100%;border-radius:100px;transition:width .8s ease;}
-.dc-pct{padding:0 18px 10px;display:flex;justify-content:space-between;font-size:10px;color:var(--text3);}
-.dc-summary{border-top:1px solid var(--off);padding:12px 18px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
-.dc-stat{text-align:center;}
-.dc-stat-val{font-size:12px;font-weight:800;margin-bottom:1px;}
-.dc-stat-lbl{font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.3px;}
-
-/* TYPE SELECTOR */
-.type-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;}
-.type-card{border:2px solid var(--border);border-radius:14px;padding:16px;cursor:pointer;text-align:center;transition:all .15s;background:var(--white);}
-.type-card:hover{border-color:var(--g-main);}
-.type-card.selected{border-color:var(--g-main);background:var(--g-light);}
-.type-card .tc-ico{font-size:30px;margin-bottom:8px;}
-.type-card .tc-name{font-size:13px;font-weight:800;margin-bottom:3px;}
-.type-card .tc-sub{font-size:10px;color:var(--text3);}
-
-/* FORM */
-.field-group{margin-bottom:14px;}
-.field-label{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;}
-.field-input{width:100%;background:var(--off);border:1.5px solid var(--border);border-radius:10px;padding:11px 13px;font-size:14px;font-family:inherit;color:var(--text);outline:none;transition:border .15s;}
-.field-input:focus{border-color:var(--g-main);}
-.field-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-.field-hint{font-size:10px;color:var(--text3);margin-top:4px;}
-
-/* AMORT PREVIEW */
-.amort-preview{background:var(--red-dim);border-radius:12px;padding:14px;margin-bottom:14px;}
-.ap-title{font-size:11px;font-weight:700;color:var(--red);margin-bottom:10px;text-transform:uppercase;letter-spacing:.4px;}
-.ap-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:12px;}
-.ap-row:last-child{margin-bottom:0;}
-.ap-label{color:var(--text2);}
-.ap-value{font-weight:800;color:var(--red);}
-.ap-extra{background:var(--g-light);border-radius:10px;padding:10px;margin-top:8px;font-size:11px;color:var(--g-dark);}
-
-/* AMORT TABLE */
-.amort-table{width:100%;border-collapse:collapse;font-size:11px;}
-.amort-table th{background:var(--off);padding:8px 10px;text-align:left;font-weight:700;color:var(--text3);border-bottom:1px solid var(--border);}
-.amort-table td{padding:7px 10px;border-bottom:1px solid var(--off);color:var(--text2);}
-.amort-table tr:last-child td{border-bottom:none;}
-
-/* MODAL */
-.overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;place-items:center;z-index:100;backdrop-filter:blur(5px);}
-.overlay.open{display:grid;}
-.modal{background:var(--white);border-radius:20px;width:520px;max-width:calc(100vw - 32px);max-height:90vh;overflow-y:auto;box-shadow:0 16px 48px rgba(0,0,0,.18);}
-.modal-header{display:flex;justify-content:space-between;align-items:center;padding:20px 22px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--white);z-index:1;}
-.modal-title{font-size:16px;font-weight:800;}
-.modal-close{color:var(--text3);cursor:pointer;font-size:22px;line-height:1;}
-.modal-body{padding:20px 22px;}
-
-/* DETAIL VIEW */
-.detail-hero{border-radius:16px;padding:20px;color:white;margin-bottom:16px;position:relative;overflow:hidden;}
-.detail-hero::before{content:'';position:absolute;top:-30px;right:-30px;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.1);}
-.dh-label{font-size:11px;opacity:.75;margin-bottom:4px;}
-.dh-amount{font-family:var(--round-font);font-size:32px;font-weight:900;letter-spacing:-1px;margin-bottom:4px;}
-.dh-sub{font-size:12px;opacity:.7;}
-.stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;}
-.stat-card{background:var(--off);border-radius:12px;padding:12px;text-align:center;}
-.stat-val{font-size:15px;font-weight:800;margin-bottom:2px;}
-.stat-lbl{font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.3px;}
-.progress-wrap{background:var(--white);border-radius:12px;padding:14px;margin-bottom:14px;box-shadow:var(--shadow);}
-.progress-bar{height:10px;background:var(--border);border-radius:100px;overflow:hidden;margin:8px 0;}
-.progress-fill{height:100%;border-radius:100px;}
-.progress-labels{display:flex;justify-content:space-between;font-size:10px;color:var(--text3);}
-.extra-tip{border-radius:10px;padding:12px;margin-bottom:14px;font-size:12px;}
-.section-title{font-size:12px;font-weight:800;margin-bottom:10px;color:var(--text);}
-.tab-row{display:flex;gap:6px;margin-bottom:14px;}
-.tab-btn{background:var(--off);border:1.5px solid var(--border);border-radius:20px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;color:var(--text3);font-family:inherit;}
-.tab-btn.on{background:var(--red);border-color:var(--red);color:white;}
-
-/* EMPTY */
-.empty-state{text-align:center;padding:80px 20px;}
-
-/* BTN */
-.btn-primary{background:linear-gradient(135deg,var(--red),#B71C1C);color:white;border:none;border-radius:12px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;width:100%;}
-.btn-secondary{background:var(--off);border:1.5px solid var(--border);color:var(--text2);border-radius:12px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;width:100%;}
-.btn-danger{background:var(--red-dim);border:none;color:var(--red);border-radius:12px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;}
-
-/* TOAST */
-#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--text);color:white;padding:12px 20px;border-radius:20px;font-size:13px;font-weight:600;display:none;z-index:200;white-space:nowrap;}
-
-/* MOBILE */
-@media(max-width:860px){
-  .sidebar{display:none;}.main{margin-left:0;padding-bottom:72px;max-width:100vw;overflow-x:hidden;min-width:0;}
-  
-  .page{padding:16px 16px 40px;}
-  .stat-row{grid-template-columns:1fr 1fr;}
-  .field-row{grid-template-columns:1fr;}
-  .mob-nav{display:flex!important;}
-}
-.mob-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--white);border-top:1px solid var(--border);padding:8px 0 calc(8px + env(safe-area-inset-bottom));z-index:100;gap:0;}
-.mob-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:9px;font-weight:700;color:var(--text3);cursor:pointer;padding:4px 0;}
-.mob-item.on{color:var(--g-main);}
-.mob-ico{font-size:22px;line-height:1.2;}
-.mob-plus{width:52px;height:52px;border-radius:50%;background:var(--g-main);display:flex;align-items:center;justify-content:center;font-size:26px;color:white;margin-top:-18px;box-shadow:0 4px 14px rgba(26,122,74,.4);}
-.more-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;align-items:flex-end;z-index:200;}
-.more-overlay.open{display:flex;}
-.more-panel{background:var(--white);width:100%;border-radius:24px 24px 0 0;padding:12px 20px calc(28px + env(safe-area-inset-bottom));}
-.more-handle{width:36px;height:4px;background:var(--border);border-radius:100px;margin:0 auto 16px;}
-.more-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
-.more-item{display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;}
-.more-ico{width:52px;height:52px;border-radius:16px;display:grid;place-items:center;font-size:24px;}
-.more-item span{font-size:11px;font-weight:600;color:var(--text2);text-align:center;}
-
-input, select, textarea { font-size: 16px !important; }
+  .dt-seg{display:flex;gap:8px;margin-bottom:4px;}
+  .dt-seg button{flex:1;padding:9px;border-radius:10px;border:1.5px solid var(--hair);background:var(--sunk);font-family:var(--ui-font);font-size:12px;font-weight:800;color:var(--text2);cursor:pointer;}
+  .dt-seg button.on{border-color:var(--g-main);background:var(--g-light);color:var(--g-dark);}
+  .dt-seg.red button.on{border-color:var(--red);background:var(--red-dim);color:var(--red);}
+  .dt-hint{font-size:10.5px;color:var(--text3);margin-top:5px;}
+  .dt-typehdr{display:flex;align-items:center;gap:10px;border-radius:12px;padding:12px 14px;margin-bottom:16px;}
+  .dt-typehdr .n{font-size:13px;font-weight:800;} .dt-typehdr .s{font-size:11px;color:var(--text3);}
+  .dt-preview{background:var(--red-dim);border-radius:12px;padding:13px;margin:10px 0;}
+  .dt-preview .t{font-size:11.5px;font-weight:900;color:#8A1E22;margin-bottom:7px;}
+  .dt-preview .r{display:flex;justify-content:space-between;font-size:11.5px;padding:4px 0;}
+  .dt-preview .r .k{color:var(--text2);}
+  .dt-preview .tip{background:var(--g-light);color:var(--g-dark);border-radius:9px;padding:8px 10px;font-size:11px;margin-top:8px;}
+  .dt-costbox{background:linear-gradient(135deg,rgba(225,75,79,.08),rgba(225,75,79,.02));border:1.5px solid rgba(225,75,79,.2);border-radius:14px;padding:15px;margin:14px 0;}
+  .dt-costbox .lab{font-size:10.5px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;}
+  .dt-costbox .big{font-family:var(--round-font);font-weight:900;font-size:24px;color:var(--red);margin:4px 0;}
+  .dt-amort{width:100%;border-collapse:collapse;font-size:11.5px;}
+  .dt-amort th{background:var(--sunk);padding:7px 6px;text-align:left;font-size:9.5px;color:var(--text3);text-transform:uppercase;}
+  .dt-amort td{padding:7px 6px;border-bottom:1px solid var(--hair);}
+  .dt-abrow{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--hair);cursor:pointer;}
+  .dt-abrow:last-child{border-bottom:none;}
+  .dt-chiprow{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;}
+  .dt-chiprow button{background:#fff;border:1.5px solid var(--g-main);color:var(--g-dark);border-radius:20px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:var(--ui-font);}
+  .dt-empty{text-align:center;padding:50px 20px;}
+  .dt-empty .e{font-size:52px;margin-bottom:12px;}
 </style>
 </head>
 <body>
-<div class="app">
-
-<!-- SIDEBAR -->
-<aside class="sidebar" id="sidebar">
-  <div class="sb-collapse-btn" id="sbCollapseBtn" onclick="toggleSidebar()">◀</div>
-  <div class="sb-logo"><div class="sb-mark">💎</div><div><div class="sb-name">FinTrack Pro</div><div class="sb-tag">Panel financiero</div></div></div>
-  <nav class="sb-nav">
-    <div class="sb-section">Principal</div>
-    <div class="sb-link" onclick="go('dashboard.html')"><span class="sb-ico">📊</span>Dashboard</div>
-    <div class="sb-link" onclick="go('dashboard.html')"><span class="sb-ico">➕</span>Nuevo registro</div>
-    <div class="sb-link" onclick="go('suscripciones.html')"><span class="sb-ico">🔄</span>Suscripciones</div>
-    <div class="sb-link" onclick="go('metas.html')"><span class="sb-ico">🎯</span>Metas</div>
-    <div class="sb-link on"><span class="sb-ico">💳</span>Deudas</div>
-    <div class="sb-section">Análisis</div>
-    <div class="sb-link" onclick="go('analisis.html')"><span class="sb-ico">📈</span>Por categoría</div>
-    <div class="sb-link" onclick="go('historial.html')"><span class="sb-ico">📅</span>Historial</div>
-    <div class="sb-link" onclick="go('inversiones.html')"><span class="sb-ico">🏦</span>Inversiones</div>
-    <div class="sb-link" onclick="go('reporte.html')"><span class="sb-ico">📄</span>Reporte mensual</div>
-    <div class="sb-section">Herramientas</div>
-    <div class="sb-link" onclick="go('scanner.html')"><span class="sb-ico">📷</span>Escanear recibo</div>
-    <div class="sb-link" onclick="go('importar.html')"><span class="sb-ico">📥</span>Importar CSV</div>
-    <div class="sb-link" onclick="go('emergencia.html')"><span class="sb-ico">🛡️</span>Fondo emergencia</div>
-    <div class="sb-link" onclick="go('hogar.html')"><span class="sb-ico">🏠</span>Hogar</div>
-    <div class="sb-link" onclick="go('ahorro.html')"><span class="sb-ico">💵</span><span data-es="Ahorro libre" data-en="Free savings">Ahorro libre</span></div>
-    <div class="sb-section">Cuenta</div>
-    <div class="sb-link" onclick="go('perfil.html')"><span class="sb-ico">👤</span>Mi perfil</div>
-    <div class="sb-link" onclick="go('config.html')"><span class="sb-ico">⚙️</span>Configuración</div>
-    <div class="sb-link" onclick="logout()"><span class="sb-ico">🚪</span>Cerrar sesión</div>
-  </nav>
-  <div class="sb-footer"><div class="sb-user" onclick="go('perfil.html')"><div class="sb-avatar" id="sbAvatar">R</div><div><div class="sb-uname" id="sbName">—</div><div class="sb-umail" id="sbEmail">—</div></div></div></div>
-</aside>
-
-<!-- MAIN -->
-<div class="main">
-  <div class="topbar" style="position:relative;">
-    <div class="tb-title">💳 <span data-es="Mis Deudas" data-en="My Debts">Mis Deudas</span></div>
-    <button class="kebab-btn" onclick="document.getElementById('kebabMenu').classList.toggle('on')">⋯</button>
-    <div id="kebabMenu" class="kebab-menu" onclick="document.getElementById('kebabMenu').classList.remove('on')">
-      <button onclick="openAddModal()">💳 <span data-es="Nueva deuda" data-en="New debt">Nueva deuda</span></button>
-        <button onclick="showHelpModal()">❓ <span data-es="Ayuda" data-en="Help">Ayuda</span></button>
-    <button onclick="setLang(lang==='es'?'en':'es')">🌐 <span data-es="English" data-en="Español">English</span></button>
-</div>
-  </div>
-  <div class="lang-toggle" style="display:none">
-    <div class="lt-opt on" id="ltES" onclick="setLang('es')">ES</div>
-    <div class="lt-opt" id="ltEN" onclick="setLang('en')">EN</div>
-  </div>
-  <div class="page" id="page"></div>
-</div>
-</div>
-
-<!-- MORE MENU -->
-<div class="more-overlay" id="moreOverlay" onclick="if(event.target===this)closeMoreMenu()">
-  <div class="more-panel">
-    <div class="more-handle"></div>
-    <div class="more-grid">
-      <div class="more-item" onclick="go('analisis.html')"><div class="more-ico" style="background:var(--g-light)">📈</div><span data-es="Análisis" data-en="Analysis">Análisis</span></div>
-      <div class="more-item" onclick="go('metas.html')"><div class="more-ico" style="background:var(--amb-dim)">🎯</div><span data-es="Metas" data-en="Goals">Metas</span></div>
-      <div class="more-item" onclick="go('deudas.html')"><div class="more-ico" style="background:var(--red-dim)">💳</div><span data-es="Deudas" data-en="Debts">Deudas</span></div>
-      <div class="more-item" onclick="go('inversiones.html')"><div class="more-ico" style="background:var(--blu-dim)">🏦</div><span data-es="Inversiones" data-en="Investments">Inversiones</span></div>
-      <div class="more-item" onclick="go('scanner.html')"><div class="more-ico" style="background:rgba(123,94,167,.1)">📷</div><span data-es="Escanear" data-en="Scan">Escanear</span></div>
-      <div class="more-item" onclick="go('importar.html')"><div class="more-ico" style="background:var(--blu-dim)">📥</div><span data-es="Importar CSV" data-en="Import CSV">Importar CSV</span></div>
-      <div class="more-item" onclick="go('emergencia.html')"><div class="more-ico" style="background:var(--amb-dim)">🛡️</div><span data-es="Emergencia" data-en="Emergency">Emergencia</span></div>
-      <div class="more-item" onclick="go('suscripciones.html')"><div class="more-ico" style="background:rgba(123,94,167,.1)">🔄</div><span data-es="Suscripciones" data-en="Subscriptions">Suscripciones</span></div>
-      <div class="more-item" onclick="go('recurrentes.html')"><div class="more-ico" style="background:rgba(74,108,247,.1)">📋</div><span data-es="Recurrentes" data-en="Recurring">Recurrentes</span></div>
-      <div class="more-item" onclick="go('config.html')"><div class="more-ico" style="background:var(--off)">⚙️</div><span data-es="Config" data-en="Settings">Config</span></div>
-      <div class="more-item" onclick="go('perfil.html')"><div class="more-ico" style="background:var(--blu-dim)">👤</div><span data-es="Perfil" data-en="Profile">Perfil</span></div>
-    </div>
-  </div>
-</div>
-
-<!-- MOBILE NAV -->
-<nav class="mob-nav">
-  <div class="mob-item" onclick="go('dashboard.html')"><div class="mob-ico">📊</div><span data-es="Inicio" data-en="Home">Inicio</span></div>
-  <div class="mob-item" onclick="go('historial.html')"><div class="mob-ico">📅</div><span data-es="Historial" data-en="History">Historial</span></div>
-  <div class="mob-item" onclick="openAddModal()"><div class="mob-plus">＋</div></div>
-  <div class="mob-item" onclick="go('hogar.html')"><div class="mob-ico">🏠</div><span data-es="Hogar" data-en="Household">Hogar</span></div>
-  <div class="mob-item" onclick="openMoreMenu()"><div class="mob-ico">☰</div><span data-es="Más" data-en="More">Más</span></div>
-</nav>
-
-<!-- ADD/EDIT MODAL -->
-<div class="overlay" id="modalOverlay" onclick="closeModalOutside(event)">
-  <div class="modal">
-    <div class="modal-header">
-      <div class="modal-title" id="modalTitle">Nueva deuda</div>
-      <div class="modal-close" onclick="closeModal()">✕</div>
-    </div>
-    <div class="modal-body" id="modalBody"></div>
-  </div>
-</div>
-
-<!-- DETAIL OVERLAY -->
-<div class="overlay" id="detailOverlay" onclick="closeDetailOutside(event)">
-  <div class="modal" id="detailModal"></div>
-</div>
-
-<!-- ABONO DETAIL OVERLAY -->
-<div class="overlay" id="abonoDetailOverlay" onclick="if(event.target===this)closeAbonoDetail()">
-  <div class="modal" id="abonoDetailBox" style="max-width:380px"></div>
-</div>
-
-<div id="toast"></div>
-
-<!-- MODAL ABONO -->
-<div class="overlay" id="abonarOverlay" onclick="if(event.target===this)closeAbonar()">
-  <div class="modal" style="max-width:min(420px, calc(100vw - 32px))">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-      <div style="font-size:16px;font-weight:800" id="abonarTitle">💳 Registrar abono</div>
-      <div onclick="closeAbonar()" style="cursor:pointer;font-size:20px;color:var(--text3)">✕</div>
-    </div>
-    <!-- Selector de deuda (cuando viene del menú +) -->
-    <div id="abonarDebtSelector" style="display:none;margin-bottom:14px">
-      <label style="display:block;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px" data-es="Seleccionar deuda" data-en="Select debt">Seleccionar deuda</label>
-      <select id="abonarDebtId" onchange="updateAbonarInfo()" style="width:100%;background:var(--off);border:1.5px solid var(--border);border-radius:10px;padding:11px;font-size:13px;font-family:inherit;outline:none"></select>
-    </div>
-    <!-- Info de la deuda seleccionada -->
-    <div id="abonarRecurrenteWarning" style="display:none;background:#FFF4E5;border:1.5px solid var(--amber);border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:#8A5A00"></div>
-    <div id="abonarDebtInfo" style="background:var(--off);border-radius:10px;padding:12px;margin-bottom:14px;display:none">
-      <div style="font-size:11px;color:var(--text3);margin-bottom:4px" data-es="Saldo actual" data-en="Current balance">Saldo actual</div>
-      <div style="font-size:22px;font-weight:800" id="abonarSaldoActual">$0</div>
-    </div>
-
-    <!-- NUEVO / YA LO TENÍA -->
-    <div style="margin-bottom:14px">
-      <label style="display:block;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px" data-es="Tipo de abono" data-en="Payment type">Tipo de abono</label>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <button id="abonarBtnNuevo" onclick="setAbonoTipo('nuevo')" type="button"
-          style="padding:10px;border-radius:10px;border:2px solid var(--g-main);background:var(--g-light);color:var(--g-dark);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;line-height:1.5">
-          <span data-es="💸 Nuevo abono" data-en="💸 New payment">💸 Nuevo abono</span><br><span style="font-size:9px;font-weight:400" data-es="Se descuenta del mes" data-en="Deducted from this month">Se descuenta del mes</span>
-        </button>
-        <button id="abonarBtnYaTenia" onclick="setAbonoTipo('existente')" type="button"
-          style="padding:10px;border-radius:10px;border:2px solid var(--border);background:var(--off);color:var(--text2);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;line-height:1.5">
-          <span data-es="📦 Ya lo tenía" data-en="📦 Already had it">📦 Ya lo tenía</span><br><span style="font-size:9px;font-weight:400" data-es="Solo registrar" data-en="Just record it">Solo registrar</span>
-        </button>
-      </div>
-    </div>
-    <div style="margin-bottom:14px">
-      <label style="display:block;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px" data-es="Monto del abono ($)" data-en="Payment amount ($)">Monto del abono ($)</label>
-      <input type="number" id="abonarMonto" min="0" step="0.01" placeholder="0.00" style="width:100%;background:var(--off);border:1.5px solid var(--border);border-radius:10px;padding:11px 13px;font-size:15px;font-family:inherit;outline:none">
-    </div>
-    <!-- Sugerencia pago mínimo -->
-    <div id="abonarSugerencia" style="display:none;background:var(--g-light);border-radius:10px;padding:10px;margin-bottom:14px">
-      <div style="font-size:11px;color:var(--g-dark);font-weight:700;margin-bottom:6px" data-es="💡 Sugerencias rápidas" data-en="💡 Quick suggestions">💡 Sugerencias rápidas</div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap" id="abonarChips"></div>
-    </div>
-    <div style="margin-bottom:14px">
-      <label style="display:block;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px" data-es="Fecha" data-en="Date">Fecha</label>
-      <input type="date" id="abonarFecha" style="width:100%;background:var(--off);border:1.5px solid var(--border);border-radius:10px;padding:11px 13px;font-size:14px;font-family:inherit;outline:none">
-    </div>
-    <div style="margin-bottom:16px">
-      <label style="display:block;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px" data-es="Nota (opcional)" data-en="Note (optional)">Nota (opcional)</label>
-      <input type="text" id="abonarNota" placeholder="" style="width:100%;background:var(--off);border:1.5px solid var(--border);border-radius:10px;padding:11px 13px;font-size:14px;font-family:inherit;outline:none">
-    </div>
-    <div style="margin-bottom:16px;background:var(--off);border-radius:10px;padding:12px">
-      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12.5px;font-weight:700" onclick="event.preventDefault();document.getElementById('abonarRecurrenteCheck').click()">
-        <input type="checkbox" id="abonarRecurrenteCheck" style="width:16px;height:16px" onclick="event.stopPropagation();toggleAbonoRecurrenteFreq()">
-        <span data-es="🔄 Hacer este abono recurrente" data-en="🔄 Make this payment recurring">🔄 Hacer este abono recurrente</span>
-      </label>
-      <div id="abonoRecurrenteFreqWrap" style="display:none;margin-top:10px">
-        <select id="abonoRecurrenteFreq" style="width:100%;padding:9px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit">
-          <option value="weekly" data-es="Cada semana" data-en="Every week">Cada semana</option>
-          <option value="biweekly" data-es="Cada quincena" data-en="Every two weeks">Cada quincena</option>
-          <option value="monthly" selected data-es="Cada mes" data-en="Every month">Cada mes</option>
-        </select>
-        <div id="abonoRecurrenteWhoWrap" style="display:none;margin-top:8px">
-          <label style="display:block;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px" data-es="¿De quién es este abono recurrente?" data-en="Whose recurring payment is this?">¿De quién es este abono recurrente?</label>
-          <select id="abonoRecurrenteWho" style="width:100%;padding:9px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit">
-            <option value="me" data-es-tpl="Tuyo (%NAME%)" data-en-tpl="Yours (%NAME%)">Tuyo</option>
-            <option value="partner" data-es-tpl="De tu pareja (%PARTNER%)" data-en-tpl="Your partner's (%PARTNER%)">De tu pareja</option>
-          </select>
-        </div>
-        <div style="font-size:10.5px;color:var(--text3);margin-top:6px" data-es="Se aplicará solo, sin que tengas que volver a entrar." data-en="Applies automatically, no need to come back and confirm.">Se aplicará solo, sin que tengas que volver a entrar.</div>
-      </div>
-    </div>
-    <button id="btnRegistrarAbono" onclick="guardarAbono()" style="width:100%;background:var(--g-main);color:white;border:none;border-radius:12px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:8px" data-es="✅ Registrar abono" data-en="✅ Register payment">✅ Registrar abono</button>
-    <button onclick="closeAbonar()" style="width:100%;background:var(--off);border:1.5px solid var(--border);border-radius:12px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit" data-es="Cancelar" data-en="Cancel">Cancelar</button>
-  </div>
-</div>
-
+<div class="ft-app"><div class="ft-page" id="root"></div></div>
 <script>
-/* \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
-   FinTrack Pro \u2014 Deudas v2
-   Tipos: hipoteca, auto, tarjeta, personal
-   Con amortizaci\u00f3n real y seguimiento
-\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550 */
-/* \u2500\u2500 SIDEBAR COLLAPSE (desktop only) \u2500\u2500 */
-function toggleSidebar(){
-  const sb = document.getElementById('sidebar');
-  const btn = document.getElementById('sbCollapseBtn');
-  if(!sb) return;
-  const collapsed = sb.classList.toggle('collapsed');
-  if(btn) btn.textContent = collapsed ? '\u25b6' : '\u25c0';
-  localStorage.setItem('ft_sidebar_collapsed', collapsed ? '1' : '0');
-}
-(function initSidebarState(){
-  if(window.innerWidth <= 860) return; // en m\u00f3vil el sidebar no aplica
-  const sb = document.getElementById('sidebar');
-  const btn = document.getElementById('sbCollapseBtn');
-  if(!sb) return;
-  if(localStorage.getItem('ft_sidebar_collapsed') === '1'){
-    sb.classList.add('collapsed');
-    if(btn) btn.textContent = '\u25b6';
-  }
-})();
-
-const DEBT_KEY = 'ft_debts';
-let lang = 'es', user = {};
-let editingId = null;
-let currentType = null;
-
-const TYPE_CONFIG = {
-  hipoteca: {
-    es: { name:'Hipoteca', sub:'Casa \u00b7 Condo \u00b7 Propiedad', ico:'\ud83c\udfe0', color:'#E63946', bg:'rgba(230,57,70,.1)' },
-    en: { name:'Mortgage', sub:'House \u00b7 Condo \u00b7 Property',  ico:'\ud83c\udfe0', color:'#E63946', bg:'rgba(230,57,70,.1)' },
-    hasInterest: true, hasOriginal: true, hasLimit: false, fixedTerm: true,
-    defaultAPR: 6.8, exampleTerm: 360, kind:'needs'
-  },
-  auto: {
-    es: { name:'Auto / Veh\u00edculo', sub:'Auto \u00b7 Moto \u00b7 Cami\u00f3n', ico:'\ud83d\ude97', color:'#4A6CF7', bg:'rgba(74,108,247,.1)' },
-    en: { name:'Auto / Vehicle',  sub:'Car \u00b7 Motorcycle \u00b7 Truck', ico:'\ud83d\ude97', color:'#4A6CF7', bg:'rgba(74,108,247,.1)' },
-    hasInterest: true, hasOriginal: false, hasLimit: false, fixedTerm: true,
-    defaultAPR: 6.9, exampleTerm: 60, kind:'needs'
-  },
-  tarjeta: {
-    es: { name:'Tarjeta de cr\u00e9dito', sub:'Visa \u00b7 MC \u00b7 Amex \u00b7 Discover', ico:'\ud83d\udcb3', color:'#F4A261', bg:'rgba(244,162,97,.12)' },
-    en: { name:'Credit card',       sub:'Visa \u00b7 MC \u00b7 Amex \u00b7 Discover', ico:'\ud83d\udcb3', color:'#F4A261', bg:'rgba(244,162,97,.12)' },
-    hasInterest: true, hasOriginal: false, hasLimit: true, fixedTerm: false,
-    defaultAPR: 24.99, exampleTerm: null, kind:'wants'
-  },
-  personal: {
-    es: { name:'Pr\u00e9stamo personal', sub:'Familiar \u00b7 Banco \u00b7 Sin inter\u00e9s', ico:'\ud83d\udce6', color:'#7B5EA7', bg:'rgba(123,94,167,.1)' },
-    en: { name:'Personal loan',     sub:'Family \u00b7 Bank \u00b7 0% interest',  ico:'\ud83d\udce6', color:'#7B5EA7', bg:'rgba(123,94,167,.1)' },
-    hasInterest: false, hasOriginal: false, hasLimit: false, fixedTerm: true,
-    defaultAPR: 0, exampleTerm: 24, kind:'needs'
-  }
+var TYPE_CFG = {
+  hipoteca:  { es:{name:'Hipoteca',sub:'Casa · Condo · Propiedad'}, en:{name:'Mortgage',sub:'House · Condo · Property'}, ico:'🏠', color:'var(--red)', bg:'var(--red-dim)', hasInterest:true, hasOriginal:true, hasLimit:false, fixedTerm:true, defaultAPR:6.8, exampleTerm:360, kind:'needs' },
+  auto:      { es:{name:'Auto / Vehículo',sub:'Auto · Moto · Camión'}, en:{name:'Auto / Vehicle',sub:'Car · Motorcycle · Truck'}, ico:'🚗', color:'var(--blue)', bg:'var(--sky-bg)', hasInterest:true, hasOriginal:false, hasLimit:false, fixedTerm:true, defaultAPR:6.9, exampleTerm:60, kind:'needs' },
+  tarjeta:   { es:{name:'Tarjeta de crédito',sub:'Visa · MC · Amex · Discover'}, en:{name:'Credit card',sub:'Visa · MC · Amex · Discover'}, ico:'💳', color:'var(--amber)', bg:'#FBF0DD', hasInterest:true, hasOriginal:false, hasLimit:true, fixedTerm:false, defaultAPR:24.99, exampleTerm:null, kind:'wants' },
+  personal:  { es:{name:'Préstamo personal',sub:'Familiar · Banco · Sin interés'}, en:{name:'Personal loan',sub:'Family · Bank · 0% interest'}, ico:'📦', color:'#7B5EA7', bg:'#EFE9F5', hasInterest:false, hasOriginal:false, hasLimit:false, fixedTerm:true, defaultAPR:0, exampleTerm:24, kind:'needs' }
 };
+function es() { return FT.lang === 'es'; }
+function money(n, d) { return FT.money(n, { cents: !!d }); }
+function cfg(t) { return TYPE_CFG[t] || TYPE_CFG.personal; }
+function info(t) { var c = cfg(t); return c[FT.lang] || c.es; }
 
-/* \u2500\u2500 DATA \u2500\u2500 */
-function loadDebts(){ try{return JSON.parse(localStorage.getItem(DEBT_KEY))||[];}catch(e){return[];} }
-function saveDebts(d){ localStorage.setItem(DEBT_KEY,JSON.stringify(d)); }
-function fmt(n){ return '$'+Math.abs(n||0).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0}); }
-function fmtD(n){ return '$'+Math.abs(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
-function uid(){ return Date.now()+Math.floor(Math.random()*1000); }
-function showToast(msg,dur=3000){const t=document.getElementById('toast');t.textContent=msg;t.style.display='block';setTimeout(()=>t.style.display='none',dur);}
-
-/* \u2500\u2500 AMORTIZATION MATH \u2500\u2500 */
-function calcAmort(balance, payment, aprPct, termMonths){
-  const apr = parseFloat(aprPct)||0;
-  const r = (apr/100)/12;
-
-  if(apr === 0 || r === 0){
-    // 0% interest
-    const months = payment > 0 ? Math.ceil(balance/payment) : (termMonths||999);
-    return { months, totalInterest:0, totalPaid:balance, payoffPossible:true, schedule:[] };
-  }
-
-  if(termMonths && payment === 0){
-    // Calculate required payment from term
-    payment = balance * r / (1 - Math.pow(1+r,-termMonths));
-  }
-
-  if(payment <= balance * r){
-    return { months:999, totalInterest:999999, totalPaid:999999, payoffPossible:false, schedule:[] };
-  }
-
-  let bal = balance, totalInterest = 0, months = 0, schedule = [];
-  while(bal > 0.01 && months < 600){
-    const interest = bal * r;
-    const principal = Math.min(payment - interest, bal);
-    bal -= principal;
-    totalInterest += interest;
-    months++;
-    if(months <= 24 || months % 12 === 0){
-      schedule.push({ month:months, principal:+principal.toFixed(2), interest:+interest.toFixed(2), balance:+Math.max(0,bal).toFixed(2) });
-    }
-  }
-  return { months, totalInterest:+totalInterest.toFixed(2), totalPaid:+(balance+totalInterest).toFixed(2), payoffPossible:true, schedule, monthlyPayment:+payment.toFixed(2) };
-}
-
-function calcRequiredPayment(balance, aprPct, termMonths){
-  const r = (aprPct/100)/12;
-  if(!r || !termMonths) return 0;
-  return balance * r / (1 - Math.pow(1+r,-termMonths));
-}
-
-/* \u2500\u2500 RENDER LIST \u2500\u2500 */
-function render(){
-  const debts = loadDebts();
-  const page = document.getElementById('page');
-  const T = {
-    empty: lang==='es'?'Sin deudas registradas':'No debts recorded',
-    emptySub: lang==='es'?'Agrega una deuda para hacer seguimiento de tu progreso':'Add a debt to track your progress',
-    totalDebt: lang==='es'?'Deuda total':'Total debt',
-    monthlyPayments: lang==='es'?'Pagos mensuales':'Monthly payments',
-    paidOff: lang==='es'?'% pagado':'% paid off',
-  };
-
-  if(!debts.length){
-    page.innerHTML = `
-    <div class="empty-state">
-      <div style="font-size:56px;margin-bottom:16px">\ud83d\udcb3</div>
-      <div style="font-size:18px;font-weight:800;margin-bottom:8px">${T.empty}</div>
-      <div style="font-size:13px;color:var(--text3);margin-bottom:24px">${T.emptySub}</div>
-      <button class="btn-add" style="width:auto;margin:0 auto" onclick="openAddModal()">+ ${lang==='es'?'Nueva deuda':'New debt'}</button>
-    </div>`;
+/* ═══════════════ LISTA ═══════════════ */
+function render() {
+  var debts = FT.debts();
+  if (!debts.length) {
+    document.getElementById('root').innerHTML =
+      '<div class="ft-section-head"><h3>' + (es() ? 'Deudas' : 'Debts') + '</h3></div>' +
+      '<div class="dt-empty"><div class="e">💳</div><div style="font-weight:800;margin-bottom:6px">' + (es() ? 'Sin deudas registradas' : 'No debts recorded') + '</div>' +
+      '<div style="font-size:12.5px;color:var(--text3);margin-bottom:18px">' + (es() ? 'Agrega una para hacer seguimiento de tu progreso' : 'Add one to track your progress') + '</div>' +
+      '<button class="ft-btn ft-btn-primary tap" style="max-width:220px;margin:0 auto" onclick="openTypePicker()">＋ ' + (es() ? 'Nueva deuda' : 'New debt') + '</button></div>';
     return;
   }
+  var totBal = 0, totPay = 0, totOrig = 0;
+  debts.forEach(function (d) { totBal += +d.balance || 0; totPay += +d.payment || 0; totOrig += Math.max(+d.original || 0, +d.balance || 0); });
+  var paidPct = totOrig > 0 ? Math.max(0, Math.round((totOrig - totBal) / totOrig * 100)) : 0;
 
-  // Summary totals
-  let totalBalance=0, totalPayment=0, totalOriginal=0;
-  debts.forEach(d=>{
-    totalBalance += parseFloat(d.balance)||0;
-    totalPayment += parseFloat(d.payment)||0;
-    const bal = parseFloat(d.balance)||0;
-    totalOriginal += Math.max(parseFloat(d.original||0), bal);
+  var sum = '<div class="dt-sum"><div class="l">' + (es() ? 'Deuda total' : 'Total debt') + '</div><div class="v">' + money(totBal) + '</div>' +
+    '<div class="ft-track"><div class="ft-fill" id="dtSumFill" style="background:linear-gradient(90deg,var(--red),#B23B3F);width:0"></div></div>' +
+    '<div class="dt-prow"><span>' + paidPct + '% ' + (es() ? 'pagado' : 'paid') + '</span><span>' + (es() ? 'de ' : 'of ') + money(totOrig) + ' ' + (es() ? 'originales' : 'original') + '</span></div>' +
+    '<div class="g"><div><div class="k">' + (es() ? 'Pagos mensuales' : 'Monthly payments') + '</div><div class="n">' + money(totPay) + '/' + (es() ? 'mes' : 'mo') + '</div></div>' +
+    '<div><div class="k">% ' + (es() ? 'pagado' : 'paid') + '</div><div class="n">' + paidPct + '%</div></div></div></div>';
+
+  var cards = debts.map(function (d) { return debtCardHTML(d); }).join('');
+  document.getElementById('root').innerHTML =
+    '<div class="ft-section-head"><h3>' + (es() ? 'Deudas' : 'Debts') + '</h3></div>' + sum + cards;
+  requestAnimationFrame(function () { var f = document.getElementById('dtSumFill'); if (f) f.style.width = paidPct + '%'; });
+  document.querySelectorAll('[data-open]').forEach(function (el) { el.onclick = function () { openDetail(el.getAttribute('data-open')); }; });
+  document.querySelectorAll('[data-abonar]').forEach(function (el) { el.onclick = function (e) { e.stopPropagation(); openAbonar(el.getAttribute('data-abonar')); }; });
+  document.querySelectorAll('[data-editq]').forEach(function (el) { el.onclick = function (e) { e.stopPropagation(); var d = FT.debts().find(function (x) { return String(x.id) === el.getAttribute('data-editq'); }); openForm(d.type, d); }; });
+  document.querySelectorAll('[data-delq]').forEach(function (el) { el.onclick = function (e) { e.stopPropagation(); deleteDebt(el.getAttribute('data-delq')); }; });
+}
+
+function debtCardHTML(d) {
+  var c = cfg(d.type), i = info(d.type), L = es();
+  var orig = Math.max(+d.original || 0, +d.balance || 0);
+  var paidAmt = Math.max(0, orig - (+d.balance || 0));
+  var paidPct = orig > 0 ? Math.min(100, Math.round(paidAmt / orig * 100)) : 0;
+  var mk = FT.todayISO().slice(0, 7);
+  var paidThisMonth = (d.abonos || []).filter(function (a) { return String(a.fecha || '').slice(0, 7) === mk; }).reduce(function (s, a) { return s + (+a.monto || 0); }, 0);
+  var mPct = d.payment > 0 ? Math.min(100, Math.round(paidThisMonth / d.payment * 100)) : 0;
+  var mDone = d.payment > 0 && paidThisMonth >= d.payment;
+  var isSimpleM = d.type === 'hipoteca' && d.mortgageMode === 'simple';
+  var am = isSimpleM ? { payoffPossible: true, months: d.term || 0, totalInterest: d.simpleTotalInterest } : FT.calcAmort(d.balance, d.payment, d.apr || 0, d.term || 0);
+
+  return '<div class="dt-card" data-open="' + d.id + '">' +
+    '<div class="top"><div class="ic" style="background:' + c.bg + '">' + c.ico + '</div>' +
+      '<div><div class="nm">' + (d.name || i.name) + '</div><div class="mt">' + i.name + ' · ' + (isSimpleM ? (L ? 'Modo simple' : 'Simple mode') : 'APR ' + (d.apr || 0) + '%') + '</div></div>' +
+      '<div class="bal"><div class="v" style="color:' + c.color + '">' + money(d.balance) + '</div><div class="k">' + (L ? 'saldo' : 'balance') + '</div></div>' +
+      '<div class="qa"><span data-editq="' + d.id + '" title="Editar">✏️</span><span data-delq="' + d.id + '" title="Eliminar">🗑</span></div></div>' +
+    '<div class="ft-track"><div class="ft-fill" style="width:' + paidPct + '%;background:' + c.color + '"></div></div>' +
+    '<div class="dt-pctrow"><span>' + paidPct + '% ' + (L ? 'pagado' : 'paid') + '</span><span>' + (L ? 'Meses rest.' : 'Months left') + ': ' + (am.payoffPossible && am.months < 600 ? am.months : '—') + '</span></div>' +
+    (d.payment > 0 ? '<div class="dt-thismonth"><div class="top2"><span>' + (L ? 'Este mes' : 'This month') + '</span><span style="color:' + (mDone ? 'var(--g-main)' : c.color) + '">' + (mDone ? '✅ ' + (L ? 'Cubierto' : 'Covered') : (L ? 'Faltan ' : '') + money(d.payment - paidThisMonth) + (L ? '' : ' left')) + '</span></div>' +
+      '<div class="ft-track" style="margin-bottom:0"><div class="ft-fill" style="width:' + mPct + '%;background:' + (mDone ? 'var(--g-main)' : c.color) + '"></div></div></div>' : '') +
+    '<div class="dt-stats3"><div class="s"><div class="v">' + money(d.payment) + '</div><div class="k">' + (L ? 'pago/mes' : 'payment/mo') + '</div></div>' +
+      '<div class="s"><div class="v" style="color:var(--red)">' + (am.payoffPossible ? (am.totalInterest == null ? '—' : money(am.totalInterest)) : '∞') + '</div><div class="k">' + (L ? 'intereses' : 'interest') + '</div></div>' +
+      '<div class="s"><div class="v">' + (am.payoffPossible && am.months < 600 ? am.months + 'm' : '—') + '</div><div class="k">' + (L ? 'meses rest.' : 'months left') + '</div></div></div>' +
+    '<button class="ft-btn ft-btn-primary tap" data-abonar="' + d.id + '">💳 ' + (L ? 'Registrar abono' : 'Register payment') + '</button></div>';
+}
+
+/* ═══════════════ ALTA / EDICIÓN ═══════════════ */
+var formSt;
+function openTypePicker() {
+  var L = es();
+  var ov = FT.sheet({
+    title: L ? '¿Qué tipo de deuda es?' : 'What type of debt?',
+    html: '<div class="dt-typegrid">' + Object.keys(TYPE_CFG).map(function (k) {
+      var c = TYPE_CFG[k], i = c[FT.lang] || c.es;
+      return '<div class="tc" data-t="' + k + '"><div class="e">' + c.ico + '</div><div class="n">' + i.name + '</div><div class="s">' + i.sub + '</div></div>';
+    }).join('') + '</div>'
   });
-  const paidPct = totalOriginal>0 ? Math.max(0,Math.round(((totalOriginal-totalBalance)/totalOriginal)*100)) : 0;
-
-  page.innerHTML = `
-  <!-- SUMMARY -->
-  <div style="background:linear-gradient(135deg,var(--red),#8B0000);border-radius:16px;padding:20px;color:white;margin-bottom:20px">
-    <div style="font-size:11px;opacity:.7;margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px">${T.totalDebt}</div>
-    <div style="font-size:32px;font-weight:800;letter-spacing:-.8px;margin-bottom:12px">${fmt(totalBalance)}</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-      <div style="background:rgba(255,255,255,.15);border-radius:10px;padding:10px">
-        <div style="font-size:10px;opacity:.7;margin-bottom:2px">${T.monthlyPayments}</div>
-        <div style="font-size:16px;font-weight:800">${fmt(totalPayment)}/mes</div>
-      </div>
-      <div style="background:rgba(255,255,255,.15);border-radius:10px;padding:10px">
-        <div style="font-size:10px;opacity:.7;margin-bottom:2px">${T.paidOff}</div>
-        <div style="font-size:16px;font-weight:800">${paidPct}% ${lang==='es'?'pagado':'paid'}</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- DEBT CARDS -->
-  <div class="debt-grid">
-    ${debts.map(d=>renderDebtCard(d)).join('')}
-  </div>`;
+  ov.querySelectorAll('[data-t]').forEach(function (el) { el.onclick = function () { FT.closeTop(); openForm(el.getAttribute('data-t'), null); }; });
 }
-
-function renderDebtCard(d){
-  const cfg = TYPE_CONFIG[d.type]||TYPE_CONFIG.personal;
-  const info = cfg[lang]||cfg.es;
-  const balance = parseFloat(d.balance)||0;
-  const original = Math.max(parseFloat(d.original||0), balance);
-  const payment = parseFloat(d.payment)||0;
-  const paidAmt = Math.max(0, original - balance);
-  const paidPct = original>0 ? Math.min(Math.round((paidAmt/original)*100),100) : 0;
-
-  // Progreso del pago de ESTE MES (solo abonos tipo "nuevo")
-  const thisMonth = new Date().toISOString().slice(0,7);
-  const paidThisMonth = (d.abonos||[])
-    .filter(a => String(a.fecha||'').startsWith(thisMonth))
-    .reduce((sum,a) => sum + (parseFloat(a.monto)||0), 0);
-  const monthPct = payment>0 ? Math.min(Math.round((paidThisMonth/payment)*100),100) : 0;
-  const monthRemaining = Math.max(0, payment - paidThisMonth);
-  const monthDone = payment>0 && paidThisMonth >= payment;
-
-  // Quick amort calc (o totales de modo simple si aplica)
-  const isSimpleMortgage = d.type==='hipoteca' && d.mortgageMode==='simple';
-  const amort = isSimpleMortgage
-    ? { payoffPossible:true, months:d.term||0, totalInterest:d.simpleTotalInterest, totalPaid:d.simpleTotalPaid }
-    : calcAmort(balance, payment, d.apr||0, d.term||0);
-
-  const payoffDate = amort.payoffPossible && amort.months < 600 ? (() => {
-    const d2 = new Date(); d2.setMonth(d2.getMonth()+amort.months);
-    return d2.toLocaleDateString(lang==='es'?'es-MX':'en-US',{month:'short',year:'numeric'});
-  })() : (lang==='es'?'\u2014':'\u2014');
-
-  return `
-  <div class="debt-card" onclick="openDetail('${d.id}')">
-    <div class="dc-header">
-      <div class="dc-ico" style="background:${info.bg}">${info.ico}</div>
-      <div class="dc-info">
-        <div class="dc-name">${d.name||info.name}</div>
-        <div class="dc-meta">${info.name} \u00b7 ${isSimpleMortgage?(lang==='es'?'Modo simple':'Simple mode'):`APR ${d.apr||0}%`}</div>
-      </div>
-      <div class="dc-amount">
-        <div class="dc-balance" style="color:${info.color}">${fmt(balance)}</div>
-        <div class="dc-label">${lang==='es'?'saldo actual':'current balance'}</div>
-      </div>
-      <div style="display:flex;flex-direction:column;gap:6px;margin-left:6px">
-        <div onclick="event.stopPropagation();openAddModal('${d.id}')" style="cursor:pointer;font-size:15px;color:var(--text3)" title="Editar">✏️</div>
-        <div onclick="event.stopPropagation();deleteDebt('${d.id}')" style="cursor:pointer;font-size:13px;color:var(--text3)" title="Eliminar">🗑</div>
-      </div>
-    </div>
-    <div class="dc-progress">
-      <div class="dc-fill" style="width:${paidPct}%;background:${info.color}"></div>
-    </div>
-    <div class="dc-pct">
-      <span>${paidPct}% ${lang==='es'?'pagado':'paid'}</span>
-      <span>${lang==='es'?'Termina':'Ends'}: ${payoffDate}</span>
-    </div>
-
-    ${payment>0?`
-    <div style="background:var(--off);border-radius:10px;padding:10px 12px;margin-top:10px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-        <span style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.3px">${lang==='es'?'Este mes':'This month'}</span>
-        <span style="font-size:11px;font-weight:700;color:${monthDone?'var(--g-main)':info.color}">${monthDone?(lang==='es'?'✅ Cubierto':'✅ Covered'):(lang==='es'?`Faltan ${fmt(monthRemaining)}`:`${fmt(monthRemaining)} left`)}</span>
-      </div>
-      <div class="dc-progress" style="margin-bottom:4px">
-        <div class="dc-fill" style="width:${monthPct}%;background:${monthDone?'var(--g-main)':info.color}"></div>
-      </div>
-      <div style="font-size:10px;color:var(--text3)">${fmt(paidThisMonth)} / ${fmt(payment)}</div>
-    </div>`:''}
-
-    <div class="dc-summary">
-      <div class="dc-stat">
-        <div class="dc-stat-val">${fmt(payment)}</div>
-        <div class="dc-stat-lbl">${lang==='es'?'pago/mes':'payment/mo'}</div>
-      </div>
-      <div class="dc-stat">
-        <div class="dc-stat-val" style="color:var(--red)">${amort.payoffPossible?(amort.totalInterest==null?'\u2014':fmt(amort.totalInterest)):'\u221e'}</div>
-        <div class="dc-stat-lbl">${lang==='es'?'intereses':'interest'}</div>
-      </div>
-      <div class="dc-stat">
-        <div class="dc-stat-val">${amort.payoffPossible&&amort.months<600?amort.months+'m':'\u2014'}</div>
-        <div class="dc-stat-lbl">${lang==='es'?'meses rest.':'months left'}</div>
-      </div>
-    </div>
-    <button onclick="event.stopPropagation();openAbonar('${d.id}')" style="width:100%;margin-top:10px;background:${info.color};color:white;border:none;border-radius:10px;padding:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">
-      💳 ${lang==='es'?'Registrar abono':'Register payment'}
-    </button>
-  </div>`;
+function openForm(type, debt) {
+  formSt = { type: type, editing: debt, mortgageMode: debt ? (debt.mortgageMode || 'detallado') : 'detallado', hasInterest: debt ? (+debt.apr || 0) > 0 : cfg(type).hasInterest, kind: debt ? (debt.kind || cfg(type).kind) : cfg(type).kind };
+  if (type === 'hipoteca' && formSt.mortgageMode === 'simple') formSt.hasInterest = false;
+  var L = es();
+  FT.modal({
+    title: debt ? (L ? 'Editar deuda' : 'Edit debt') : (L ? 'Nueva deuda' : 'New debt'),
+    html: formHTML(),
+    saveLabel: L ? 'Guardar deuda' : 'Save debt',
+    cancelLabel: L ? 'Cancelar' : 'Cancel',
+    onOpen: wireForm,
+    onSave: saveDebtForm
+  });
 }
+function formHTML() {
+  var s = formSt, c = cfg(s.type), i = info(s.type), L = es(), d = s.editing;
+  var v = function (x) { return x == null ? '' : x; };
+  var typeHdr = '<div class="dt-typehdr" style="background:' + c.bg + '"><span style="font-size:22px">' + c.ico + '</span><div><div class="n">' + i.name + '</div><div class="s">' + i.sub + '</div></div>' +
+    (!d ? '<button type="button" id="dtChangeType" style="margin-left:auto;background:#fff;border:1.5px solid var(--hair);border-radius:8px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:var(--ui-font);color:var(--text3)">' + (L ? 'Cambiar' : 'Change') + '</button>' : '') + '</div>';
 
-/* \u2500\u2500 ADD MODAL \u2500\u2500 */
-function openAddModal(id=null){
-  editingId = id;
-  currentType = null;
-  const debts = loadDebts();
-  const debt = id ? debts.find(d=>String(d.id)===String(id)) : null;
-  if(debt) currentType = debt.type;
+  var html = typeHdr +
+    '<div class="ft-field"><label>' + (L ? 'Nombre / Descripción' : 'Name / Description') + '</label><input id="fName" value="' + v(d && d.name) + '" placeholder="' + (L ? 'ej. Hipoteca Chase' : 'e.g. Chase Mortgage') + '"></div>' +
+    '<div class="ft-field"><label>' + (L ? 'Saldo actual ($)' : 'Current balance ($)') + '</label><input id="fBalance" type="number" min="0" step="0.01" value="' + v(d && d.balance) + '"></div>';
 
-  document.getElementById('modalTitle').textContent = id
-    ? (lang==='es'?'Editar deuda':'Edit debt')
-    : (lang==='es'?'Nueva deuda':'New debt');
-  document.getElementById('modalOverlay').classList.add('open');
+  if (c.hasOriginal) html += '<div class="ft-field"><label>' + (L ? 'Monto original del préstamo ($)' : 'Original loan amount ($)') + '</label><input id="fOriginal" type="number" min="0" step="0.01" value="' + v(d && d.original) + '"><div class="dt-hint">' + (L ? 'Para calcular cuánto has pagado' : 'To calculate how much you have paid') + '</div></div>';
+  if (c.hasLimit) html += '<div class="ft-field"><label>' + (L ? 'Límite de crédito ($)' : 'Credit limit ($)') + '</label><input id="fLimit" type="number" min="0" value="' + v(d && d.limit) + '"></div>';
 
-  if(currentType){
-    renderForm(debt);
-  } else {
-    renderTypeSelector();
-  }
-}
-
-function renderTypeSelector(){
-  const T = { title: lang==='es'?'\u00bfQu\u00e9 tipo de deuda es?':'What type of debt?' };
-  document.getElementById('modalBody').innerHTML = `
-  <div style="font-size:13px;color:var(--text3);margin-bottom:16px">${T.title}</div>
-  <div class="type-grid">
-    ${Object.entries(TYPE_CONFIG).map(([key,cfg])=>{
-      const info = cfg[lang]||cfg.es;
-      return `<div class="type-card" onclick="selectType('${key}')">
-        <div class="tc-ico">${info.ico}</div>
-        <div class="tc-name">${info.name}</div>
-        <div class="tc-sub">${info.sub}</div>
-      </div>`;
-    }).join('')}
-  </div>`;
-}
-
-function selectType(type){
-  currentType = type;
-  renderForm(null);
-}
-
-function renderForm(debt=null){
-  const cfg = TYPE_CONFIG[currentType]||TYPE_CONFIG.personal;
-  const info = cfg[lang]||cfg.es;
-  const es = lang === 'es';
-
-  // Extra payment savings calc
-  const extraTip = debt && debt.payment && debt.balance ? (() => {
-    const base = calcAmort(debt.balance, debt.payment, debt.apr||0, debt.term||0);
-    const extra = calcAmort(debt.balance, (parseFloat(debt.payment)||0)+100, debt.apr||0, debt.term||0);
-    if(base.payoffPossible && extra.payoffPossible && base.months - extra.months > 1){
-      const saved = base.totalInterest - extra.totalInterest;
-      const monthsSaved = base.months - extra.months;
-      return `\ud83d\udca1 ${es?'Si pagas $100 extra/mes':'If you pay $100 extra/month'}: ${es?'terminas':'you finish'} ${monthsSaved} ${es?'meses antes y ahorras':'months earlier and save'} ${fmt(saved)} ${es?'en intereses':'in interest'}.`;
-    }
-    return '';
-  })() : '';
-
-  document.getElementById('modalBody').innerHTML = `
-  <!-- Type header -->
-  <div style="display:flex;align-items:center;gap:10px;background:${info.bg};border-radius:12px;padding:12px 14px;margin-bottom:18px">
-    <span style="font-size:24px">${info.ico}</span>
-    <div>
-      <div style="font-size:13px;font-weight:800">${info.name}</div>
-      <div style="font-size:11px;color:var(--text3)">${info.sub}</div>
-    </div>
-    ${!debt?`<button onclick="renderTypeSelector()" style="margin-left:auto;background:var(--off);border:1.5px solid var(--border);border-radius:8px;padding:5px 10px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;color:var(--text3)">${es?'Cambiar':'Change'}</button>`:''}
-  </div>
-
-  ${extraTip?`<div class="extra-tip" style="background:var(--g-light);color:var(--g-dark);margin-bottom:14px">${extraTip}</div>`:''}
-
-  <!-- Name -->
-  <div class="field-group">
-    <div class="field-label">${es?'Nombre / Descripci\u00f3n':'Name / Description'}</div>
-    <input class="field-input" id="fName" placeholder="${es?'ej. Hipoteca Chase, Capital One Visa...':'e.g. Chase Mortgage, Capital One Visa...'}" value="${debt?debt.name:''}">
-  </div>
-
-  <!-- Balance -->
-  <div class="field-group">
-    <div class="field-label">${es?'Saldo actual ($)':'Current balance ($)'}</div>
-    <input class="field-input" id="fBalance" type="number" min="0" step="0.01" placeholder="0.00" value="${debt?debt.balance:''}" oninput="updatePreview()">
-  </div>
-
-  ${cfg.hasOriginal?`
-  <!-- Original amount -->
-  <div class="field-group">
-    <div class="field-label">${es?'Monto original del pr\u00e9stamo ($)':'Original loan amount ($)'}</div>
-    <input class="field-input" id="fOriginal" type="number" min="0" step="0.01" placeholder="0.00" value="${debt&&debt.original?debt.original:''}">
-    <div class="field-hint">${es?'Para calcular cu\u00e1nto has pagado':'To calculate how much you have paid'}</div>
-  </div>`:''}
-
-  ${cfg.hasLimit?`
-  <!-- Credit limit -->
-  <div class="field-group">
-    <div class="field-label">${es?'L\u00edmite de cr\u00e9dito ($)':'Credit limit ($)'}</div>
-    <input class="field-input" id="fLimit" type="number" min="0" placeholder="0.00" value="${debt&&debt.limit?debt.limit:''}">
-  </div>`:''}
-
-  ${currentType==='hipoteca'?`
-  <!-- House price (both modes) -->
-  <div class="field-group">
-    <div class="field-label">${es?'Valor de la casa ($)':'House price ($)'}</div>
-    <input class="field-input" id="fHousePrice" type="number" min="0" step="0.01" placeholder="0.00" value="${debt&&debt.housePrice?debt.housePrice:''}" oninput="updatePreview()">
-  </div>
-  <div class="field-group">
-    <div class="field-label">${es?'Enganche pagado ($, opcional)':'Down payment ($, optional)'}</div>
-    <input class="field-input" id="fDownPayment" type="number" min="0" step="0.01" placeholder="0.00" value="${debt&&debt.downPayment?debt.downPayment:''}" oninput="updatePreview()">
-  </div>
-
-  <!-- Mortgage mode toggle -->
-  <div class="field-group">
-    <div class="field-label">${es?'\u00bfC\u00f3mo quieres calcularlo?':'How do you want to calculate it?'}</div>
-    <div style="display:flex;gap:8px">
-      <button onclick="setMortgageMode('simple')" id="btnModeSimple" style="flex:1;padding:10px;border-radius:10px;border:2px solid var(--border);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--off)">\ud83e\uddee ${es?'Simple':'Simple'}</button>
-      <button onclick="setMortgageMode('detallado')" id="btnModeDetallado" style="flex:1;padding:10px;border-radius:10px;border:2px solid var(--border);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--off)">\ud83d\udd0d ${es?'Detallado':'Detailed'}</button>
-    </div>
-    <div class="field-hint" id="mortgageModeHint"></div>
-  </div>`:''}
-
-  <!-- Interest toggle (oculto en modo simple) -->
-  <div id="interestToggleBlock" class="field-group">
-    <div class="field-label">${es?'\u00bfTiene inter\u00e9s?':'Has interest?'}</div>
-    <div style="display:flex;gap:8px">
-      <button onclick="toggleInterest(true)" id="btnYesInt" style="flex:1;padding:10px;border-radius:10px;border:2px solid var(--border);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--off);transition:all .15s">${es?'S\u00ed':'Yes'}</button>
-      <button onclick="toggleInterest(false)" id="btnNoInt" style="flex:1;padding:10px;border-radius:10px;border:2px solid var(--border);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--off);transition:all .15s">${es?'No (0%)':'No (0%)'}</button>
-    </div>
-  </div>
-
-  <!-- APR (shown if has interest) -->
-  <div id="aprSection" style="${cfg.hasInterest?'':'display:none'}">
-    <div class="field-group">
-      <div class="field-label">APR (%)</div>
-      <input class="field-input" id="fAPR" type="number" min="0" step="0.01" placeholder="${cfg.defaultAPR}" value="${debt&&debt.apr?debt.apr:''}" oninput="updatePreview()">
-      <div class="field-hint">${currentType==='tarjeta'?'T\u00edpico: 20\u201329% \u00b7 Revisa tu estado de cuenta':'Est\u00e1 en tu contrato o estado de cuenta'}</div>
-    </div>
-  </div>
-
-  ${currentType==='hipoteca'?`
-  <!-- PITI extras (solo modo detallado) -->
-  <div id="pitiSection">
-    <div class="field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-      <div class="field-group">
-        <div class="field-label">${es?'Impuesto predial (% anual)':'Property tax (% annual)'}</div>
-        <input class="field-input" id="fTaxPct" type="number" min="0" step="0.01" placeholder="2.1" value="${debt&&debt.taxPct?debt.taxPct:''}" oninput="updatePreview()">
-      </div>
-      <div class="field-group">
-        <div class="field-label">${es?'Seguro (% anual)':'Insurance (% annual)'}</div>
-        <input class="field-input" id="fInsurancePct" type="number" min="0" step="0.01" placeholder="0.5" value="${debt&&debt.insurancePct?debt.insurancePct:''}" oninput="updatePreview()">
-      </div>
-      <div class="field-group">
-        <div class="field-label">${es?'PMI (% anual)':'PMI (% annual)'}</div>
-        <input class="field-input" id="fPmiPct" type="number" min="0" step="0.01" placeholder="0.5" value="${debt&&debt.pmiPct?debt.pmiPct:''}" oninput="updatePreview()">
-      </div>
-      <div class="field-group">
-        <div class="field-label">${es?'HOA ($/mes)':'HOA ($/month)'}</div>
-        <input class="field-input" id="fHoa" type="number" min="0" step="0.01" placeholder="0" value="${debt&&debt.hoa?debt.hoa:''}" oninput="updatePreview()">
-      </div>
-    </div>
-    <div class="field-hint">${es?'Opcional \u2014 se suman al pago mensual sugerido (PITI)':'Optional \u2014 added to the suggested monthly payment (PITI)'}</div>
-  </div>`:''}
-
-  <!-- Term (if fixed term) -->
-  ${cfg.fixedTerm?`
-  <div class="field-group">
-    <div class="field-label">${es?'Plazo restante (meses)':'Remaining term (months)'}</div>
-    <input class="field-input" id="fTerm" type="number" min="1" step="1" placeholder="${cfg.exampleTerm||''}" value="${debt&&debt.term?debt.term:''}" oninput="updatePreview()">
-    <div class="field-hint">
-      ${currentType==='hipoteca'?'30 a\u00f1os = 360 meses \u00b7 15 a\u00f1os = 180 meses':
-        currentType==='auto'?'48, 60 o 72 meses son los m\u00e1s comunes':''}
-    </div>
-  </div>`:`
-  <!-- No term for credit card \u2014 payment drives it -->
-  <div style="display:none"><input id="fTerm" value=""></div>`}
-
-  <!-- Payment -->
-  <div class="field-group">
-    <div class="field-label">${es?'Pago mensual actual ($)':'Current monthly payment ($)'}</div>
-    <input class="field-input" id="fPayment" type="number" min="0" step="0.01" placeholder="0.00" value="${debt?debt.payment:''}" oninput="updatePreview()">
-    ${currentType==='tarjeta'?`<div class="field-hint">${es?'Pon cu\u00e1nto est\u00e1s pagando actualmente, no el m\u00ednimo':'Enter how much you actually pay, not the minimum'}</div>`:''}
-  </div>
-
-  ${currentType==='tarjeta'?`
-  <!-- Minimum payment -->
-  <div class="field-group">
-    <div class="field-label">${es?'Pago m\u00ednimo ($)':'Minimum payment ($)'}</div>
-    <input class="field-input" id="fMinPayment" type="number" min="0" step="0.01" placeholder="0.00" value="${debt&&debt.minPayment?debt.minPayment:''}" oninput="updatePreview()">
-  </div>`:`<div style="display:none"><input id="fMinPayment" value=""></div>`}
-
-  <!-- 50/30/20 classification -->
-  <div class="field-group">
-    <div class="field-label">${es?'\u00bfC\u00f3mo cuenta en tu 50/30/20?':'How does it count in your 50/30/20?'}</div>
-    <div style="display:flex;gap:8px">
-      <button onclick="setKind('needs')" id="btnNeeds" style="flex:1;padding:10px;border-radius:10px;border:2px solid var(--border);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--off)">\ud83c\udfe0 ${es?'Necesidad':'Need'}</button>
-      <button onclick="setKind('wants')" id="btnWants" style="flex:1;padding:10px;border-radius:10px;border:2px solid var(--border);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--off)">\ud83c\udfac ${es?'Gusto':'Want'}</button>
-    </div>
-  </div>
-
-  <!-- Simple mode disclaimer -->
-  <div id="simpleModeWarning" style="display:none;background:var(--off);border-left:3px solid var(--text3);border-radius:8px;padding:10px 12px;font-size:11.5px;color:var(--text3);margin-bottom:14px">
-    \u26a0\ufe0f ${es?'C\u00e1lculo aproximado basado en tu pago mensual y plazo. No calcula capital vs inter\u00e9s mes a mes. Para eso, usa el modo Detallado.':'Approximate calculation based on your monthly payment and term. It does not calculate principal vs interest month by month. For that, use Detailed mode.'}
-  </div>
-
-  <!-- Amort preview -->
-  <div id="amortPreview" style="display:none;margin-bottom:14px"></div>
-
-  <!-- Actions (sticky al fondo del modal) -->
-  <div style="position:sticky;bottom:-20px;background:var(--white);margin:16px -22px -20px;padding:12px 22px calc(16px + env(safe-area-inset-bottom));border-top:1px solid var(--border)">
-    <div style="display:flex;gap:8px;margin-bottom:8px">
-      <button class="btn-primary" onclick="saveDebt()">${es?'Guardar deuda':'Save debt'}</button>
-      ${debt?`<button class="btn-danger" onclick="deleteDebt('${debt.id}')">\ud83d\uddd1\ufe0f</button>`:''}
-    </div>
-    <button class="btn-secondary" onclick="closeModal()">${es?'Cancelar':'Cancel'}</button>
-  </div>`;
-
-  // Set initial interest toggle state
-  const hasInt = debt ? (parseFloat(debt.apr)||0) > 0 : cfg.hasInterest;
-  toggleInterest(hasInt, true);
-
-  // Set kind button
-  const kind = debt ? (debt.kind||cfg.kind) : cfg.kind;
-  setKind(kind, true);
-
-  // Mortgage mode (solo hipoteca)
-  if(currentType === 'hipoteca'){
-    const initMode = debt ? (debt.mortgageMode || 'detallado') : 'detallado';
-    setMortgageMode(initMode);
+  if (s.type === 'hipoteca') {
+    html += '<div class="ft-field"><label>' + (L ? 'Valor de la casa ($)' : 'House price ($)') + '</label><input id="fHousePrice" type="number" min="0" step="0.01" value="' + v(d && d.housePrice) + '"></div>' +
+      '<div class="ft-field"><label>' + (L ? 'Enganche pagado ($, opcional)' : 'Down payment ($, optional)') + '</label><input id="fDownPayment" type="number" min="0" step="0.01" value="' + v(d && d.downPayment) + '"></div>' +
+      '<div class="ft-field"><label>' + (L ? '¿Cómo quieres calcularlo?' : 'How to calculate it?') + '</label><div class="dt-seg" id="dtModeSeg">' +
+        '<button type="button" data-m="simple" class="' + (s.mortgageMode === 'simple' ? 'on' : '') + '">🧮 ' + (L ? 'Simple' : 'Simple') + '</button>' +
+        '<button type="button" data-m="detallado" class="' + (s.mortgageMode === 'detallado' ? 'on' : '') + '">🔍 ' + (L ? 'Detallado' : 'Detailed') + '</button></div>' +
+        '<div class="dt-hint">' + (s.mortgageMode === 'simple' ? (L ? 'Solo necesitas tu pago mensual y el plazo' : "You just need your payment and term") : (L ? 'Calcula el pago real con tasa, impuestos y seguro' : 'Calculates the real payment with rate, taxes and insurance')) + '</div></div>';
   }
 
-  updatePreview();
+  if (s.mortgageMode !== 'simple' || s.type !== 'hipoteca') {
+    html += '<div class="ft-field" id="dtIntBlock"><label>' + (L ? '¿Tiene interés?' : 'Has interest?') + '</label><div class="dt-seg red" id="dtIntSeg">' +
+      '<button type="button" data-i="1" class="' + (s.hasInterest ? 'on' : '') + '">' + (L ? 'Sí' : 'Yes') + '</button>' +
+      '<button type="button" data-i="0" class="' + (!s.hasInterest ? 'on' : '') + '">' + (L ? 'No (0%)' : 'No (0%)') + '</button></div></div>';
+  }
+  if (s.hasInterest) html += '<div class="ft-field" id="dtAprWrap"><label>APR (%)</label><input id="fAPR" type="number" min="0" step="0.01" placeholder="' + c.defaultAPR + '" value="' + v(d && d.apr) + '"><div class="dt-hint">' + (s.type === 'tarjeta' ? (L ? 'Típico: 20–29% · revisa tu estado de cuenta' : 'Typical: 20–29%') : (L ? 'Está en tu contrato o estado de cuenta' : "It's on your contract or statement")) + '</div></div>';
+
+  if (s.type === 'hipoteca' && s.mortgageMode !== 'simple') {
+    html += '<div class="ft-field"><label>' + (L ? 'Impuesto predial / Seguro / PMI (% anual) · HOA ($/mes)' : 'Property tax / Insurance / PMI (% yearly) · HOA ($/mo)') + '</label>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><input id="fTaxPct" type="number" step="0.01" placeholder="' + (L ? 'Predial %' : 'Tax %') + '" value="' + v(d && d.taxPct) + '">' +
+      '<input id="fInsurancePct" type="number" step="0.01" placeholder="' + (L ? 'Seguro %' : 'Insurance %') + '" value="' + v(d && d.insurancePct) + '">' +
+      '<input id="fPmiPct" type="number" step="0.01" placeholder="PMI %" value="' + v(d && d.pmiPct) + '">' +
+      '<input id="fHoa" type="number" step="0.01" placeholder="HOA $" value="' + v(d && d.hoa) + '"></div><div class="dt-hint">' + (L ? 'Opcional — se suman al pago sugerido (PITI)' : 'Optional — added to the suggested payment (PITI)') + '</div></div>';
+  }
+
+  if (c.fixedTerm) html += '<div class="ft-field"><label>' + (L ? 'Plazo restante (meses)' : 'Remaining term (months)') + '</label><input id="fTerm" type="number" min="1" step="1" placeholder="' + (c.exampleTerm || '') + '" value="' + v(d && d.term) + '"></div>';
+  else html += '<input id="fTerm" type="hidden" value="">';
+
+  html += '<div class="ft-field"><label>' + (L ? 'Pago mensual actual ($)' : 'Current monthly payment ($)') + '</label><input id="fPayment" type="number" min="0" step="0.01" value="' + v(d && d.payment) + '">' +
+    (s.type === 'tarjeta' ? '<div class="dt-hint">' + (L ? 'Pon cuánto pagas actualmente, no el mínimo' : "Enter what you actually pay, not the minimum") + '</div>' : '') + '</div>';
+
+  if (s.type === 'tarjeta') html += '<div class="ft-field"><label>' + (L ? 'Pago mínimo ($)' : 'Minimum payment ($)') + '</label><input id="fMinPayment" type="number" min="0" step="0.01" value="' + v(d && d.minPayment) + '"></div>';
+  else html += '<input id="fMinPayment" type="hidden" value="">';
+
+  html += '<div class="ft-field"><label>' + (L ? '¿Cómo cuenta en tu 50/30/20?' : 'How does it count in your 50/30/20?') + '</label><div class="dt-seg" id="dtKindSeg">' +
+    '<button type="button" data-k="needs" class="' + (s.kind === 'needs' ? 'on' : '') + '">🏠 ' + (L ? 'Necesidad' : 'Need') + '</button>' +
+    '<button type="button" data-k="wants" class="' + (s.kind === 'wants' ? 'on' : '') + '">🎬 ' + (L ? 'Gusto' : 'Want') + '</button></div></div>' +
+    '<div id="amortPreview"></div>';
+
+  return html;
 }
-
-let hasInterest = true;
-let debtKind = 'needs';
-let mortgageMode = 'detallado';
-
-function setMortgageMode(mode){
-  mortgageMode = mode;
-  const es = lang==='es';
-  const simpleBtn = document.getElementById('btnModeSimple');
-  const detBtn = document.getElementById('btnModeDetallado');
-  const interestBlock = document.getElementById('interestToggleBlock');
-  const aprSection = document.getElementById('aprSection');
-  const pitiSection = document.getElementById('pitiSection');
-  const hint = document.getElementById('mortgageModeHint');
-  const warning = document.getElementById('simpleModeWarning');
-  if(!simpleBtn||!detBtn) return;
-
-  const isSimple = mode === 'simple';
-  simpleBtn.style.background = isSimple ? 'var(--g-main)' : 'var(--off)';
-  simpleBtn.style.color = isSimple ? 'white' : 'var(--text)';
-  simpleBtn.style.borderColor = isSimple ? 'var(--g-main)' : 'var(--border)';
-  detBtn.style.background = !isSimple ? 'var(--g-main)' : 'var(--off)';
-  detBtn.style.color = !isSimple ? 'white' : 'var(--text)';
-  detBtn.style.borderColor = !isSimple ? 'var(--g-main)' : 'var(--border)';
-
-  if(interestBlock) interestBlock.style.display = isSimple ? 'none' : '';
-  if(isSimple && aprSection) aprSection.style.display = 'none';
-  else if(aprSection) aprSection.style.display = hasInterest ? '' : 'none';
-  if(pitiSection) pitiSection.style.display = isSimple ? 'none' : '';
-  if(warning) warning.style.display = isSimple ? '' : 'none';
-  if(hint) hint.textContent = isSimple
-    ? (es?'Solo necesitas tu pago mensual y el plazo':'You just need your monthly payment and term')
-    : (es?'Calcula el pago real con tasa, impuestos y seguro':'Calculates the real payment with rate, taxes and insurance');
-
-  if(isSimple) hasInterest = false;
-  updatePreview();
+function _snapForm(body) { formSt._vals = {}; body.querySelectorAll('input').forEach(function (el) { if (el.id) formSt._vals[el.id] = el.value; }); }
+function _restoreForm(body) { var vv = formSt._vals || {}; body.querySelectorAll('input').forEach(function (el) { if (el.id && vv[el.id] != null && vv[el.id] !== '') el.value = vv[el.id]; }); }
+function redrawForm(body) { _snapForm(body); body.innerHTML = formHTML(); _restoreForm(body); wireForm(body); }
+function wireForm(body) {
+  var ct = body.querySelector('#dtChangeType');
+  if (ct) ct.onclick = function () { FT.closeTop(); openTypePicker(); };
+  var ms = body.querySelector('#dtModeSeg');
+  if (ms) ms.querySelectorAll('button').forEach(function (b) { b.onclick = function () { formSt.mortgageMode = b.getAttribute('data-m'); if (formSt.mortgageMode === 'simple') formSt.hasInterest = false; redrawForm(body); }; });
+  var is = body.querySelector('#dtIntSeg');
+  if (is) is.querySelectorAll('button').forEach(function (b) { b.onclick = function () { formSt.hasInterest = b.getAttribute('data-i') === '1'; redrawForm(body); }; });
+  var ks = body.querySelector('#dtKindSeg');
+  if (ks) ks.querySelectorAll('button').forEach(function (b) { b.onclick = function () { formSt.kind = b.getAttribute('data-k'); ks.querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', x === b); }); }; });
+  body.querySelectorAll('input').forEach(function (el) { el.oninput = function () { updatePreview(body); }; });
+  updatePreview(body);
 }
+function updatePreview(body) {
+  var box = body.querySelector('#amortPreview'); if (!box) return;
+  var L = es(), s = formSt, c = cfg(s.type);
+  var g = function (id) { var e = body.querySelector('#' + id); return e ? parseFloat(e.value) || 0 : 0; };
+  var balance = g('fBalance'), payment = g('fPayment'), term = parseInt(body.querySelector('#fTerm') ? body.querySelector('#fTerm').value : 0) || 0;
 
-function toggleInterest(val, silent=false){
-  hasInterest = val;
-  const aprSec = document.getElementById('aprSection');
-  if(aprSec) aprSec.style.display = val ? '' : 'none';
-  const y = document.getElementById('btnYesInt');
-  const n = document.getElementById('btnNoInt');
-  if(y){ y.style.background = val ? 'var(--red-dim)' : 'var(--off)'; y.style.borderColor = val ? 'var(--red)' : 'var(--border)'; y.style.color = val ? 'var(--red)' : ''; }
-  if(n){ n.style.background = !val ? 'var(--g-light)' : 'var(--off)'; n.style.borderColor = !val ? 'var(--g-main)' : 'var(--border)'; n.style.color = !val ? 'var(--g-main)' : ''; }
-  if(!silent) updatePreview();
-}
-
-function setKind(k, silent=false){
-  debtKind = k;
-  const nb = document.getElementById('btnNeeds');
-  const wb = document.getElementById('btnWants');
-  if(nb){ nb.style.background = k==='needs'?'var(--g-light)':'var(--off)'; nb.style.borderColor = k==='needs'?'var(--g-main)':'var(--border)'; nb.style.color = k==='needs'?'var(--g-main)':''; }
-  if(wb){ wb.style.background = k==='wants'?'var(--amb-dim)':'var(--off)'; wb.style.borderColor = k==='wants'?'var(--amber)':'var(--border)'; wb.style.color = k==='wants'?'var(--amber)':''; }
-}
-
-function updatePreview(){
-  const preview = document.getElementById('amortPreview');
-  if(!preview) return;
-
-  const balance  = parseFloat(document.getElementById('fBalance')?.value)||0;
-  const payment  = parseFloat(document.getElementById('fPayment')?.value)||0;
-  const term     = parseInt(document.getElementById('fTerm')?.value)||0;
-  const es = lang==='es';
-
-  // ── MODO SIMPLE (solo hipoteca) ──
-  if(currentType === 'hipoteca' && mortgageMode === 'simple'){
-    const housePrice = parseFloat(document.getElementById('fHousePrice')?.value)||0;
-    const downPayment = parseFloat(document.getElementById('fDownPayment')?.value)||0;
-
-    if(payment <= 0 || term <= 0){ preview.style.display='none'; return; }
-
-    const totalToPay = payment * term;
-    const financed = Math.max(0, housePrice - downPayment);
-    const totalInterest = housePrice > 0 ? Math.max(0, totalToPay - financed) : null;
-
-    const payoffDate = (() => {
-      const d2 = new Date(); d2.setMonth(d2.getMonth()+term);
-      return d2.toLocaleDateString(es?'es-MX':'en-US',{month:'long',year:'numeric'});
-    })();
-
-    preview.style.display='block';
-    preview.innerHTML = `<div class="amort-preview">
-      <div class="ap-title">\ud83e\uddee ${es?'C\u00e1lculo simple':'Simple calculation'}</div>
-      <div class="ap-row"><span class="ap-label">${es?'Terminas de pagar':'Payoff date'}</span><span class="ap-value">${payoffDate}</span></div>
-      <div class="ap-row"><span class="ap-label">${es?'Total que pagar\u00e1s':'Total you\'ll pay'}</span><span class="ap-value">${fmtD(totalToPay)}</span></div>
-      ${housePrice>0?`<div class="ap-row"><span class="ap-label">${es?'Total de intereses (aprox)':'Total interest (approx)'}</span><span class="ap-value">${fmtD(totalInterest)}</span></div>`
-        :`<div class="ap-row" style="color:var(--text3);font-size:11px">${es?'Agrega el valor de la casa para estimar intereses':'Add the house price to estimate interest'}</div>`}
-    </div>`;
+  if (s.type === 'hipoteca' && s.mortgageMode === 'simple') {
+    if (payment <= 0 || term <= 0) { box.innerHTML = ''; return; }
+    var housePrice = g('fHousePrice'), down = g('fDownPayment');
+    var totalToPay = payment * term, financed = Math.max(0, housePrice - down);
+    var totalInterest = housePrice > 0 ? Math.max(0, totalToPay - financed) : null;
+    box.innerHTML = '<div class="dt-preview"><div class="t">🧮 ' + (L ? 'Cálculo simple' : 'Simple calculation') + '</div>' +
+      '<div class="r"><span class="k">' + (L ? 'Total que pagarás' : "Total you'll pay") + '</span><span>' + money(totalToPay, true) + '</span></div>' +
+      (totalInterest != null ? '<div class="r"><span class="k">' + (L ? 'Total de intereses (aprox)' : 'Total interest (approx)') + '</span><span>' + money(totalInterest, true) + '</span></div>' : '<div class="r" style="color:var(--text3);font-size:10.5px">' + (L ? 'Agrega el valor de la casa para estimar intereses' : 'Add the house price to estimate interest') + '</div>') + '</div>';
     return;
   }
 
-  // ── MODO DETALLADO ──
-  const apr      = hasInterest ? (parseFloat(document.getElementById('fAPR')?.value)||0) : 0;
-  const minPay   = parseFloat(document.getElementById('fMinPayment')?.value)||0;
-
-  if(balance <= 0){ preview.style.display='none'; return; }
-
-  // PITI extras (solo hipoteca detallado)
-  let pitiExtra = 0, pitiBreakdown = '';
-  if(currentType === 'hipoteca'){
-    const housePrice = parseFloat(document.getElementById('fHousePrice')?.value)||0;
-    const taxPct = parseFloat(document.getElementById('fTaxPct')?.value)||0;
-    const insPct = parseFloat(document.getElementById('fInsurancePct')?.value)||0;
-    const pmiPct = parseFloat(document.getElementById('fPmiPct')?.value)||0;
-    const hoa = parseFloat(document.getElementById('fHoa')?.value)||0;
-    const base = housePrice || balance;
-    const taxM = taxPct>0 ? (base*taxPct/100)/12 : 0;
-    const insM = insPct>0 ? (base*insPct/100)/12 : 0;
-    const pmiM = pmiPct>0 ? (balance*pmiPct/100)/12 : 0;
-    pitiExtra = taxM+insM+pmiM+hoa;
-    if(pitiExtra>0){
-      pitiBreakdown = `<div class="ap-row" style="font-size:11px;color:var(--text3)">Tax ${fmt(taxM)} + ${es?'Seguro':'Ins'} ${fmt(insM)} + PMI ${fmt(pmiM)} + HOA ${fmt(hoa)}</div>`;
-    }
+  var apr = s.hasInterest ? g('fAPR') : 0;
+  if (balance <= 0) { box.innerHTML = ''; return; }
+  var pitiExtra = 0;
+  if (s.type === 'hipoteca') {
+    var hp = g('fHousePrice') || balance;
+    pitiExtra = (g('fTaxPct') > 0 ? hp * g('fTaxPct') / 100 / 12 : 0) + (g('fInsurancePct') > 0 ? hp * g('fInsurancePct') / 100 / 12 : 0) + (g('fPmiPct') > 0 ? balance * g('fPmiPct') / 100 / 12 : 0) + g('fHoa');
   }
+  var effectivePayment = payment;
+  if (term > 0 && payment === 0 && apr > 0) effectivePayment = FT.calcRequiredPayment(balance, apr, term);
+  else if (payment > 0 && pitiExtra > 0) effectivePayment = Math.max(0, payment - pitiExtra);
 
-  // If term given but no payment, calc required payment
-  let effectivePayment = payment;
-  if(term > 0 && payment === 0 && apr > 0){
-    effectivePayment = calcRequiredPayment(balance, apr, term);
-    const payEl = document.getElementById('fPayment');
-    if(payEl && !payEl.value){ payEl.placeholder = fmtD(effectivePayment + pitiExtra).replace('$',''); }
-  } else if(payment > 0 && pitiExtra > 0){
-    // El usuario metió el pago TOTAL (PITI); para amortizar solo cuenta la parte de capital+interés
-    effectivePayment = Math.max(0, payment - pitiExtra);
-  }
+  var am = FT.calcAmort(balance, effectivePayment || payment, apr, term);
+  if (!am.payoffPossible) { box.innerHTML = '<div class="dt-preview"><div class="t">⚠️ ' + (L ? 'Pago insuficiente' : 'Payment too low') + '</div><div style="font-size:11.5px;color:var(--red)">' + (L ? 'Tu pago no cubre los intereses.' : "Your payment doesn't cover interest.") + '</div></div>'; return; }
 
-  const amort = calcAmort(balance, effectivePayment||payment, apr, term);
+  var monthlyR = apr / 100 / 12, firstInt = balance * monthlyR, firstPrin = Math.max(0, (effectivePayment || payment) - firstInt);
+  var extra = FT.calcAmort(balance, (effectivePayment || payment) + 100, apr, term);
+  var savedExtra = extra.payoffPossible ? am.totalInterest - extra.totalInterest : 0;
+  var monthsSaved = extra.payoffPossible ? am.months - extra.months : 0;
 
-  if(!amort.payoffPossible){
-    preview.style.display='block';
-    preview.innerHTML = `<div class="amort-preview"><div class="ap-title">\u26a0\ufe0f ${es?'Pago insuficiente':'Payment too low'}</div>
-      <div style="font-size:12px;color:var(--red)">${es?'Tu pago no cubre los intereses. Aumenta el pago mensual.':'Your payment doesn\'t cover interest. Increase monthly payment.'}</div>
-    </div>`;
-    return;
-  }
-
-  const payoffDate = (() => {
-    const d2 = new Date(); d2.setMonth(d2.getMonth()+amort.months);
-    return d2.toLocaleDateString(es?'es-MX':'en-US',{month:'long',year:'numeric'});
-  })();
-
-  // Split: how much goes to capital vs interest per month (first payment)
-  const monthlyR = (apr/100)/12;
-  const firstInterest = balance * monthlyR;
-  const firstPrincipal = Math.max(0,(effectivePayment||payment) - firstInterest);
-
-  // Extra $100 savings
-  const extra = calcAmort(balance, (effectivePayment||payment)+100, apr, term);
-  const savedExtra = extra.payoffPossible ? amort.totalInterest - extra.totalInterest : 0;
-  const monthsSaved = extra.payoffPossible ? amort.months - extra.months : 0;
-
-  // Credit card: compare min payment vs current
-  let ccCompare = '';
-  if(currentType === 'tarjeta' && minPay > 0 && payment > minPay){
-    const withMin = calcAmort(balance, minPay, apr, 0);
-    const withCurr = calcAmort(balance, payment, apr, 0);
-    if(withMin.payoffPossible && withCurr.payoffPossible){
-      const savedVsMin = withMin.totalInterest - withCurr.totalInterest;
-      ccCompare = `<div class="ap-extra">\ud83d\udcb3 ${es?'Pagando el m\u00ednimo':'Paying the minimum'} (${fmtD(minPay)}): ${withMin.months} ${es?'meses y':'months and'} ${fmt(withMin.totalInterest)} ${es?'en intereses':'in interest'}. ${es?'\u00a1Est\u00e1s ahorrando':'You\'re saving'} ${fmt(savedVsMin)}!</div>`;
-    }
-  }
-
-  preview.style.display='block';
-  preview.innerHTML = `<div class="amort-preview">
-    <div class="ap-title">\ud83d\udcca ${es?'An\u00e1lisis de tu deuda':'Debt analysis'}</div>
-    <div class="ap-row"><span class="ap-label">${es?'Terminas de pagar':'Payoff date'}</span><span class="ap-value">${payoffDate}</span></div>
-    <div class="ap-row"><span class="ap-label">${es?'Meses restantes':'Months left'}</span><span class="ap-value">${amort.months} ${es?'meses':'months'}</span></div>
-    <div class="ap-row"><span class="ap-label">${es?'Total de intereses (pr\u00e9stamo)':'Total interest (loan)'}</span><span class="ap-value">${fmtD(amort.totalInterest)}</span></div>
-    <div class="ap-row"><span class="ap-label">${es?'Total del pr\u00e9stamo (P+I)':'Total loan (P+I)'}</span><span class="ap-value">${fmtD(amort.totalPaid)}</span></div>
-    ${pitiExtra>0?`<div class="ap-row" style="border-top:1px solid rgba(230,57,70,.2);padding-top:8px;margin-top:4px"><span class="ap-label">${es?'Pago mensual (PITI)':'Monthly payment (PITI)'}</span><span class="ap-value">${fmtD(effectivePayment+pitiExtra)}</span></div>${pitiBreakdown}<div class="ap-row" style="font-size:11px;color:var(--text3)">${es?'De eso, capital+inter\u00e9s':'Of that, principal+interest'}: ${fmtD(effectivePayment)}</div>
-    <div class="ap-row" style="font-size:10.5px;color:var(--text3)">${es?'Tax y seguro no desaparecen al terminar el pr\u00e9stamo \u2014 siguen mientras tengas la casa.':'Tax and insurance don\'t go away when the loan ends \u2014 they continue as long as you own the house.'}</div>`:''}
-    ${apr>0?`<div class="ap-row" style="border-top:1px solid rgba(230,57,70,.2);padding-top:8px;margin-top:4px">
-      <span class="ap-label">${es?'Pago: capital / inter\u00e9s':'Payment: principal / interest'}</span>
-      <span class="ap-value">${fmt(firstPrincipal)} / ${fmt(firstInterest)}</span>
-    </div>`:''}
-    ${savedExtra>0?`<div class="ap-extra">\ud83d\udca1 ${es?'Si pagas $100 extra/mes':'If you pay $100 extra/month'}: ${es?'terminas':'finish'} ${monthsSaved} ${es?'meses antes y ahorras':'months earlier and save'} ${fmt(savedExtra)} ${es?'en intereses':'in interest'}.</div>`:''}
-    ${ccCompare}
-  </div>`;
+  box.innerHTML = '<div class="dt-preview"><div class="t">📊 ' + (L ? 'Análisis de tu deuda' : 'Debt analysis') + '</div>' +
+    '<div class="r"><span class="k">' + (L ? 'Meses restantes' : 'Months left') + '</span><span>' + am.months + '</span></div>' +
+    '<div class="r"><span class="k">' + (L ? 'Total de intereses' : 'Total interest') + '</span><span>' + money(am.totalInterest, true) + '</span></div>' +
+    (pitiExtra > 0 ? '<div class="r"><span class="k">' + (L ? 'Pago mensual (PITI)' : 'Monthly payment (PITI)') + '</span><span>' + money(effectivePayment + pitiExtra, true) + '</span></div>' : '') +
+    (apr > 0 ? '<div class="r"><span class="k">' + (L ? 'Capital / interés (mes 1)' : 'Principal / interest (mo 1)') + '</span><span>' + money(firstPrin) + ' / ' + money(firstInt) + '</span></div>' : '') +
+    (savedExtra > 0 ? '<div class="tip">💡 ' + (L ? 'Si pagas $100 extra/mes: terminas ' + monthsSaved + ' meses antes y ahorras ' + money(savedExtra) + ' en intereses.' : 'Pay $100 extra/month: finish ' + monthsSaved + ' months earlier and save ' + money(savedExtra) + '.') + '</div>' : '') + '</div>';
 }
-
-/* \u2500\u2500 SAVE \u2500\u2500 */
-function saveDebt(){
-  const name    = document.getElementById('fName')?.value?.trim()||'';
-  const balance = parseFloat(document.getElementById('fBalance')?.value)||0;
-  const payment = parseFloat(document.getElementById('fPayment')?.value)||0;
-  const apr     = hasInterest ? (parseFloat(document.getElementById('fAPR')?.value)||0) : 0;
-  const term    = parseInt(document.getElementById('fTerm')?.value)||0;
-  const original= parseFloat(document.getElementById('fOriginal')?.value)||0;
-  const limit   = parseFloat(document.getElementById('fLimit')?.value)||0;
-  const minPay  = parseFloat(document.getElementById('fMinPayment')?.value)||0;
-  const es = lang==='es';
-
-  if(!balance){ showToast(es?'\u26a0\ufe0f Ingresa el saldo actual':'\u26a0\ufe0f Enter the current balance'); return; }
-  if(!name){ showToast(es?'\u26a0\ufe0f Ingresa un nombre':'\u26a0\ufe0f Enter a name'); return; }
-
-  const cfg = TYPE_CONFIG[currentType]||TYPE_CONFIG.personal;
-  const info = cfg[lang]||cfg.es;
-
-  const debt = {
-    id: editingId || uid(),
-    type: currentType,
-    name,
-    balance,
-    payment,
-    apr,
-    term,
-    original: original||balance,
-    limit,
-    minPayment: minPay,
-    kind: debtKind,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+function saveDebtForm(body) {
+  var L = es(), s = formSt;
+  var g = function (id) { var e = body.querySelector('#' + id); return e ? e.value : ''; };
+  var name = (g('fName') || '').trim(), balance = parseFloat(g('fBalance')) || 0;
+  if (!balance) { FT.toast(L ? 'Ingresa el saldo actual' : 'Enter the current balance'); return true; }
+  if (!name) { FT.toast(L ? 'Ingresa un nombre' : 'Enter a name'); return true; }
+  var payment = parseFloat(g('fPayment')) || 0, apr = s.hasInterest ? (parseFloat(g('fAPR')) || 0) : 0, term = parseInt(g('fTerm')) || 0;
+  var debt = {
+    id: s.editing ? s.editing.id : (Date.now() + Math.floor(Math.random() * 1000)),
+    type: s.type, name: name, balance: balance, payment: payment, apr: apr, term: term,
+    original: parseFloat(g('fOriginal')) || balance, limit: parseFloat(g('fLimit')) || 0, minPayment: parseFloat(g('fMinPayment')) || 0,
+    kind: s.kind, abonos: (s.editing && s.editing.abonos) || [], paidMonths: (s.editing && s.editing.paidMonths) || {},
+    createdAt: (s.editing && s.editing.createdAt) || new Date().toISOString(), updatedAt: new Date().toISOString()
   };
-
-  if(currentType === 'hipoteca'){
-    debt.mortgageMode = mortgageMode;
-    debt.housePrice = parseFloat(document.getElementById('fHousePrice')?.value)||0;
-    debt.downPayment = parseFloat(document.getElementById('fDownPayment')?.value)||0;
-
-    if(mortgageMode === 'simple'){
+  if (s.type === 'hipoteca') {
+    debt.mortgageMode = s.mortgageMode;
+    debt.housePrice = parseFloat(g('fHousePrice')) || 0;
+    debt.downPayment = parseFloat(g('fDownPayment')) || 0;
+    if (s.mortgageMode === 'simple') {
       debt.simpleTotalPaid = payment * term;
-      debt.simpleTotalInterest = debt.housePrice > 0
-        ? Math.max(0, debt.simpleTotalPaid - Math.max(0, debt.housePrice - debt.downPayment))
-        : null;
+      debt.simpleTotalInterest = debt.housePrice > 0 ? Math.max(0, debt.simpleTotalPaid - Math.max(0, debt.housePrice - debt.downPayment)) : null;
     } else {
-      debt.taxPct = parseFloat(document.getElementById('fTaxPct')?.value)||0;
-      debt.insurancePct = parseFloat(document.getElementById('fInsurancePct')?.value)||0;
-      debt.pmiPct = parseFloat(document.getElementById('fPmiPct')?.value)||0;
-      debt.hoa = parseFloat(document.getElementById('fHoa')?.value)||0;
+      debt.taxPct = parseFloat(g('fTaxPct')) || 0; debt.insurancePct = parseFloat(g('fInsurancePct')) || 0; debt.pmiPct = parseFloat(g('fPmiPct')) || 0; debt.hoa = parseFloat(g('fHoa')) || 0;
     }
   }
-
-  const debts = loadDebts();
-  if(editingId){
-    const idx = debts.findIndex(d=>String(d.id)===String(editingId));
-    if(idx>=0) debts[idx] = {...debts[idx], ...debt};
-  } else {
-    debts.push(debt);
-  }
-  saveDebts(debts);
-  closeModal();
-  render();
-  showToast(es?'\u2705 Deuda guardada':'\u2705 Debt saved');
-}
-
-/* \u2500\u2500 DETAIL VIEW \u2500\u2500 */
-function openDetail(id){
-  const debt = loadDebts().find(d=>String(d.id)===String(id));
-  if(!debt) return;
-  const cfg = TYPE_CONFIG[debt.type]||TYPE_CONFIG.personal;
-  const info = cfg[lang]||cfg.es;
-  const es = lang==='es';
-
-  const balance  = parseFloat(debt.balance)||0;
-  const payment  = parseFloat(debt.payment)||0;
-  const apr      = parseFloat(debt.apr)||0;
-  const term     = parseInt(debt.term)||0;
-  const original = parseFloat(debt.original||debt.balance)||0;
-  const paidAmt  = Math.max(0,original-balance);
-  const paidPct  = original>0?Math.min(Math.round((paidAmt/original)*100),100):0;
-
-  const isSimpleMortgage = debt.type==='hipoteca' && debt.mortgageMode==='simple';
-  const amort = isSimpleMortgage
-    ? { payoffPossible:true, months:term, totalInterest:debt.simpleTotalInterest, totalPaid:debt.simpleTotalPaid, schedule:[] }
-    : calcAmort(balance, payment, apr, term);
-  const payoffDate = amort.payoffPossible && amort.months<600 ? (() => {
-    const d2=new Date(); d2.setMonth(d2.getMonth()+amort.months);
-    return d2.toLocaleDateString(es?'es-MX':'en-US',{month:'long',year:'numeric'});
-  })() : (es?'Indefinido':'Indefinite');
-
-  // Costo total REAL del préstamo en toda su vida — no solo lo que falta desde hoy.
-  // = capital original + interés que ya pagaste en abonos pasados + interés que
-  // falta (proyectado desde el saldo actual). Antes no existía forma de saber
-  // cuánto interés ya se había pagado, así que esta cifra nunca se podía armar.
-  const interesYaPagado = (debt.abonos||[]).reduce((a,ab)=>a+(ab.interesPagado||0),0);
-  const costoTotalReal = debt.type==='hipoteca'
-    ? original + interesYaPagado + (amort.payoffPossible ? amort.totalInterest : 0)
-    : null;
-  const interesTotalVida = debt.type==='hipoteca'
-    ? interesYaPagado + (amort.payoffPossible ? amort.totalInterest : 0)
-    : null;
-
-  // Monthly breakdown
-  const monthlyR = (apr/100)/12;
-  const firstInt = balance * monthlyR;
-  const firstPrincipal = Math.max(0,payment-firstInt);
-
-  // Extra $100
-  const extra = calcAmort(balance, payment+100, apr, term);
-  const savedExtra = extra.payoffPossible ? amort.totalInterest-extra.totalInterest : 0;
-  const monthsSaved = extra.payoffPossible ? amort.months-extra.months : 0;
-
-  // Utilization (credit card)
-  const limit = parseFloat(debt.limit)||0;
-  const utilPct = limit>0 ? Math.round((balance/limit)*100) : 0;
-
-  document.getElementById('detailModal').innerHTML = `
-  <div class="modal-header" style="background:linear-gradient(135deg,${info.color},${info.color}dd);color:white;border-bottom:none;border-radius:20px 20px 0 0">
-    <div>
-      <div style="font-size:11px;opacity:.7;margin-bottom:2px">${info.ico} ${info.name}</div>
-      <div class="modal-title" style="color:white">${debt.name}</div>
-    </div>
-    <div style="display:flex;gap:8px;align-items:center">
-      <button onclick="openAddModal('${id}')" style="background:rgba(255,255,255,.2);color:white;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">\u270f\ufe0f</button>
-      <div class="modal-close" style="color:white" onclick="closeDetail()">\u2715</div>
-    </div>
-  </div>
-  <div class="modal-body">
-
-    <!-- Hero balance -->
-    <div style="text-align:center;padding:16px 0 20px;border-bottom:1px solid var(--border);margin-bottom:16px">
-      <div style="font-size:11px;color:var(--text3);margin-bottom:4px">${es?'Saldo actual':'Current balance'}</div>
-      <div style="font-family:var(--round-font);font-size:36px;font-weight:900;color:${info.color};letter-spacing:-1px">${fmtD(balance)}</div>
-      <div style="font-size:12px;color:var(--text3);margin-top:4px">${es?'de':'of'} ${fmtD(original)} ${es?'originales':'original'}</div>
-    </div>
-
-    <!-- Progress -->
-    <div class="progress-wrap" style="margin-bottom:14px">
-      <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;margin-bottom:6px">
-        <span>${paidPct}% ${es?'pagado':'paid'}</span>
-        <span style="color:var(--text3)">${fmt(paidAmt)} ${es?'pagados':'paid'}</span>
-      </div>
-      <div class="progress-bar">
-        <div class="progress-fill" style="width:${paidPct}%;background:${info.color}"></div>
-      </div>
-      <div class="progress-labels">
-        <span>$0</span>
-        <span>${fmt(original)}</span>
-      </div>
-    </div>
-
-    ${debt.type==='tarjeta'&&limit>0?`
-    <!-- Utilization -->
-    <div class="progress-wrap" style="margin-bottom:14px">
-      <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;margin-bottom:6px">
-        <span>${es?'Utilizaci\u00f3n':'Utilization'}: ${utilPct}% ${utilPct>=30?'\u26a0\ufe0f':utilPct<10?'\u2705':''}</span>
-        <span style="color:var(--text3)">${fmt(balance)} ${es?'de':'of'} ${fmt(limit)}</span>
-      </div>
-      <div class="progress-bar">
-        <div class="progress-fill" style="width:${utilPct}%;background:${utilPct>=30?'var(--red)':'var(--g-main)'}"></div>
-      </div>
-      <div style="font-size:10px;color:var(--text3);margin-top:4px">${utilPct>=30?(es?'\u26a0\ufe0f Utilizaci\u00f3n alta afecta tu cr\u00e9dito':'\u26a0\ufe0f High utilization affects your credit'):(es?'\u2705 Buena utilizaci\u00f3n':'\u2705 Good utilization')}</div>
-    </div>`:''}
-
-    <!-- Stats -->
-    <div class="stat-row" style="margin-bottom:14px">
-      <div class="stat-card">
-        <div class="stat-val">${fmt(payment)}</div>
-        <div class="stat-lbl">${es?'pago/mes':'payment/mo'}</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-val" style="color:var(--red)">${amort.payoffPossible?(amort.totalInterest==null?'\u2014':fmt(amort.totalInterest)):'\u221e'}</div>
-        <div class="stat-lbl">${es?'intereses totales':'total interest'}</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-val">${payoffDate}</div>
-        <div class="stat-lbl">${es?'terminas':'payoff date'}</div>
-      </div>
-    </div>
-
-    ${isSimpleMortgage?`
-    <div style="background:var(--off);border-radius:10px;padding:10px 12px;font-size:11.5px;color:var(--text3);margin-bottom:14px">
-      \ud83e\uddee ${es?'Modo simple: c\u00e1lculo aproximado basado en pago \u00d7 plazo. Sin desglose capital/inter\u00e9s mensual.':'Simple mode: approximate calculation based on payment \u00d7 term. No monthly principal/interest breakdown.'}
-    </div>`:''}
-
-    ${apr>0&&!isSimpleMortgage?`
-    <!-- Monthly breakdown -->
-    <div style="background:var(--off);border-radius:12px;padding:14px;margin-bottom:14px">
-      <div class="section-title">\ud83d\udcb8 ${es?'Desglose de tu pago mensual':'Monthly payment breakdown'}</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <div style="background:var(--white);border-radius:10px;padding:12px;text-align:center">
-          <div style="font-size:16px;font-weight:800;color:var(--g-main)">${fmtD(firstPrincipal)}</div>
-          <div style="font-size:10px;color:var(--text3);margin-top:2px">${es?'va al capital':'goes to principal'}</div>
-        </div>
-        <div style="background:var(--white);border-radius:10px;padding:12px;text-align:center">
-          <div style="font-size:16px;font-weight:800;color:var(--red)">${fmtD(firstInt)}</div>
-          <div style="font-size:10px;color:var(--text3);margin-top:2px">${es?'va al inter\u00e9s':'goes to interest'}</div>
-        </div>
-      </div>
-    </div>`:''}
-
-    ${savedExtra>100?`
-    <!-- Extra payment tip -->
-    <div style="background:var(--g-light);border-radius:12px;padding:14px;margin-bottom:14px">
-      <div class="section-title" style="color:var(--g-dark)">\ud83d\udca1 ${es?'Si pagas $100 extra al mes':'If you pay $100 extra/month'}</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <div style="text-align:center">
-          <div style="font-size:16px;font-weight:800;color:var(--g-main)">-${monthsSaved} ${es?'meses':'months'}</div>
-          <div style="font-size:10px;color:var(--text3)">${es?'terminas antes':'earlier payoff'}</div>
-        </div>
-        <div style="text-align:center">
-          <div style="font-size:16px;font-weight:800;color:var(--g-main)">${fmt(savedExtra)}</div>
-          <div style="font-size:10px;color:var(--text3)">${es?'ahorras en intereses':'saved in interest'}</div>
-        </div>
-      </div>
-    </div>`:''}
-
-    ${debt.abonos&&debt.abonos.length?`
-    <div class="section-title">🧾 ${es?'Historial de abonos':'Payment history'}</div>
-    <div style="border-radius:10px;border:1px solid var(--border);overflow:hidden;margin-bottom:14px">
-      ${debt.abonos.slice().reverse().map(a=>`
-        <div onclick="openAbonoDetail('${id}',${a.id})" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer" onmouseover="this.style.background='var(--off)'" onmouseout="this.style.background=''">
-          <div style="width:34px;height:34px;border-radius:10px;background:var(--g-light);display:grid;place-items:center;font-size:15px;flex-shrink:0">💳</div>
-          <div style="flex:1;min-width:0">
-            <div style="font-size:12px;font-weight:700">${a.nota||(es?'Abono':'Payment')}</div>
-            <div style="font-size:10px;color:var(--text3)">${a.fecha||''}${a.tipo==='existente'?' · '+(es?'Ya lo tenía':'Already had it'):''}</div>
-          </div>
-          <div style="font-size:13px;font-weight:800;color:var(--g-main)">-${fmtD(a.monto)}</div>
-        </div>`).join('')}
-    </div>`:''}
-
-    <!-- Costo total real del préstamo (solo hipoteca) -->
-    ${costoTotalReal!=null?`
-    <div style="background:linear-gradient(135deg,rgba(230,57,70,.08),rgba(230,57,70,.03));border:1.5px solid rgba(230,57,70,.2);border-radius:14px;padding:16px;margin-bottom:14px">
-      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">${es?'Lo que realmente terminas pagando':'What you actually end up paying'}</div>
-      <div style="font-family:var(--round-font);font-size:26px;font-weight:900;color:var(--red)">${fmtD(costoTotalReal)}</div>
-      <div style="font-size:11px;color:var(--text2);margin-top:4px">${es?'Casa de':'House of'} ${fmtD(original)} + ${fmtD(interesTotalVida)} ${es?'en intereses a lo largo de todo el préstamo':'in interest over the life of the loan'}</div>
-      <div style="display:flex;gap:16px;margin-top:10px;padding-top:10px;border-top:1px dashed rgba(230,57,70,.2)">
-        <div>
-          <div style="font-size:10px;color:var(--text3)">${es?'Interés ya pagado':'Interest paid so far'}</div>
-          <div style="font-size:14px;font-weight:700;color:var(--text)">${fmtD(interesYaPagado)}</div>
-        </div>
-        <div>
-          <div style="font-size:10px;color:var(--text3)">${es?'Interés que falta':'Interest remaining'}</div>
-          <div style="font-size:14px;font-weight:700;color:var(--text)">${fmtD(amort.payoffPossible?amort.totalInterest:0)}</div>
-        </div>
-      </div>
-      ${savedExtra>0?`<div style="font-size:11.5px;color:var(--g-dark);background:var(--g-light);border-radius:8px;padding:8px 10px;margin-top:10px">💰 ${es?`Pagando $100 extra al mes te ahorrarías`:`Paying $100 extra a month would save you`} <b>${fmtD(savedExtra)}</b> ${es?`en intereses y terminarías`:`in interest and finish`} ${monthsSaved} ${es?'meses antes':'months sooner'}.</div>`:''}
-    </div>`:''}
-
-    <!-- Amortization table -->
-    ${amort.schedule&&amort.schedule.length?`
-    <div class="section-title">\ud83d\udcca ${es?'Tabla de amortizaci\u00f3n':'Amortization table'}</div>
-    <div style="overflow-x:auto;border-radius:10px;border:1px solid var(--border)">
-      <table class="amort-table">
-        <thead><tr>
-          <th>${es?'Mes':'Month'}</th>
-          <th>${es?'Capital':'Principal'}</th>
-          <th>${es?'Inter\u00e9s':'Interest'}</th>
-          <th>${es?'Saldo':'Balance'}</th>
-        </tr></thead>
-        <tbody>
-          ${amort.schedule.map(row=>`<tr>
-            <td style="font-weight:600">${row.month}</td>
-            <td style="color:var(--g-main)">${fmtD(row.principal)}</td>
-            <td style="color:var(--red)">${fmtD(row.interest)}</td>
-            <td style="font-weight:700">${fmtD(row.balance)}</td>
-          </tr>`).join('')}
-        </tbody>
-      </table>
-    </div>`:''}
-
-    <div style="height:16px"></div>
-    <div style="display:flex;gap:8px">
-      <button class="btn-primary" onclick="openAddModal('${id}');closeDetail()">${es?'Actualizar saldo':'Update balance'}</button>
-      <button class="btn-danger" onclick="deleteDebt('${id}');closeDetail()">\ud83d\uddd1\ufe0f</button>
-    </div>
-  </div>`;
-
-  document.getElementById('detailOverlay').classList.add('open');
-}
-
-/* \u2500\u2500 DELETE \u2500\u2500 */
-function deleteDebt(id){
-  if(!confirm(lang==='es'?'\u00bfEliminar esta deuda?':'Delete this debt?')) return;
-  const debts = loadDebts().filter(d=>String(d.id)!==String(id));
-  saveDebts(debts);
-  render();
-  showToast(lang==='es'?'\ud83d\uddd1\ufe0f Eliminado':'\ud83d\uddd1\ufe0f Deleted');
-}
-
-/* \u2500\u2500 MODAL HELPERS \u2500\u2500 */
-function closeModal(){ document.getElementById('modalOverlay').classList.remove('open'); editingId=null; currentType=null; }
-function closeModalOutside(e){ if(e.target===document.getElementById('modalOverlay')) closeModal(); }
-function closeDetail(){ document.getElementById('detailOverlay').classList.remove('open'); }
-function closeDetailOutside(e){ if(e.target===document.getElementById('detailOverlay')) closeDetail(); }
-
-/* \u2500\u2500 LANG + NAV \u2500\u2500 */
-function setLang(l){
-  lang=l;
-  localStorage.setItem('ft_lang',l);
-  localStorage.setItem('ft_lang',l);
-  document.getElementById('ltES').classList.toggle('on',l==='es');
-  document.getElementById('ltEN').classList.toggle('on',l==='en');
-  document.querySelectorAll('[data-es]').forEach(el=>{const v=el.getAttribute('data-'+l);if(v)el.textContent=v;});
+  var debts = FT.debts();
+  var idx = debts.findIndex(function (x) { return String(x.id) === String(debt.id); });
+  if (idx >= 0) debts[idx] = Object.assign({}, debts[idx], debt); else debts.push(debt);
+  FT.saveDebts(debts);
+  FT.toast(L ? '✅ Deuda guardada' : '✅ Debt saved');
   render();
 }
-function go(url){window.location.href=url;}
-function logout(){sessionStorage.clear();localStorage.removeItem('ft_premium');window.location.replace('login.html');}
-function openMoreMenu(){document.getElementById('moreOverlay').classList.add('open');}
-function closeMoreMenu(){document.getElementById('moreOverlay').classList.remove('open');}
-
-/* ── ABONO ── */
-var abonoTipo = 'nuevo';
-
-function setAbonoTipo(tipo){
-  abonoTipo = tipo;
-  var bN=document.getElementById('abonarBtnNuevo');
-  var bE=document.getElementById('abonarBtnYaTenia');
-  if(!bN||!bE) return;
-  bN.style.borderColor = tipo==='nuevo'?'var(--g-main)':'var(--border)';
-  bN.style.background  = tipo==='nuevo'?'var(--g-light)':'var(--off)';
-  bN.style.color       = tipo==='nuevo'?'var(--g-dark)':'var(--text2)';
-  bE.style.borderColor = tipo==='existente'?'var(--g-main)':'var(--border)';
-  bE.style.background  = tipo==='existente'?'var(--g-light)':'var(--off)';
-  bE.style.color       = tipo==='existente'?'var(--g-dark)':'var(--text2)';
+function deleteDebt(id) {
+  FT.confirm(es() ? '¿Eliminar esta deuda?' : 'Delete this debt?').then(function (ok) {
+    if (!ok) return;
+    FT.saveDebts(FT.debts().filter(function (d) { return String(d.id) !== String(id); }));
+    FT.toast(es() ? '🗑️ Eliminada' : '🗑️ Deleted'); render();
+  });
 }
 
-function openAbonar(debtId){
-  const debts = loadDebts();
-  const es = lang==='es';
-  const overlay = document.getElementById('abonarOverlay');
-  const selector = document.getElementById('abonarDebtSelector');
+/* ═══════════════ DETALLE ═══════════════ */
+function openDetail(id) {
+  var d = FT.debts().find(function (x) { return String(x.id) === String(id); }); if (!d) return;
+  var c = cfg(d.type), i = info(d.type), L = es();
+  var orig = Math.max(+d.original || 0, +d.balance || 0), paidAmt = Math.max(0, orig - d.balance), paidPct = orig > 0 ? Math.min(100, Math.round(paidAmt / orig * 100)) : 0;
+  var isSimpleM = d.type === 'hipoteca' && d.mortgageMode === 'simple';
+  var am = isSimpleM ? { payoffPossible: true, months: d.term || 0, totalInterest: d.simpleTotalInterest, schedule: [] } : FT.calcAmort(d.balance, d.payment, d.apr || 0, d.term || 0);
+  var interesYaPagado = (d.abonos || []).reduce(function (a, x) { return a + (x.interesPagado || 0); }, 0);
+  var costoTotalReal = d.type === 'hipoteca' ? orig + interesYaPagado + (am.payoffPossible ? am.totalInterest : 0) : null;
+  var interesTotalVida = d.type === 'hipoteca' ? interesYaPagado + (am.payoffPossible ? am.totalInterest : 0) : null;
+  var monthlyR = (d.apr || 0) / 100 / 12, firstInt = d.balance * monthlyR, firstPrin = Math.max(0, d.payment - firstInt);
+  var util = d.limit ? Math.round(d.balance / d.limit * 100) : 0;
 
-  document.getElementById('abonarFecha').value = new Date().toISOString().split('T')[0];
-  document.getElementById('abonarMonto').value = '';
-  document.getElementById('abonarNota').value = '';
-  const _btnAbono = document.getElementById('btnRegistrarAbono');
-  if(_btnAbono) _btnAbono.disabled = false;
-  abonoTipo='nuevo'; setAbonoTipo('nuevo');
+  var html = '<div style="text-align:center;padding:6px 0 16px;border-bottom:1px solid var(--hair);margin-bottom:14px">' +
+    '<div style="font-size:11px;color:var(--text3)">' + (L ? 'Saldo actual' : 'Current balance') + '</div>' +
+    '<div style="font-family:var(--round-font);font-weight:900;font-size:32px;color:' + c.color + '">' + money(d.balance, true) + '</div>' +
+    '<div style="font-size:11px;color:var(--text3);margin-top:3px">' + (L ? 'de ' : 'of ') + money(orig) + ' ' + (L ? 'originales' : 'original') + '</div></div>' +
+    '<div class="ft-track"><div class="ft-fill" style="width:' + paidPct + '%;background:' + c.color + '"></div></div>' +
+    '<div class="dt-pctrow">' + paidPct + '% ' + (L ? 'pagado' : 'paid') + ' · ' + money(paidAmt) + ' ' + (L ? 'pagados' : 'paid') + '</div>' +
+    (d.type === 'tarjeta' && d.limit ? '<div class="ft-track" style="margin-top:9px"><div class="ft-fill" style="width:' + util + '%;background:' + (util >= 30 ? 'var(--red)' : 'var(--g-main)') + '"></div></div><div class="dt-pctrow">' + (L ? 'Utilización' : 'Utilization') + ' ' + util + '% ' + (util >= 30 ? '⚠️' : '✅') + '</div>' : '') +
+    '<div class="dt-stats3" style="margin:12px 0"><div class="s"><div class="v">' + money(d.payment) + '</div><div class="k">' + (L ? 'pago/mes' : 'payment/mo') + '</div></div>' +
+    '<div class="s"><div class="v" style="color:var(--red)">' + (am.payoffPossible ? money(am.totalInterest) : '∞') + '</div><div class="k">' + (L ? 'intereses' : 'interest') + '</div></div>' +
+    '<div class="s"><div class="v">' + (am.payoffPossible && am.months < 600 ? am.months + 'm' : '—') + '</div><div class="k">' + (L ? 'restantes' : 'left') + '</div></div></div>' +
+    (isSimpleM ? '<div style="background:var(--sunk);border-radius:10px;padding:10px 12px;font-size:11px;color:var(--text3);margin-bottom:14px">🧮 ' + (L ? 'Modo simple: cálculo aproximado, sin desglose mensual.' : 'Simple mode: approximate, no monthly breakdown.') + '</div>' : '') +
+    (d.apr && !isSimpleM ? '<div style="background:var(--sunk);border-radius:12px;padding:13px;margin-bottom:14px"><div style="font-size:11px;font-weight:800;margin-bottom:9px">💸 ' + (L ? 'Desglose de tu pago mensual' : 'Monthly payment breakdown') + '</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:9px"><div style="background:#fff;border-radius:10px;padding:10px;text-align:center"><div style="font-weight:900;color:var(--g-main)">' + money(firstPrin, true) + '</div><div style="font-size:9.5px;color:var(--text3)">' + (L ? 'va al capital' : 'to principal') + '</div></div><div style="background:#fff;border-radius:10px;padding:10px;text-align:center"><div style="font-weight:900;color:var(--red)">' + money(firstInt, true) + '</div><div style="font-size:9.5px;color:var(--text3)">' + (L ? 'va al interés' : 'to interest') + '</div></div></div></div>' : '') +
+    (d.abonos && d.abonos.length ? '<div class="ft-section-head" style="margin-top:0"><h3>🧾 ' + (L ? 'Historial de abonos' : 'Payment history') + '</h3></div>' + d.abonos.slice().reverse().map(function (a) {
+      return '<div class="dt-abrow" data-abdet="' + a.id + '"><div style="width:32px;height:32px;border-radius:9px;background:var(--g-light);display:grid;place-items:center;flex-shrink:0">💳</div>' +
+        '<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:700">' + (a.nota || (L ? 'Abono' : 'Payment')) + '</div><div style="font-size:10px;color:var(--text3)">' + FT.date(a.fecha) + (a.tipo === 'existente' ? ' · ' + (L ? 'Ya lo tenía' : 'Already had it') : '') + '</div></div>' +
+        '<div style="font-weight:800;color:var(--g-main)">-' + money(a.monto, true) + '</div></div>';
+    }).join('') : '') +
+    (costoTotalReal != null ? '<div class="dt-costbox"><div class="lab">' + (L ? 'Lo que realmente terminas pagando' : 'What you actually end up paying') + '</div><div class="big">' + money(costoTotalReal, true) + '</div>' +
+      '<div style="font-size:11px;color:var(--text2)">' + (L ? 'Casa de ' : 'House of ') + money(orig) + ' + ' + money(interesTotalVida) + ' ' + (L ? 'en intereses a lo largo de todo el préstamo' : 'in interest over the life of the loan') + '</div>' +
+      '<div style="display:flex;gap:16px;margin-top:9px;padding-top:9px;border-top:1px dashed rgba(225,75,79,.25)"><div><div style="font-size:9.5px;color:var(--text3)">' + (L ? 'Ya pagado' : 'Paid so far') + '</div><div style="font-weight:800">' + money(interesYaPagado) + '</div></div><div><div style="font-size:9.5px;color:var(--text3)">' + (L ? 'Falta' : 'Remaining') + '</div><div style="font-weight:800">' + money(am.payoffPossible ? am.totalInterest : 0) + '</div></div></div></div>' : '') +
+    (am.schedule && am.schedule.length ? '<div class="ft-section-head" style="margin-top:0"><h3>📊 ' + (L ? 'Tabla de amortización' : 'Amortization table') + '</h3></div><div style="overflow-x:auto;border:1px solid var(--hair);border-radius:10px"><table class="dt-amort"><thead><tr><th>' + (L ? 'Mes' : 'Month') + '</th><th>' + (L ? 'Capital' : 'Principal') + '</th><th>' + (L ? 'Interés' : 'Interest') + '</th><th>' + (L ? 'Saldo' : 'Balance') + '</th></tr></thead><tbody>' + am.schedule.slice(0, 12).map(function (r) { return '<tr><td style="font-weight:700">' + r.month + '</td><td style="color:var(--g-main)">' + money(r.principal, true) + '</td><td style="color:var(--red)">' + money(r.interest, true) + '</td><td style="font-weight:700">' + money(r.balance, true) + '</td></tr>'; }).join('') + '</tbody></table></div>' : '');
 
-  if(debtId){
-    // Viene de la card — deuda específica
-    selector.style.display = 'none';
-    overlay.dataset.debtId = debtId;
-    const d = debts.find(x=>String(x.id)===String(debtId));
-    if(d){
-      document.getElementById('abonarTitle').textContent = '💳 '+(es?'Abonar a':'Pay') +' '+d.name;
-      showAbonarInfo(d);
+  document.getElementById('root').innerHTML =
+    '<div class="ft-section-head"><button class="link" id="dtBack">← ' + (L ? 'Deudas' : 'Debts') + '</button><button class="link" id="dtEdit">✏️ ' + (L ? 'Editar' : 'Edit') + '</button></div>' +
+    '<div style="text-align:center;margin-bottom:6px"><span style="font-size:11px;color:var(--text3)">' + c.ico + ' ' + i.name + '</span><h2 style="font-family:var(--round-font);font-weight:900;font-size:17px">' + d.name + '</h2></div>' +
+    html + '<button class="ft-btn ft-btn-primary tap" style="margin-top:16px" onclick="openAbonar(\'' + d.id + '\')">💳 ' + (L ? 'Registrar abono' : 'Register payment') + '</button>' +
+    '<button class="ft-btn ft-btn-ghost tap" style="margin-top:8px;color:var(--red)" id="dtDel">🗑️ ' + (L ? 'Eliminar deuda' : 'Delete debt') + '</button>';
+  document.getElementById('dtBack').onclick = render;
+  document.getElementById('dtEdit').onclick = function () { openForm(d.type, d); };
+  document.getElementById('dtDel').onclick = function () { deleteDebt(d.id); };
+  document.querySelectorAll('[data-abdet]').forEach(function (el) { el.onclick = function () { openAbonoDetail(d.id, el.getAttribute('data-abdet')); }; });
+}
+
+/* ═══════════════ ABONAR ═══════════════ */
+function openAbonar(debtId) {
+  var d = FT.debts().find(function (x) { return String(x.id) === String(debtId); }); if (!d) return;
+  var L = es();
+  var recActivos = FT.recurList(function (r) { return r.kind === 'debt' && String(r.debtId) === String(d.id); });
+  var isShared = d.type === 'hipoteca' || d.owner === 'both';
+  var st = { tipo: 'nuevo', rec: false, freq: 'monthly', who: 'me' };
+  var chips = [[L ? 'Pago mínimo' : 'Min payment', d.payment], [L ? 'Doble pago' : 'Double', d.payment * 2], [L ? 'Saldar' : 'Pay off', d.balance]].filter(function (c) { return c[1] > 0; });
+
+  var warn = recActivos.length ? '<div class="dt-preview" style="background:#FBF0DD"><div class="t" style="color:#8A5A12">⚠️ ' + (L ? recActivos.length + ' abono(s) recurrente(s) activo(s) — no los dupliques:' : recActivos.length + ' active recurring payment(s) — don’t duplicate:') + '</div>' +
+    recActivos.map(function (r) { var RL = FT.recurLabel(r); return '<div class="r"><span class="k">' + money(r.amount) + ' · ' + RL.sub + '</span></div>'; }).join('') + '</div>' : '';
+
+  var ov = FT.modal({
+    title: '💳 ' + (L ? 'Abonar a ' : 'Pay ') + d.name,
+    saveLabel: L ? 'Registrar abono' : 'Register payment', cancelLabel: L ? 'Cancelar' : 'Cancel',
+    html: '<div class="dt-seg" id="abTipoSeg"><button type="button" data-t="nuevo" class="on">' + (L ? 'Nuevo' : 'New') + '</button><button type="button" data-t="existente">' + (L ? 'Ya lo tenía' : 'Already had it') + '</button></div>' +
+      warn +
+      (chips.length ? '<div class="dt-chiprow">' + chips.map(function (c) { return '<button type="button" data-chip="' + c[1] + '">' + c[0] + ' ' + money(c[1]) + '</button>'; }).join('') + '</div>' : '') +
+      '<div class="ft-field"><label>' + (L ? 'Monto' : 'Amount') + '</label><input id="abMonto" inputmode="decimal" placeholder="$0"></div>' +
+      '<div class="ft-field"><label>' + (L ? 'Fecha' : 'Date') + '</label><input id="abFecha" type="date" value="' + FT.todayISO() + '"></div>' +
+      '<div class="ft-field"><label>' + (L ? 'Nota (opcional)' : 'Note (optional)') + '</label><input id="abNota"></div>' +
+      '<label class="dt-preview" style="display:block;background:var(--sky-bg);cursor:pointer"><div style="display:flex;justify-content:space-between;align-items:center;font-weight:800;color:#2A4CC0"><span>🔄 ' + (L ? '¿Es recurrente?' : 'Recurring?') + '</span><input type="checkbox" id="abRecChk" style="width:18px;height:18px"></div>' +
+        '<div id="abRecWrap" style="display:none;margin-top:9px"><div class="dt-seg" id="abFreqSeg"><button type="button" data-f="weekly">' + (L ? 'Semanal' : 'Weekly') + '</button><button type="button" data-f="biweekly">' + (L ? 'Quincenal' : 'Biweekly') + '</button><button type="button" data-f="monthly" class="on">' + (L ? 'Mensual' : 'Monthly') + '</button></div>' +
+          (isShared ? '<div class="dt-seg" id="abWhoSeg" style="margin-top:8px"><button type="button" data-w="me" class="on">' + (L ? 'Tuyo' : 'Yours') + '</button><button type="button" data-w="partner">' + (L ? 'De tu pareja' : "Partner's") + '</button></div>' : '') + '</div></label>',
+    onOpen: function (body) {
+      body.querySelectorAll('[data-chip]').forEach(function (b) { b.onclick = function () { body.querySelector('#abMonto').value = b.getAttribute('data-chip'); }; });
+      var ts = body.querySelector('#abTipoSeg'); ts.querySelectorAll('button').forEach(function (b) { b.onclick = function () { st.tipo = b.getAttribute('data-t'); ts.querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', x === b); }); }; });
+      var rc = body.querySelector('#abRecChk'); rc.onchange = function () { st.rec = rc.checked; body.querySelector('#abRecWrap').style.display = rc.checked ? '' : 'none'; };
+      var fs = body.querySelector('#abFreqSeg'); if (fs) fs.querySelectorAll('button').forEach(function (b) { b.onclick = function () { st.freq = b.getAttribute('data-f'); fs.querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', x === b); }); }; });
+      var ws = body.querySelector('#abWhoSeg'); if (ws) ws.querySelectorAll('button').forEach(function (b) { b.onclick = function () { st.who = b.getAttribute('data-w'); ws.querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', x === b); }); }; });
+    },
+    onSave: function (body) {
+      var monto = parseFloat(body.querySelector('#abMonto').value) || 0;
+      var fecha = body.querySelector('#abFecha').value;
+      var nota = body.querySelector('#abNota').value.trim();
+      if (!monto || monto <= 0) { FT.toast(L ? 'Ingresa un monto válido' : 'Enter a valid amount'); return true; }
+      if (!fecha) { FT.toast(L ? 'Selecciona una fecha' : 'Select a date'); return true; }
+      if (window._savingAbono) return true; // evita doble-submit (doble-tap duplicaba el abono)
+      window._savingAbono = true;
+      guardarAbono(d.id, { monto: monto, fecha: fecha, nota: nota, tipo: st.tipo, rec: st.rec, freq: st.freq, who: st.who, isShared: isShared, existente: recActivos[0] });
+      setTimeout(function () { window._savingAbono = false; }, 800);
     }
-  } else {
-    // Viene del menú + — mostrar selector
-    selector.style.display = '';
-    overlay.dataset.debtId = '';
-    document.getElementById('abonarTitle').textContent = es?'💳 Registrar abono':'💳 Register payment';
-    const sel = document.getElementById('abonarDebtId');
-    sel.innerHTML = debts.map(d=>`<option value="${d.id}">${d.name} — ${fmt(parseFloat(d.balance)||0)}</option>`).join('');
-    if(debts.length) showAbonarInfo(debts[0]);
+  });
+}
+function guardarAbono(debtId, o) {
+  var L = es();
+  var debts = FT.debts(); var idx = debts.findIndex(function (x) { return String(x.id) === String(debtId); });
+  if (idx < 0) return;
+  var d = debts[idx];
+  var oldBalance = parseFloat(d.balance) || 0;
+  var newBalance = Math.max(0, oldBalance - o.monto);
+  d.balance = newBalance; d.updatedAt = new Date().toISOString();
+  d.paidMonths = d.paidMonths || {}; d.paidMonths[o.fecha.slice(0, 7)] = true;
+
+  var abonoId = Date.now(), linkedTxId = null;
+  if (o.tipo === 'nuevo') {
+    var data = FT.data();
+    linkedTxId = abonoId + 1;
+    data.transactions.push({ id: linkedTxId, type: 'gasto', desc: (L ? 'Abono a ' : 'Payment to ') + d.name, amount: o.monto, date: o.fecha, cat: '💳 Deudas', note: o.nota, hogar: d.type === 'hipoteca', createdBy: FT.userName() });
+    FT.saveData(data);
   }
-  overlay.classList.add('open');
-}
+  var apr = parseFloat(d.apr) || 0;
+  var interesEste = apr > 0 ? +(oldBalance * (apr / 100 / 12)).toFixed(2) : 0;
+  var capitalEste = +Math.max(0, o.monto - interesEste).toFixed(2);
+  d.abonos = d.abonos || [];
+  d.abonos.push({ id: abonoId, monto: o.monto, fecha: o.fecha, nota: o.nota, saldoAntes: oldBalance, saldoDespues: newBalance, tipo: o.tipo, createdBy: FT.userName(), txId: linkedTxId, interesPagado: interesEste, capitalPagado: capitalEste });
+  FT.saveDebts(debts);
 
-function deleteRecurring(recId, debtId){
-  const es = lang==='es';
-  if(!confirm(es?'¿Eliminar este abono recurrente? Ya no se aplicará automáticamente.':'Delete this recurring payment? It will no longer apply automatically.')) return;
-  try{
-    let recurring = JSON.parse(localStorage.getItem('ft_recurring')||'[]');
-    const idx = recurring.findIndex(r=>String(r.id)===String(recId));
-    if(idx>=0){ recurring[idx].active = false; } // se desactiva, no se borra — conserva el historial de cuándo se aplicó
-    localStorage.setItem('ft_recurring', JSON.stringify(recurring));
-    showToast(es?'🗑️ Recurrente eliminado':'🗑️ Recurring payment deleted');
-    const d = loadDebts().find(x=>String(x.id)===String(debtId));
-    if(d) showAbonarInfo(d);
-  }catch(e){}
-}
-
-function editRecurring(recId){
-  const es = lang==='es';
-  let recurring = JSON.parse(localStorage.getItem('ft_recurring')||'[]');
-  const rec = recurring.find(r=>String(r.id)===String(recId));
-  if(!rec) return;
-  const row = document.getElementById('recRow_'+recId);
-  if(!row) return;
-  row.innerHTML = `
-    <div style="width:100%">
-      <div style="display:flex;gap:6px;margin-bottom:6px">
-        <input type="number" id="editMonto_${recId}" value="${rec.amount}" step="0.01" style="flex:1;padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-family:inherit">
-        <select id="editFreq_${recId}" style="flex:1;padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-family:inherit">
-          <option value="weekly" ${rec.freq==='weekly'?'selected':''}>${es?'Semanal':'Weekly'}</option>
-          <option value="biweekly" ${rec.freq==='biweekly'?'selected':''}>${es?'Quincenal':'Biweekly'}</option>
-          <option value="monthly" ${rec.freq==='monthly'?'selected':''}>${es?'Mensual':'Monthly'}</option>
-        </select>
-      </div>
-      <div style="display:flex;gap:6px">
-        <button onclick="saveRecurringEdit('${recId}')" style="flex:1;background:var(--g-main);color:white;border:none;border-radius:8px;padding:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">${es?'Guardar':'Save'}</button>
-        <button onclick="showAbonarInfo(loadDebts().find(x=>String(x.id)===String('${rec.debtId}')))" style="flex:1;background:var(--off);border:1px solid var(--border);border-radius:8px;padding:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">${es?'Cancelar':'Cancel'}</button>
-      </div>
-    </div>`;
-}
-
-function saveRecurringEdit(recId){
-  const es = lang==='es';
-  const monto = parseFloat(document.getElementById('editMonto_'+recId)?.value);
-  const freq = document.getElementById('editFreq_'+recId)?.value;
-  if(!monto||monto<=0){ showToast(es?'⚠️ Monto inválido':'⚠️ Invalid amount'); return; }
-  let recurring = JSON.parse(localStorage.getItem('ft_recurring')||'[]');
-  const idx = recurring.findIndex(r=>String(r.id)===String(recId));
-  if(idx<0) return;
-  recurring[idx].amount = monto;
-  recurring[idx].freq = freq;
-  localStorage.setItem('ft_recurring', JSON.stringify(recurring));
-  showToast(es?'✅ Recurrente actualizado':'✅ Recurring payment updated');
-  const d = loadDebts().find(x=>String(x.id)===String(recurring[idx].debtId));
-  if(d) showAbonarInfo(d);
-}
-
-function showAbonarInfo(d){
-  const balance = parseFloat(d.balance)||0;
-  const payment = parseFloat(d.payment)||0;
-  const info = document.getElementById('abonarDebtInfo');
-  const sug = document.getElementById('abonarSugerencia');
-  const chips = document.getElementById('abonarChips');
-  info.style.display = '';
-  document.getElementById('abonarSaldoActual').textContent = fmt(balance);
-
-  // Lista de TODOS los abonos recurrentes activos en esta deuda — los tuyos y los
-  // de tu pareja (ya sincronizados si la deuda es compartida) — para saber cuántos
-  // hay antes de crear otro sin querer duplicar.
-  const es = lang==='es';
-  const hogar = JSON.parse(localStorage.getItem('ft_hogar')||'{}');
-  const partnerName = hogar.partnerName || (es?'tu pareja':'your partner');
-  const warnEl = document.getElementById('abonarRecurrenteWarning');
-  let recurring = [];
-  try{ recurring = JSON.parse(localStorage.getItem('ft_recurring')||'[]'); }catch(e){}
-  const activos = recurring.filter(r=>r.kind==='debt' && String(r.debtId)===String(d.id) && r.active);
-  if(activos.length){
-    const freqLbl = f => ({weekly:es?'semanal':'weekly',biweekly:es?'quincenal':'biweekly',monthly:es?'mensual':'monthly'}[f]||f);
-    const rows = activos.map(r=>{
-      const quien = r.payerLabel || (r.createdBy===user.name ? (es?'Tuyo':'Yours') : partnerName);
-      const _ultimoAuto = (d.abonos||[]).filter(a=>a.auto && Math.abs((a.monto||0)-(r.amount||0))<0.01).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''))[0];
-      const _ultimoTxt = _ultimoAuto ? (es?`último: ${_ultimoAuto.fecha}`:`last: ${_ultimoAuto.fecha}`) : (es?'aún no aplicado':'not applied yet');
-      return `<div id="recRow_${r.id}" style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-top:1px solid rgba(138,90,0,.15);gap:8px">
-        <div style="flex:1;min-width:0">
-          <div style="font-weight:700">${fmt(r.amount)} · ${freqLbl(r.freq)}</div>
-          <div style="font-size:10.5px;opacity:.8">${quien} · próximo ${r.nextDate} · ${_ultimoTxt}</div>
-        </div>
-        <div style="display:flex;gap:4px;flex-shrink:0">
-          <button onclick="editRecurring('${r.id}')" style="background:none;border:none;font-size:15px;cursor:pointer;padding:4px" title="${es?'Editar':'Edit'}">✏️</button>
-          <button onclick="deleteRecurring('${r.id}','${d.id}')" style="background:none;border:none;font-size:15px;cursor:pointer;padding:4px" title="${es?'Eliminar':'Delete'}">🗑️</button>
-        </div>
-      </div>`;
-    }).join('');
-    warnEl.style.display = '';
-    warnEl.innerHTML = `<div style="font-weight:700;margin-bottom:2px">⚠️ ${es?`${activos.length} abono(s) recurrente(s) activo(s) en esta deuda — no los dupliques:`:`${activos.length} active recurring payment(s) on this debt — don't duplicate them:`}</div>${rows}`;
-  } else {
-    warnEl.style.display = 'none';
+  // Si ya había un recurrente activo y este abono manual cae en/después de su próxima fecha, se avanza para no duplicar
+  if (o.existente && o.tipo === 'nuevo' && o.existente.nextDate && o.fecha >= o.existente.nextDate) {
+    FT.recurUpdate(o.existente.id, { nextDate: FT._advanceRecDate(o.existente.freq, o.fecha) });
   }
-
-  // Sugerencias rápidas
-  const opciones = [];
-  if(payment>0) opciones.push({l:(lang==='es'?'Pago mínimo':'Min payment')+' '+fmt(payment), v:payment});
-  if(payment>0) opciones.push({l:(lang==='es'?'Doble pago':'Double')+' '+fmt(payment*2), v:payment*2});
-  if(balance>0) opciones.push({l:(lang==='es'?'Saldar':'Pay off')+' '+fmt(balance), v:balance});
-  if(opciones.length){
-    sug.style.display='';
-    chips.innerHTML=opciones.map(o=>`<button onclick="document.getElementById('abonarMonto').value='${o.v.toFixed(2)}'" style="background:white;border:1.5px solid var(--g-main);color:var(--g-dark);border-radius:20px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">${o.l}</button>`).join('');
-  } else { sug.style.display='none'; }
-}
-
-function updateAbonarInfo(){
-  const id = document.getElementById('abonarDebtId').value;
-  const d = loadDebts().find(x=>String(x.id)===String(id));
-  if(d) showAbonarInfo(d);
-}
-
-function toggleAbonoRecurrenteFreq(){
-  const chk = document.getElementById('abonarRecurrenteCheck');
-  document.getElementById('abonoRecurrenteFreqWrap').style.display = chk.checked ? '' : 'none';
-
-  // El selector "¿de quién?" solo tiene sentido si la deuda es compartida (los dos pueden abonarle)
-  const overlay = document.getElementById('abonarOverlay');
-  const debtId = overlay.dataset.debtId || document.getElementById('abonarDebtId')?.value;
-  const d = loadDebts().find(x=>String(x.id)===String(debtId));
-  const isShared = d && (d.owner==='both' || d.type==='hipoteca' || d.type==='hogar');
-  const whoWrap = document.getElementById('abonoRecurrenteWhoWrap');
-  if(chk.checked && isShared){
-    const es = lang==='es';
-    const hogar = JSON.parse(localStorage.getItem('ft_hogar')||'{}');
-    const partnerName = hogar.partnerName || (es?'tu pareja':'your partner');
-    const whoSel = document.getElementById('abonoRecurrenteWho');
-    whoSel.options[0].textContent = es?`Tuyo (${user.name||'tú'})`:`Yours (${user.name||'you'})`;
-    whoSel.options[1].textContent = es?`De tu pareja (${partnerName})`:`Your partner's (${partnerName})`;
-    whoWrap.style.display = '';
-  } else {
-    whoWrap.style.display = 'none';
+  if (o.rec) {
+    var hogar = FT.hogar();
+    var payerLabel = o.who === 'partner' ? (hogar.partnerName || (L ? 'Tu pareja' : 'Partner')) : (FT.userName() || (L ? 'Tú' : 'You'));
+    var rec = FT.recurring();
+    rec.push({ id: 'rec_' + Date.now(), kind: 'debt', debtId: d.id, desc: (L ? 'Abono a ' : 'Payment to ') + d.name, amount: o.monto, freq: o.freq, hogar: d.type === 'hipoteca', nextDate: FT._advanceRecDate(o.freq, o.fecha), active: true, createdBy: FT.userName(), payerLabel: payerLabel, payerRole: o.who });
+    FT.set(FT.K.recurring, rec);
   }
+  FT.toast((L ? '✅ Abono de ' + money(o.monto) + ' registrado · Nuevo saldo: ' + money(newBalance) : '✅ Payment of ' + money(o.monto) + ' registered · New balance: ' + money(newBalance)) + (o.rec ? (L ? ' · 🔄 recurrente activado' : ' · 🔄 recurring on') : ''), { ms: 4000 });
+  if (document.getElementById('dtEdit')) openDetail(debtId); else render();
 }
 
-function guardarAbono(){
-  const btn = document.getElementById('btnRegistrarAbono');
-  if(btn && btn.disabled) return; // evita doble-submit (doble-tap duplicaba el abono)
-  const es = lang==='es';
-  const overlay = document.getElementById('abonarOverlay');
-  const debtId = overlay.dataset.debtId || document.getElementById('abonarDebtId')?.value;
-  const monto = parseFloat(document.getElementById('abonarMonto').value);
-  const fecha = document.getElementById('abonarFecha').value;
-  const nota = document.getElementById('abonarNota').value.trim();
-
-  if(!debtId){ showToast(es?'⚠️ Selecciona una deuda':'⚠️ Select a debt'); return; }
-  if(!monto||monto<=0){ showToast(es?'⚠️ Ingresa un monto válido':'⚠️ Enter a valid amount'); return; }
-  if(!fecha){ showToast(es?'⚠️ Selecciona una fecha':'⚠️ Select a date'); return; }
-
-  let _recurringChk = [];
-  try{ _recurringChk = JSON.parse(localStorage.getItem('ft_recurring')||'[]'); }catch(e){}
-  const _existenteChk = _recurringChk.find(r=>r.kind==='debt' && String(r.debtId)===String(debtId) && r.active);
-  const _wantsRecChk = document.getElementById('abonarRecurrenteCheck')?.checked;
-  if(_existenteChk){
-    if(_wantsRecChk){
-      if(!confirm(es?`⚠️ Ya tienes un abono recurrente activo (${fmt(_existenteChk.amount)}). ¿Crear otro de todos modos? Esto duplicaría los pagos automáticos.`:`⚠️ You already have an active recurring payment (${fmt(_existenteChk.amount)}). Create another anyway? This would duplicate the automatic payments.`)) return;
-    } else if(abonoTipo==='nuevo'){
-      if(!confirm(es?`⚠️ Ya tienes un abono recurrente activo de ${fmt(_existenteChk.amount)} para esta deuda (próximo: ${_existenteChk.nextDate}). ¿Seguro que quieres registrar este pago manual también? Si el recurrente ya cubre este pago, se duplicaría.`:`⚠️ You already have an active recurring payment of ${fmt(_existenteChk.amount)} for this debt (next: ${_existenteChk.nextDate}). Register this manual payment too? If the recurring one already covers it, it will be duplicated.`)) return;
-    }
-  }
-  if(btn) btn.disabled = true;
-
-  const debts = loadDebts();
-  const idx = debts.findIndex(d=>String(d.id)===String(debtId));
-  if(idx<0){ showToast('⚠️ Deuda no encontrada'); if(btn) btn.disabled=false; return; }
-
-  const d = debts[idx];
-  const oldBalance = parseFloat(d.balance)||0;
-  const newBalance = Math.max(0, oldBalance - monto);
-
-  // Actualizar saldo de la deuda
-  debts[idx].balance = newBalance;
-  debts[idx].updatedAt = new Date().toISOString();
-  // Marcar el mes de este abono como pagado — sin esto, el banner de "pago vencido"
-  // nunca se enteraba de que ya pagaste y seguía apareciendo indefinidamente.
-  if(!debts[idx].paidMonths) debts[idx].paidMonths = {};
-  debts[idx].paidMonths[String(fecha).slice(0,7)] = true;
-
-  // Registrar en historial de abonos
-  if(!debts[idx].abonos) debts[idx].abonos = [];
-  const abonoId = Date.now();
-  let linkedTxId = null;
-
-  // Solo registrar en ft_data si es abono NUEVO del mes
-  if(abonoTipo === 'nuevo'){
-    try {
-      const data = JSON.parse(localStorage.getItem('ft_data')||'{}');
-      data.transactions = data.transactions||[];
-      const esHogar = d.type==='hipoteca' || d.type==='hogar';
-      linkedTxId = abonoId + 1;
-      data.transactions.push({ id:linkedTxId, type:'gasto', desc:(es?'Abono a ':'Payment to ')+d.name, amount:monto, date:fecha, cat:'💳 Deudas', note:nota, hogar:esHogar, createdBy:user.name||'' });
-      localStorage.setItem('ft_data', JSON.stringify(data));
-    } catch(e){}
-  }
-
-  // Split capital/interés de ESTE abono en particular — antes no se guardaba nada de
-  // esto, así que no existía forma de saber cuánto interés ya se pagó de verdad a lo
-  // largo de la vida del préstamo (solo se proyectaba interés FUTURO desde el saldo
-  // actual). Sin esto, el "costo total real con intereses" nunca puede mostrarse bien.
-  const _aprAbono = parseFloat(d.apr)||0;
-  const _interesEsteAbono = _aprAbono>0 ? +(oldBalance*(_aprAbono/100/12)).toFixed(2) : 0;
-  const _capitalEsteAbono = +Math.max(0, monto-_interesEsteAbono).toFixed(2);
-
-  debts[idx].abonos.push({ id:abonoId, monto, fecha, nota, saldoAntes:oldBalance, saldoDespues:newBalance, tipo:abonoTipo, createdBy:user.name||'', txId:linkedTxId, interesPagado:_interesEsteAbono, capitalPagado:_capitalEsteAbono });
-
-  saveDebts(debts);
-
-  // Si esta deuda ya tenía un recurrente activo y el pago manual cae en o después de su
-  // próxima fecha, se avanza el recurrente para que el motor automático no lo vuelva a
-  // aplicar (bug real: pago manual + automático mismo día duplicaba el abono).
-  if(_existenteChk && abonoTipo==='nuevo' && _existenteChk.nextDate && fecha >= _existenteChk.nextDate){
-    try{
-      let recurring = JSON.parse(localStorage.getItem('ft_recurring')||'[]');
-      const ri = recurring.findIndex(r=>String(r.id)===String(_existenteChk.id));
-      if(ri>=0){
-        let guard = 0;
-        while(recurring[ri].nextDate && recurring[ri].nextDate <= fecha && guard < 60){
-          const dt = new Date(recurring[ri].nextDate+'T00:00:00');
-          if(recurring[ri].freq==='weekly') dt.setDate(dt.getDate()+7);
-          else if(recurring[ri].freq==='biweekly') dt.setDate(dt.getDate()+14);
-          else dt.setMonth(dt.getMonth()+1);
-          recurring[ri].nextDate = dt.toISOString().split('T')[0];
-          guard++;
-        }
-        localStorage.setItem('ft_recurring', JSON.stringify(recurring));
-      }
-    }catch(e){}
-  }
-
-  // Crear recurrente si el usuario lo pidió
-  const wantsRecurrente = document.getElementById('abonarRecurrenteCheck')?.checked;
-  if(wantsRecurrente){
-    const freq = document.getElementById('abonoRecurrenteFreq').value;
-    const esHogarRec = d.type==='hipoteca' || d.type==='hogar';
-    const nextDate = (function(freq, fromDateStr){
-      const dt = new Date(fromDateStr+'T00:00:00');
-      if(freq==='weekly') dt.setDate(dt.getDate()+7);
-      else if(freq==='biweekly') dt.setDate(dt.getDate()+14);
-      else dt.setMonth(dt.getMonth()+1);
-      return dt.toISOString().split('T')[0];
-    })(freq, fecha);
-    const isSharedRec = d.owner==='both' || d.type==='hipoteca' || d.type==='hogar';
-    const whoVal = isSharedRec ? (document.getElementById('abonoRecurrenteWho')?.value||'me') : 'me';
-    const hogarRec = JSON.parse(localStorage.getItem('ft_hogar')||'{}');
-    const payerLabel = whoVal==='partner' ? (hogarRec.partnerName || (es?'Tu pareja':'Your partner')) : (user.name || (es?'Tú':'You'));
-    const recurring = JSON.parse(localStorage.getItem('ft_recurring')||'[]');
-    recurring.push({ id:'rec_'+Date.now(), kind:'debt', debtId:d.id, amount:monto, freq, hogar:esHogarRec, nextDate, active:true, createdBy:user.name||'', payerLabel, payerRole:whoVal });
-    localStorage.setItem('ft_recurring', JSON.stringify(recurring));
-  }
-
-  closeAbonar();
-  if(btn) btn.disabled = false;
-  showToast(es?`✅ Abono de ${fmt(monto)} registrado · Nuevo saldo: ${fmt(newBalance)}${wantsRecurrente?' · 🔄 recurrente activado':''}`:`✅ Payment of ${fmt(monto)} registered · New balance: ${fmt(newBalance)}${wantsRecurrente?' · 🔄 recurring enabled':''}`, 4000);
-  render();
+/* ═══════════════ DETALLE / EDICIÓN DE ABONO ═══════════════ */
+function openAbonoDetail(debtId, abonoId) {
+  var d = FT.debts().find(function (x) { return String(x.id) === String(debtId); });
+  var a = (d.abonos || []).find(function (x) { return String(x.id) === String(abonoId); });
+  if (!a) return;
+  var L = es();
+  FT.sheet({
+    title: L ? 'Detalle del abono' : 'Payment detail',
+    html: '<div style="text-align:center;margin-bottom:14px"><div style="font-family:var(--round-font);font-weight:900;font-size:24px;color:var(--g-main)">-' + money(a.monto, true) + '</div>' +
+      (a.tipo === 'existente' ? '<span class="ft-pill" style="margin-top:6px;display:inline-block">📦 ' + (L ? 'Ya lo tenía' : 'Already had it') + '</span>' : '') + '</div>' +
+      '<div class="ft-row"><span class="k">' + (L ? 'Fecha' : 'Date') + '</span><span class="v">' + FT.date(a.fecha) + '</span></div>' +
+      '<div class="ft-row"><span class="k">' + (L ? 'Registrado por' : 'Recorded by') + '</span><span class="v">' + (a.createdBy || '—') + '</span></div>' +
+      '<div class="ft-row"><span class="k">' + (L ? 'Saldo antes' : 'Balance before') + '</span><span class="v">' + money(a.saldoAntes, true) + '</span></div>' +
+      '<div class="ft-row"><span class="k">' + (L ? 'Saldo después' : 'Balance after') + '</span><span class="v">' + money(a.saldoDespues, true) + '</span></div>' +
+      '<div class="ft-row"><span class="k">' + (L ? 'De ese pago, capital' : 'Of that, principal') + '</span><span class="v" style="color:var(--g-main)">' + money(a.capitalPagado, true) + '</span></div>' +
+      '<div class="ft-row"><span class="k">' + (L ? 'De ese pago, interés' : 'Of that, interest') + '</span><span class="v" style="color:var(--red)">' + money(a.interesPagado, true) + '</span></div>' +
+      (a.nota ? '<div class="ft-row"><span class="k">' + (L ? 'Nota' : 'Note') + '</span><span class="v">' + a.nota + '</span></div>' : ''),
+    actions: [
+      { label: '🗑️ ' + (L ? 'Eliminar' : 'Delete'), onClick: function () {
+          FT.confirm(L ? '¿Eliminar este abono? El saldo se revierte.' : "Delete this payment? The balance will be reverted.").then(function (ok) {
+            if (!ok) return;
+            deleteAbono(debtId, abonoId);
+          });
+        } }
+    ]
+  });
+}
+function deleteAbono(debtId, abonoId) {
+  var debts = FT.debts(); var idx = debts.findIndex(function (x) { return String(x.id) === String(debtId); });
+  if (idx < 0) return;
+  var d = debts[idx];
+  var aIdx = (d.abonos || []).findIndex(function (x) { return String(x.id) === String(abonoId); });
+  if (aIdx < 0) return;
+  var a = d.abonos[aIdx];
+  d.abonos.splice(aIdx, 1);
+  var original = d.original != null ? d.original : ((parseFloat(d.balance) || 0) + (parseFloat(a.monto) || 0));
+  d.balance = Math.max(0, original - d.abonos.reduce(function (s, x) { return s + (parseFloat(x.monto) || 0); }, 0));
+  FT.saveDebts(debts);
+  if (a.txId) FT.saveData((function (dt) { dt.transactions = dt.transactions.filter(function (t) { return t.id !== a.txId; }); return dt; })(FT.data()));
+  FT.toast(es() ? '🗑️ Abono eliminado' : '🗑️ Payment deleted');
+  openDetail(debtId); // te quedas viendo la MISMA deuda, actualizada
 }
 
-function closeAbonar(){
-  document.getElementById('abonarOverlay').classList.remove('open');
-}
-
-function openAbonoDetail(debtId, abonoId){
-  const debts = loadDebts();
-  const debt = debts.find(d=>String(d.id)===String(debtId));
-  if(!debt||!debt.abonos) return;
-  const a = debt.abonos.find(x=>String(x.id)===String(abonoId));
-  if(!a) return;
-  const es = lang==='es';
-
-  const created = new Date(a.id);
-  const hora = isNaN(created.getTime()) ? '—' : created.toLocaleTimeString(es?'es-MX':'en-US',{hour:'2-digit',minute:'2-digit'});
-  const fechaParts = String(a.fecha||'').split(/[-T]/);
-  const fechaFmt = fechaParts.length>=3 ? new Date(parseInt(fechaParts[0]),parseInt(fechaParts[1])-1,parseInt(fechaParts[2])).toLocaleDateString(es?'es-MX':'en-US',{day:'numeric',month:'long',year:'numeric'}) : (a.fecha||'—');
-  const autor = a.createdBy || (es?'Desconocido':'Unknown');
-
-  document.getElementById('abonoDetailBox').innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-      <div style="font-size:16px;font-weight:800">${es?'Detalle del abono':'Payment detail'}</div>
-      <div onclick="closeAbonoDetail()" style="cursor:pointer;font-size:20px;color:var(--text3)">✕</div>
-    </div>
-    <div style="text-align:center;margin-bottom:16px">
-      <div style="font-size:26px;font-weight:800;color:var(--g-main)">-${fmtD(a.monto)}</div>
-      ${a.tipo==='existente'?`<span style="background:var(--off);color:var(--text2);font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;display:inline-block;margin-top:4px">📦 ${es?'Ya lo tenía':'Already had it'}</span>`:''}
-    </div>
-    <div style="display:flex;flex-direction:column;gap:10px;font-size:13px;margin-bottom:16px">
-      <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">${es?'Deuda':'Debt'}</span><span style="font-weight:600">${debt.name}</span></div>
-      <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">${es?'Fecha':'Date'}</span><span style="font-weight:600">${fechaFmt}</span></div>
-      <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">${es?'Hora de registro':'Time recorded'}</span><span style="font-weight:600">${hora}</span></div>
-      <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">${es?'Registrado por':'Recorded by'}</span><span style="font-weight:600">${autor}</span></div>
-      <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">${es?'Saldo antes':'Balance before'}</span><span style="font-weight:600">${fmtD(a.saldoAntes)}</span></div>
-      <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">${es?'Saldo después':'Balance after'}</span><span style="font-weight:600">${fmtD(a.saldoDespues)}</span></div>
-      ${a.nota?`<div><div style="color:var(--text3);margin-bottom:4px">${es?'Nota':'Note'}</div><div style="background:var(--off);border-radius:10px;padding:10px;font-weight:500">${a.nota}</div></div>`:''}
-    </div>
-    <div style="display:flex;gap:8px">
-      <button onclick="startEditAbono('${debtId}',${a.id})" style="flex:1;background:var(--off);color:var(--text);border:none;border-radius:12px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">✏️ ${es?'Editar':'Edit'}</button>
-      <button onclick="deleteAbono('${debtId}',${a.id})" style="flex:1;background:var(--red-dim);color:var(--red);border:none;border-radius:12px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">🗑️ ${es?'Eliminar':'Delete'}</button>
-    </div>`;
-
-  document.getElementById('abonoDetailOverlay').classList.add('open');
-}
-
-function closeAbonoDetail(){
-  document.getElementById('abonoDetailOverlay').classList.remove('open');
-}
-
-function startEditAbono(debtId, abonoId){
-  const debts = loadDebts();
-  const debt = debts.find(d=>String(d.id)===String(debtId));
-  if(!debt||!debt.abonos) return;
-  const a = debt.abonos.find(x=>String(x.id)===String(abonoId));
-  if(!a) return;
-  const es = lang==='es';
-
-  document.getElementById('abonoDetailBox').innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-      <div style="font-size:16px;font-weight:800">${es?'Editar abono':'Edit payment'}</div>
-      <div onclick="closeAbonoDetail()" style="cursor:pointer;font-size:20px;color:var(--text3)">✕</div>
-    </div>
-    <div class="ov-field" style="margin-bottom:12px"><label style="font-size:11px;font-weight:700;color:var(--text3);display:block;margin-bottom:4px">${es?'Monto':'Amount'}</label><input id="editAbonoMonto" type="number" step="0.01" value="${a.monto}" style="width:100%;border:1.5px solid var(--border);border-radius:10px;padding:9px 10px;font-family:inherit;font-size:14px"></div>
-    <div class="ov-field" style="margin-bottom:12px"><label style="font-size:11px;font-weight:700;color:var(--text3);display:block;margin-bottom:4px">${es?'Fecha':'Date'}</label><input id="editAbonoFecha" type="date" value="${a.fecha}" style="width:100%;border:1.5px solid var(--border);border-radius:10px;padding:9px 10px;font-family:inherit;font-size:14px"></div>
-    <div class="ov-field" style="margin-bottom:16px"><label style="font-size:11px;font-weight:700;color:var(--text3);display:block;margin-bottom:4px">${es?'Nota':'Note'}</label><input id="editAbonoNota" value="${(a.nota||'').replace(/"/g,'&quot;')}" style="width:100%;border:1.5px solid var(--border);border-radius:10px;padding:9px 10px;font-family:inherit;font-size:14px"></div>
-    <div style="display:flex;gap:8px">
-      <button onclick="openAbonoDetail('${debtId}',${a.id})" style="flex:1;background:var(--off);color:var(--text);border:none;border-radius:12px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">${es?'Cancelar':'Cancel'}</button>
-      <button onclick="saveEditAbono('${debtId}',${a.id})" style="flex:1;background:var(--g-main);color:white;border:none;border-radius:12px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">${es?'Guardar':'Save'}</button>
-    </div>`;
-}
-
-function saveEditAbono(debtId, abonoId){
-  const es = lang==='es';
-  const debts = loadDebts();
-  const dIdx = debts.findIndex(d=>String(d.id)===String(debtId));
-  if(dIdx<0) return;
-  const debt = debts[dIdx];
-  const aIdx = (debt.abonos||[]).findIndex(x=>String(x.id)===String(abonoId));
-  if(aIdx<0) return;
-  const a = debt.abonos[aIdx];
-
-  const newMonto = parseFloat(document.getElementById('editAbonoMonto').value)||0;
-  const newFecha = document.getElementById('editAbonoFecha').value;
-  const newNota = document.getElementById('editAbonoNota').value.trim();
-  if(newMonto<=0||!newFecha){ showToast(es?'⚠️ Datos inválidos':'⚠️ Invalid data'); return; }
-
-  // Revertir efecto viejo y aplicar el nuevo sobre el saldo
-  const oldMonto = parseFloat(a.monto)||0;
-  debt.balance = Math.max(0, parseFloat(debt.balance||0) + oldMonto - newMonto);
-  a.monto = newMonto;
-  a.fecha = newFecha;
-  a.nota = newNota;
-  a.saldoDespues = debt.balance;
-
-  saveDebts(debts);
-
-  // Sincronizar con historial (ft_data) si el abono generó una transacción
-  if(a.txId){
-    try{
-      const data = JSON.parse(localStorage.getItem('ft_data')||'{}');
-      const tIdx = (data.transactions||[]).findIndex(t=>t.id===a.txId);
-      if(tIdx>=0){
-        data.transactions[tIdx].amount = newMonto;
-        data.transactions[tIdx].date = newFecha;
-        data.transactions[tIdx].note = newNota;
-        localStorage.setItem('ft_data', JSON.stringify(data));
-      }
-    }catch(e){}
-  }
-
-  closeAbonoDetail();
-  closeDetail();
-  render();
-  showToast(es?'✅ Abono actualizado':'✅ Payment updated');
-}
-
-function deleteAbono(debtId, abonoId){
-  const es = lang==='es';
-  if(!confirm(es?'¿Eliminar este abono? El saldo de la deuda se revertirá.':'Delete this payment? The debt balance will be reverted.')) return;
-  const debts = loadDebts();
-  const idx = debts.findIndex(d=>String(d.id)===String(debtId));
-  if(idx<0) return;
-  const debt = debts[idx];
-  const aIdx = (debt.abonos||[]).findIndex(x=>String(x.id)===String(abonoId));
-  if(aIdx<0) return;
-  const a = debt.abonos[aIdx];
-
-  // Revertir saldo — recalculado desde 'original' menos los abonos restantes,
-  // igual que el resto del sync (más robusto que sumar de vuelta al balance actual).
-  debt.abonos.splice(aIdx,1);
-  const original = debt.original!=null ? debt.original : (parseFloat(debt.balance||0) + parseFloat(a.monto||0));
-  debt.balance = Math.max(0, original - debt.abonos.reduce((s,x)=>s+(parseFloat(x.monto)||0),0));
-  saveDebts(debts);
-
-  // Sincronizar con historial (ft_data)
-  if(a.txId){
-    try{
-      const data = JSON.parse(localStorage.getItem('ft_data')||'{}');
-      data.transactions = (data.transactions||[]).filter(t=>t.id!==a.txId);
-      localStorage.setItem('ft_data', JSON.stringify(data));
-    }catch(e){}
-  }
-
-  closeAbonoDetail();
-  render(); // refresca totales del listado general en segundo plano
-  openDetail(debtId); // pero te deja viendo la MISMA deuda, ya actualizada — antes cerraba todo y te mandaba al listado
-  showToast(es?'🗑️ Abono eliminado':'🗑️ Payment deleted');
-}
-
-/* \u2500\u2500 INIT \u2500\u2500 */
-(function init(){
-  let s=sessionStorage.getItem('ft_user')||localStorage.getItem('ft_user');
-  if(!s){const setup=localStorage.getItem('ft_user_setup');if(setup){const fb={name:'Usuario',email:'',income:3000,currency:'USD',lang:localStorage.getItem('ft_lang')||'es',needs:1500,wants:900,savings:600,setupDone:true,createdAt:new Date().toISOString()};try{const gu=JSON.parse(sessionStorage.getItem('ft_google_user')||'{}');if(gu.name)fb.name=gu.name;if(gu.email)fb.email=gu.email;}catch(e){}s=JSON.stringify(fb);sessionStorage.setItem('ft_user',s);localStorage.setItem('ft_user',s);}else{window.location.replace('login.html');return;}}
-  user=JSON.parse(s);
-  lang=localStorage.getItem('ft_lang')||sessionStorage.getItem('ft_lang')||user.lang||'es';
-  if(!sessionStorage.getItem('ft_user'))sessionStorage.setItem('ft_user',s);
-  document.getElementById('sbName').textContent=user.name||'';
-  document.getElementById('sbEmail').textContent=user.email||'';
-  document.getElementById('sbAvatar').textContent=(user.name||'U').charAt(0).toUpperCase();
-  setLang(lang);
-  // Interceptar apertura de abono desde dashboard
-  const pendingAbonar = localStorage.getItem('ft_open_abonar');
-  if(pendingAbonar){
-    localStorage.removeItem('ft_open_abonar');
-    // '__selector__' = abrir con selector de deuda (viene del botón + del menú)
-    setTimeout(()=>openAbonar(pendingAbonar==='__selector__'?null:pendingAbonar), 300);
-  }
-})();
-
-
-
-
-/* ══════════════════════════════════════════
-   SYNC EN SEGUNDO PLANO — mantiene fresco el perfil de tu pareja
-   sin importar en qué pantalla estés. COMBINA con lo que ya había
-   en caché en vez de reemplazar, para que un pull incompleto/viejo
-   de Sheets no borre transacciones que ya tenías vistas.
-══════════════════════════════════════════ */
-(function backgroundSyncPartner(){
-  try {
-    const _bgHogar = JSON.parse(localStorage.getItem('ft_hogar')||'{}');
-    if(!_bgHogar.connected || !_bgHogar.partnerEmail || _bgHogar.manuallyLeft) return;
-    const _bgGasUrl = 'https://script.google.com/macros/s/AKfycbwITyU4qld-IOEVKyLU9XHI46T8g_LjJaNp3nlQgler8-nMeIlztMmG_lZMVMm9cBkP/exec';
-    const _bgKey = 'profile_'+_bgHogar.partnerEmail.replace(/[^a-z0-9]/gi,'_');
-
-    function _bgMergeById(oldArr, newArr){
-      oldArr = oldArr||[]; newArr = newArr||[];
-      const byId = {};
-      oldArr.forEach(x=>{ if(x && x.id!=null) byId[x.id]=x; });
-      newArr.forEach(x=>{ if(x && x.id!=null) byId[x.id]=x; }); // lo nuevo pisa lo viejo si coincide el id
-      return Object.values(byId);
-    }
-
-    fetch(`${_bgGasUrl}?action=getProfile&email=${encodeURIComponent(_bgHogar.partnerEmail)}`)
-      .then(r=>r.json())
-      .then(data=>{
-        if(!data || !data.success) return;
-        let _bgNewData = {transactions:[],emergency:0,subscriptions:[],sharedDebts:[],hogarInv:[]};
-        try{ _bgNewData = JSON.parse(data.dataJson||'{}'); }catch(e){}
-
-        let _bgOld = null;
-        try{ _bgOld = JSON.parse(localStorage.getItem(_bgKey)||'null'); }catch(e){}
-        const _bgOldData = (_bgOld && _bgOld.data) || {};
-
-        const _bgMergedData = {
-          transactions: _bgMergeById(_bgOldData.transactions, _bgNewData.transactions),
-          emergency: (_bgNewData.emergency!=null ? _bgNewData.emergency : _bgOldData.emergency) || 0,
-          subscriptions: _bgMergeById(_bgOldData.subscriptions, _bgNewData.subscriptions),
-          sharedDebts: _bgMergeById(_bgOldData.sharedDebts, _bgNewData.sharedDebts),
-          hogarInv: _bgMergeById(_bgOldData.hogarInv, _bgNewData.hogarInv)
-        };
-
-        const _bgPp = { name:data.name||(_bgOld&&_bgOld.name)||'', email:data.email||_bgHogar.partnerEmail, income:parseFloat(data.income)||0, needs:parseFloat(data.needs)||0, wants:parseFloat(data.wants)||0, savings:parseFloat(data.savings)||0, data:_bgMergedData };
-        localStorage.setItem(_bgKey, JSON.stringify(_bgPp));
-        localStorage.setItem('ft_profile_B', JSON.stringify(_bgPp));
-
-        // Deudas compartidas de verdad: fusionarlas en MI ft_debts (no solo verlas de lejos)
-        if(_bgNewData.sharedDebts && _bgNewData.sharedDebts.length){
-          try{
-            function _bgMergeAbonos(a,b){
-              const byId={}; (a||[]).forEach(x=>{if(x&&x.id!=null)byId[x.id]=x;}); (b||[]).forEach(x=>{if(x&&x.id!=null)byId[x.id]=x;});
-              return Object.values(byId);
-            }
-            let _bgMyDebts = JSON.parse(localStorage.getItem('ft_debts')||'[]');
-            _bgNewData.sharedDebts.forEach(pd=>{
-              const idx = _bgMyDebts.findIndex(d=>String(d.id)===String(pd.id));
-              if(idx<0){ _bgMyDebts.push({...pd, owner:'both'}); }
-              else {
-                const mine = _bgMyDebts[idx];
-                const abonos = _bgMergeAbonos(mine.abonos, pd.abonos);
-                const original = mine.original || pd.original || mine.balance;
-                _bgMyDebts[idx] = { ...mine, owner:'both', abonos, original, balance: Math.max(0, original - abonos.reduce((a,x)=>a+(parseFloat(x.monto)||0),0)) };
-              }
-            });
-            localStorage.setItem('ft_debts', JSON.stringify(_bgMyDebts));
-          }catch(e){}
-        }
-        if(_bgNewData.sharedRecurring && _bgNewData.sharedRecurring.length){
-          try{
-            let _bgMyRecurring = JSON.parse(localStorage.getItem('ft_recurring')||'[]');
-            const _bgById = {}; _bgMyRecurring.forEach(r=>{_bgById[r.id]=r;}); _bgNewData.sharedRecurring.forEach(r=>{_bgById[r.id]=r;});
-            localStorage.setItem('ft_recurring', JSON.stringify(Object.values(_bgById)));
-          }catch(e){}
-        }
-      }).catch(()=>{});
-  } catch(e){}
-})();
-
+/* ═══════════════ INIT ═══════════════ */
+document.addEventListener('ft:ready', function () {
+  var t = function () { return FT.lang === 'es' ? 'Deudas' : 'Debts'; };
+  var sh = FT.shell({ active: '', title: t(), onPlus: openTypePicker });
+  // Deep-link desde el Dashboard ("Registrar abono" en una deuda por vencer)
+  var pending = FT.getRaw('ft_open_abonar');
+  if (pending) { FT.del('ft_open_abonar'); render(); setTimeout(function () { openAbonar(pending === '__selector__' ? (FT.debts()[0] || {}).id : pending); }, 300); }
+  else render();
+  document.addEventListener('ft:datachanged', function () { if (!document.getElementById('dtBack')) render(); });
+  document.addEventListener('ft:langchange', function () { sh.setTitle(t()); render(); });
+});
 </script>
 </body>
 </html>

@@ -286,6 +286,29 @@ FT.reverseEmergency = function (id) {
   FT._changed();
 };
 
+/* ── Amortización (deudas) ── */
+FT.calcAmort = function (balance, payment, aprPct, termMonths) {
+  var apr = parseFloat(aprPct) || 0, r = (apr / 100) / 12;
+  if (apr === 0 || r === 0) {
+    var months0 = payment > 0 ? Math.ceil(balance / payment) : (termMonths || 999);
+    return { months: months0, totalInterest: 0, totalPaid: balance, payoffPossible: true, schedule: [] };
+  }
+  if (termMonths && payment === 0) payment = balance * r / (1 - Math.pow(1 + r, -termMonths));
+  if (payment <= balance * r) return { months: 999, totalInterest: 999999, totalPaid: 999999, payoffPossible: false, schedule: [] };
+  var bal = balance, totalInterest = 0, months = 0, schedule = [];
+  while (bal > 0.01 && months < 600) {
+    var interest = bal * r, principal = Math.min(payment - interest, bal);
+    bal -= principal; totalInterest += interest; months++;
+    if (months <= 24 || months % 12 === 0) schedule.push({ month: months, principal: +principal.toFixed(2), interest: +interest.toFixed(2), balance: +Math.max(0, bal).toFixed(2) });
+  }
+  return { months: months, totalInterest: +totalInterest.toFixed(2), totalPaid: +(balance + totalInterest).toFixed(2), payoffPossible: true, schedule: schedule, monthlyPayment: +payment.toFixed(2) };
+};
+FT.calcRequiredPayment = function (balance, aprPct, termMonths) {
+  var r = (aprPct / 100) / 12;
+  if (!r || !termMonths) return 0;
+  return balance * r / (1 - Math.pow(1 + r, -termMonths));
+};
+
 /* ── Cuentas de cheques (array de cuentas nombradas; migra objeto único) ── */
 FT.checking = function () {
   var raw = FT.get(K.checking, []);
