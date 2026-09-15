@@ -491,6 +491,11 @@ FT.saveServicios = function (s) { FT.set(K.servicios, s); FT._changed(); };
 FT.hogarFondos = function () {
   var f = FT.get(K.hogarFondos, null);
   if (!f || typeof f !== 'object') f = {};
+  // Migra el formato viejo (una sola meta bajo `ahorro`) al array `metas[]` actual.
+  if (f.ahorro && !f.metas) {
+    f.metas = f.ahorro.meta > 0 ? [{ id: 'm_legacy', nombre: f.ahorro.nombre || 'Meta 1', meta: f.ahorro.meta, actual: f.ahorro.actual || 0, fecha: '', hist: f.ahorro.hist || [] }] : [];
+    delete f.ahorro;
+  }
   if (!f.emerg) f.emerg = { meta: 0, actual: 0, fecha: '', hist: [] };
   if (!Array.isArray(f.metas)) f.metas = [];
   return f;
@@ -1067,6 +1072,71 @@ function _mergeById(oldArr, newArr) {
   (newArr || []).forEach(function (x) { if (x && x.id != null) by[x.id] = x; });
   return Object.keys(by).map(function (k) { return by[k]; });
 }
+function _histKeyOf(h) { return h.id != null ? ('id:' + h.id) : ('k:' + h.monto + '|' + h.fecha + '|' + !!h.desdePres); }
+function _mergeHistByKey(a, b) {
+  var byKey = {};
+  (a || []).forEach(function (h) { byKey[_histKeyOf(h)] = h; });
+  (b || []).forEach(function (h) { byKey[_histKeyOf(h)] = h; });
+  return Object.keys(byKey).map(function (k) { return byKey[k]; });
+}
+/** Fusiona el fondo de emergencia + metas compartidas del hogar (por id, con sus
+ *  depósitos fusionados) — lo que sube mi pareja combinado con lo que ya tenía yo. */
+function _mergeFondosInto(myFondos, partnerFondos) {
+  myFondos = myFondos || FT.hogarFondos();
+  if (!partnerFondos) return myFondos;
+  var emergHist = _mergeHistByKey(myFondos.emerg && myFondos.emerg.hist, partnerFondos.emerg && partnerFondos.emerg.hist);
+  var emerg = {
+    meta: (myFondos.emerg && myFondos.emerg.meta) || (partnerFondos.emerg && partnerFondos.emerg.meta) || 0,
+    fecha: (myFondos.emerg && myFondos.emerg.fecha) || (partnerFondos.emerg && partnerFondos.emerg.fecha) || '',
+    hist: emergHist,
+    actual: emergHist.reduce(function (a, h) { return a + (h.monto || 0); }, 0)
+  };
+  var metasById = {};
+  (myFondos.metas || []).forEach(function (m) { if (m && m.id != null) metasById[m.id] = Object.assign({}, m); });
+  (partnerFondos.metas || []).forEach(function (m) {
+    if (!m || m.id == null) return;
+    if (metasById[m.id]) {
+      var mine = metasById[m.id], hist = _mergeHistByKey(mine.hist, m.hist);
+      metasById[m.id] = Object.assign({}, mine, m, { nombre: mine.nombre || m.nombre, hist: hist, actual: hist.reduce(function (a, h) { return a + (h.monto || 0); }, 0) });
+    } else metasById[m.id] = Object.assign({}, m);
+  });
+  return { emerg: emerg, metas: Object.keys(metasById).map(function (k) { return metasById[k]; }) };
+}
+/** Fusiona las deudas que mi pareja marcó como compartidas dentro de MI ft_debts
+ *  (abonos por id, balance recalculado desde original − Σabonos) — para que
+ *  aparezcan completas en Deudas y pueda abonar/crear recurrentes, no solo verlas. */
+function _mergeSharedDebtsIntoMine(partnerSharedDebts) {
+  if (!partnerSharedDebts || !partnerSharedDebts.length) return;
+  var myDebts = FT.debts();
+  partnerSharedDebts.forEach(function (pd) {
+    var idx = myDebts.findIndex(function (d) { return String(d.id) === String(pd.id); });
+    if (idx < 0) { myDebts.push(Object.assign({}, pd, { owner: 'both' })); return; }
+    var mine = myDebts[idx], byId = {};
+    (mine.abonos || []).forEach(function (a) { if (a && a.id != null) byId[a.id] = a; });
+    (pd.abonos || []).forEach(function (a) { if (a && a.id != null) byId[a.id] = a; });
+    var abonos = Object.keys(byId).map(function (k) { return byId[k]; });
+    var original = mine.original || pd.original || mine.balance;
+    myDebts[idx] = Object.assign({}, mine, { owner: 'both', abonos: abonos, original: original, balance: Math.max(0, original - abonos.reduce(function (a, x) { return a + (parseFloat(x.monto) || 0); }, 0)) });
+  });
+  FT.saveDebts(myDebts);
+}
+/** Fusiona recurrentes de deuda compartida — sin pisar mi copia si ya avanzó más
+ *  su nextDate (evita duplicar un pago que aquí ya se aplicó). */
+function _mergeSharedRecurringIntoMine(partnerSharedRecurring) {
+  if (!partnerSharedRecurring || !partnerSharedRecurring.length) return;
+  var mine = FT.recurring(), byId = {};
+  mine.forEach(function (r) { byId[r.id] = r; });
+  partnerSharedRecurring.forEach(function (r) {
+    var m = byId[r.id];
+    if (m && m.nextDate && r.nextDate && m.nextDate > r.nextDate) return;
+    byId[r.id] = r;
+  });
+  FT.set(K.recurring, Object.keys(byId).map(function (k) { return byId[k]; }));
+}
+/** Trae el perfil de mi pareja y lo combina con el mío en todo lo compartido —
+ *  no solo la caché de "profile_<email>", también mis propias claves (fondos,
+ *  deudas compartidas, recurrentes de esas deudas, servicios, cuenta conjunta)
+ *  para que cualquier pantalla —no solo Hogar— quede al día. */
 FT.syncPartner = function () {
   try {
     var h = FT.hogar();
@@ -1079,6 +1149,7 @@ FT.syncPartner = function () {
       var merged = {
         transactions: _mergeById(od.transactions, nd.transactions),
         emergency: (nd.emergency != null ? nd.emergency : od.emergency) || 0,
+        personalSpentThisMonth: (nd.personalSpentThisMonth != null ? nd.personalSpentThisMonth : od.personalSpentThisMonth) || 0,
         subscriptions: _mergeById(od.subscriptions, nd.subscriptions),
         sharedDebts: _mergeById(od.sharedDebts, nd.sharedDebts),
         hogarInv: _mergeById(od.hogarInv, nd.hogarInv)
@@ -1086,6 +1157,20 @@ FT.syncPartner = function () {
       var pp = { name: data.name || (old && old.name) || '', email: data.email || h.partnerEmail, income: parseFloat(data.income) || 0, needs: parseFloat(data.needs) || 0, wants: parseFloat(data.wants) || 0, savings: parseFloat(data.savings) || 0, data: merged };
       FT.set(pkey, pp);
       FT.set(K.profileB, pp);
+
+      if (nd.fondos) { try { FT.saveHogarFondos(_mergeFondosInto(FT.hogarFondos(), nd.fondos)); } catch (e) {} }
+      if (nd.sharedDebts) { try { _mergeSharedDebtsIntoMine(nd.sharedDebts); } catch (e) {} }
+      if (nd.sharedRecurring) { try { _mergeSharedRecurringIntoMine(nd.sharedRecurring); } catch (e) {} }
+      if (nd.servicios && nd.servicios.length) {
+        try {
+          var myServicios = FT.servicios(), byId = {};
+          myServicios.forEach(function (s) { byId[s.id] = s; });
+          nd.servicios.forEach(function (s) { byId[s.id] = s; });
+          FT.saveServicios(Object.keys(byId).map(function (k) { return byId[k]; }));
+        } catch (e) {}
+      }
+      if (nd.checking) { try { FT.set(K.partnerChecking, nd.checking); } catch (e) {} }
+
       FT._changed();
     }).catch(function () {});
   } catch (e) {}
