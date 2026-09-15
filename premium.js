@@ -586,11 +586,18 @@ FT.deleteTx = function (id) {
   } else if (t.type === 'ahorro' || t.cat === '🛡️ Emergencia') {
     FT.reverseEmergency(t.id);
   } else if (t.type === 'inversion' || t.fromInvPage) {
+    // Si la posición (o la transacción que la originó) tenía un aporte recurrente
+    // ligado, hay que apagarlo también — si no, el motor automático la vuelve a
+    // crear sola en la próxima fecha, y se queda huérfana en Recurrentes.
+    var recIdsToClean = t.recId ? [t.recId] : [];
     ['', 'hogar'].forEach(function (sc) {
       var list = FT.investments(sc);
+      var removed = list.filter(function (i) { return i.id === 'inv_' + t.id || i.id === 'tx_' + t.id || String(i.txId) === String(t.id); });
+      removed.forEach(function (i) { if (i.recId) recIdsToClean.push(i.recId); });
       var f = list.filter(function (i) { return i.id !== 'inv_' + t.id && i.id !== 'tx_' + t.id && String(i.txId) !== String(t.id); });
       if (f.length !== list.length) FT.saveInvestments(f, sc);
     });
+    recIdsToClean.filter(function (v, i, arr) { return arr.indexOf(v) === i; }).forEach(FT.recurDelete);
   } else if (t.cat === '💳 Deudas') {
     var debts = FT.debts(), touched = false;
     debts.forEach(function (deb) {

@@ -312,6 +312,9 @@ function deleteDebt(id) {
   FT.confirm(es() ? '¿Eliminar esta deuda?' : 'Delete this debt?').then(function (ok) {
     if (!ok) return;
     FT.saveDebts(FT.debts().filter(function (d) { return String(d.id) !== String(id); }));
+    // Si tenía abono automático, se apaga también — si no, se queda huérfano en
+    // Recurrentes hasta que le toque correr y falle solo (ver _applyRecDebt).
+    FT.recurring().filter(function (r) { return r.kind === 'debt' && String(r.debtId) === String(id); }).forEach(function (r) { FT.recurDelete(r.id); });
     FT.toast(es() ? '🗑️ Eliminada' : '🗑️ Deleted'); render();
   });
 }

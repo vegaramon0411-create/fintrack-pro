@@ -240,10 +240,13 @@ function posDetail(id) {
     actions: [
       { label: '✏️ ' + (es ? 'Editar' : 'Edit'), onClick: function () { editPos(id); } },
       { label: '🗑️ ' + (es ? 'Eliminar' : 'Delete'), onClick: function () {
-          FT.confirm(es ? '¿Eliminar esta posición? Si contó al mes, también se quita de Historial.' : 'Delete this position? If it counted this month, it is also removed from History.').then(function (ok) {
+          var warn = es ? '¿Eliminar esta posición? Si contó al mes, también se quita de Historial.' : 'Delete this position? If it counted this month, it is also removed from History.';
+          if (i.recId) warn += ' ' + (es ? 'Se cancela también su aporte automático.' : 'Its automatic contribution is cancelled too.');
+          FT.confirm(warn).then(function (ok) {
             if (!ok) return;
             if (i.txId) FT.deleteTx(i.txId);
             else FT.saveInvestments(FT.investments(scope).filter(function (x) { return x.id !== id; }), scope);
+            if (i.recId) FT.recurDelete(i.recId); // FT.deleteTx ya lo cubre, pero esta rama no pasa por ahí
             FT.toast(es ? 'Eliminada' : 'Deleted'); render();
           });
         } }
