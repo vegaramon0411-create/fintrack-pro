@@ -4,351 +4,102 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>FinTrack Pro · Configuración</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
 <script src="premium.js"></script>
 <style>
-:root{--g-dark:#0F5132;--g-main:#1A7A4A;--g-light:#E8F7EF;--white:#fff;--off:#F7F8FC;--border:#E4E6F0;--text:#1A1D2E;--text2:#4A4E69;--text3:#9395A5;--red:#E63946;--red-dim:rgba(230,57,70,.1);--shadow:0 2px 12px rgba(0,0,0,.06);--round-font:'Nunito',-apple-system,'SF Pro Rounded',sans-serif;--glass-bg:rgba(255,255,255,.55);--glass-border:rgba(255,255,255,.6);--glass-shadow:0 8px 32px -12px rgba(20,20,30,.10);--bg-gradient:linear-gradient(160deg,#FDEEE3 0%,#E9F3FC 45%,#EAF8EF 100%);--tag-bg:#EFEFF1;}
-*{margin:0;padding:0;box-sizing:border-box;}
-html,body{overflow-x:hidden;max-width:100vw;}
-body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg-gradient);background-attachment:fixed;color:var(--text);min-height:100vh;padding-bottom:90px;}
-.glass{background:var(--glass-bg);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid var(--glass-border);box-shadow:var(--glass-shadow);}
-.round-num{font-family:var(--round-font);font-weight:800;}
-.topbar{background:var(--glass-bg);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-bottom:1px solid var(--glass-border);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
-.topbar-title{font-size:17px;font-weight:800;}
-.page{padding:16px;}
+:root{ --text:var(--ink); --off:var(--sunk); --border:var(--hair); }
 .section{margin-bottom:20px;}
 .section-title{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;padding:0 4px;}
-.card{background:var(--glass-bg);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid var(--glass-border);border-radius:16px;overflow:hidden;box-shadow:var(--glass-shadow);}
+.card{background:var(--white);border:1px solid var(--border);border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(20,20,30,.035);}
 .setting-row{display:flex;align-items:center;padding:14px 16px;border-bottom:1px solid var(--off);}
 .setting-row:last-child{border-bottom:none;}
 .setting-ico{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;font-size:18px;flex-shrink:0;margin-right:12px;}
-.setting-info{flex:1;}
+.setting-info{flex:1;min-width:0;}
 .setting-label{font-size:13px;font-weight:700;}
 .setting-sub{font-size:11px;color:var(--text3);}
-.setting-ctrl{flex-shrink:0;}
-.lang-toggle{display:flex;background:var(--off);border:1px solid var(--border);border-radius:20px;overflow:hidden;font-size:11px;font-weight:700;}
-.lt-opt{padding:5px 12px;cursor:pointer;color:var(--text3);}
-.lt-opt.on{background:var(--g-main);color:white;}
-.btn{border:none;border-radius:12px;padding:11px 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;}
+.setting-ctrl{flex-shrink:0;color:var(--text3);}
 select.field-input{background:var(--off);border:1.5px solid var(--border);border-radius:10px;padding:6px 10px;font-size:13px;font-family:inherit;outline:none;}
-.app{display:flex;min-height:100vh;}
-.sidebar{width:var(--sidebar,240px);background:var(--white);border-right:1px solid var(--border);position:fixed;top:0;left:0;bottom:0;display:flex;flex-direction:column;z-index:50;overflow-y:auto;transition:width .18s ease;}
-.sidebar.collapsed{width:64px;}
-.sidebar.collapsed .sb-name,.sidebar.collapsed .sb-tag,.sidebar.collapsed .sb-section,.sidebar.collapsed .sb-link span:last-child{display:none;}
-.sidebar.collapsed .sb-link{justify-content:center;padding:10px 0;}
-.sidebar.collapsed .sb-logo{justify-content:center;padding:0 8px;}
-.sidebar.collapsed .sb-logo>div:last-child{display:none;}
-.sb-collapse-btn{position:absolute;top:14px;right:-13px;width:26px;height:26px;border-radius:50%;background:var(--white);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;z-index:51;box-shadow:0 2px 6px rgba(0,0,0,.08);}
-.sidebar.collapsed ~ .main{margin-left:64px;}
-.sb-logo{display:flex;align-items:center;gap:10px;padding:22px 18px 18px;border-bottom:1px solid var(--border);}
-.sb-mark{width:36px;height:36px;background:linear-gradient(135deg,var(--g-dark),var(--g-main));border-radius:11px;display:grid;place-items:center;color:white;font-size:17px;}
-.sb-name{font-size:15px;font-weight:800;}.sb-tag{font-size:10px;color:var(--text3);}
-.sb-nav{padding:14px 10px;flex:1;}
-.sb-section{font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);padding:10px 8px 5px;}
-.sb-link{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:10px;font-size:13px;font-weight:600;color:var(--text2);cursor:pointer;margin-bottom:2px;transition:all .15s;}
-.sb-link:hover{background:var(--off);}
-.sb-link.on{background:var(--g-light);color:var(--g-main);}
-.sb-ico{font-size:15px;width:20px;text-align:center;flex-shrink:0;}
-.sb-footer{border-top:1px solid var(--border);padding:12px 10px;}
-.sb-user{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:10px;cursor:pointer;}
-.sb-user:hover{background:var(--off);}
-.sb-avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--g-dark),var(--g-main));display:grid;place-items:center;color:white;font-size:13px;font-weight:700;}
-.sb-uname{font-size:13px;font-weight:700;}.sb-umail{font-size:10px;color:var(--text3);}
-.main{margin-left:var(--sidebar,240px);flex:1;display:flex;flex-direction:column;}
-.mob-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--white);border-top:1px solid var(--border);padding:8px 0 calc(8px + env(safe-area-inset-bottom));z-index:100;gap:0;}
-.mob-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:9px;font-weight:700;color:var(--text3);cursor:pointer;padding:4px 0;}
-.mob-item.on{color:var(--g-main);}
-.mob-ico{font-size:22px;line-height:1.2;}
-.mob-plus{width:52px;height:52px;border-radius:50%;background:var(--g-main);display:flex;align-items:center;justify-content:center;font-size:26px;color:white;margin-top:-18px;box-shadow:0 4px 14px rgba(26,122,74,.4);}
-.more-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;align-items:flex-end;z-index:200;}
-.more-overlay.open{display:flex;}
-.more-panel{background:var(--white);width:100%;border-radius:24px 24px 0 0;padding:12px 20px calc(28px + env(safe-area-inset-bottom));}
-.more-handle{width:36px;height:4px;background:var(--border);border-radius:100px;margin:0 auto 16px;}
-.more-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
-.more-item{display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;}
-.more-ico{width:52px;height:52px;border-radius:16px;display:grid;place-items:center;font-size:24px;}
-.more-item span{font-size:11px;font-weight:600;color:var(--text2);text-align:center;}
-#toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#1A1D2E;color:white;padding:12px 20px;border-radius:20px;font-size:13px;font-weight:600;display:none;z-index:300;}
-@media(max-width:860px){.sidebar{display:none;}.main{margin-left:0;max-width:100vw;overflow-x:hidden;min-width:0;}.mob-nav{display:flex!important;}}
 </style>
 </head>
 <body>
-<div class="app">
-<aside class="sidebar" id="sidebar">
-  <div class="sb-collapse-btn" id="sbCollapseBtn" onclick="toggleSidebar()">◀</div>
-  <div class="sb-logo"><div class="sb-mark">💎</div><div><div class="sb-name">FinTrack Pro</div><div class="sb-tag">Panel financiero</div></div></div>
-  <nav class="sb-nav">
-    <div class="sb-section">Principal</div>
-    <div class="sb-link" onclick="go('dashboard.html')"><span class="sb-ico">📊</span><span>Dashboard</span></div>
-    <div class="sb-link" onclick="go('dashboard.html')"><span class="sb-ico">➕</span><span data-es="Nuevo registro" data-en="New entry">Nuevo registro</span></div>
-    <div class="sb-link" onclick="go('suscripciones.html')"><span class="sb-ico">🔄</span><span data-es="Suscripciones" data-en="Subscriptions">Suscripciones</span></div>
-    <div class="sb-link" onclick="go('metas.html')"><span class="sb-ico">🎯</span><span data-es="Metas" data-en="Goals">Metas</span></div>
-    <div class="sb-link" onclick="go('deudas.html')"><span class="sb-ico">💳</span><span data-es="Deudas" data-en="Debts">Deudas</span></div>
-    <div class="sb-section">Análisis</div>
-    <div class="sb-link" onclick="go('analisis.html')"><span class="sb-ico">📈</span><span data-es="Por categoría" data-en="By category">Por categoría</span></div>
-    <div class="sb-link" onclick="go('historial.html')"><span class="sb-ico">📅</span><span data-es="Historial" data-en="History">Historial</span></div>
-    <div class="sb-link" onclick="go('inversiones.html')"><span class="sb-ico">🏦</span><span data-es="Inversiones" data-en="Investments">Inversiones</span></div>
-    <div class="sb-link" onclick="go('reporte.html')"><span class="sb-ico">📄</span><span data-es="Reporte mensual" data-en="Monthly report">Reporte mensual</span></div>
-    <div class="sb-section">Herramientas</div>
-    <div class="sb-link" onclick="go('scanner.html')"><span class="sb-ico">📷</span><span data-es="Escanear recibo" data-en="Scan receipt">Escanear recibo</span></div>
-    <div class="sb-link" onclick="go('importar.html')"><span class="sb-ico">📥</span><span data-es="Importar CSV" data-en="Import CSV">Importar CSV</span></div>
-    <div class="sb-link" onclick="go('emergencia.html')"><span class="sb-ico">🛡️</span><span data-es="Fondo emergencia" data-en="Emergency fund">Fondo emergencia</span></div>
-    <div class="sb-link" onclick="go('ahorro.html')"><span class="sb-ico">💵</span><span data-es="Ahorro libre" data-en="Free savings">Ahorro libre</span></div>
-    <div class="sb-link" onclick="go('hogar.html')"><span class="sb-ico">🏠</span><span data-es="Hogar" data-en="Household">Hogar</span></div>
-    <div class="sb-section">Cuenta</div>
-    <div class="sb-link" onclick="go('perfil.html')"><span class="sb-ico">👤</span><span data-es="Mi perfil" data-en="My profile">Mi perfil</span></div>
-    <div class="sb-link on"><span class="sb-ico">⚙️</span><span data-es="Configuración" data-en="Settings">Configuración</span></div>
-    <div class="sb-link" onclick="logout()"><span class="sb-ico">🚪</span><span data-es="Cerrar sesión" data-en="Log out">Cerrar sesión</span></div>
-  </nav>
-  <div class="sb-footer"><div class="sb-user" onclick="go('perfil.html')"><div class="sb-avatar" id="sbAvatar">R</div><div><div class="sb-uname" id="sbName">—</div><div class="sb-umail" id="sbEmail">—</div></div></div></div>
-</aside>
-<div class="main">
-<div class="topbar">
-  <div class="topbar-title">⚙️ <span data-es="Configuración" data-en="Settings">Configuración</span></div>
-  <div class="lang-toggle">
-    <div class="lt-opt on" id="ltES" onclick="setLang('es')">ES</div>
-    <div class="lt-opt" id="ltEN" onclick="setLang('en')">EN</div>
-  </div>
-</div>
-
-<div class="page">
-  <div class="section">
-    <div class="section-title" data-es="CUENTA" data-en="ACCOUNT">CUENTA</div>
-    <div class="card">
-      <div class="setting-row" onclick="go('perfil.html')" style="cursor:pointer">
-        <div class="setting-ico" style="background:rgba(74,108,247,.1)">👤</div>
-        <div class="setting-info"><div class="setting-label" data-es="Mi Perfil" data-en="My Profile">Mi Perfil</div><div class="setting-sub" data-es="Nombre, ingreso, metas" data-en="Name, income, goals">Nombre, ingreso, metas</div></div>
-        <div class="setting-ctrl">›</div>
-      </div>
-      <div class="setting-row" onclick="go('onboarding.html')" style="cursor:pointer">
-        <div class="setting-ico" style="background:var(--g-light)">💰</div>
-        <div class="setting-info"><div class="setting-label" data-es="Saldos iniciales" data-en="Starting balances">Saldos iniciales</div><div class="setting-sub" data-es="Cuentas, ahorro, metas, deudas" data-en="Accounts, savings, goals, debts">Cuentas, ahorro, metas, deudas</div></div>
-        <div class="setting-ctrl">›</div>
-      </div>
-      <div class="setting-row">
-        <div class="setting-ico" style="background:var(--g-light)">🌐</div>
-        <div class="setting-info"><div class="setting-label" data-es="Idioma" data-en="Language">Idioma</div></div>
-        <div class="setting-ctrl">
-          <div class="lang-toggle">
-            <div class="lt-opt" id="ltES2" onclick="setLang('es')">ES</div>
-            <div class="lt-opt" id="ltEN2" onclick="setLang('en')">EN</div>
-          </div>
-        </div>
-      </div>
-      <div class="setting-row">
-        <div class="setting-ico" style="background:rgba(244,162,97,.12)">💰</div>
-        <div class="setting-info"><div class="setting-label" data-es="Moneda" data-en="Currency">Moneda</div></div>
-        <div class="setting-ctrl"><select class="field-input" id="currencySelect" onchange="saveCurrency()"><option value="USD">USD ($)</option><option value="MXN">MXN ($)</option><option value="EUR">EUR (€)</option></select></div>
-      </div>
-    </div>
-  </div>
-
-  <div class="section">
-    <div class="section-title" data-es="DATOS" data-en="DATA">DATOS</div>
-    <div class="card">
-      <div class="setting-row" onclick="exportData()" style="cursor:pointer">
-        <div class="setting-ico" style="background:var(--g-light)">📤</div>
-        <div class="setting-info"><div class="setting-label" data-es="Exportar datos" data-en="Export data">Exportar datos</div><div class="setting-sub">JSON</div></div>
-        <div class="setting-ctrl">›</div>
-      </div>
-      <div class="setting-row" onclick="document.getElementById('importFileInput').click()" style="cursor:pointer">
-        <div class="setting-ico" style="background:var(--blu-dim)">📥</div>
-        <div class="setting-info"><div class="setting-label" data-es="Importar datos" data-en="Import data">Importar datos</div><div class="setting-sub" data-es="Restaurar desde backup JSON" data-en="Restore from JSON backup">Restaurar desde backup JSON</div></div>
-        <div class="setting-ctrl">›</div>
-      </div>
-      <input type="file" id="importFileInput" accept=".json" style="display:none" onchange="importData(event)">
-      <div class="setting-row" onclick="clearData()" style="cursor:pointer">
-        <div class="setting-ico" style="background:var(--red-dim)">🗑️</div>
-        <div class="setting-info"><div class="setting-label" style="color:var(--red)" data-es="Borrar todos mis datos" data-en="Clear all my data">Borrar todos mis datos</div><div class="setting-sub" data-es="Esto no se puede deshacer" data-en="This cannot be undone">Esto no se puede deshacer</div></div>
-        <div class="setting-ctrl" style="color:var(--red)">›</div>
-      </div>
-    </div>
-  </div>
-
-  <div class="section">
-    <div class="section-title" data-es="SESIÓN" data-en="SESSION">SESIÓN</div>
-    <div class="card">
-      <div class="setting-row" onclick="logout()" style="cursor:pointer">
-        <div class="setting-ico" style="background:var(--red-dim)">🚪</div>
-        <div class="setting-info"><div class="setting-label" style="color:var(--red)" data-es="Cerrar sesión" data-en="Sign out">Cerrar sesión</div></div>
-        <div class="setting-ctrl" style="color:var(--red)">›</div>
-      </div>
-    </div>
-  </div>
-
-  <div style="text-align:center;padding:20px 0;color:var(--text3);font-size:11px">FinTrack Pro · Versión 2.0</div>
-</div>
-
-<div id="toast"></div>
-
-<div class="more-overlay" id="moreOverlay" onclick="if(event.target===this)closeMoreMenu()">
-  <div class="more-panel">
-    <div class="more-handle"></div>
-    <div class="more-grid">
-      <div class="more-item" onclick="go('analisis.html')"><div class="more-ico" style="background:var(--g-light)">📈</div><span data-es="Análisis" data-en="Analysis">Análisis</span></div>
-      <div class="more-item" onclick="go('metas.html')"><div class="more-ico" style="background:var(--amb-dim)">🎯</div><span data-es="Metas" data-en="Goals">Metas</span></div>
-      <div class="more-item" onclick="go('deudas.html')"><div class="more-ico" style="background:var(--red-dim)">💳</div><span data-es="Deudas" data-en="Debts">Deudas</span></div>
-      <div class="more-item" onclick="go('ahorro.html')"><div class="more-ico" style="background:var(--pur-dim,rgba(123,94,167,.1))">💵</div><span data-es="Ahorro libre" data-en="Free savings">Ahorro libre</span></div>
-      <div class="more-item" onclick="go('inversiones.html')"><div class="more-ico" style="background:var(--blu-dim)">🏦</div><span data-es="Inversiones" data-en="Investments">Inversiones</span></div>
-      <div class="more-item" onclick="go('scanner.html')"><div class="more-ico" style="background:rgba(123,94,167,.1)">📷</div><span data-es="Escanear" data-en="Scan">Escanear</span></div>
-      <div class="more-item" onclick="go('importar.html')"><div class="more-ico" style="background:var(--blu-dim)">📥</div><span data-es="Importar CSV" data-en="Import CSV">Importar CSV</span></div>
-      <div class="more-item" onclick="go('emergencia.html')"><div class="more-ico" style="background:var(--amb-dim)">🛡️</div><span data-es="Emergencia" data-en="Emergency">Emergencia</span></div>
-      <div class="more-item" onclick="go('suscripciones.html')"><div class="more-ico" style="background:rgba(123,94,167,.1)">🔄</div><span data-es="Suscripciones" data-en="Subscriptions">Suscripciones</span></div>
-      <div class="more-item" onclick="go('config.html')"><div class="more-ico" style="background:var(--off)">⚙️</div><span data-es="Config" data-en="Settings">Config</span></div>
-      <div class="more-item" onclick="go('perfil.html')"><div class="more-ico" style="background:var(--blu-dim)">👤</div><span data-es="Perfil" data-en="Profile">Perfil</span></div>
-    </div>
-  </div>
-</div>
-
-</div><!-- /main -->
-</div><!-- /app -->
-
-<nav class="mob-nav">
-  <div class="mob-item" onclick="go('dashboard.html')"><div class="mob-ico">📊</div><span data-es="Inicio" data-en="Home">Inicio</span></div>
-  <div class="mob-item" onclick="go('historial.html')"><div class="mob-ico">📅</div><span data-es="Historial" data-en="History">Historial</span></div>
-  <div class="mob-item" onclick="go('dashboard.html')"><div class="mob-plus">＋</div></div>
-  <div class="mob-item" onclick="go('hogar.html')"><div class="mob-ico">🏠</div><span data-es="Hogar" data-en="Household">Hogar</span></div>
-  <div class="mob-item" onclick="openMoreMenu()"><div class="mob-ico">☰</div><span data-es="Más" data-en="More">Más</span></div>
-</nav>
-
+<div class="ft-app"><div class="ft-page" id="root"></div></div>
 <script>
-let user={},lang='es';
-function go(url){ window.location.href=url; }
+function es() { return FT.lang === 'es'; }
+function go(url) { FT.go(url); }
 
-/* ── SIDEBAR COLLAPSE (desktop only) ── */
-function toggleSidebar(){
-  const sb = document.getElementById('sidebar');
-  const btn = document.getElementById('sbCollapseBtn');
-  if(!sb) return;
-  const collapsed = sb.classList.toggle('collapsed');
-  if(btn) btn.textContent = collapsed ? '▶' : '◀';
-  localStorage.setItem('ft_sidebar_collapsed', collapsed ? '1' : '0');
+function render() {
+  var L = es(), u = FT.user();
+  document.getElementById('root').innerHTML =
+  '<div class="section"><div class="section-title">' + (L ? 'CUENTA' : 'ACCOUNT') + '</div><div class="card">' +
+    row('👤', 'var(--sky-bg)', L ? 'Mi Perfil' : 'My Profile', L ? 'Nombre, ingreso, metas' : 'Name, income, goals', "go('perfil.html')") +
+    row('💰', 'var(--g-light)', L ? 'Saldos iniciales' : 'Starting balances', L ? 'Cuentas, ahorro, metas, deudas' : 'Accounts, savings, goals, debts', "go('onboarding.html')") +
+    '<div class="setting-row"><div class="setting-ico" style="background:var(--g-light)">🌐</div><div class="setting-info"><div class="setting-label">' + (L ? 'Idioma' : 'Language') + '</div></div>' +
+      '<div class="setting-ctrl"><div style="display:flex;background:var(--off);border:1px solid var(--border);border-radius:20px;overflow:hidden;font-size:11px;font-weight:700">' +
+        '<div class="tap" style="padding:5px 12px;cursor:pointer;' + (L ? 'background:var(--g-main);color:#fff' : 'color:var(--text3)') + '" onclick="FT.setLang(\'es\')">ES</div>' +
+        '<div class="tap" style="padding:5px 12px;cursor:pointer;' + (!L ? 'background:var(--g-main);color:#fff' : 'color:var(--text3)') + '" onclick="FT.setLang(\'en\')">EN</div></div></div></div>' +
+    '<div class="setting-row"><div class="setting-ico" style="background:var(--amb-dim,rgba(224,149,46,.12))">💰</div><div class="setting-info"><div class="setting-label">' + (L ? 'Moneda' : 'Currency') + '</div></div>' +
+      '<div class="setting-ctrl"><select class="field-input" id="currencySelect" onchange="saveCurrency()"><option value="USD">USD ($)</option><option value="MXN">MXN ($)</option><option value="EUR">EUR (€)</option></select></div></div>' +
+  '</div></div>' +
+
+  '<div class="section"><div class="section-title">' + (L ? 'DATOS' : 'DATA') + '</div><div class="card">' +
+    row('📤', 'var(--g-light)', L ? 'Exportar respaldo' : 'Export backup', L ? 'Todo tu historial, deudas, fondos e inversiones' : 'All your history, debts, funds and investments', 'exportData()') +
+    row('📥', 'var(--sky-bg)', L ? 'Restaurar respaldo' : 'Restore backup', L ? 'Desde un archivo .json exportado antes' : 'From a previously exported .json file', "document.getElementById('importFileInput').click()") +
+    '<input type="file" id="importFileInput" accept=".json" style="display:none" onchange="importData(event)">' +
+    '<div class="setting-row tap" style="cursor:pointer" onclick="clearData()"><div class="setting-ico" style="background:var(--red-dim)">🗑️</div><div class="setting-info"><div class="setting-label" style="color:var(--red)">' + (L ? 'Borrar todos mis datos' : 'Clear all my data') + '</div><div class="setting-sub">' + (L ? 'Esto no se puede deshacer' : 'This cannot be undone') + '</div></div><div class="setting-ctrl" style="color:var(--red)">›</div></div>' +
+  '</div></div>' +
+
+  '<div class="section"><div class="section-title">' + (L ? 'SESIÓN' : 'SESSION') + '</div><div class="card">' +
+    '<div class="setting-row tap" style="cursor:pointer" onclick="FT.logout()"><div class="setting-ico" style="background:var(--red-dim)">🚪</div><div class="setting-info"><div class="setting-label" style="color:var(--red)">' + (L ? 'Cerrar sesión' : 'Sign out') + '</div></div><div class="setting-ctrl" style="color:var(--red)">›</div></div>' +
+  '</div></div>' +
+
+  '<div style="text-align:center;padding:20px 0;color:var(--text3);font-size:11px">FinTrack Pro · Versión 2.0</div>';
+
+  if (u.currency) document.getElementById('currencySelect').value = u.currency;
 }
-(function initSidebarState(){
-  if(window.innerWidth <= 860) return;
-  const sb = document.getElementById('sidebar');
-  const btn = document.getElementById('sbCollapseBtn');
-  if(!sb) return;
-  if(localStorage.getItem('ft_sidebar_collapsed') === '1'){
-    sb.classList.add('collapsed');
-    if(btn) btn.textContent = '▶';
-  }
-})();
-function logout(){sessionStorage.clear();['ft_user','ft_user_setup','ft_premium','ft_lang'].forEach(k=>localStorage.removeItem(k));window.location.replace('login.html');}
-function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.style.display='block';setTimeout(()=>t.style.display='none',3000);}
-function openMoreMenu(){document.getElementById('moreOverlay').classList.add('open');}
-function closeMoreMenu(){document.getElementById('moreOverlay').classList.remove('open');}
-
-function setLang(l){
-  lang=l;localStorage.setItem('ft_lang',l);
-  if(user.lang!==l){ user.lang=l; const s=JSON.stringify(user); localStorage.setItem('ft_user',s); sessionStorage.setItem('ft_user',s); }
-  ['ltES','ltEN'].forEach(id=>document.getElementById(id)?.classList.toggle('on',id===('lt'+l.toUpperCase())));
-  ['ltES2','ltEN2'].forEach(id=>document.getElementById(id)?.classList.toggle('on',id===('lt'+l.toUpperCase()+'2')));
-  document.querySelectorAll('[data-es]').forEach(el=>{const v=el.getAttribute('data-'+l);if(v)el.textContent=v;});
-}
-
-function saveCurrency(){
-  const cur=document.getElementById('currencySelect').value;
-  user.currency=cur; const s=JSON.stringify(user); localStorage.setItem('ft_user',s); sessionStorage.setItem('ft_user',s);
-  showToast('✅ Moneda actualizada');
+function row(ico, bg, label, sub, onclickJs) {
+  return '<div class="setting-row tap" style="cursor:pointer" onclick="' + onclickJs + '"><div class="setting-ico" style="background:' + bg + '">' + ico + '</div>' +
+    '<div class="setting-info"><div class="setting-label">' + label + '</div><div class="setting-sub">' + sub + '</div></div><div class="setting-ctrl">›</div></div>';
 }
 
-function exportData(){
-  const data={user,transactions:JSON.parse(localStorage.getItem('ft_data')||'{}'),debts:JSON.parse(localStorage.getItem('ft_debts')||'[]'),investments:JSON.parse(localStorage.getItem('ft_investments')||'[]'),goals:JSON.parse(localStorage.getItem('ft_goals')||'[]'),subs:JSON.parse(localStorage.getItem('ft_subs')||'[]'),emergHist:JSON.parse(localStorage.getItem('ft_emerg_hist')||'[]')};
-  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='fintrack-backup.json'; a.click();
+function saveCurrency() {
+  var u = FT.user();
+  u.currency = document.getElementById('currencySelect').value;
+  FT.saveUser(u);
+  FT.toast(es() ? '✅ Moneda actualizada' : '✅ Currency updated');
 }
 
-function importData(e){
-  const file=e.target.files[0]; if(!file) return;
-  const reader=new FileReader();
-  reader.onload=function(ev){
-    try{
-      const d=JSON.parse(ev.target.result);
-      if(d.transactions) localStorage.setItem('ft_data',JSON.stringify(d.transactions));
-      if(d.debts)        localStorage.setItem('ft_debts',JSON.stringify(d.debts));
-      if(d.investments)  localStorage.setItem('ft_investments',JSON.stringify(d.investments));
-      if(d.goals)        localStorage.setItem('ft_goals',JSON.stringify(d.goals));
-      if(d.subs)         localStorage.setItem('ft_subs',JSON.stringify(d.subs));
-      if(d.emergHist)    localStorage.setItem('ft_emerg_hist',JSON.stringify(d.emergHist));
-      showToast(lang==='es'?'✅ Datos restaurados correctamente':'✅ Data restored successfully');
-      setTimeout(()=>go('dashboard.html'),1500);
-    }catch(err){
-      showToast(lang==='es'?'❌ Archivo inválido':'❌ Invalid file');
-    }
-  };
-  reader.readAsText(file);
-  e.target.value='';
+function exportData() { FT.exportBackup(); FT.toast(es() ? '✅ Respaldo descargado' : '✅ Backup downloaded'); }
+function importData(e) {
+  var L = es(), file = e.target.files[0]; if (!file) return;
+  FT.readBackupFile(file).then(function (backup) {
+    var fecha = backup._meta.exportedAt ? backup._meta.exportedAt.split('T')[0] : '?';
+    var ok = confirm(L
+      ? 'Este respaldo es del ' + fecha + ' (de ' + (backup._meta.user || '—') + ').\n\n⚠️ Esto REEMPLAZA lo que tienes ahora mismo en este teléfono por lo del respaldo. Si tienes datos nuevos sin respaldar aquí, se perderán.\n\n¿Continuar?'
+      : 'This backup is from ' + fecha + ' (by ' + (backup._meta.user || '—') + ').\n\n⚠️ This REPLACES what you currently have on this phone with what\'s in the backup. Any newer data not in this backup will be lost.\n\nContinue?');
+    if (!ok) return;
+    FT.applyBackup(backup);
+    FT.toast(L ? '✅ Datos restaurados correctamente' : '✅ Data restored successfully');
+    setTimeout(function () { go('dashboard.html'); }, 1500);
+  }).catch(function () {
+    FT.toast(L ? '❌ Archivo inválido' : '❌ Invalid file');
+  });
+  e.target.value = '';
+}
+function clearData() {
+  var L = es();
+  if (!confirm(L ? '¿Borrar TODOS tus datos? Esto no se puede deshacer.' : 'Delete ALL your data? This cannot be undone.')) return;
+  FT.clearAllData();
+  FT.toast(L ? '🗑️ Datos eliminados' : '🗑️ Data cleared');
+  setTimeout(function () { go('dashboard.html'); }, 1500);
 }
 
-function clearData(){
-  if(!confirm(lang==='es'?'¿Borrar TODOS tus datos? Esto no se puede deshacer.':'Delete ALL your data? This cannot be undone.')) return;
-  ['ft_data','ft_debts','ft_investments','ft_goals','ft_subs','ft_emerg_hist','ft_hogar','ft_premium'].forEach(k=>localStorage.removeItem(k));
-  showToast(lang==='es'?'🗑️ Datos eliminados':'🗑️ Data cleared');
-  setTimeout(()=>go('dashboard.html'),1500);
-}
-
-(function init(){
-  let s=localStorage.getItem('ft_user')||sessionStorage.getItem('ft_user');
-  if(!s){ window.location.replace('login.html'); return; }
-  try{ user=JSON.parse(s); }catch(e){ window.location.replace('login.html'); return; }
-  
-  {const nameEl=document.getElementById('sbName'), emailEl=document.getElementById('sbEmail'), avEl=document.getElementById('sbAvatar'); if(nameEl) nameEl.textContent=user.name||'—'; if(emailEl) emailEl.textContent=user.email||'—'; if(avEl) avEl.textContent=(user.name||'?').charAt(0).toUpperCase();}lang=localStorage.getItem('ft_lang')||user.lang||'es';
-  if(!sessionStorage.getItem('ft_user')) sessionStorage.setItem('ft_user',s);
-  if(user.currency) document.getElementById('currencySelect').value=user.currency;
-  setLang(lang);
-})();
-
-
-
-
-/* ══════════════════════════════════════════
-   SYNC EN SEGUNDO PLANO — mantiene fresco el perfil de tu pareja
-   sin importar en qué pantalla estés. COMBINA con lo que ya había
-   en caché en vez de reemplazar, para que un pull incompleto/viejo
-   de Sheets no borre transacciones que ya tenías vistas.
-══════════════════════════════════════════ */
-(function backgroundSyncPartner(){
-  try {
-    const _bgHogar = JSON.parse(localStorage.getItem('ft_hogar')||'{}');
-    if(!_bgHogar.connected || !_bgHogar.partnerEmail || _bgHogar.manuallyLeft) return;
-    const _bgGasUrl = 'https://script.google.com/macros/s/AKfycbwITyU4qld-IOEVKyLU9XHI46T8g_LjJaNp3nlQgler8-nMeIlztMmG_lZMVMm9cBkP/exec';
-    const _bgKey = 'profile_'+_bgHogar.partnerEmail.replace(/[^a-z0-9]/gi,'_');
-
-    function _bgMergeById(oldArr, newArr){
-      oldArr = oldArr||[]; newArr = newArr||[];
-      const byId = {};
-      oldArr.forEach(x=>{ if(x && x.id!=null) byId[x.id]=x; });
-      newArr.forEach(x=>{ if(x && x.id!=null) byId[x.id]=x; }); // lo nuevo pisa lo viejo si coincide el id
-      return Object.values(byId);
-    }
-
-    fetch(`${_bgGasUrl}?action=getProfile&email=${encodeURIComponent(_bgHogar.partnerEmail)}`)
-      .then(r=>r.json())
-      .then(data=>{
-        if(!data || !data.success) return;
-        let _bgNewData = {transactions:[],emergency:0,subscriptions:[],sharedDebts:[],hogarInv:[]};
-        try{ _bgNewData = JSON.parse(data.dataJson||'{}'); }catch(e){}
-
-        let _bgOld = null;
-        try{ _bgOld = JSON.parse(localStorage.getItem(_bgKey)||'null'); }catch(e){}
-        const _bgOldData = (_bgOld && _bgOld.data) || {};
-
-        const _bgMergedData = {
-          transactions: _bgMergeById(_bgOldData.transactions, _bgNewData.transactions),
-          emergency: (_bgNewData.emergency!=null ? _bgNewData.emergency : _bgOldData.emergency) || 0,
-          subscriptions: _bgMergeById(_bgOldData.subscriptions, _bgNewData.subscriptions),
-          sharedDebts: _bgMergeById(_bgOldData.sharedDebts, _bgNewData.sharedDebts),
-          hogarInv: _bgMergeById(_bgOldData.hogarInv, _bgNewData.hogarInv)
-        };
-
-        const _bgPp = { name:data.name||(_bgOld&&_bgOld.name)||'', email:data.email||_bgHogar.partnerEmail, income:parseFloat(data.income)||0, needs:parseFloat(data.needs)||0, wants:parseFloat(data.wants)||0, savings:parseFloat(data.savings)||0, data:_bgMergedData };
-        localStorage.setItem(_bgKey, JSON.stringify(_bgPp));
-        localStorage.setItem('ft_profile_B', JSON.stringify(_bgPp));
-      }).catch(()=>{});
-  } catch(e){}
-})();
-
+document.addEventListener('ft:ready', function () {
+  var t = function () { return FT.lang === 'es' ? 'Configuración' : 'Settings'; };
+  var sh = FT.shell({ active: '', title: t() });
+  document.addEventListener('ft:langchange', function () { sh.setTitle(t()); render(); });
+  render();
+});
 </script>
 </body>
 </html>

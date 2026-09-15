@@ -517,6 +517,57 @@ FT.distPcts = function () { return FT.get(K.distPcts, null) || { ahorro: 50, eme
 /* Evento global cuando cambian los datos — cada pantalla lo escucha para re-render */
 FT._changed = function () { try { document.dispatchEvent(new CustomEvent('ft:datachanged')); } catch (e) {} };
 
+/* ── RESPALDO COMPLETO (exportar / restaurar) ── único mecanismo de backup de
+   toda la app — historial.html y config.html comparten este, para no tener dos
+   formatos de respaldo incompatibles entre sí (el viejo de config.html le
+   faltaba la mitad de las claves y no validaba nada antes de sobreescribir). */
+var RESPALDO_KEYS = [K.data, K.debts, K.hogarFondos, K.investments, K.hogarInv, K.subs, K.servicios, K.recurring, K.savings, K.savingsHist, K.checking, K.goals];
+FT.exportBackup = function () {
+  var backup = { _meta: { app: 'FinTrack Pro', version: 1, exportedAt: new Date().toISOString(), user: FT.userName() || '' }, data: {} };
+  RESPALDO_KEYS.forEach(function (k) { var v = FT.getRaw(k, null); if (v != null && v !== '') backup.data[k] = v; });
+  var blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+  var url = URL.createObjectURL(blob), a = document.createElement('a');
+  a.href = url; a.download = 'fintrack-respaldo-' + FT.todayISO() + '.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+};
+/** Lee y valida un archivo de respaldo sin aplicarlo todavía — el caller decide
+ *  cuándo confirmar con el usuario antes de llamar a FT.applyBackup(). */
+FT.readBackupFile = function (file) {
+  return new Promise(function (resolve, reject) {
+    if (!file) { reject(new Error('no_file')); return; }
+    var reader = new FileReader();
+    reader.onload = function (e) {
+      var raw;
+      try { raw = JSON.parse(e.target.result); } catch (err) { reject(new Error('invalid_json')); return; }
+      if (raw && raw.data && raw._meta && raw._meta.app === 'FinTrack Pro') { resolve(raw); return; }
+      // Formato viejo de config.html (antes de unificar en uno solo): objeto plano
+      // {user, transactions, debts, investments, goals, subs, emergHist} sin _meta.
+      if (raw && (raw.transactions || raw.debts || raw.investments || raw.goals || raw.subs)) {
+        var legacy = { _meta: { app: 'FinTrack Pro', version: 0, exportedAt: '', user: (raw.user && raw.user.name) || '' }, data: {} };
+        if (raw.transactions) legacy.data[K.data] = JSON.stringify(raw.transactions);
+        if (raw.debts) legacy.data[K.debts] = JSON.stringify(raw.debts);
+        if (raw.investments) legacy.data[K.investments] = JSON.stringify(raw.investments);
+        if (raw.goals) legacy.data[K.goals] = JSON.stringify(raw.goals);
+        if (raw.subs) legacy.data[K.subs] = JSON.stringify(raw.subs);
+        if (raw.emergHist) legacy.data[K.emergHist] = JSON.stringify(raw.emergHist);
+        resolve(legacy); return;
+      }
+      reject(new Error('invalid_backup'));
+    };
+    reader.onerror = function () { reject(new Error('read_error')); };
+    reader.readAsText(file);
+  });
+};
+FT.applyBackup = function (backup) {
+  Object.keys(backup.data).forEach(function (k) { FT.setRaw(k, backup.data[k]); });
+};
+/** Borra todos los datos financieros (no la cuenta/sesión ni preferencias de
+ *  idioma) — todo lo que cubre el respaldo, más hogar/premium/créditos. */
+FT.clearAllData = function () {
+  RESPALDO_KEYS.concat([K.hogar, K.hogarFondos, K.premium, K.aiCredits, K.usedCodes, K.distPcts, K.emergHistLegacy, K.cheques]).forEach(FT.del);
+};
+
 /* ─────────────────────────────────────────────────────────────────────────
    4 · BORRADO CON EFECTO CRUZADO
    ───────────────────────────────────────────────────────────────────────── */

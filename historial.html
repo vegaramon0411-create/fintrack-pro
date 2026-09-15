@@ -167,40 +167,26 @@ document.getElementById('root').addEventListener('click', function (e) {
   FT.openTxDetail(t);
 });
 
-/* ── RESPALDO / DUPLICADOS ──
-   Respaldo completo: no solo transacciones — deudas, fondos, inversiones,
-   suscripciones, servicios, recurrentes y metas personales. Así, si se pierde
-   el teléfono o se resetea la app, se restaura todo tal cual, no solo lo suelto. */
-var RESPALDO_KEYS = [FT.K.data, FT.K.debts, FT.K.hogarFondos, FT.K.investments, FT.K.hogarInv, FT.K.subs, FT.K.servicios, FT.K.recurring, FT.K.savings, FT.K.savingsHist, FT.K.checking, FT.K.goals];
-
+/* ── RESPALDO / DUPLICADOS ── el export/import completo vive en FT.exportBackup
+   / FT.readBackupFile / FT.applyBackup (compartido con config.html). */
 function exportarRespaldo() {
-  var L = es();
-  var backup = { _meta: { app: 'FinTrack Pro', version: 1, exportedAt: new Date().toISOString(), user: FT.userName() || '' }, data: {} };
-  RESPALDO_KEYS.forEach(function (k) { var v = FT.getRaw(k, null); if (v != null && v !== '') backup.data[k] = v; });
-  var blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
-  var url = URL.createObjectURL(blob), a = document.createElement('a');
-  a.href = url; a.download = 'fintrack-respaldo-' + FT.todayISO() + '.json';
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  FT.toast(L ? '✅ Respaldo descargado' : '✅ Backup downloaded');
+  FT.exportBackup();
+  FT.toast(es() ? '✅ Respaldo descargado' : '✅ Backup downloaded');
 }
 function restaurarRespaldo(file) {
-  if (!file) return;
-  var L = es(), reader = new FileReader();
-  reader.onload = function (e) {
-    var backup;
-    try { backup = JSON.parse(e.target.result); } catch (err) { alert(L ? '⚠️ Este archivo no es un respaldo válido de FinTrack Pro.' : '⚠️ This file is not a valid FinTrack Pro backup.'); return; }
-    if (!backup || !backup.data || !backup._meta || backup._meta.app !== 'FinTrack Pro') { alert(L ? '⚠️ Este archivo no es un respaldo válido de FinTrack Pro.' : '⚠️ This file is not a valid FinTrack Pro backup.'); return; }
+  var L = es();
+  FT.readBackupFile(file).then(function (backup) {
     var fecha = backup._meta.exportedAt ? backup._meta.exportedAt.split('T')[0] : '?';
     var ok = confirm(L
       ? 'Este respaldo es del ' + fecha + ' (de ' + (backup._meta.user || '—') + ').\n\n⚠️ Esto REEMPLAZA lo que tienes ahora mismo en este teléfono por lo del respaldo. Si tienes datos nuevos sin respaldar aquí, se perderán.\n\n¿Continuar?'
       : 'This backup is from ' + fecha + ' (by ' + (backup._meta.user || '—') + ').\n\n⚠️ This REPLACES what you currently have on this phone with what\'s in the backup. Any newer data not in this backup will be lost.\n\nContinue?');
     if (!ok) return;
-    Object.keys(backup.data).forEach(function (k) { FT.setRaw(k, backup.data[k]); });
+    FT.applyBackup(backup);
     FT.toast(L ? '✅ Respaldo restaurado' : '✅ Backup restored');
     setTimeout(function () { location.reload(); }, 800);
-  };
-  reader.readAsText(file);
+  }).catch(function () {
+    alert(L ? '⚠️ Este archivo no es un respaldo válido de FinTrack Pro.' : '⚠️ This file is not a valid FinTrack Pro backup.');
+  });
 }
 function buscarDuplicados() {
   var L = es(), txs = FT.txs();
