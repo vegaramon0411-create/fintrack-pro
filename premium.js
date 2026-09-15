@@ -1049,8 +1049,24 @@ FT.getCredits = function () {
   if (c.month !== mo) { c = { used: 0, month: mo, extra: c.extra || 0 }; FT.set(K.aiCredits, c); }
   return c;
 };
-FT.creditsLeft = function () { var c = FT.getCredits(); return Math.max(0, MAX_AI_PREMIUM + (c.extra || 0) - (c.used || 0)); };
-FT.useCredit = function () { var c = FT.getCredits(); c.used = (c.used || 0) + 1; FT.set(K.aiCredits, c); return FT.creditsLeft(); };
+/** Los créditos mensuales son exclusivos de Premium; los extra (comprados/canjeados)
+ *  se conservan aunque el plan caduque, pero sin Premium no se pueden gastar. */
+FT.creditsLeft = function () {
+  if (!FT.isPremium()) return 0;
+  var c = FT.getCredits();
+  return Math.max(0, MAX_AI_PREMIUM - (c.used || 0)) + (c.extra || 0);
+};
+/** Consume primero la cuota mensual; solo toca los créditos extra cuando esa
+ *  cuota ya se agotó — así los extra sí se gastan (antes nunca bajaban, se
+ *  "regeneraban" solos cada mes al resetear `used`). */
+FT.useCredit = function () {
+  var c = FT.getCredits();
+  var mensualLeft = Math.max(0, MAX_AI_PREMIUM - (c.used || 0));
+  if (mensualLeft > 0) c.used = (c.used || 0) + 1;
+  else if ((c.extra || 0) > 0) c.extra = c.extra - 1;
+  FT.set(K.aiCredits, c);
+  return FT.creditsLeft();
+};
 FT.addExtraCredits = function (n) { var c = FT.getCredits(); c.extra = (c.extra || 0) + (parseInt(n, 10) || 0); FT.set(K.aiCredits, c); return FT.creditsLeft(); };
 FT.redeemCode = function (code) {
   code = String(code || '').trim().toUpperCase();
