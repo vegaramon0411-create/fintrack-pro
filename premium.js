@@ -1,269 +1,2450 @@
-/* ═══════════════════════════════════════════════════════════
-   FinTrack Pro — Premium Engine
-   Access verified via Google Apps Script + Google Sheets
-   ═══════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════════════════
+   FinTrack Pro — RUNTIME COMPARTIDO
+   Cargado por las 18 pantallas vía <script src="premium.js">.
+   Contiene: sistema de diseño (.ft-*), capa de datos, formato LatAm,
+   automatizaciones (cheques / recurrentes / suscripciones), premium + créditos,
+   Google Apps Script, componentes de UI y el chrome (header + menú inferior).
 
-const PREMIUM_KEY = 'ft_premium';
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbwITyU4qld-IOEVKyLU9XHI46T8g_LjJaNp3nlQgler8-nMeIlztMmG_lZMVMm9cBkP/exec';
+   API pública: window.FT.*
+   Compatibilidad: al final se exponen los nombres globales viejos (SHIM).
+   ═══════════════════════════════════════════════════════════════════════════ */
+(function (window, document) {
+'use strict';
 
-/* ── STATE ── */
-function getActivePlan() {
-  try {
-    const raw = localStorage.getItem(PREMIUM_KEY);
-    if (!raw) return 'free';
-    const p = JSON.parse(raw);
-    if (!p || !p.plan) return 'free';
-    if (p.expiresAt && new Date(p.expiresAt) < new Date()) return 'free';
-    // Normalizado a minúsculas: el Sheet puede tener "PREMIUM", "Premium" o "premium"
-    // y no debe importar — esto fue justo la causa del bug del 25 de agosto.
-    return String(p.plan).trim().toLowerCase();
-  } catch(e) { return 'free'; }
-}
+var FT = window.FT || {};
+window.FT = FT;
 
-function isPremium() { return getActivePlan() === 'premium'; }
-function isFree()    { return getActivePlan() === 'free'; }
-function hasAccess() { return true; } // access controlled by login + GAS
+/* ─────────────────────────────────────────────────────────────────────────
+   1 · CONSTANTES
+   ───────────────────────────────────────────────────────────────────────── */
+var GAS_URL = 'https://script.google.com/macros/s/AKfycbwITyU4qld-IOEVKyLU9XHI46T8g_LjJaNp3nlQgler8-nMeIlztMmG_lZMVMm9cBkP/exec';
+FT.GAS_URL = GAS_URL;
 
-function getPremiumInfo() {
-  try { return JSON.parse(localStorage.getItem(PREMIUM_KEY) || 'null'); }
-  catch(e) { return null; }
-}
+var K = {
+  user:'ft_user', setup:'ft_user_setup', lang:'ft_lang',
+  data:'ft_data', cheques:'ft_cheques',
+  emergHist:'ft_emerg_hist', emergHistLegacy:'ft_emergency_history',
+  savings:'ft_available_savings', savingsHist:'ft_savings_hist',
+  investments:'ft_investments', hogarInv:'ft_hogar_inv',
+  debts:'ft_debts', goals:'ft_goals', subs:'ft_subs', servicios:'ft_servicios',
+  subsHist:'ft_subs_history', serviciosHist:'ft_servicios_history',
+  recurring:'ft_recurring', recurringInvLegacy:'ft_inv_recurrentes',
+  checking:'ft_checking_balance', partnerChecking:'ft_partner_checking',
+  hogar:'ft_hogar', hogarFondos:'ft_hogar_fondos',
+  premium:'ft_premium', aiCredits:'ft_ai_credits', usedCodes:'ft_used_codes',
+  distPcts:'ft_dist_pcts', dashTab:'ft_dash_tab',
+  onbSaldos:'ft_onboarding_saldos_done', openAbonar:'ft_open_abonar',
+  shortcuts:'ft_shortcuts', googleUser:'ft_google_user',
+  investSuggest:'ft_invest_suggest', importAnswers:'ft_import_answers',
+  navStack:'ft_nav_stack', profileB:'ft_profile_B'
+};
+FT.K = K;
 
-function savePlan(plan, email, expiresAt) {
-  const info = { plan, email, activatedAt: new Date().toISOString(), expiresAt: expiresAt || null };
-  localStorage.setItem(PREMIUM_KEY, JSON.stringify(info));
-}
+var MAX_AI_PREMIUM = 10;
 
-function clearPlan() { localStorage.removeItem(PREMIUM_KEY); }
+// Pasteles de categoría (§4.1) — ciclan en este orden
+var PASTELS = ['peach','pink','coral','sky','mint'];
 
-/* ── FEATURE FLAGS ── */
-function canUse(feature) {
-  const FREE_FEATURES = [
-    'dashboard','nuevo_registro','historial','analisis_basico',
-    'emergencia','metas_basico','suscripciones_basico',
-    'voz','atajos','csv_import','deudas_simple'
-  ];
-  if (FREE_FEATURES.includes(feature)) return true;
-  return isPremium();
-}
+// Mapa emoji/etiqueta → pastel para el ícono de fila y las barras
+var CAT_PASTEL = {
+  '🛒':'peach','🍔':'pink','⛽':'coral','💊':'coral','📱':'sky','📶':'sky',
+  '🏠':'mint','🎬':'pink','👕':'peach','✈️':'sky','🔧':'coral','💳':'coral',
+  '💰':'mint','🛡️':'sky','📈':'mint','🎯':'pink'
+};
 
-/* ── GAS ACCESS CHECK ── */
-async function checkAccessWithGAS(email) {
-  const url = GAS_URL + '?action=checkAccess&email=' + encodeURIComponent(email.trim());
+/* ─────────────────────────────────────────────────────────────────────────
+   2 · FORMATO — LatAm: millar con punto, decimal con coma
+   ───────────────────────────────────────────────────────────────────────── */
+function groupInt(s) { return String(s).replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
 
-  // Reintenta una vez — la red del celular a veces falla la primera llamada
-  // y no hay por qué tratar eso como "ya no eres premium".
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error('GAS error ' + res.status);
-      const data = await res.json();
-      return data;
-    } catch(err) {
-      console.warn(`GAS intento ${attempt+1} falló:`, err);
-      if (attempt === 0) await new Promise(r => setTimeout(r, 800));
-    }
+/**
+ * FT.money(n, opts)
+ *  opts.cents   → 2 decimales (montos de transacción). Por defecto 0.
+ *  opts.compact → abrevia con k / M (solo barras). "1.240" → "1,2k"
+ *  opts.sign    → antepone + / − explícito
+ *  opts.noSymbol→ sin "$"
+ */
+FT.money = function (n, opts) {
+  opts = opts || {};
+  n = Number(n) || 0;
+  var neg = n < 0, abs = Math.abs(n), sym = opts.noSymbol ? '' : '$';
+  var pfx = opts.sign ? (neg ? '−' : '+') : (neg ? '−' : '');
+
+  if (opts.compact && abs >= 1000) {
+    var big = abs >= 1e6, div = big ? 1e6 : 1e3, unit = big ? 'M' : 'k';
+    var v = abs / div;
+    var str = v >= 100 ? String(Math.round(v)) : v.toFixed(1).replace(/\.0$/, '').replace('.', ',');
+    return pfx + sym + str + unit;
   }
+  var dec = opts.cents ? 2 : 0;
+  var parts = abs.toFixed(dec).split('.');
+  return pfx + sym + groupInt(parts[0]) + (dec ? ',' + parts[1] : '');
+};
 
-  // Los 2 intentos fallaron de verdad (Sheet inalcanzable, sin internet, etc.).
-  // Antes esto bajaba a "free" en silencio, causando que a veces sí y a veces no
-  // se reconociera premium — dependía solo de si esa llamada específica jaló.
-  // Ahora: si ya había un premium guardado y vigente, se mantiene mientras se
-  // puede verificar de nuevo, en vez de quitarlo por un simple hipo de red.
+/** Partes del monto para render custom (hero con "$" chico al final). */
+FT.moneyParts = function (n, opts) {
+  opts = opts || {};
+  n = Number(n) || 0;
+  var neg = n < 0, dec = opts.cents ? 2 : 0;
+  var parts = Math.abs(n).toFixed(dec).split('.');
+  return { neg: neg, sign: neg ? '−' : '+', int: groupInt(parts[0]), dec: parts[1] || '', sym: '$' };
+};
+
+/** FT.date(x, fmt) — fmt: 'DD/MM/AA' (def) | 'DD/MM/AAAA' | 'D MMM' | 'ISO' */
+FT.date = function (x, fmt) {
+  var d = x instanceof Date ? x : new Date(String(x).indexOf('T') > -1 ? x : x + 'T00:00:00');
+  if (isNaN(d.getTime())) return '';
+  var dd = String(d.getDate()).padStart(2, '0'), mm = String(d.getMonth() + 1).padStart(2, '0');
+  var yy = d.getFullYear();
+  if (fmt === 'ISO') return yy + '-' + mm + '-' + dd;
+  if (fmt === 'DD/MM/AAAA') return dd + '/' + mm + '/' + yy;
+  if (fmt === 'D MMM') {
+    var M = (FT.lang === 'es'
+      ? ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
+      : ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec']);
+    return d.getDate() + ' ' + M[d.getMonth()];
+  }
+  return dd + '/' + mm + '/' + String(yy).slice(-2);
+};
+
+FT.todayISO = function () { return FT.date(new Date(), 'ISO'); };
+
+/* ─────────────────────────────────────────────────────────────────────────
+   3 · CAPA DE DATOS — único punto que toca localStorage
+   ───────────────────────────────────────────────────────────────────────── */
+FT.get = function (key, fallback) {
+  try { var v = localStorage.getItem(key); return v == null ? fallback : JSON.parse(v); }
+  catch (e) { return fallback; }
+};
+FT.set = function (key, val) {
+  try { localStorage.setItem(key, typeof val === 'string' ? val : JSON.stringify(val)); } catch (e) {}
+};
+FT.getRaw = function (key, fallback) { try { var v = localStorage.getItem(key); return v == null ? (fallback || '') : v; } catch (e) { return fallback || ''; } };
+FT.setRaw = function (key, val) { try { localStorage.setItem(key, val); } catch (e) {} };
+FT.del = function (key) { try { localStorage.removeItem(key); } catch (e) {} };
+
+/* ── ft_data ── */
+FT.data = function () {
+  var d = FT.get(K.data, null);
+  if (!d || typeof d !== 'object') d = {};
+  if (!Array.isArray(d.transactions)) d.transactions = [];
+  if (typeof d.emergency !== 'number') d.emergency = parseFloat(d.emergency) || 0;
+  if (!Array.isArray(d.subscriptions)) d.subscriptions = [];
+  return d;
+};
+FT.saveData = function (d) { FT.set(K.data, d); FT._changed(); };
+FT.txs = function () { return FT.data().transactions; };
+
+/* ── ft_user ── */
+FT.user = function () { return FT._user || FT.loadUser() || {}; };
+FT.loadUser = function () {
+  var s = null;
+  try { s = localStorage.getItem(K.user); } catch (e) {}
+  if (s) {
+    try { var p = JSON.parse(s); if (!p || !p.income || p.income <= 0) { var ss = sessionStorage.getItem(K.user); if (ss) { var pss = JSON.parse(ss); if (pss && pss.income > 0) s = ss; } } } catch (e) {}
+  } else { try { s = sessionStorage.getItem(K.user); } catch (e) {} }
+  if (!s) return null;
   try {
-    const cached = JSON.parse(localStorage.getItem(PREMIUM_KEY) || '{}');
-    const cachedPlan = cached.plan ? String(cached.plan).trim().toLowerCase() : '';
-    const notExpired = !cached.expiresAt || new Date(cached.expiresAt) > new Date();
-    if (cachedPlan === 'premium' && notExpired) {
-      console.warn('GAS inalcanzable — se mantiene el premium local hasta poder reverificar.');
-      return { access: true, plan: cached.plan, expiresAt: cached.expiresAt || null };
+    var u = JSON.parse(s);
+    try { localStorage.setItem(K.user, s); sessionStorage.setItem(K.user, s); } catch (e) {}
+    FT._user = u;
+    return u;
+  } catch (e) { return null; }
+};
+FT.saveUser = function (u) {
+  var s = JSON.stringify(u);
+  try { localStorage.setItem(K.user, s); sessionStorage.setItem(K.user, s); } catch (e) {}
+  FT._user = u;
+};
+FT.userName = function () { var u = FT._user || FT.loadUser() || {}; return u.name || ''; };
+
+/* ── ft_hogar ── */
+FT.hogar = function () { return FT.get(K.hogar, {}) || {}; };
+FT.saveHogar = function (h) { FT.set(K.hogar, h); FT._changed(); };
+FT.hogarConnected = function () { var h = FT.hogar(); return h.connected === true && !h.manuallyLeft; };
+/** Perfil cacheado de la pareja (income/needs/wants/savings + su `data`) —
+ *  preferido por email-key; cae a la ranura genérica `ft_profile_B` si hace falta. */
+FT.partnerProfile = function () {
+  var h = FT.hogar();
+  if (!h.partnerEmail) return null;
+  var byKey = FT.get('profile_' + h.partnerEmail.replace(/[^a-z0-9]/gi, '_'), null);
+  var bySlot = FT.get(K.profileB, null);
+  if (byKey && (byKey.income || 0) > 0) return byKey;
+  if (bySlot && (bySlot.income || 0) > 0) return bySlot;
+  return byKey || bySlot;
+};
+/** % del cheque que es personal (§ contrato) */
+FT.personalPct = function () {
+  if (!FT.hogarConnected()) return 100;
+  var h = FT.hogar();
+  return 100 - (parseFloat(h.payPctHogar) || 50) - (parseFloat(h.saveHogarPct) || 10);
+};
+
+/* ── deudas ── */
+FT.debts = function () { return FT.get(K.debts, []) || []; };
+FT.saveDebts = function (d) { FT.set(K.debts, d); FT._changed(); };
+
+/* ── recurrentes ── */
+FT.recurring = function () { return FT.get(K.recurring, []) || []; };
+FT.saveRecurring = function (r) { FT.set(K.recurring, r); FT._changed(); };
+
+/* ── Gestión de recurrentes (hub unificado + pantallas de dominio) ── */
+FT.recurList = function (filterFn) {
+  var l = FT.recurring().filter(function (r) { return r.active !== false; });
+  return filterFn ? l.filter(filterFn) : l;
+};
+FT.recurGet = function (id) { return FT.recurring().find(function (r) { return String(r.id) === String(id); }); };
+FT.recurUpdate = function (id, patch) {
+  var l = FT.recurring();
+  var r = l.find(function (x) { return String(x.id) === String(id); });
+  if (!r) return;
+  if (patch.amount != null) r.amount = parseFloat(patch.amount) || r.amount;
+  if (patch.nextDate) r.nextDate = patch.nextDate;
+  if (patch.freq) r.freq = patch.freq;
+  FT.set(K.recurring, l);
+};
+FT.recurPause = function (id, paused) {
+  var l = FT.recurring();
+  var r = l.find(function (x) { return String(x.id) === String(id); });
+  if (!r) return;
+  r.paused = !!paused;
+  // Al reanudar, si la próxima fecha ya pasó, avánzala hasta la siguiente futura
+  // (no queremos un "catch-up" de todos los periodos pausados).
+  if (!r.paused && r.nextDate) {
+    var today = FT.todayISO(), guard = 0;
+    while (r.nextDate < today && guard < 120) { r.nextDate = _advanceRecDate(r.freq, r.nextDate); guard++; }
+  }
+  FT.set(K.recurring, l);
+};
+FT.recurDelete = function (id) {
+  FT.set(K.recurring, FT.recurring().filter(function (r) { return String(r.id) !== String(id); }));
+};
+/** Nombre legible + subtítulo de un recurrente, según su tipo. */
+FT.recurLabel = function (r) {
+  var es = FT.lang === 'es';
+  var name = r.desc || '';
+  if (!name) {
+    if (r.kind === 'debt') name = es ? 'Abono a deuda' : 'Debt payment';
+    else if (r.kind === 'meta') name = es ? 'Aporte a meta' : 'Goal contribution';
+    else if (r.kind === 'ahorro') name = r.dest === 'emergencia' ? (es ? 'Aporte a Emergencia' : 'To Emergency') : (es ? 'Aporte a Ahorro libre' : 'To Free savings');
+    else if (r.kind === 'inversion') name = es ? 'Inversión recurrente' : 'Recurring investment';
+    else if (r.kind === 'metapersonal') { var _g = FT.goals().find(function (x) { return String(x.id) === String(r.goalId); }); name = (_g && _g.name) || (es ? 'Aporte a meta' : 'Goal contribution'); }
+  }
+  var freq = { weekly: es ? 'cada semana' : 'weekly', biweekly: es ? 'cada quincena' : 'biweekly', monthly: es ? 'cada mes' : 'monthly' }[r.freq] || r.freq;
+  var sub = freq + ' · ' + (es ? 'próximo ' : 'next ') + FT.date(r.nextDate) + (r.paused ? (es ? ' · pausado' : ' · paused') : '');
+  return { name: name, sub: sub };
+};
+
+/** Última vez que se aplicó un recurrente — para mostrar "último" en el hub. */
+function _recurLastApplied(kind, r) {
+  try {
+    if (kind === 'debt') {
+      var d = FT.debts().find(function (x) { return String(x.id) === String(r.debtId); });
+      var ab = (d && d.abonos || []).filter(function (a) { return a.recId === r.id; });
+      return ab.length ? ab.reduce(function (mx, a) { return a.fecha > mx ? a.fecha : mx; }, '') : null;
     }
-  } catch(e) {}
-
-  return { access: true, plan: 'free', expiresAt: null };
+    if (kind === 'ahorro') {
+      var hist = r.dest === 'emergencia' ? FT.emergencyHist() : FT.savingsHist();
+      var m = hist.filter(function (h) { return h.recId === r.id; });
+      return m.length ? m.reduce(function (mx, h) { return (h.date || h.fecha) > mx ? (h.date || h.fecha) : mx; }, '') : null;
+    }
+    if (kind === 'inversion') {
+      var invs = FT.investments('').concat(FT.investments('hogar'));
+      var mi = invs.filter(function (i) { return i.recId === r.id; });
+      return mi.length ? mi.reduce(function (mx, i) { return i.fecha > mx ? i.fecha : mx; }, '') : null;
+    }
+    if (kind === 'meta') {
+      var f = FT.hogarFondos();
+      var mh = r.metaTipo === 'emerg' ? (f.emerg.hist || []) : ((r.metaId != null ? f.metas.find(function (x) { return x.id === r.metaId; }) : f.metas[r.metaIdx]) || {}).hist || [];
+      var mm = mh.filter(function (h) { return h.recId === r.id; });
+      return mm.length ? mm.reduce(function (mx, h) { return h.fecha > mx ? h.fecha : mx; }, '') : null;
+    }
+    if (kind === 'metapersonal') {
+      var g = FT.goals().find(function (x) { return String(x.id) === String(r.goalId); });
+      var gh = (g && g.hist || []).filter(function (h) { return h.recId === r.id; });
+      return gh.length ? gh.reduce(function (mx, h) { return h.fecha > mx ? h.fecha : mx; }, '') : null;
+    }
+  } catch (e) {}
+  return null;
 }
 
-/* ── UPGRADE MODAL ── */
-function injectUpgradeModal() {
-  if (document.getElementById('ftUpgradeOverlay')) return;
-  const lang = sessionStorage.getItem('ft_lang') || localStorage.getItem('ft_lang') || 'es';
-  const T = lang === 'es' ? {
-    title:'Función Premium',
-    sub:'Esta función está incluida en FinTrack Pro Premium.',
-    features:[
-      '📷 Escanear recibos e inversiones con IA',
-      '📧 Reporte financiero mensual',
-      '📥 Exportar todos tus datos',
-      '💡 Insights automáticos avanzados',
-      '🔄 Suscripciones ilimitadas',
-      '🎯 Metas ilimitadas',
-      '🏠 Hogar compartido',
-      '📐 Amortización real de deudas',
-    ],
-    buyBtn:'Obtener Premium en Etsy →',
-    close:'Cerrar',
-  } : {
-    title:'Premium Feature',
-    sub:'This feature is included in FinTrack Pro Premium.',
-    features:[
-      '📷 Scan receipts and investments with AI',
-      '📧 Monthly financial report',
-      '📥 Export all your data',
-      '💡 Advanced automatic insights',
-      '🔄 Unlimited subscriptions',
-      '🎯 Unlimited goals',
-      '🏠 Shared household',
-      '📐 Real debt amortization',
-    ],
-    buyBtn:'Get Premium on Etsy →',
-    close:'Close',
-  };
-
-  const overlay = document.createElement('div');
-  overlay.id = 'ftUpgradeOverlay';
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:none;place-items:center;z-index:9999;backdrop-filter:blur(6px);';
-  overlay.onclick = e => { if(e.target===overlay) hideUpgradeModal(); };
-  overlay.innerHTML = `
-  <div style="background:#fff;border-radius:24px;padding:28px;width:460px;max-width:calc(100vw - 32px);max-height:90vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,.22);">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px">
-      <div>
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-          <div style="width:32px;height:32px;background:linear-gradient(135deg,#0F5132,#1A7A4A);border-radius:10px;display:grid;place-items:center;font-size:16px">💎</div>
-          <div style="font-size:19px;font-weight:800;font-family:'Plus Jakarta Sans',sans-serif">${T.title}</div>
-        </div>
-        <div style="font-size:13px;color:#9395A5;font-family:'Plus Jakarta Sans',sans-serif">${T.sub}</div>
-      </div>
-      <div onclick="hideUpgradeModal()" style="color:#9395A5;cursor:pointer;font-size:22px;flex-shrink:0">✕</div>
-    </div>
-    <div style="background:#F7F8FC;border-radius:14px;padding:16px;margin-bottom:18px">
-      ${T.features.map(f=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;font-family:'Plus Jakarta Sans',sans-serif;color:#1A1D2E"><span style="color:#1A7A4A;font-weight:700">✓</span> ${f}</div>`).join('')}
-    </div>
-    <a href="https://www.etsy.com/shop/finanzone" target="_blank"
-      style="display:block;text-align:center;background:linear-gradient(135deg,#0F5132,#1A7A4A);color:white;border-radius:14px;padding:14px;font-size:15px;font-weight:700;text-decoration:none;font-family:'Plus Jakarta Sans',sans-serif;margin-bottom:12px">
-      🛒 ${T.buyBtn}
-    </a>
-    <button onclick="hideUpgradeModal()"
-      style="width:100%;background:transparent;border:1.5px solid #E4E6F0;border-radius:10px;padding:10px;font-size:13px;font-weight:600;color:#9395A5;cursor:pointer;font-family:'Plus Jakarta Sans',sans-serif">
-      ${T.close}
-    </button>
-  </div>`;
-  document.body.appendChild(overlay);
-}
-
-function showUpgradeModal() {
-  injectUpgradeModal();
-  const overlay = document.getElementById('ftUpgradeOverlay');
-  if (overlay) overlay.style.display = 'grid';
-}
-
-function hideUpgradeModal() {
-  const overlay = document.getElementById('ftUpgradeOverlay');
-  if (overlay) overlay.style.display = 'none';
-}
-
-function premiumBadge() {
-  return '<span style="display:inline-flex;align-items:center;gap:3px;background:linear-gradient(135deg,#0F5132,#1A7A4A);color:white;font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px;margin-left:6px;vertical-align:middle">💎 Premium</span>';
-}
-
-function protectPage() { return true; }
-
-/* ══════════════════════════════════════════
-   MODAL DE AYUDA — bilingüe, con búsqueda por palabra clave.
-   Vive en premium.js porque TODAS las páginas ya lo cargan —
-   así no hay que duplicar este bloque en cada archivo.
-══════════════════════════════════════════ */
-const FT_HELP_FAQ = [
-  { es:['ahorro libre','emergencia','diferencia','cuando retirar'], en:['free savings','emergency','difference','when withdraw'],
-    q:{es:'¿Cuál es la diferencia entre Ahorro libre y Fondo de emergencia?', en:'What\u2019s the difference between Free Savings and the Emergency Fund?'},
-    a:{es:'Ahorro libre se usa sin restricciones, para lo que quieras. El Fondo de emergencia está pensado solo para emergencias reales (perder el trabajo, un gasto médico grande) — sí puedes retirar de ahí cuando lo necesites de verdad, pero no está pensado para gastos normales del mes.', en:'Free Savings can be used for anything, no restrictions. The Emergency Fund is meant only for real emergencies (losing your job, a big medical expense) — you can withdraw when you truly need it, but it\u2019s not meant to cover regular monthly spending.'} },
-  { es:['cheque','reparte','hogar','personal','porcentaje','60','40'], en:['paycheck','split','household','personal','percentage'],
-    q:{es:'¿Cómo se reparte mi cheque entre hogar y personal?', en:'How does my paycheck get split between household and personal?'},
-    a:{es:'Configuras el % en Perfil → Frecuencia de pago (ejemplo: 60% al hogar, 40% personal). Cada vez que registras un cheque, la app calcula automáticamente cuánto es de cada lado con ese porcentaje.', en:'You set the % in Profile → Pay Frequency (example: 60% household, 40% personal). Every time you log a paycheck, the app automatically calculates each side using that percentage.'} },
-  { es:['pagate primero','ahorro automático','se aparta solo'], en:['pay yourself first','automatic savings'],
-    q:{es:'¿Qué es "Págate primero"?', en:'What is "Pay Yourself First"?'},
-    a:{es:'Cuando registras un cheque, un % de tu parte personal se aparta automáticamente a Ahorro libre al momento — antes de que puedas gastarlo, no al final del mes. Configuras ese % en Perfil.', en:'When you log a paycheck, a % of your personal share is automatically moved into Free Savings right away — before you can spend it, not at the end of the month. You set that % in Profile.'} },
-  { es:['recurrente','recurrentes','pago automático','se repite','cada semana','cada mes'], en:['recurring','automatic payment','repeats','every week','every month'],
-    q:{es:'¿Qué son los recurrentes y dónde los veo?', en:'What are recurring payments and where do I see them?'},
-    a:{es:'Son pagos que se repiten solos (abonos a deuda, ahorro, inversión) sin que tengas que registrarlos a mano cada vez. Todos juntos, sin importar el tipo, están en Más → Recurrentes — ahí ves cuándo fue el último y cuándo sigue.', en:'These are payments that repeat on their own (debt payments, savings, investments) without you registering them manually each time. All of them together, regardless of type, live in More → Recurring — you can see when the last one happened and when the next one is due.'} },
-  { es:['pareja','hogar','sincroniza','compartir','conectar','esposa','esposo'], en:['partner','household','sync','share','connect','spouse'],
-    q:{es:'¿Cómo conecto mi cuenta con la de mi pareja?', en:'How do I connect my account with my partner\u2019s?'},
-    a:{es:'En Hogar → Cambiar modo, generas un código y se lo compartes a tu pareja para que lo ingrese. Una vez conectados, las deudas y metas compartidas se sincronizan solas — tu ahorro y gasto personal siguen siendo privados.', en:'In Household → Change mode, you generate a code and share it with your partner so they can enter it. Once connected, shared debts and goals sync automatically — your personal savings and spending stay private.'} },
-  { es:['metodo','50 30 20','presupuesto','cambiar metodo'], en:['method','50 30 20','budget','change method'],
-    q:{es:'¿Puedo cambiar el método de presupuesto (50/30/20)?', en:'Can I change the budget method (50/30/20)?'},
-    a:{es:'Sí, en Perfil puedes elegir entre distintas reglas de presupuesto. Se te pregunta también la primera vez que usas la app.', en:'Yes, in Profile you can choose between different budgeting rules. You\u2019re also asked the first time you use the app.'} },
-  { es:['importar','ia','inteligencia artificial','creditos','escanear recibo','csv'], en:['import','ai','credits','scan receipt','csv'],
-    q:{es:'¿Cómo funcionan los créditos de análisis con IA?', en:'How do AI analysis credits work?'},
-    a:{es:'Con Premium tienes 10 análisis con IA al mes (para leer CSV, PDF o fotos de recibos en cualquier formato) — se resetean cada mes. Si se te acaban, puedes comprar más o usar la importación manual por formato de banco, que no gasta créditos.', en:'With Premium you get 10 AI analyses per month (to read CSV, PDF, or receipt photos in any format) — they reset monthly. If you run out, you can buy more or use manual import by bank format, which doesn\u2019t use credits.'} },
-  { es:['deuda','abono','tarjeta','prestamo','registrar deuda'], en:['debt','payment','credit card','loan','register debt'],
-    q:{es:'¿Cómo agrego una deuda y le registro un abono?', en:'How do I add a debt and log a payment?'},
-    a:{es:'En Deudas, toca "+ Nueva deuda" para agregarla. Para pagar, entra a la deuda y toca "Registrar abono" — puedes marcarlo como recurrente si se repite siempre el mismo día.', en:'In Debts, tap "+ New debt" to add one. To pay, open the debt and tap "Register payment" — you can mark it as recurring if it always happens on the same day.'} },
-  { es:['respaldo','backup','exportar','restaurar','perdi mis datos'], en:['backup','export','restore','lost my data'],
-    q:{es:'¿Cómo hago un respaldo de mis datos?', en:'How do I back up my data?'},
-    a:{es:'En Historial → Herramientas (ícono 🛠️) → Descargar respaldo. Guarda ese archivo — si algo pasa, lo restauras desde el mismo lugar con "Restaurar respaldo".', en:'In History → Tools (🛠️ icon) → Download backup. Keep that file — if something happens, restore it from the same place with "Restore backup".'} },
-  { es:['idioma','cambiar idioma','ingles','español'], en:['language','change language','english','spanish'],
-    q:{es:'¿Dónde cambio el idioma de la app?', en:'Where do I change the app\u2019s language?'},
-    a:{es:'En Configuración, o directo desde el menú "⋯" de cualquier pantalla.', en:'In Settings, or directly from the "⋯" menu on any screen.'} },
-  { es:['notificacion','campana','recordatorio','aviso'], en:['notification','bell','reminder','alert'],
-    q:{es:'¿Para qué sirve la campana de notificaciones?', en:'What is the notification bell for?'},
-    a:{es:'Te avisa cuando un pago está por vencer o ya venció. Se limpia sola cuando lo pagas ese mes.', en:'It alerts you when a payment is coming due or already overdue. It clears itself once you pay it that month.'} },
-];
-
-function injectHelpModal(){
-  if(document.getElementById('ftHelpOverlay')) return;
-  const overlay = document.createElement('div');
-  overlay.id = 'ftHelpOverlay';
-  overlay.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:900;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto;';
-  overlay.innerHTML = `
-    <div style="background:white;border-radius:18px;padding:20px;max-width:420px;width:100%;margin-top:40px;max-height:85vh;display:flex;flex-direction:column">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-shrink:0">
-        <div style="font-size:16px;font-weight:800">❓ <span id="ftHelpTitle">Ayuda</span></div>
-        <div onclick="hideHelpModal()" style="cursor:pointer;font-size:20px;color:#8A9490">✕</div>
-      </div>
-      <input id="ftHelpSearch" type="text" oninput="filterHelpFAQ(this.value)" placeholder="Buscar tu problema…"
-        style="width:100%;padding:11px 14px;border:1.5px solid #E4E6F0;border-radius:12px;font-size:14px;font-family:inherit;margin-bottom:14px;box-sizing:border-box;outline:none;flex-shrink:0">
-      <div id="ftHelpList" style="overflow-y:auto;flex:1"></div>
-    </div>`;
-  document.body.appendChild(overlay);
-  overlay.addEventListener('click', e => { if(e.target===overlay) hideHelpModal(); });
-}
-
-function _ftHelpLang(){
-  try{ return (typeof lang!=='undefined' && lang) || localStorage.getItem('ft_lang') || 'es'; }catch(e){ return 'es'; }
-}
-
-function renderHelpFAQ(query){
-  const l = _ftHelpLang();
-  const es = l==='es';
-  document.getElementById('ftHelpTitle').textContent = es?'Ayuda':'Help';
-  document.getElementById('ftHelpSearch').placeholder = es?'Busca tu problema…':'Search your issue…';
-  const q = (query||'').toLowerCase().trim();
-  const list = FT_HELP_FAQ.filter(item=>{
-    if(!q) return true;
-    const kws = (es?item.es:item.en).concat(item.q[l].toLowerCase());
-    return kws.some(k=>k.toLowerCase().includes(q)) || item.q[l].toLowerCase().includes(q) || item.a[l].toLowerCase().includes(q);
+/** Hub unificado (recurrentes.html): junta ft_recurring (deuda/ahorro/emergencia/
+ *  inversión/meta de hogar/meta personal) + ft_subs + ft_servicios en una sola
+ *  lista, cada `uid` codifica su tienda real ("recurring:id"/"subs:id"/"servicios:id")
+ *  para que las acciones de abajo sepan a dónde escribir. */
+FT.recurAllList = function () {
+  var es = FT.lang === 'es';
+  var items = [], debts = FT.debts(), goals = FT.goals();
+  FT.recurring().filter(function (r) { return r.active !== false; }).forEach(function (r) {
+    var name, icon, pk, typeLabel;
+    if (r.kind === 'debt') {
+      var d = debts.find(function (x) { return String(x.id) === String(r.debtId); });
+      name = d ? d.name : (es ? 'Deuda' : 'Debt'); icon = '💳'; pk = 'debt'; typeLabel = es ? 'Abono a deuda' : 'Debt payment';
+    } else if (r.kind === 'ahorro') {
+      var toE = r.dest === 'emergencia';
+      typeLabel = r.desc || (toE ? (es ? 'Aporte a Emergencia' : 'To Emergency') : (es ? 'Aporte a Ahorro libre' : 'To Free savings'));
+      name = typeLabel; icon = toE ? '🛡️' : '💵'; pk = toE ? 'emerg' : 'ahorro';
+    } else if (r.kind === 'inversion') {
+      name = r.desc || (es ? 'Inversión' : 'Investment'); icon = '📈'; pk = 'inversion'; typeLabel = es ? 'Inversión recurrente' : 'Recurring investment';
+    } else if (r.kind === 'meta') {
+      name = r.desc || (es ? 'Aporte a meta del hogar' : 'Household goal deposit'); icon = '🏠'; pk = 'hogar'; typeLabel = es ? 'Aporte a meta del hogar' : 'Household goal deposit';
+    } else if (r.kind === 'metapersonal') {
+      var g = goals.find(function (x) { return String(x.id) === String(r.goalId); });
+      name = (g && g.name) || (es ? 'Meta' : 'Goal'); icon = (g && g.icon) || '🎯'; pk = 'metapersonal'; typeLabel = es ? 'Aporte a meta personal' : 'Personal goal deposit';
+    } else return;
+    items.push({
+      uid: 'recurring:' + r.id, kind: r.kind, pk: pk, name: name, icon: icon, typeLabel: typeLabel,
+      amount: parseFloat(r.amount) || 0, freq: r.freq, nextDate: r.nextDate, paused: !!r.paused,
+      page: { debt: 'deudas.html', ahorro: (r.dest === 'emergencia' ? 'emergencia.html' : 'ahorro.html'), inversion: 'inversiones.html', meta: 'hogar.html', metapersonal: 'metas.html' }[r.kind],
+      lastApplied: _recurLastApplied(r.kind, r)
+    });
   });
-  const el = document.getElementById('ftHelpList');
-  if(!list.length){
-    el.innerHTML = `<div style="text-align:center;padding:30px 10px;color:#8A9490;font-size:13px">${es?'Sin resultados — intenta con otra palabra':'No results — try a different word'}</div>`;
+  FT.subs().forEach(function (s) {
+    items.push({ uid: 'subs:' + s.id, kind: 'sub', pk: 'sub', name: s.name, icon: '🔄', typeLabel: es ? 'Suscripción' : 'Subscription',
+      amount: parseFloat(s.amount) || 0, freq: s.freq, nextDate: s.date, paused: !!s.paused, page: 'suscripciones.html', lastApplied: null });
+  });
+  FT.servicios().forEach(function (s) {
+    items.push({ uid: 'servicios:' + s.id, kind: 'serv', pk: 'serv', name: s.name, icon: '🏠', typeLabel: es ? 'Servicio de casa' : 'Household service',
+      amount: parseFloat(s.amount) || 0, freq: s.freq, nextDate: s.date, paused: !!s.paused, page: 'servicios.html', lastApplied: null });
+  });
+  return items.sort(function (a, b) { return String(a.nextDate || '').localeCompare(String(b.nextDate || '')); });
+};
+function _recurAllSplit(uid) { var i = String(uid).indexOf(':'); return { store: uid.slice(0, i), id: uid.slice(i + 1) }; }
+FT.recurAllPause = function (uid, paused) {
+  var p = _recurAllSplit(uid);
+  if (p.store === 'recurring') { FT.recurPause(p.id, paused); return; }
+  var key = p.store === 'subs' ? K.subs : K.servicios;
+  var l = FT.get(key, []) || [];
+  var s = l.find(function (x) { return String(x.id) === p.id; });
+  if (s) { s.paused = !!paused; FT.set(key, l); FT._changed(); }
+};
+FT.recurAllUpdate = function (uid, patch) {
+  var p = _recurAllSplit(uid);
+  if (p.store === 'recurring') { FT.recurUpdate(p.id, patch); return; }
+  var key = p.store === 'subs' ? K.subs : K.servicios;
+  var l = FT.get(key, []) || [];
+  var s = l.find(function (x) { return String(x.id) === p.id; });
+  if (!s) return;
+  if (patch.amount != null) s.amount = parseFloat(patch.amount) || s.amount;
+  if (patch.freq) s.freq = patch.freq;
+  if (patch.nextDate) s.date = patch.nextDate;
+  FT.set(key, l); FT._changed();
+};
+FT.recurAllDelete = function (uid) {
+  var p = _recurAllSplit(uid);
+  if (p.store === 'recurring') {
+    FT.recurDelete(p.id);
+    // Si era el aporte automático de una meta personal, la meta queda como "sin recurrente".
+    var goals = FT.goals(), touched = false;
+    goals.forEach(function (g) { if (g.recId === p.id) { g.recId = null; g.recurring = false; touched = true; } });
+    if (touched) FT.saveGoals(goals);
     return;
   }
-  el.innerHTML = list.map((item,i)=>`
-    <details style="border-bottom:1px solid #ECEAE4;padding:10px 2px" ${query&&i===0?'open':''}>
-      <summary style="cursor:pointer;font-size:13.5px;font-weight:700;color:#141B17">${item.q[l]}</summary>
-      <div style="font-size:12.5px;color:#4A4E69;margin-top:8px;line-height:1.5">${item.a[l]}</div>
-    </details>`).join('');
+  var key = p.store === 'subs' ? K.subs : K.servicios;
+  FT.set(key, (FT.get(key, []) || []).filter(function (x) { return String(x.id) !== p.id; }));
+  FT._changed();
+};
+
+/* ── Ahorro libre ── */
+FT.savingsBalance = function () { return parseFloat(FT.getRaw(K.savings, '0')) || 0; };
+FT.savingsHist = function () { return FT.get(K.savingsHist, []) || []; };
+FT.addSavings = function (entry) {
+  var cur = FT.savingsBalance();
+  var amt = parseFloat(entry.amount) || 0;
+  var tipo = entry.tipo || 'deposito';
+  FT.setRaw(K.savings, Math.max(0, cur + (tipo === 'retiro' ? -amt : amt)).toFixed(2));
+  var hist = FT.savingsHist();
+  hist.push({ id: 'tx_' + entry.id, tipo: tipo, monto: amt, fecha: entry.date, nota: entry.note || '', cat: entry.cat || '', recId: entry.recId || null, cobId: entry.cobId || null, cobFor: entry.cobFor || null, monthTx: entry.monthTx || null });
+  FT.set(K.savingsHist, hist);
+  FT._changed();
+};
+FT.reverseSavings = function (txId) {
+  var hist = FT.savingsHist();
+  var i = hist.findIndex(function (h) { return h.id === 'tx_' + txId || h.id === txId; });
+  if (i < 0) return;
+  var cur = FT.savingsBalance();
+  var sign = hist[i].tipo === 'retiro' ? 1 : -1;
+  FT.setRaw(K.savings, Math.max(0, cur + sign * (parseFloat(hist[i].monto) || 0)).toFixed(2));
+  hist.splice(i, 1);
+  FT.set(K.savingsHist, hist);
+  FT._changed();
+};
+
+/* ── Fondo de emergencia (saldo en ft_data.emergency; historial en 2 claves) ── */
+FT.emergencyBalance = function () { return FT.data().emergency || 0; };
+/** Historial de emergencia — funde ft_emerg_hist + ft_emergency_history (legado), dedup por id. */
+FT.emergencyHist = function () {
+  var a = FT.get(K.emergHist, []) || [];
+  var b = (FT.get(K.emergHistLegacy, []) || []).map(function (h) {
+    return { id: h.id, amount: h.amount, note: h.note, date: h.date, tipo: h.tipo || (h.type === 'retiro' ? 'retiro' : 'deposito') };
+  });
+  var seen = {}, out = [];
+  a.concat(b).forEach(function (h) { var id = h.id != null ? String(h.id) : (h.date + '|' + h.amount); if (!seen[id]) { seen[id] = 1; out.push(h); } });
+  return out;
+};
+FT.addEmergency = function (entry) {
+  var d = FT.data();
+  var amt = parseFloat(entry.amount) || 0;
+  var tipo = entry.tipo || 'deposito';
+  d.emergency = Math.max(0, (d.emergency || 0) + (tipo === 'retiro' ? -amt : amt));
+  FT.set(K.data, d);
+  var row = { id: entry.id != null ? String(entry.id) : ('e_' + Date.now()), amount: amt, note: entry.note || '', date: entry.date || FT.todayISO(), tipo: tipo, recId: entry.recId || null, cobId: entry.cobId || null, cobFor: entry.cobFor || null, monthTx: entry.monthTx || null };
+  var h1 = FT.get(K.emergHist, []) || []; h1.push(row); FT.set(K.emergHist, h1);
+  var h2 = FT.get(K.emergHistLegacy, []) || []; h2.push({ id: 'tx_' + row.id, amount: amt, date: row.date, type: tipo, note: row.note }); FT.set(K.emergHistLegacy, h2);
+  FT._changed();
+};
+FT.reverseEmergency = function (id) {
+  var target = String(id).replace(/^tx_/, '');
+  var d = FT.data();
+  var h1 = FT.get(K.emergHist, []) || [];
+  var row = h1.find(function (r) { return String(r.id) === target || String(r.id) === 'tx_' + target; });
+  if (row) {
+    var amt = parseFloat(row.amount) || 0;
+    d.emergency = Math.max(0, (d.emergency || 0) + (row.tipo === 'retiro' ? amt : -amt));
+    FT.set(K.data, d);
+  }
+  FT.set(K.emergHist, h1.filter(function (r) { return String(r.id) !== target && String(r.id) !== 'tx_' + target; }));
+  var h2 = FT.get(K.emergHistLegacy, []) || [];
+  FT.set(K.emergHistLegacy, h2.filter(function (r) { return String(r.id) !== 'tx_' + target && String(r.id) !== target; }));
+  FT._changed();
+};
+
+/* ── Amortización (deudas) ── */
+FT.calcAmort = function (balance, payment, aprPct, termMonths) {
+  var apr = parseFloat(aprPct) || 0, r = (apr / 100) / 12;
+  if (apr === 0 || r === 0) {
+    var months0 = payment > 0 ? Math.ceil(balance / payment) : (termMonths || 999);
+    return { months: months0, totalInterest: 0, totalPaid: balance, payoffPossible: true, schedule: [] };
+  }
+  if (termMonths && payment === 0) payment = balance * r / (1 - Math.pow(1 + r, -termMonths));
+  if (payment <= balance * r) return { months: 999, totalInterest: 999999, totalPaid: 999999, payoffPossible: false, schedule: [] };
+  var bal = balance, totalInterest = 0, months = 0, schedule = [];
+  while (bal > 0.01 && months < 600) {
+    var interest = bal * r, principal = Math.min(payment - interest, bal);
+    bal -= principal; totalInterest += interest; months++;
+    if (months <= 24 || months % 12 === 0) schedule.push({ month: months, principal: +principal.toFixed(2), interest: +interest.toFixed(2), balance: +Math.max(0, bal).toFixed(2) });
+  }
+  return { months: months, totalInterest: +totalInterest.toFixed(2), totalPaid: +(balance + totalInterest).toFixed(2), payoffPossible: true, schedule: schedule, monthlyPayment: +payment.toFixed(2) };
+};
+FT.calcRequiredPayment = function (balance, aprPct, termMonths) {
+  var r = (aprPct / 100) / 12;
+  if (!r || !termMonths) return 0;
+  return balance * r / (1 - Math.pow(1 + r, -termMonths));
+};
+
+/* ── Cuentas de cheques (array de cuentas nombradas; migra objeto único) ── */
+FT.checking = function () {
+  var raw = FT.get(K.checking, []);
+  if (Array.isArray(raw)) return raw;
+  if (raw && typeof raw === 'object') return [{ id: 'chk_legacy', name: 'Cuenta', amount: parseFloat(raw.amount || raw) || 0, hogar: !!raw.hogar, updatedAt: FT.todayISO() }];
+  return [];
+};
+FT.saveChecking = function (list) { FT.set(K.checking, list); FT._changed(); };
+
+/* ── Inversiones ── */
+FT.investments = function (scope) { return FT.get(scope === 'hogar' ? K.hogarInv : K.investments, []) || []; };
+FT.saveInvestments = function (list, scope) { FT.set(scope === 'hogar' ? K.hogarInv : K.investments, list); FT._changed(); };
+FT.investmentValue = function (i) {
+  var shares = parseFloat(i.shares) || 1, avg = parseFloat(i.avgPrice) || 0, cur = parseFloat(i.curPrice) || avg, amt = parseFloat(i.amount) || 0;
+  return (avg > 0 || cur > 0) ? shares * cur : amt;
+};
+
+/* ── Otros ── */
+FT.cheques = function () { return FT.get(K.cheques, []) || []; };
+FT.goals = function () { return FT.get(K.goals, []) || []; };
+FT.saveGoals = function (g) { FT.set(K.goals, g); FT._changed(); };
+/** Abono a una meta personal (manual o automático) — guarda en `hist` para poder
+ *  deduplicar recurrentes y mostrar "último aporte" en el hub de Recurrentes. */
+FT.addGoalDeposit = function (goalId, amount, opts) {
+  opts = opts || {};
+  var goals = FT.goals();
+  var g = goals.find(function (x) { return String(x.id) === String(goalId); });
+  if (!g) return;
+  var amt = parseFloat(amount) || 0;
+  g.saved = (parseFloat(g.saved) || 0) + amt;
+  g.hist = g.hist || [];
+  g.hist.push({ id: 'gd_' + Date.now(), monto: amt, fecha: opts.date || FT.todayISO(), recId: opts.recId || null, auto: !!opts.auto });
+  FT.saveGoals(goals);
+};
+/** Activa/actualiza el aporte automático mensual de una meta personal. */
+FT.setGoalRecurring = function (goalId, amount, freq) {
+  var goals = FT.goals();
+  var g = goals.find(function (x) { return String(x.id) === String(goalId); });
+  if (!g) return;
+  var rec = FT.recurring();
+  if (g.recId) {
+    var r = rec.find(function (x) { return String(x.id) === String(g.recId); });
+    if (r) { r.amount = parseFloat(amount) || r.amount; r.freq = freq || r.freq; r.active = true; }
+    else { g.recId = null; }
+  }
+  if (!g.recId) {
+    var id = 'rec_' + Date.now();
+    rec.push({ id: id, kind: 'metapersonal', goalId: g.id, amount: parseFloat(amount) || 0, freq: freq || 'monthly', nextDate: FT.todayISO(), active: true, paused: false, createdBy: FT.userName() });
+    g.recId = id;
+  }
+  g.recurring = true;
+  FT.set(K.recurring, rec);
+  FT.saveGoals(goals);
+};
+/** Cancela el aporte automático de una meta (la meta en sí no se borra). */
+FT.clearGoalRecurring = function (goalId) {
+  var goals = FT.goals();
+  var g = goals.find(function (x) { return String(x.id) === String(goalId); });
+  if (!g) return;
+  if (g.recId) FT.recurDelete(g.recId);
+  g.recId = null; g.recurring = false;
+  FT.saveGoals(goals);
+};
+FT.subs = function () { return FT.get(K.subs, []) || []; };
+FT.saveSubs = function (s) { FT.set(K.subs, s); FT._changed(); };
+FT.servicios = function () { return FT.get(K.servicios, []) || []; };
+FT.saveServicios = function (s) { FT.set(K.servicios, s); FT._changed(); };
+FT.hogarFondos = function () {
+  var f = FT.get(K.hogarFondos, null);
+  if (!f || typeof f !== 'object') f = {};
+  // Migra el formato viejo (una sola meta bajo `ahorro`) al array `metas[]` actual.
+  if (f.ahorro && !f.metas) {
+    f.metas = f.ahorro.meta > 0 ? [{ id: 'm_legacy', nombre: f.ahorro.nombre || 'Meta 1', meta: f.ahorro.meta, actual: f.ahorro.actual || 0, fecha: '', hist: f.ahorro.hist || [] }] : [];
+    delete f.ahorro;
+  }
+  if (!f.emerg) f.emerg = { meta: 0, actual: 0, fecha: '', hist: [] };
+  if (!Array.isArray(f.metas)) f.metas = [];
+  return f;
+};
+FT.saveHogarFondos = function (f) { FT.set(K.hogarFondos, f); FT._changed(); };
+FT.distPcts = function () { return FT.get(K.distPcts, null) || { ahorro: 50, emergencia: 25, inversion: 25 }; };
+
+/* Evento global cuando cambian los datos — cada pantalla lo escucha para re-render */
+FT._changed = function () { try { document.dispatchEvent(new CustomEvent('ft:datachanged')); } catch (e) {} };
+
+/* ── RESPALDO COMPLETO (exportar / restaurar) ── único mecanismo de backup de
+   toda la app — historial.html y config.html comparten este, para no tener dos
+   formatos de respaldo incompatibles entre sí (el viejo de config.html le
+   faltaba la mitad de las claves y no validaba nada antes de sobreescribir). */
+var RESPALDO_KEYS = [K.data, K.debts, K.hogarFondos, K.investments, K.hogarInv, K.subs, K.servicios, K.recurring, K.savings, K.savingsHist, K.checking, K.goals];
+FT.exportBackup = function () {
+  var backup = { _meta: { app: 'FinTrack Pro', version: 1, exportedAt: new Date().toISOString(), user: FT.userName() || '' }, data: {} };
+  RESPALDO_KEYS.forEach(function (k) { var v = FT.getRaw(k, null); if (v != null && v !== '') backup.data[k] = v; });
+  var blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+  var url = URL.createObjectURL(blob), a = document.createElement('a');
+  a.href = url; a.download = 'fintrack-respaldo-' + FT.todayISO() + '.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+};
+/** Lee y valida un archivo de respaldo sin aplicarlo todavía — el caller decide
+ *  cuándo confirmar con el usuario antes de llamar a FT.applyBackup(). */
+FT.readBackupFile = function (file) {
+  return new Promise(function (resolve, reject) {
+    if (!file) { reject(new Error('no_file')); return; }
+    var reader = new FileReader();
+    reader.onload = function (e) {
+      var raw;
+      try { raw = JSON.parse(e.target.result); } catch (err) { reject(new Error('invalid_json')); return; }
+      if (raw && raw.data && raw._meta && raw._meta.app === 'FinTrack Pro') { resolve(raw); return; }
+      // Formato viejo de config.html (antes de unificar en uno solo): objeto plano
+      // {user, transactions, debts, investments, goals, subs, emergHist} sin _meta.
+      if (raw && (raw.transactions || raw.debts || raw.investments || raw.goals || raw.subs)) {
+        var legacy = { _meta: { app: 'FinTrack Pro', version: 0, exportedAt: '', user: (raw.user && raw.user.name) || '' }, data: {} };
+        if (raw.transactions) legacy.data[K.data] = JSON.stringify(raw.transactions);
+        if (raw.debts) legacy.data[K.debts] = JSON.stringify(raw.debts);
+        if (raw.investments) legacy.data[K.investments] = JSON.stringify(raw.investments);
+        if (raw.goals) legacy.data[K.goals] = JSON.stringify(raw.goals);
+        if (raw.subs) legacy.data[K.subs] = JSON.stringify(raw.subs);
+        if (raw.emergHist) legacy.data[K.emergHist] = JSON.stringify(raw.emergHist);
+        resolve(legacy); return;
+      }
+      reject(new Error('invalid_backup'));
+    };
+    reader.onerror = function () { reject(new Error('read_error')); };
+    reader.readAsText(file);
+  });
+};
+FT.applyBackup = function (backup) {
+  Object.keys(backup.data).forEach(function (k) { FT.setRaw(k, backup.data[k]); });
+};
+/** Borra todos los datos financieros (no la cuenta/sesión ni preferencias de
+ *  idioma) — todo lo que cubre el respaldo, más hogar/premium/créditos. */
+FT.clearAllData = function () {
+  RESPALDO_KEYS.concat([K.hogar, K.hogarFondos, K.premium, K.aiCredits, K.usedCodes, K.distPcts, K.emergHistLegacy, K.cheques]).forEach(FT.del);
+};
+
+/* ─────────────────────────────────────────────────────────────────────────
+   4 · BORRADO CON EFECTO CRUZADO
+   ───────────────────────────────────────────────────────────────────────── */
+FT.deleteTx = function (id) {
+  var d = FT.data();
+  var t = d.transactions.find(function (x) { return String(x.id) === String(id); });
+  if (!t) return false;
+
+  // Cobertura de gasto: al borrar el gasto, deshacer también el ingreso de
+  // cobertura y devolver el dinero al pozo (ahorro / emergencia).
+  if (t.cobId) FT._unwindCobertura(t.cobId);
+
+  // Fuente vinculada
+  if (t.type === 'ahorro' && (t.dest === 'libre' || t.cat === '💰 Ahorro')) {
+    FT.reverseSavings(t.id);
+  } else if (t.type === 'ahorro' || t.cat === '🛡️ Emergencia') {
+    FT.reverseEmergency(t.id);
+  } else if (t.type === 'inversion' || t.fromInvPage) {
+    // Si la posición (o la transacción que la originó) tenía un aporte recurrente
+    // ligado, hay que apagarlo también — si no, el motor automático la vuelve a
+    // crear sola en la próxima fecha, y se queda huérfana en Recurrentes.
+    var recIdsToClean = t.recId ? [t.recId] : [];
+    ['', 'hogar'].forEach(function (sc) {
+      var list = FT.investments(sc);
+      var removed = list.filter(function (i) { return i.id === 'inv_' + t.id || i.id === 'tx_' + t.id || String(i.txId) === String(t.id); });
+      removed.forEach(function (i) { if (i.recId) recIdsToClean.push(i.recId); });
+      var f = list.filter(function (i) { return i.id !== 'inv_' + t.id && i.id !== 'tx_' + t.id && String(i.txId) !== String(t.id); });
+      if (f.length !== list.length) FT.saveInvestments(f, sc);
+    });
+    recIdsToClean.filter(function (v, i, arr) { return arr.indexOf(v) === i; }).forEach(FT.recurDelete);
+  } else if (t.cat === '💳 Deudas') {
+    var debts = FT.debts(), touched = false;
+    debts.forEach(function (deb) {
+      if (!deb.abonos) return;
+      var keep = deb.abonos.filter(function (a) { return String(a.txId) !== String(t.id); });
+      if (keep.length !== deb.abonos.length) {
+        var removed = deb.abonos.find(function (a) { return String(a.txId) === String(t.id); });
+        if (removed) deb.balance = (parseFloat(deb.balance) || 0) + (parseFloat(removed.monto) || 0);
+        deb.abonos = keep; touched = true;
+      }
+    });
+    if (touched) FT.saveDebts(debts);
+  }
+
+  d.transactions = d.transactions.filter(function (x) { return String(x.id) !== String(id); });
+  FT.saveData(d);
+  return true;
+};
+
+/* ── Cobertura de gasto (opción C) ──────────────────────────────────────────
+   Cuando un gasto personal excede el disponible del mes, el faltante se cubre
+   de Ahorro libre o Emergencia. Se crean 3 registros ligados por `cobId`:
+     · el gasto            (ft_data, con cobId)
+     · un ingreso          (ft_data, incomeKind:'cobertura', con cobId) — equilibra el mes
+     · un movimiento       (ft_savings_hist | ft_emerg_hist, tipo:'retiro', con cobId)
+─────────────────────────────────────────────────────────────────────────── */
+/** Quita el ingreso de cobertura y devuelve el dinero al pozo. NO toca el gasto. */
+FT._unwindCobertura = function (cobId) {
+  var d = FT.data();
+  d.transactions = d.transactions.filter(function (x) { return !(x.cobId === cobId && x.incomeKind === 'cobertura'); });
+  FT.set(K.data, d);
+  var sh = FT.savingsHist();
+  var srow = sh.find(function (r) { return r.cobId === cobId; });
+  if (srow) FT.reverseSavings(String(srow.id).replace(/^tx_/, ''));
+  var eh = FT.get(K.emergHist, []) || [];
+  var erow = eh.find(function (r) { return r.cobId === cobId; });
+  if (erow) FT.reverseEmergency(erow.id);
+};
+/** "Deshacer cobertura" desde la pantalla del pozo: revierte el movimiento y el
+    ingreso, pero deja el gasto (que vuelve a contar contra tu disponible). */
+FT.undoCobertura = function (cobId) {
+  FT._unwindCobertura(cobId);
+  var d = FT.data();
+  d.transactions.forEach(function (x) { if (x.cobId === cobId) { delete x.cobId; } });
+  FT.saveData(d);
+};
+
+/** Disponible personal del mes en curso (solo cheques ya recibidos × % personal). */
+FT.personalAvailable = function () {
+  var mk = new Date().toISOString().slice(0, 7);
+  var txs = FT.txs();
+  var inc = txs.filter(function (t) { return t.type === 'ingreso' && String(t.date || '').slice(0, 7) === mk; });
+  var cheque = inc.filter(function (t) { return t.incomeKind !== 'extra' && t.incomeKind !== 'cobertura'; }).reduce(function (s, t) { return s + (parseFloat(t.amount) || 0); }, 0);
+  var extra = inc.filter(function (t) { return t.incomeKind === 'extra' || t.incomeKind === 'cobertura'; }).reduce(function (s, t) { return s + (parseFloat(t.amount) || 0); }, 0);
+  var mtx = txs.filter(function (t) { return String(t.date || '').slice(0, 7) === mk && t.hogar !== true; });
+  var sum = function (types) { return mtx.filter(function (t) { return types.indexOf(t.type) > -1; }).reduce(function (s, t) { return s + (parseFloat(t.amount) || 0); }, 0); };
+  return cheque * FT.personalPct() / 100 + extra - sum(['gasto', 'suscripcion', 'hipoteca']) - sum(['ahorro']) - sum(['inversion']);
+};
+
+/* ─────────────────────────────────────────────────────────────────────────
+   5 · AUTOMATIZACIONES — corren al cargar cualquier pantalla
+   ───────────────────────────────────────────────────────────────────────── */
+FT.recordCheque = function (o) {
+  var monto = parseFloat(o.monto); if (!monto || monto <= 0) return null;
+  var h = FT.hogar();
+  var totHogar = (parseFloat(h.payPctHogar) || 50) + (parseFloat(h.saveHogarPct) || 10);
+  var hogarAmt = monto * totHogar / 100, personalAmt = monto - hogarAmt;
+  var fecha = o.fecha || FT.todayISO();
+  var dObj = new Date(fecha + 'T00:00:00');
+  var mes = dObj.getFullYear() + '-' + String(dObj.getMonth() + 1).padStart(2, '0');
+  var tipo = o.tipo || 'nuevo';
+  var es = FT.lang === 'es';
+
+  var cheques = FT.cheques();
+  cheques.push({ id: Date.now() + Math.floor(Math.random() * 1000), monto: monto, hogarAmt: hogarAmt, personalAmt: personalAmt, fecha: fecha, mes: mes, tipo: tipo });
+  FT.set(K.cheques, cheques);
+
+  var autoSaved = 0;
+  if (tipo === 'nuevo') {
+    var d = FT.data();
+    d.transactions.push({ id: Date.now(), type: 'ingreso', desc: es ? 'Cheque recibido' : 'Paycheck received', amount: monto, date: fecha, cat: '💰 Ingreso', incomeKind: 'cheque', createdBy: FT.userName() });
+    FT.set(K.data, d);
+
+    var u = FT._user || FT.loadUser() || {};
+    var savPct = u.savingsPct != null ? u.savingsPct : 20;
+    autoSaved = Math.round(personalAmt * savPct / 100);
+    if (autoSaved > 0) {
+      var savId = Date.now() + 1;
+      FT.addSavings({ id: savId, amount: autoSaved, date: fecha, note: es ? 'Págate primero (automático del cheque)' : 'Pay yourself first (automatic from paycheck)' });
+      var d2 = FT.data();
+      d2.transactions.push({ id: savId, type: 'ahorro', desc: es ? 'Ahorro automático del cheque' : 'Automatic paycheck savings', amount: autoSaved, date: fecha, cat: '💰 Ahorro', dest: 'libre', createdBy: FT.userName() });
+      FT.set(K.data, d2);
+    }
+  }
+  FT._changed();
+  return { monto: monto, hogarAmt: hogarAmt, personalAmt: personalAmt, autoSaved: autoSaved };
+};
+
+FT.getMissingPaydays = function () {
+  var u = FT._user || FT.loadUser() || {};
+  if (!u.payAuto) return [];
+  var freq = u.payFreq || 'weekly', payDay = u.payDay || 'thursday';
+  var days = { sunday: 0, monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6 };
+  var cheques = FT.cheques();
+  var recorded = {}; cheques.forEach(function (c) { recorded[c.fecha] = 1; });
+  var today = new Date(); today.setHours(0, 0, 0, 0);
+  var start;
+  if (cheques.length) {
+    var lastMs = Math.max.apply(null, cheques.map(function (c) { return new Date(c.fecha + 'T00:00:00').getTime(); }));
+    start = new Date(lastMs); start.setDate(start.getDate() + 1);
+  } else { start = new Date(today); start.setDate(start.getDate() - 60); }
+  var missing = [], cursor = new Date(start), guard = 0;
+  while (cursor <= today && guard < 400) {
+    var ds = FT.date(cursor, 'ISO'), matches;
+    if (freq === 'weekly') matches = cursor.getDay() === (days[payDay] !== undefined ? days[payDay] : 4);
+    else matches = String(cursor.getDate()) === String(payDay);
+    if (matches && !recorded[ds]) missing.push(ds);
+    cursor.setDate(cursor.getDate() + 1); guard++;
+  }
+  return missing;
+};
+FT.catchUpCheques = function () {
+  var missing = FT.getMissingPaydays();
+  if (!missing.length) return 0;
+  var u = FT._user || FT.loadUser() || {};
+  var freq = u.payFreq || 'weekly';
+  var checks = freq === 'weekly' ? 4 : freq === 'biweekly' ? 2 : 1;
+  var expected = (u.income || 0) / checks;
+  if (expected <= 0) return 0;
+  missing.forEach(function (f) { FT.recordCheque({ monto: expected, fecha: f, tipo: 'nuevo' }); });
+  return missing.length;
+};
+
+function _advanceRecDate(freq, fromStr) {
+  var dt = new Date(fromStr + 'T00:00:00');
+  if (freq === 'weekly') dt.setDate(dt.getDate() + 7);
+  else if (freq === 'biweekly') dt.setDate(dt.getDate() + 14);
+  else dt.setMonth(dt.getMonth() + 1);
+  return FT.date(dt, 'ISO');
+}
+FT._advanceRecDate = _advanceRecDate;
+
+function _applyRecMeta(rec, hoy) {
+  try {
+    var f = FT.hogarFondos();
+    var meta = rec.metaTipo === 'emerg' ? f.emerg : (rec.metaId != null ? f.metas.find(function (m) { return m.id === rec.metaId; }) : f.metas[rec.metaIdx]);
+    if (!meta) return 'broken';
+    meta.hist = meta.hist || [];
+    if (meta.hist.some(function (h) { return h.fecha === hoy && (h.recId === rec.id || !h.recId); })) return 'already';
+    meta.hist.push({ id: 'd_' + Date.now() + '_' + Math.floor(Math.random() * 1000), monto: rec.amount, fecha: hoy, desdePres: rec.desdePres, auto: true, recId: rec.id });
+    meta.actual = meta.hist.reduce(function (a, h) { return a + (h.monto || 0); }, 0);
+    FT.set(K.hogarFondos, f);
+    if (rec.desdePres) {
+      var d = FT.data();
+      d.transactions.push({ id: Date.now(), type: 'ahorro', desc: rec.desc, amount: rec.amount, date: hoy, cat: '🏠 Hogar', hogar: true, createdBy: FT.userName(), auto: true, recId: rec.id });
+      FT.set(K.data, d);
+    }
+    return 'applied';
+  } catch (e) { return 'broken'; }
+}
+function _applyRecAhorro(rec, hoy) {
+  try {
+    var toEmerg = rec.dest === 'emergencia';
+    var id = Date.now();
+    if (toEmerg) {
+      var eh = FT.get(K.emergHist, []) || [];
+      if (eh.some(function (h) { return h.date === hoy && h.recId === rec.id; })) return 'already';
+      FT.addEmergency({ id: id, amount: rec.amount, date: hoy, tipo: 'deposito', note: rec.desc, recId: rec.id, monthTx: true });
+    } else {
+      var hist = FT.savingsHist();
+      if (hist.some(function (h) { return h.fecha === hoy && (h.recId === rec.id || !h.recId); })) return 'already';
+      FT.addSavings({ id: id, amount: rec.amount, date: hoy, note: rec.desc, recId: rec.id, monthTx: true });
+    }
+    // Un recurrente de ahorro es un aporte planeado desde el ingreso → cuenta como ahorro del mes.
+    var d = FT.data();
+    d.transactions.push({ id: id, type: 'ahorro', desc: rec.desc, amount: rec.amount, date: hoy, cat: toEmerg ? '🛡️ Emergencia' : '💵 Ahorro', dest: toEmerg ? 'emergencia' : 'libre', createdBy: FT.userName(), auto: true, recId: rec.id });
+    FT.set(K.data, d);
+    return 'applied';
+  } catch (e) { return 'broken'; }
+}
+function _applyRecInversion(rec, hoy) {
+  try {
+    var scope = rec.hogar ? 'hogar' : '';
+    var invs = FT.investments(scope);
+    if (invs.some(function (i) { return i.recId === rec.id && i.fecha === hoy; })) return 'already';
+    var id = Date.now();
+    var tk = String(rec.desc || '').toUpperCase();
+    // suma a la posición existente del mismo ticker, o crea una nueva
+    var pos = invs.find(function (i) { return String(i.ticker || '').toUpperCase() === tk; });
+    if (pos) {
+      var oldAmt = parseFloat(pos.amount) || (parseFloat(pos.shares) || 1) * (parseFloat(pos.avgPrice) || 0);
+      pos.amount = oldAmt + rec.amount; pos.avgPrice = pos.amount; pos.curPrice = pos.amount; pos.shares = 1; pos.fecha = hoy; pos.recId = rec.id;
+    } else {
+      invs.push({ id: 'i_' + id, ticker: tk, type: 'other', shares: 1, avgPrice: rec.amount, curPrice: rec.amount, amount: rec.amount, platform: '', modo: 'nueva', fecha: hoy, addedBy: FT.userName(), addedAt: new Date().toISOString(), recId: rec.id, txId: id });
+    }
+    FT.saveInvestments(invs, scope);
+    // cuenta contra el disponible del mes (aporte planeado desde el ingreso)
+    var d = FT.data();
+    d.transactions.push({ id: id, type: 'inversion', desc: tk, amount: rec.amount, date: hoy, cat: '📈 Inversión', hogar: !!rec.hogar, createdBy: FT.userName(), auto: true, recId: rec.id, fromInvPage: true });
+    FT.set(K.data, d);
+    return 'applied';
+  } catch (e) { return 'broken'; }
+}
+function _applyRecDebt(rec, hoy) {
+  try {
+    var debts = FT.debts();
+    var i = debts.findIndex(function (d) { return String(d.id) === String(rec.debtId); });
+    if (i < 0) return 'broken';
+    var d = debts[i];
+    if ((d.abonos || []).some(function (a) { return a.fecha === hoy && (a.recId === rec.id || !a.recId); })) return 'already';
+    var old = parseFloat(d.balance) || 0, nu = Math.max(0, old - rec.amount);
+    d.balance = nu; d.updatedAt = new Date().toISOString();
+    d.paidMonths = d.paidMonths || {}; d.paidMonths[String(hoy).slice(0, 7)] = true;
+    d.abonos = d.abonos || [];
+    var apr = parseFloat(d.apr) || 0;
+    var interes = apr > 0 ? +(old * (apr / 100 / 12)).toFixed(2) : 0;
+    var capital = +Math.max(0, rec.amount - interes).toFixed(2);
+    var abonoId = Date.now(), txId = abonoId + 1;
+    var dt = FT.data();
+    dt.transactions.push({ id: txId, type: 'gasto', desc: (FT.lang === 'es' ? 'Abono a ' : 'Payment to ') + d.name, amount: rec.amount, date: hoy, cat: '💳 Deudas', hogar: rec.hogar, createdBy: FT.userName(), auto: true, recId: rec.id });
+    FT.set(K.data, dt);
+    d.abonos.push({ id: abonoId, monto: rec.amount, fecha: hoy, nota: '', saldoAntes: old, saldoDespues: nu, tipo: 'nuevo', createdBy: FT.userName(), txId: txId, interesPagado: interes, capitalPagado: capital, auto: true, recId: rec.id });
+    FT.set(K.debts, debts);
+    return 'applied';
+  } catch (e) { return 'broken'; }
+}
+function _applyRecMetaPersonal(rec, hoy) {
+  try {
+    var goals = FT.goals();
+    var g = goals.find(function (x) { return String(x.id) === String(rec.goalId); });
+    if (!g) return 'broken';
+    g.hist = g.hist || [];
+    if (g.hist.some(function (h) { return h.fecha === hoy && h.recId === rec.id; })) return 'already';
+    FT.addGoalDeposit(g.id, rec.amount, { date: hoy, recId: rec.id, auto: true });
+    return 'applied';
+  } catch (e) { return 'broken'; }
+}
+FT.applyDueRecurring = function () {
+  var rec = FT.recurring();
+  if (!rec.length) return 0;
+  var hoy = FT.todayISO(), applied = 0;
+  rec.forEach(function (r) {
+    if (!r.active || r.paused || !r.nextDate) return;
+    var guard = 0;
+    while (r.nextDate && r.nextDate <= hoy && guard < 60) {
+      var st = 'broken';
+      if (r.kind === 'meta') st = _applyRecMeta(r, r.nextDate);
+      else if (r.kind === 'ahorro') st = _applyRecAhorro(r, r.nextDate);
+      else if (r.kind === 'inversion') st = _applyRecInversion(r, r.nextDate);
+      else if (r.kind === 'debt') st = _applyRecDebt(r, r.nextDate);
+      else if (r.kind === 'metapersonal') st = _applyRecMetaPersonal(r, r.nextDate);
+      if (st === 'broken') { r.active = false; break; }
+      if (st === 'applied') applied++;
+      r.nextDate = _advanceRecDate(r.freq, r.nextDate);
+      guard++;
+    }
+  });
+  FT.set(K.recurring, rec);
+  if (applied) FT._changed();
+  return applied;
+};
+
+function _applyDueList(key, defCat) {
+  try {
+    var list = FT.get(key, []) || [];
+    if (!list.length) return 0;
+    var today = new Date(); today.setHours(0, 0, 0, 0);
+    var d = FT.data(), applied = 0, name = FT.userName();
+    list.forEach(function (s) {
+      if (s.paused || !s.date) return;
+      var guard = 0;
+      while (guard < 60) {
+        var p = s.date.split('-').map(Number);
+        var dd = new Date(p[0], p[1] - 1, p[2]);
+        if (!(dd < today)) break;
+        d.transactions.push({ id: Date.now() + guard, type: 'suscripcion', desc: s.name, amount: parseFloat(s.amount) || 0, date: s.date, cat: s.cat || defCat, hogar: s.hogar === true, createdBy: name, auto: true });
+        applied++;
+        if (s.freq === 'annual') dd.setFullYear(dd.getFullYear() + 1);
+        else if (s.freq === 'weekly') dd.setDate(dd.getDate() + 7);
+        else dd.setMonth(dd.getMonth() + 1);
+        s.date = FT.date(dd, 'ISO');
+        guard++;
+      }
+    });
+    if (applied) { FT.set(K.data, d); FT.set(key, list); FT._changed(); }
+    return applied;
+  } catch (e) { return 0; }
+}
+FT.applyDueSubscriptions = function () { return _applyDueList(K.subs, '🔄 Suscripción'); };
+FT.applyDueServicios = function () { return _applyDueList(K.servicios, '🏠 Servicio'); };
+
+FT.runAutomations = function () {
+  var n = 0;
+  try { n += FT.catchUpCheques(); } catch (e) {}
+  try { n += FT.applyDueRecurring(); } catch (e) {}
+  try { n += FT.applyDueSubscriptions(); } catch (e) {}
+  try { n += FT.applyDueServicios(); } catch (e) {}
+  if (n > 0 && FT.toast) FT.toast(FT.t('automations_done'), { icon: '🔄' });
+};
+
+/* ─────────────────────────────────────────────────────────────────────────
+   5b · ALTA DE REGISTRO — escritor universal del "＋" (usado por dashboard,
+        y como fallback del "＋" contextual). Maneja todas las escrituras
+        cruzadas (ahorro, emergencia, inversión, suscripción/servicio).
+   ───────────────────────────────────────────────────────────────────────── */
+FT.entryCategoryType = function (cat) {
+  cat = String(cat || '');
+  var NEEDS = ['Supermercado','Renta','Hipoteca','Gasolina','Salud','Teléfono','Internet','Mantenimiento','Deudas','Hogar','Luz','Agua','Gas','Servicio','Servicios'];
+  for (var i = 0; i < NEEDS.length; i++) if (cat.indexOf(NEEDS[i]) > -1) return 'needs';
+  return 'wants';
+};
+
+/**
+ * FT.addEntry(o) — o: { type, desc, amount, date, note, cat, hogar, dest,
+ *   incomeKind, invType, platform, recurrente:{freq}, esServicioHogar }
+ * Devuelve la transacción creada (o null si faltan datos).
+ */
+FT.addEntry = function (o) {
+  o = o || {};
+  var amount = parseFloat(o.amount) || 0;
+  if (!o.desc || !amount || !o.date) return null;
+  var es = FT.lang === 'es';
+  var name = FT.userName();
+  var hogar = FT.hogarConnected() ? !!o.hogar : undefined;
+
+  var cat = o.cat;
+  if (o.type === 'ingreso') cat = '💰 Ingreso';
+  else if (o.type === 'ahorro') cat = o.dest === 'libre' ? '💵 Ahorro' : '🛡️ Emergencia';
+  else if (o.type === 'inversion') cat = '📈 Inversión';
+
+  var id = Date.now();
+  var entry = {
+    id: id, type: o.type, desc: o.desc, amount: amount, date: o.date, note: o.note || '', cat: cat,
+    hogar: hogar, createdBy: name,
+    dest: o.type === 'ahorro' ? (o.dest || 'libre') : undefined,
+    incomeKind: o.type === 'ingreso' ? (o.incomeKind || 'extra') : undefined
+  };
+
+  // Escrituras cruzadas
+  if (o.type === 'ahorro') {
+    if (o.dest === 'emergencia') FT.addEmergency({ id: id, amount: amount, date: o.date, tipo: 'deposito', note: o.desc });
+    else FT.addSavings({ id: id, amount: amount, date: o.date, tipo: 'deposito', note: o.desc });
+    if (o.recurrente && o.recurrente.freq) {
+      var recA = FT.recurring();
+      recA.push({ id: 'rec_' + Date.now(), kind: 'ahorro', dest: o.dest === 'emergencia' ? 'emergencia' : 'libre', desc: o.desc, amount: amount, freq: o.recurrente.freq, hogar: false, nextDate: _advanceRecDate(o.recurrente.freq, o.date), active: true, createdBy: name });
+      FT.set(K.recurring, recA);
+    }
+  } else if (o.type === 'inversion') {
+    var scope = (hogar) ? 'hogar' : '';
+    var list = FT.investments(scope);
+    list.push({ id: 'i_' + id, ticker: String(o.desc).toUpperCase(), type: o.invType || 'other', shares: 1, avgPrice: amount, curPrice: amount, amount: amount, platform: o.platform || '', modo: 'nueva', fecha: o.date, addedBy: name, addedAt: new Date().toISOString() });
+    FT.saveInvestments(list, scope);
+    if (o.recurrente && o.recurrente.freq) {
+      var rec = FT.recurring();
+      rec.push({ id: 'rec_' + Date.now(), kind: 'inversion', desc: o.desc, amount: amount, freq: o.recurrente.freq, hogar: !!hogar, nextDate: _advanceRecDate(o.recurrente.freq, o.date), active: true, createdBy: name });
+      FT.set(K.recurring, rec);
+    }
+  } else if (o.type === 'suscripcion') {
+    if (o.esServicioHogar) {
+      var sv = FT.servicios();
+      sv.push({ id: 'sv_' + id, name: o.desc, amount: amount, freq: (o.recurrente && o.recurrente.freq) || 'monthly', date: o.date, cat: cat || '🏠 Servicio', paused: false, hogar: true, createdBy: name });
+      FT.set(K.servicios, sv);
+    } else {
+      var ss = FT.subs();
+      ss.push({ id: 's_' + id, name: o.desc, amount: amount, freq: (o.recurrente && o.recurrente.freq) || 'monthly', date: o.date, cat: cat || '📦 Otro', paused: false, hogar: !!hogar, createdBy: name });
+      FT.set(K.subs, ss);
+    }
+  }
+
+  // Cobertura de gasto (opción C): o.cobertura = { source:'libre'|'emergencia', monto:<faltante> }
+  var cobId = null;
+  if (o.type === 'gasto' && o.cobertura && parseFloat(o.cobertura.monto) > 0) {
+    var src = o.cobertura.source;
+    var poolBal = src === 'emergencia' ? FT.emergencyBalance() : FT.savingsBalance();
+    var take = Math.min(parseFloat(o.cobertura.monto), poolBal);   // no cubrir más de lo que hay en el pozo
+    if (take > 0) {
+      cobId = 'cob_' + id;
+      entry.cobId = cobId;
+      var d0 = FT.data();
+      d0.transactions.push({ id: id + 1, type: 'ingreso', incomeKind: 'cobertura', desc: (es ? 'Cobertura: ' : 'Coverage: ') + o.desc, amount: take, date: o.date, cat: '💰 Ingreso', cobId: cobId, cobFor: o.desc, createdBy: name });
+      FT.set(K.data, d0);
+      var cobEntry = { id: 'cobm_' + id, amount: take, date: o.date, tipo: 'retiro', note: (es ? 'Cobertura: ' : 'Coverage: ') + o.desc, cobId: cobId, cobFor: o.desc };
+      if (src === 'emergencia') FT.addEmergency(cobEntry); else FT.addSavings(cobEntry);
+    }
+  }
+
+  var d = FT.data();
+  d.transactions.push(entry);
+  FT.saveData(d);
+
+  // Ingreso extra + reparto automático solicitado
+  if (o.type === 'ingreso' && entry.incomeKind === 'extra' && o.autoDist) FT.applyDist(amount, { note: o.desc });
+
+  return entry;
+};
+
+/** Reparto del sobrante segun ft_dist_pcts (ahorro / emergencia / inversion-sugerida). */
+FT.applyDist = function (leftover, opts) {
+  opts = opts || {};
+  var dist = FT.distPcts();
+  var es = FT.lang === 'es';
+  var note = opts.note || (es ? 'Distribución del sobrante' : 'Leftover distribution');
+  var a = Math.round(leftover * (dist.ahorro || 0) / 100);
+  var e = Math.round(leftover * (dist.emergencia || 0) / 100);
+  var inv = Math.round(leftover * (dist.inversion || 0) / 100);
+  if (a > 0) {
+    FT.addSavings({ id: Date.now(), amount: a, date: FT.todayISO(), tipo: 'deposito', note: note });
+    var d0 = FT.data();
+    d0.transactions.push({ id: Date.now() + 1, type: 'ahorro', desc: (es ? 'Ahorro libre — ' : 'Free savings — ') + note, amount: a, date: FT.todayISO(), cat: '💵 Ahorro', dest: 'libre', createdBy: FT.userName() });
+    FT.set(K.data, d0);
+  }
+  if (e > 0) FT.addEmergency({ id: Date.now() + 2, amount: e, date: FT.todayISO(), tipo: 'deposito', note: note });
+  if (inv > 0) FT.setRaw(K.investSuggest, ((parseFloat(FT.getRaw(K.investSuggest, '0')) || 0) + inv).toFixed(2));
+  FT._changed();
+  return { ahorro: a, emergencia: e, inversion: inv };
+};
+
+/* ─────────────────────────────────────────────────────────────────────────
+   5c · NOTIFICACIONES — ampliadas (§2): deuda por vencer, presupuesto
+        excedido, cheque registrado, dinero movido a ahorro/emergencia.
+        Devuelve [{ icon, text, url, tone }]. Cada pantalla puede añadir
+        las suyas via FT.setNotifications(fn) — esta es la base.
+   ───────────────────────────────────────────────────────────────────────── */
+FT.getNotifications = function () {
+  var out = [];
+  var es = FT.lang === 'es';
+  var today = new Date();
+  var mk = today.toISOString().slice(0, 7);
+
+  // 1 · Deudas por vencer (<=5 días, no pagadas este mes, no descartadas)
+  FT.debts().forEach(function (d) {
+    var payDay = d.payDay || 1;
+    var due = new Date(today.getFullYear(), today.getMonth(), payDay);
+    var diff = Math.ceil((due - today) / 86400000);
+    var paid = !!(d.paidMonths && d.paidMonths[mk]);
+    var hidden = FT.getRaw('ft_notif_hidden_' + d.id + '_' + mk) === '1';
+    if (!paid && !hidden && diff <= 5) {
+      out.push({ icon: '💳', tone: 'red', url: 'deudas.html',
+        text: (es ? d.name + ' vence ' + (diff <= 0 ? 'hoy' : 'en ' + diff + ' día' + (diff > 1 ? 's' : '')) : d.name + ' due ' + (diff <= 0 ? 'today' : 'in ' + diff + ' day' + (diff > 1 ? 's' : ''))) + ' · ' + FT.money(d.balance) });
+    }
+  });
+
+  // 2 · Cheque registrado hoy
+  FT.cheques().forEach(function (c) {
+    if (c.fecha === FT.todayISO()) {
+      out.push({ icon: '💵', tone: 'green', url: 'dashboard.html',
+        text: (es ? 'Cheque registrado · ' : 'Paycheck logged · ') + FT.money(c.monto) + ' · ' + FT.money(c.hogarAmt) + (es ? ' hogar / ' : ' household / ') + FT.money(c.personalAmt) + (es ? ' personal' : ' personal') });
+    }
+  });
+
+  // 3 · Dinero movido hoy a ahorro / emergencia (entradas automáticas)
+  var moved = FT.txs().filter(function (t) { return t.date === FT.todayISO() && t.type === 'ahorro' && t.auto; });
+  moved.forEach(function (t) {
+    var toEmerg = t.cat === '🛡️ Emergencia' || t.dest === 'emergencia';
+    out.push({ icon: toEmerg ? '🛡️' : '🏦', tone: 'blue', url: toEmerg ? 'emergencia.html' : 'ahorro.html',
+      text: FT.money(t.amount) + (es ? ' movido a ' : ' moved to ') + (toEmerg ? (es ? 'Emergencia' : 'Emergency') : (es ? 'Ahorro libre' : 'Free savings')) });
+  });
+
+  return out;
+};
+
+/* ─────────────────────────────────────────────────────────────────────────
+   6 · PREMIUM
+   ───────────────────────────────────────────────────────────────────────── */
+FT.getPremiumInfo = function () { return FT.get(K.premium, null); };
+FT.getActivePlan = function () {
+  try {
+    var p = FT.get(K.premium, null);
+    if (!p || !p.plan) return 'free';
+    if (p.expiresAt && new Date(p.expiresAt) < new Date()) return 'free';
+    return String(p.plan).trim().toLowerCase();
+  } catch (e) { return 'free'; }
+};
+FT.isPremium = function () { return FT.getActivePlan() === 'premium'; };
+FT.isFree = function () { return FT.getActivePlan() === 'free'; };
+FT.savePlan = function (plan, email, expiresAt) {
+  FT.set(K.premium, { plan: plan, email: email, activatedAt: new Date().toISOString(), expiresAt: expiresAt || null });
+};
+FT.clearPlan = function () { FT.del(K.premium); };
+var FREE_FEATURES = ['dashboard', 'nuevo_registro', 'historial', 'analisis_basico', 'emergencia', 'metas_basico', 'suscripciones_basico', 'voz', 'atajos', 'csv_import', 'deudas_simple'];
+FT.canUse = function (feature) { return FREE_FEATURES.indexOf(feature) > -1 || FT.isPremium(); };
+
+FT.checkAccess = function (email) {
+  var url = GAS_URL + '?action=checkAccess&email=' + encodeURIComponent((email || '').trim());
+  return (function attempt(n) {
+    return fetch(url).then(function (r) { if (!r.ok) throw new Error('GAS ' + r.status); return r.json(); })
+      .catch(function (err) {
+        if (n < 1) return new Promise(function (res) { setTimeout(res, 800); }).then(function () { return attempt(n + 1); });
+        // 2 intentos fallidos → mantener premium local vigente
+        try {
+          var c = FT.get(K.premium, {}) || {};
+          var plan = c.plan ? String(c.plan).trim().toLowerCase() : '';
+          var vig = !c.expiresAt || new Date(c.expiresAt) > new Date();
+          if (plan === 'premium' && vig) return { access: true, plan: c.plan, expiresAt: c.expiresAt || null };
+        } catch (e) {}
+        return { access: true, plan: 'free', expiresAt: null };
+      });
+  })(0);
+};
+
+/* ─────────────────────────────────────────────────────────────────────────
+   7 · CRÉDITOS IA
+   ───────────────────────────────────────────────────────────────────────── */
+FT.getCredits = function () {
+  var c = FT.get(K.aiCredits, {}) || {};
+  var mo = new Date().toISOString().slice(0, 7);
+  if (c.month !== mo) { c = { used: 0, month: mo, extra: c.extra || 0 }; FT.set(K.aiCredits, c); }
+  return c;
+};
+/** Los créditos mensuales son exclusivos de Premium; los extra (comprados/canjeados)
+ *  se conservan aunque el plan caduque, pero sin Premium no se pueden gastar. */
+FT.creditsLeft = function () {
+  if (!FT.isPremium()) return 0;
+  var c = FT.getCredits();
+  return Math.max(0, MAX_AI_PREMIUM - (c.used || 0)) + (c.extra || 0);
+};
+/** Consume primero la cuota mensual; solo toca los créditos extra cuando esa
+ *  cuota ya se agotó — así los extra sí se gastan (antes nunca bajaban, se
+ *  "regeneraban" solos cada mes al resetear `used`). */
+FT.useCredit = function () {
+  var c = FT.getCredits();
+  var mensualLeft = Math.max(0, MAX_AI_PREMIUM - (c.used || 0));
+  if (mensualLeft > 0) c.used = (c.used || 0) + 1;
+  else if ((c.extra || 0) > 0) c.extra = c.extra - 1;
+  FT.set(K.aiCredits, c);
+  return FT.creditsLeft();
+};
+FT.addExtraCredits = function (n) { var c = FT.getCredits(); c.extra = (c.extra || 0) + (parseInt(n, 10) || 0); FT.set(K.aiCredits, c); return FT.creditsLeft(); };
+FT.redeemCode = function (code) {
+  code = String(code || '').trim().toUpperCase();
+  var m = code.match(/^FZ(5|15)-[A-Z0-9]{3,}$/);
+  if (!m) return { ok: false, msg: FT.lang === 'es' ? 'Código inválido' : 'Invalid code' };
+  var used = FT.get(K.usedCodes, []) || [];
+  if (used.indexOf(code) > -1) return { ok: false, msg: FT.lang === 'es' ? 'Este código ya se usó en este dispositivo' : 'This code was already used on this device' };
+  var add = m[1] === '15' ? 15 : 5;
+  used.push(code); FT.set(K.usedCodes, used);
+  FT.addExtraCredits(add);
+  return { ok: true, added: add, left: FT.creditsLeft() };
+};
+
+/* ─────────────────────────────────────────────────────────────────────────
+   8 · GOOGLE APPS SCRIPT
+   ───────────────────────────────────────────────────────────────────────── */
+FT.gas = function (action, params) {
+  var qs = Object.keys(params || {}).map(function (k) { return k + '=' + encodeURIComponent(params[k]); }).join('&');
+  return fetch(GAS_URL + '?action=' + action + (qs ? '&' + qs : '')).then(function (r) { return r.json(); });
+};
+FT.getPartnerProfile = function (email) { return FT.gas('getProfile', { email: email }); };
+FT.createInvite = function (email, name, code) { return FT.gas('createInvite', { email: email, name: name || '', code: code }); };
+FT.acceptInvite = function (code, email, name) { return FT.gas('acceptInvite', { code: code, email: email, name: name || '' }); };
+FT.checkPartner = function (email) { return FT.gas('checkPartner', { email: email }); };
+FT.getHogarTxs = function (email) { return FT.gas('getHogarTxs', { email: email }); };
+
+function _mergeById(oldArr, newArr) {
+  var by = {};
+  (oldArr || []).forEach(function (x) { if (x && x.id != null) by[x.id] = x; });
+  (newArr || []).forEach(function (x) { if (x && x.id != null) by[x.id] = x; });
+  return Object.keys(by).map(function (k) { return by[k]; });
+}
+function _histKeyOf(h) { return h.id != null ? ('id:' + h.id) : ('k:' + h.monto + '|' + h.fecha + '|' + !!h.desdePres); }
+function _mergeHistByKey(a, b) {
+  var byKey = {};
+  (a || []).forEach(function (h) { byKey[_histKeyOf(h)] = h; });
+  (b || []).forEach(function (h) { byKey[_histKeyOf(h)] = h; });
+  return Object.keys(byKey).map(function (k) { return byKey[k]; });
+}
+/** Fusiona el fondo de emergencia + metas compartidas del hogar (por id, con sus
+ *  depósitos fusionados) — lo que sube mi pareja combinado con lo que ya tenía yo. */
+function _mergeFondosInto(myFondos, partnerFondos) {
+  myFondos = myFondos || FT.hogarFondos();
+  if (!partnerFondos) return myFondos;
+  var emergHist = _mergeHistByKey(myFondos.emerg && myFondos.emerg.hist, partnerFondos.emerg && partnerFondos.emerg.hist);
+  var emerg = {
+    meta: (myFondos.emerg && myFondos.emerg.meta) || (partnerFondos.emerg && partnerFondos.emerg.meta) || 0,
+    fecha: (myFondos.emerg && myFondos.emerg.fecha) || (partnerFondos.emerg && partnerFondos.emerg.fecha) || '',
+    hist: emergHist,
+    actual: emergHist.reduce(function (a, h) { return a + (h.monto || 0); }, 0)
+  };
+  var metasById = {};
+  (myFondos.metas || []).forEach(function (m) { if (m && m.id != null) metasById[m.id] = Object.assign({}, m); });
+  (partnerFondos.metas || []).forEach(function (m) {
+    if (!m || m.id == null) return;
+    if (metasById[m.id]) {
+      var mine = metasById[m.id], hist = _mergeHistByKey(mine.hist, m.hist);
+      metasById[m.id] = Object.assign({}, mine, m, { nombre: mine.nombre || m.nombre, hist: hist, actual: hist.reduce(function (a, h) { return a + (h.monto || 0); }, 0) });
+    } else metasById[m.id] = Object.assign({}, m);
+  });
+  return { emerg: emerg, metas: Object.keys(metasById).map(function (k) { return metasById[k]; }) };
+}
+/** Fusiona las deudas que mi pareja marcó como compartidas dentro de MI ft_debts
+ *  (abonos por id, balance recalculado desde original − Σabonos) — para que
+ *  aparezcan completas en Deudas y pueda abonar/crear recurrentes, no solo verlas. */
+function _mergeSharedDebtsIntoMine(partnerSharedDebts) {
+  if (!partnerSharedDebts || !partnerSharedDebts.length) return;
+  var myDebts = FT.debts();
+  partnerSharedDebts.forEach(function (pd) {
+    var idx = myDebts.findIndex(function (d) { return String(d.id) === String(pd.id); });
+    if (idx < 0) { myDebts.push(Object.assign({}, pd, { owner: 'both' })); return; }
+    var mine = myDebts[idx], byId = {};
+    (mine.abonos || []).forEach(function (a) { if (a && a.id != null) byId[a.id] = a; });
+    (pd.abonos || []).forEach(function (a) { if (a && a.id != null) byId[a.id] = a; });
+    var abonos = Object.keys(byId).map(function (k) { return byId[k]; });
+    var original = mine.original || pd.original || mine.balance;
+    myDebts[idx] = Object.assign({}, mine, { owner: 'both', abonos: abonos, original: original, balance: Math.max(0, original - abonos.reduce(function (a, x) { return a + (parseFloat(x.monto) || 0); }, 0)) });
+  });
+  FT.saveDebts(myDebts);
+}
+/** Fusiona recurrentes de deuda compartida — sin pisar mi copia si ya avanzó más
+ *  su nextDate (evita duplicar un pago que aquí ya se aplicó). */
+function _mergeSharedRecurringIntoMine(partnerSharedRecurring) {
+  if (!partnerSharedRecurring || !partnerSharedRecurring.length) return;
+  var mine = FT.recurring(), byId = {};
+  mine.forEach(function (r) { byId[r.id] = r; });
+  partnerSharedRecurring.forEach(function (r) {
+    var m = byId[r.id];
+    if (m && m.nextDate && r.nextDate && m.nextDate > r.nextDate) return;
+    byId[r.id] = r;
+  });
+  FT.set(K.recurring, Object.keys(byId).map(function (k) { return byId[k]; }));
+}
+/** Trae el perfil de mi pareja y lo combina con el mío en todo lo compartido —
+ *  no solo la caché de "profile_<email>", también mis propias claves (fondos,
+ *  deudas compartidas, recurrentes de esas deudas, servicios, cuenta conjunta)
+ *  para que cualquier pantalla —no solo Hogar— quede al día. */
+FT.syncPartner = function () {
+  try {
+    var h = FT.hogar();
+    if (!h.connected || !h.partnerEmail || h.manuallyLeft) return;
+    var pkey = 'profile_' + h.partnerEmail.replace(/[^a-z0-9]/gi, '_');
+    FT.getPartnerProfile(h.partnerEmail).then(function (data) {
+      if (!data || !data.success) return;
+      var nd = {}; try { nd = JSON.parse(data.dataJson || '{}'); } catch (e) {}
+      var old = FT.get(pkey, null); var od = (old && old.data) || {};
+      var merged = {
+        transactions: _mergeById(od.transactions, nd.transactions),
+        emergency: (nd.emergency != null ? nd.emergency : od.emergency) || 0,
+        personalSpentThisMonth: (nd.personalSpentThisMonth != null ? nd.personalSpentThisMonth : od.personalSpentThisMonth) || 0,
+        subscriptions: _mergeById(od.subscriptions, nd.subscriptions),
+        sharedDebts: _mergeById(od.sharedDebts, nd.sharedDebts),
+        hogarInv: _mergeById(od.hogarInv, nd.hogarInv)
+      };
+      var pp = { name: data.name || (old && old.name) || '', email: data.email || h.partnerEmail, income: parseFloat(data.income) || 0, needs: parseFloat(data.needs) || 0, wants: parseFloat(data.wants) || 0, savings: parseFloat(data.savings) || 0, data: merged };
+      FT.set(pkey, pp);
+      FT.set(K.profileB, pp);
+
+      if (nd.fondos) { try { FT.saveHogarFondos(_mergeFondosInto(FT.hogarFondos(), nd.fondos)); } catch (e) {} }
+      if (nd.sharedDebts) { try { _mergeSharedDebtsIntoMine(nd.sharedDebts); } catch (e) {} }
+      if (nd.sharedRecurring) { try { _mergeSharedRecurringIntoMine(nd.sharedRecurring); } catch (e) {} }
+      if (nd.servicios && nd.servicios.length) {
+        try {
+          var myServicios = FT.servicios(), byId = {};
+          myServicios.forEach(function (s) { byId[s.id] = s; });
+          nd.servicios.forEach(function (s) { byId[s.id] = s; });
+          FT.saveServicios(Object.keys(byId).map(function (k) { return byId[k]; }));
+        } catch (e) {}
+      }
+      if (nd.checking) { try { FT.set(K.partnerChecking, nd.checking); } catch (e) {} }
+
+      FT._changed();
+    }).catch(function () {});
+  } catch (e) {}
+};
+
+/* ─────────────────────────────────────────────────────────────────────────
+   9 · i18n
+   ───────────────────────────────────────────────────────────────────────── */
+FT.lang = 'es';
+var I18N = {
+  es: {
+    home: 'Inicio', history: 'Historial', household: 'Hogar', more: 'Más',
+    save: 'Guardar', cancel: 'Cancelar', delete: 'Eliminar', edit: 'Editar', close: 'Cerrar', confirm: 'Confirmar',
+    help: 'Ayuda', logout: 'Cerrar sesión', language: 'Idioma',
+    automations_done: 'Movimientos automáticos al día',
+    money_group_your: 'Tu dinero', money_group_debts: 'Deudas y pagos', money_group_input: 'Entrada de datos',
+    money_group_analysis: 'Análisis', money_group_account: 'Cuenta',
+    l_ahorro: 'Ahorro libre', l_emergencia: 'Fondo de emergencia', l_inversiones: 'Inversiones', l_metas: 'Metas',
+    l_deudas: 'Deudas', l_suscripciones: 'Suscripciones', l_servicios: 'Servicios', l_recurrentes: 'Recurrentes',
+    l_scanner: 'Escanear recibo', l_importar: 'Importar', l_analisis: 'Análisis', l_reporte: 'Reporte mensual',
+    l_perfil: 'Mi perfil', l_config: 'Configuración', l_saldos: 'Saldos iniciales',
+    notif_title: 'Notificaciones', notif_empty: 'Nada pendiente por ahora'
+  },
+  en: {
+    home: 'Home', history: 'History', household: 'Household', more: 'More',
+    save: 'Save', cancel: 'Cancel', delete: 'Delete', edit: 'Edit', close: 'Close', confirm: 'Confirm',
+    help: 'Help', logout: 'Log out', language: 'Language',
+    automations_done: 'Automatic entries caught up',
+    money_group_your: 'Your money', money_group_debts: 'Debts & payments', money_group_input: 'Data entry',
+    money_group_analysis: 'Analysis', money_group_account: 'Account',
+    l_ahorro: 'Free savings', l_emergencia: 'Emergency fund', l_inversiones: 'Investments', l_metas: 'Goals',
+    l_deudas: 'Debts', l_suscripciones: 'Subscriptions', l_servicios: 'Services', l_recurrentes: 'Recurring',
+    l_scanner: 'Scan receipt', l_importar: 'Import', l_analisis: 'Analysis', l_reporte: 'Monthly report',
+    l_perfil: 'My profile', l_config: 'Settings', l_saldos: 'Starting balances',
+    notif_title: 'Notifications', notif_empty: 'Nothing pending for now'
+  }
+};
+FT.t = function (key) { return (I18N[FT.lang] && I18N[FT.lang][key]) || (I18N.es[key]) || key; };
+FT.setLang = function (l) {
+  FT.lang = (l === 'en') ? 'en' : 'es';
+  FT.setRaw(K.lang, FT.lang);
+  FT.applyLang(document);
+  try { document.dispatchEvent(new CustomEvent('ft:langchange', { detail: FT.lang })); } catch (e) {}
+};
+FT.applyLang = function (root) {
+  root = root || document;
+  root.querySelectorAll('[data-es]').forEach(function (el) {
+    var v = el.getAttribute('data-' + FT.lang); if (v != null) el.textContent = v;
+  });
+  root.querySelectorAll('[data-es-ph]').forEach(function (el) {
+    var v = el.getAttribute('data-' + FT.lang + '-ph'); if (v != null) el.setAttribute('placeholder', v);
+  });
+};
+
+/* ─────────────────────────────────────────────────────────────────────────
+   10 · SISTEMA DE DISEÑO — inyección de <style id="ft-ds"> (look v3)
+   ───────────────────────────────────────────────────────────────────────── */
+var DS_CSS = `
+:root{
+  --g-dark:#0F5132; --g-main:#1A7A4A; --g-light:#E8F7EF;
+  --ink:#111318; --text2:#5A5F6E; --text3:#A0A3AF;
+  --chip:#F3F3F5; --hair:#EBECEF; --sunk:#F6F7F8; --white:#fff;
+  --red:#E14B4F; --red-dim:#FCECEC; --amber:#E0952E; --blue:#4361E0; --purple:#7B5EA7;
+  --round-font:'Nunito',-apple-system,'SF Pro Rounded',sans-serif;
+  --ui-font:'Plus Jakarta Sans',-apple-system,'Segoe UI',sans-serif;
+  --tag-bg:#F0F0F2;
+  --peach-bg:#FCE6D2; --peach-tx:#C67B3B; --pink-bg:#FACDDF; --pink-tx:#BF4677;
+  --coral-bg:#FAD4C9; --coral-tx:#CC5C41; --sky-bg:#D9EBF8; --sky-tx:#387CB0;
+  --mint-bg:#DDF1E5; --mint-tx:#2C8A56;
+  --ft-appw:480px;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{font-family:var(--ui-font);background:#EDEEF1;color:var(--ink);-webkit-text-size-adjust:100%;}
+body.ft-ready .ft-app{background:var(--white);}
+.ft-app{max-width:var(--ft-appw);margin:0 auto;background:var(--white);min-height:100vh;position:relative;box-shadow:0 0 0 1px rgba(20,20,30,.04);}
+.ft-page{padding:22px 18px 104px;}
+.ft-num{font-family:var(--round-font);font-weight:900;font-variant-numeric:tabular-nums;letter-spacing:-.4px;}
+input,select,textarea{font-size:16px;font-family:var(--ui-font);}
+.tap{transition:transform .16s ease;}
+.tap:active{transform:scale(.95);}
+button{font-family:var(--ui-font);}
+
+/* HEADER (§4.5) */
+.ft-header{display:flex;align-items:center;justify-content:space-between;padding:6px 2px 20px;}
+.ft-title{font-family:var(--ui-font);font-size:15.5px;font-weight:800;color:var(--ink);display:inline-flex;align-items:center;gap:6px;background:none;border:none;cursor:pointer;padding:0;}
+.ft-title .car{color:var(--text3);font-size:12px;}
+.ft-head-actions{display:flex;gap:9px;align-items:center;}
+.ft-ico{width:36px;height:36px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;font-size:15px;cursor:pointer;background:var(--chip);color:var(--text2);border:none;position:relative;}
+.ft-ico .ft-dot{position:absolute;top:6px;right:7px;width:7px;height:7px;border-radius:50%;background:var(--red);border:1.5px solid #fff;}
+.ft-monthpick{display:inline-flex;align-items:center;gap:9px;padding:6px 11px;border-radius:99px;background:var(--chip);font-size:12.5px;}
+.ft-monthpick b{font-family:var(--round-font);font-weight:800;letter-spacing:-.3px;}
+.ft-monthpick span{color:var(--text3);cursor:pointer;padding:0 2px;}
+
+/* HERO (§4.6) */
+.ft-hero{text-align:center;margin-bottom:6px;}
+.ft-hero .cap{font-size:12px;font-weight:700;color:var(--text3);letter-spacing:.3px;}
+.ft-hero .row{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:6px;}
+.ft-sign{width:24px;height:24px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;color:#fff;font-size:15px;font-weight:900;line-height:1;}
+.ft-sign.neg{background:var(--red);}.ft-sign.pos{background:var(--g-main);}
+.ft-hero .amt{font-family:var(--round-font);font-weight:900;font-size:47px;letter-spacing:-1.8px;color:var(--ink);font-variant-numeric:tabular-nums;line-height:1;}
+.ft-info{width:14px;height:14px;border-radius:50%;border:1px solid var(--text3);color:var(--text3);font-size:9px;font-weight:900;display:inline-grid;place-items:center;opacity:.55;vertical-align:middle;}
+.ft-chev{color:var(--text3);font-weight:900;font-size:12px;}
+.ft-hero .amt .cur{font-size:.44em;letter-spacing:0;color:var(--text3);font-weight:800;margin-left:3px;}
+.ft-split{display:flex;justify-content:center;gap:9px;margin-top:14px;flex-wrap:wrap;}
+.ft-split .chip{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:800;padding:7px 13px;border-radius:99px;background:var(--chip);color:var(--ink);font-variant-numeric:tabular-nums;}
+.ft-split .chip .mini{width:17px;height:17px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:11px;font-weight:900;line-height:1;}
+.ft-split .chip .mini.neg{background:var(--red);}.ft-split .chip .mini.pos{background:var(--g-main);}
+
+/* CARD (§4.3 → blanco sólido) */
+.ft-card{background:var(--white);border:1px solid var(--hair);border-radius:18px;padding:15px 16px;margin-top:22px;box-shadow:0 1px 3px rgba(20,20,30,.035);}
+.ft-section{margin-top:24px;}
+.ft-section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.ft-section-head h3{font-size:13.5px;font-weight:800;margin:0;}
+.ft-section-head .link{font-size:11.5px;font-weight:800;color:var(--g-main);cursor:pointer;background:none;border:none;}
+
+/* PROGRESO (§5) */
+.ft-track{height:9px;border-radius:99px;background:var(--sunk);overflow:hidden;}
+.ft-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--g-main),var(--g-dark));width:0;transition:width 1s cubic-bezier(.22,1,.36,1);}
+
+/* TABS (§5) */
+.ft-tabs{display:flex;gap:6px;background:var(--sunk);padding:4px;border-radius:13px;margin-bottom:14px;}
+.ft-tab{flex:1;text-align:center;padding:8px 6px;border-radius:10px;font-size:12px;font-weight:800;color:var(--text3);cursor:pointer;background:none;border:none;transition:background .2s,color .2s;white-space:nowrap;}
+.ft-tab.on{background:#fff;color:var(--ink);box-shadow:0 2px 8px -2px rgba(20,20,30,.14);}
+.ft-pane{transition:opacity .25s ease;}
+.ft-pane[hidden]{display:none;}
+
+/* BARRAS DE CATEGORÍA (§4.7) */
+.ft-catbars{display:flex;gap:10px;align-items:flex-end;height:196px;}
+.ft-catcol{flex:1;height:100%;display:flex;align-items:flex-end;position:relative;min-width:0;}
+.ft-catbudget{position:absolute;left:0;right:0;bottom:0;border:2px dashed #D9D9DF;border-radius:28px;}
+.ft-catfill{position:relative;width:100%;border-radius:28px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:3px;padding:0 4px 14px;min-height:66px;cursor:pointer;}
+.ft-catfill .emo{font-size:18px;line-height:1;margin-bottom:3px;}
+.ft-catfill .val{font-family:var(--round-font);font-weight:900;font-size:14px;letter-spacing:-.5px;color:var(--ink);}
+.ft-catfill .pct{font-size:10px;font-weight:900;}
+.ft-catcol.peach .ft-catfill{background:var(--peach-bg);}.ft-catcol.peach .pct{color:var(--peach-tx);}
+.ft-catcol.pink .ft-catfill{background:var(--pink-bg);}.ft-catcol.pink .pct{color:var(--pink-tx);}
+.ft-catcol.coral .ft-catfill{background:var(--coral-bg);}.ft-catcol.coral .pct{color:var(--coral-tx);}
+.ft-catcol.sky .ft-catfill{background:var(--sky-bg);}.ft-catcol.sky .pct{color:var(--sky-tx);}
+.ft-catcol.mint .ft-catfill{background:var(--mint-bg);}.ft-catcol.mint .pct{color:var(--mint-tx);}
+
+/* FILA DE TRANSACCIÓN (§4.8) */
+.ft-tx{padding:13px 0;border-bottom:1px solid var(--hair);cursor:pointer;}
+.ft-tx:last-child{border-bottom:none;}
+.ft-tx-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;}
+.ft-pill{background:var(--chip);border-radius:99px;padding:3px 10px;font-size:10.5px;font-weight:800;color:var(--text2);font-variant-numeric:tabular-nums;}
+.ft-tx-body{display:flex;align-items:center;gap:12px;}
+.ft-tx-ico{width:42px;height:42px;border-radius:13px;flex-shrink:0;display:grid;place-items:center;font-size:17px;}
+.ft-tx-ico.peach{background:var(--peach-bg);}.ft-tx-ico.pink{background:var(--pink-bg);}.ft-tx-ico.coral{background:var(--coral-bg);}.ft-tx-ico.sky{background:var(--sky-bg);}.ft-tx-ico.mint{background:var(--mint-bg);}
+.ft-tx-main{flex:1;min-width:0;}
+.ft-tx-label{font-size:10.5px;font-weight:700;color:var(--text3);letter-spacing:.2px;}
+.ft-tx-name{font-family:var(--round-font);font-weight:900;font-size:15px;letter-spacing:-.4px;color:var(--ink);margin:1px 0 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ft-hashtag{display:inline-block;font-size:10.5px;font-weight:700;color:var(--text2);background:var(--tag-bg);padding:2px 8px;border-radius:99px;}
+.ft-tx-breakdown{font-size:10.5px;font-weight:800;color:var(--text3);}
+.ft-tx-amt{font-family:var(--round-font);font-weight:900;font-size:14.5px;flex-shrink:0;font-variant-numeric:tabular-nums;letter-spacing:-.4px;}
+.ft-tx-amt.out{color:var(--ink);}.ft-tx-amt.in{color:var(--g-main);}
+
+/* BOTONES */
+.ft-btn{width:100%;border:none;border-radius:14px;padding:12px;cursor:pointer;font-size:13px;font-weight:800;}
+.ft-btn-primary{color:#fff;background:linear-gradient(135deg,var(--g-dark),var(--g-main));box-shadow:0 10px 20px -10px rgba(15,81,50,.6);}
+.ft-btn-ghost{background:var(--sunk);border:1.5px solid var(--hair);color:var(--ink);}
+
+/* MENÚ INFERIOR (§4.9) */
+.ft-nav{position:fixed;left:0;right:0;bottom:0;max-width:var(--ft-appw);margin:0 auto;display:flex;align-items:center;justify-content:space-around;padding:9px 14px calc(9px + env(safe-area-inset-bottom));background:var(--white);border-top:1px solid var(--hair);z-index:80;}
+.ft-nav-item{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:9.5px;font-weight:800;color:var(--text3);cursor:pointer;background:none;border:none;text-decoration:none;}
+.ft-nav-item.on{color:var(--g-main);}
+.ft-nav-item .i{font-size:19px;line-height:1;}
+.ft-nav-plus{width:52px;height:52px;border-radius:50%;margin-top:-24px;flex-shrink:0;display:grid;place-items:center;font-size:26px;color:#fff;cursor:pointer;background:linear-gradient(135deg,var(--g-dark),var(--g-main));box-shadow:0 12px 24px -8px rgba(15,81,50,.6);border:3px solid #fff;}
+
+/* OVERLAYS: modal + hoja inferior — encabezado y pie FIJOS, solo el centro hace scroll */
+.ft-overlay{position:fixed;inset:0;background:rgba(15,17,24,.42);z-index:200;display:flex;opacity:0;transition:opacity .2s ease;}
+.ft-overlay.on{opacity:1;}
+.ft-overlay.center{align-items:flex-end;justify-content:center;}
+.ft-overlay.bottom{align-items:flex-end;justify-content:center;}
+@media(min-width:560px){.ft-overlay.center{align-items:center;padding:20px;}}
+
+.ft-modal-box{background:var(--white);width:100%;max-width:var(--ft-appw);max-height:92vh;display:flex;flex-direction:column;overflow:hidden;border-radius:22px 22px 0 0;transform:translateY(16px);transition:transform .2s ease;}
+.ft-overlay.on .ft-modal-box{transform:translateY(0);}
+@media(min-width:560px){.ft-modal-box{width:min(420px,calc(100vw - 32px));border-radius:18px;transform:scale(.96);}.ft-overlay.on .ft-modal-box{transform:scale(1);}}
+
+.ft-sheet-box{background:var(--white);width:100%;max-width:var(--ft-appw);max-height:90vh;display:flex;flex-direction:column;overflow:hidden;border-radius:24px 24px 0 0;transform:translateY(16px);transition:transform .2s ease;}
+.ft-overlay.on .ft-sheet-box{transform:translateY(0);}
+
+.ft-sheet-grab{width:38px;height:4px;background:var(--hair);border-radius:99px;margin:10px auto 4px;flex-shrink:0;}
+.ft-modal-head{flex-shrink:0;display:flex;justify-content:space-between;align-items:center;padding:16px 20px 12px;border-bottom:1px solid var(--hair);}
+.ft-modal-head h4{font-size:16px;font-weight:800;margin:0;line-height:1.3;}
+.ft-modal-head .x{cursor:pointer;font-size:20px;color:var(--text3);background:none;border:none;line-height:1;flex-shrink:0;padding:0 0 0 12px;}
+.ft-modal-body,.ft-sheet-body{overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 20px;flex:1;}
+.ft-modal-foot,.ft-sheet-foot{flex-shrink:0;padding:12px 20px calc(14px + env(safe-area-inset-bottom));border-top:1px solid var(--hair);display:flex;flex-direction:column;gap:8px;}
+.ft-sheet-box > .ft-modal-head{border-bottom:1px solid var(--hair);}
+.ft-sheet-box.noscroll{max-height:none;}
+.ft-field{margin-bottom:14px;}
+.ft-field label{display:block;font-size:10px;font-weight:900;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;}
+.ft-field input,.ft-field select,.ft-field textarea{width:100%;background:var(--sunk);border:1.5px solid var(--hair);border-radius:10px;padding:10px 12px;font-size:14px;outline:none;}
+.ft-field input:focus,.ft-field select:focus,.ft-field textarea:focus{border-color:var(--g-main);}
+.ft-row{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--hair);font-size:13px;}
+.ft-row:last-child{border-bottom:none;}
+.ft-row .k{color:var(--text2);}
+.ft-row .v{font-weight:800;font-variant-numeric:tabular-nums;}
+
+/* HOJA "MÁS" */
+.ft-more-group{margin-bottom:16px;}
+.ft-more-group h5{font-size:10px;font-weight:900;letter-spacing:.5px;text-transform:uppercase;color:var(--text3);margin:0 0 8px;}
+.ft-more-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px 6px;}
+.ft-more-item{display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;background:none;border:none;text-decoration:none;}
+.ft-more-item .ic{width:50px;height:50px;border-radius:15px;background:var(--sunk);display:grid;place-items:center;font-size:22px;}
+.ft-more-item span{font-size:10px;font-weight:700;color:var(--text2);text-align:center;line-height:1.2;}
+
+/* TOAST */
+.ft-toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%) translateY(8px);background:var(--ink);color:#fff;padding:11px 18px;border-radius:14px;font-size:12.5px;font-weight:700;z-index:400;opacity:0;transition:opacity .2s,transform .2s;max-width:calc(100vw - 40px);text-align:center;}
+.ft-toast.on{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* AYUDA */
+.ft-help-item{border-bottom:1px solid var(--hair);padding:10px 2px;}
+.ft-help-item summary{cursor:pointer;font-size:13.5px;font-weight:800;color:var(--ink);list-style:none;}
+.ft-help-item summary::-webkit-details-marker{display:none;}
+.ft-help-item .a{font-size:12.5px;color:var(--text2);margin-top:8px;line-height:1.55;}
+
+/* Pantalla de saldo de dominio (ahorro / emergencia) */
+.ft-bs-hero{text-align:center;margin-bottom:6px;}
+.ft-bs-hero .cap{font-size:11.5px;font-weight:700;color:var(--text3);display:inline-flex;align-items:center;gap:5px;cursor:pointer;background:none;border:none;font-family:var(--ui-font);}
+.ft-bs-hero .amt{font-family:var(--round-font);font-weight:900;font-size:44px;letter-spacing:-1.6px;line-height:1;margin-top:7px;font-variant-numeric:tabular-nums;color:var(--g-main);}
+.ft-bs-hero.emerg .amt{color:var(--amber);}
+.ft-bs-hero .sub{font-size:11.5px;color:var(--text3);margin-top:6px;}
+.ft-bs-gtrack{height:9px;border-radius:99px;background:var(--sunk);overflow:hidden;margin:12px 0 6px;}
+.ft-bs-gfill{height:100%;border-radius:99px;background:var(--amber);transition:width .8s cubic-bezier(.22,1,.36,1);}
+.ft-bs-grow{display:flex;justify-content:space-between;font-size:10.5px;color:var(--text3);font-weight:700;}
+.ft-bs-acts{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:18px 0 6px;}
+.ft-bs-acts button{padding:11px 6px;border-radius:13px;border:1px solid var(--hair);background:var(--sunk);font-family:var(--ui-font);font-size:12px;font-weight:800;color:var(--ink);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;}
+.ft-bs-acts button .e{font-size:17px;}
+.ft-bs-acts button.prim{background:linear-gradient(135deg,var(--g-dark),var(--g-main));color:#fff;border:none;}
+.ft-bs-info{background:#FBF0DD;border-radius:14px;padding:13px 15px;margin:16px 0;}
+.ft-bs-info b{font-size:12px;color:#8A5A12;display:block;margin-bottom:5px;}
+.ft-bs-info p{font-size:11.5px;color:var(--text2);line-height:1.55;}
+.ft-mv{display:flex;align-items:center;gap:11px;padding:12px 0;border-bottom:1px solid var(--hair);cursor:pointer;}
+.ft-mv:last-child{border-bottom:none;}
+.ft-mv .ic{width:38px;height:38px;border-radius:11px;flex-shrink:0;display:grid;place-items:center;font-size:15px;}
+.ft-mv .ic.up{background:var(--mint-bg);}.ft-mv .ic.dn{background:var(--red-dim);}.ft-mv .ic.rec{background:var(--sky-bg);}
+.ft-mv .m{flex:1;min-width:0;}
+.ft-mv .m .n{font-family:var(--round-font);font-weight:900;font-size:14px;letter-spacing:-.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ft-mv .m .d{font-size:10.5px;color:var(--text3);font-weight:700;margin-top:1px;}
+.ft-mv .amt{font-family:var(--round-font);font-weight:900;font-size:14px;font-variant-numeric:tabular-nums;flex-shrink:0;}
+.ft-mv .amt.in{color:var(--g-main);}.ft-mv .amt.out{color:var(--ink);}
+.ft-empty{text-align:center;color:var(--text3);font-size:12.5px;padding:22px 10px;}
+
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important;}}
+@media (min-width:520px){body{padding:0;}}
+`;
+FT.injectDS = function () {
+  if (document.getElementById('ft-ds')) return;
+  var st = document.createElement('style');
+  st.id = 'ft-ds';
+  st.textContent = DS_CSS;
+  (document.head || document.documentElement).appendChild(st);
+};
+FT.injectDS();
+
+/* ─────────────────────────────────────────────────────────────────────────
+   11 · UI PRIMITIVOS — toast, sheet, modal, confirm
+   ───────────────────────────────────────────────────────────────────────── */
+FT.toast = function (msg, opts) {
+  opts = opts || {};
+  var el = document.getElementById('ft-toast-el');
+  if (!el) { el = document.createElement('div'); el.id = 'ft-toast-el'; el.className = 'ft-toast'; document.body.appendChild(el); }
+  el.textContent = (opts.icon ? opts.icon + '  ' : '') + msg;
+  requestAnimationFrame(function () { el.classList.add('on'); });
+  clearTimeout(el._t);
+  el._t = setTimeout(function () { el.classList.remove('on'); }, opts.ms || 3000);
+};
+
+function _overlay(kind, innerHTML) {
+  var ov = document.createElement('div');
+  ov.className = 'ft-overlay ' + kind;
+  ov.innerHTML = innerHTML;
+  ov.addEventListener('click', function (e) { if (e.target === ov) FT.closeTop(); });
+  document.body.appendChild(ov);
+  requestAnimationFrame(function () { ov.classList.add('on'); });
+  return ov;
+}
+FT._stack = [];
+FT.closeTop = function () {
+  var ov = FT._stack.pop() || document.querySelector('.ft-overlay:last-of-type');
+  if (!ov) return;
+  ov.classList.remove('on');
+  setTimeout(function () { ov.remove(); }, 200);
+};
+
+FT.sheet = function (o) {
+  o = o || {};
+  var acts = o.actions || [];
+  var foot = acts.length
+    ? '<div class="ft-sheet-foot">' + acts.map(function (a, i) {
+        return '<button class="ft-btn ' + (a.primary ? 'ft-btn-primary' : 'ft-btn-ghost') + ' tap" data-ai="' + i + '" style="margin:0">' + a.label + '</button>';
+      }).join('') + '</div>'
+    : '';
+  var ov = _overlay('bottom',
+    '<div class="ft-sheet-box" role="dialog" aria-modal="true">' +
+      '<div class="ft-sheet-grab"></div>' +
+      (o.title ? '<div class="ft-modal-head"><h4>' + o.title + '</h4><button class="x" aria-label="' + FT.t('close') + '">✕</button></div>' : '') +
+      '<div class="ft-sheet-body">' + (o.html || '') + '</div>' + foot +
+    '</div>');
+  FT._stack.push(ov);
+  var x = ov.querySelector('.x'); if (x) x.addEventListener('click', FT.closeTop);
+  acts.forEach(function (a, i) {
+    var b = ov.querySelector('[data-ai="' + i + '"]');
+    if (b) b.addEventListener('click', function () { if (!a.keepOpen) FT.closeTop(); a.onClick && a.onClick(); });
+  });
+  o.onOpen && o.onOpen(ov.querySelector('.ft-sheet-body'));
+  return ov;
+};
+
+FT.modal = function (o) {
+  o = o || {};
+  var ov = _overlay('center',
+    '<div class="ft-modal-box" role="dialog" aria-modal="true">' +
+      '<div class="ft-modal-head"><h4>' + (o.title || '') + '</h4><button class="x" aria-label="' + FT.t('close') + '">✕</button></div>' +
+      '<div class="ft-modal-body">' + (o.html || '') + '</div>' +
+      (o.onSave ? '<div class="ft-modal-foot"><button class="ft-btn ft-btn-primary tap" data-save style="margin:0">' + (o.saveLabel || FT.t('save')) + '</button>' + (o.cancelLabel ? '<button class="ft-btn ft-btn-ghost tap" data-cancel style="margin:0">' + o.cancelLabel + '</button>' : '') + '</div>' : '') +
+    '</div>');
+  FT._stack.push(ov);
+  ov.querySelector('.x').addEventListener('click', FT.closeTop);
+  var body = ov.querySelector('.ft-modal-body');
+  var sb = ov.querySelector('[data-save]');
+  if (sb) sb.addEventListener('click', function () { var keep = o.onSave(body); if (!keep) FT.closeTop(); });
+  var cb = ov.querySelector('[data-cancel]');
+  if (cb) cb.addEventListener('click', FT.closeTop);
+  o.onOpen && o.onOpen(body);
+  return ov;
+};
+
+FT.confirm = function (msg, o) {
+  o = o || {};
+  return new Promise(function (resolve) {
+    FT.sheet({
+      title: o.title || FT.t('confirm'),
+      html: '<p style="font-size:13.5px;color:var(--text2);margin:2px 0 4px">' + msg + '</p>',
+      actions: [
+        { label: o.okLabel || FT.t('confirm'), primary: true, onClick: function () { resolve(true); } },
+        { label: FT.t('cancel'), onClick: function () { resolve(false); } }
+      ]
+    });
+  });
+};
+
+/* ─────────────────────────────────────────────────────────────────────────
+   12 · COMPONENTES (devuelven HTML string)
+   ───────────────────────────────────────────────────────────────────────── */
+/** Parte "🛒 Supermercado" → { emoji:'🛒', label:'Supermercado', pastel:'peach' } */
+FT.catMeta = function (cat, idx) {
+  cat = String(cat || '').trim();
+  var m = cat.match(/^(\p{Extended_Pictographic}(?:️)?)\s*(.*)$/u);
+  var emoji = m ? m[1] : '', label = m ? m[2] : cat;
+  var pastel = CAT_PASTEL[emoji] || PASTELS[(idx || 0) % PASTELS.length];
+  return { emoji: emoji, label: label || cat, pastel: pastel };
+};
+
+FT.heroNumber = function (o) {
+  o = o || {};
+  var p = FT.moneyParts(o.amount, { cents: !!o.cents });
+  var neg = o.sign ? o.sign === '−' || o.sign === '-' || o.negative : p.neg;
+  return '' +
+    '<div class="ft-hero">' +
+      (o.label ? '<div class="cap">' + o.label + '</div>' : '') +
+      '<div class="row">' +
+        '<span class="ft-sign ' + (neg ? 'neg' : 'pos') + '">' + (neg ? '−' : '+') + '</span>' +
+        '<span class="amt">' + p.int + (o.cents ? '<span style="font-size:.5em">,' + p.dec + '</span>' : '') + '<span class="cur">$</span></span>' +
+      '</div>' +
+      (o.splitHTML ? '<div class="ft-split">' + o.splitHTML + '</div>' : '') +
+    '</div>';
+};
+
+FT.progress = function (pct) {
+  pct = Math.max(0, Math.min(100, pct || 0));
+  var id = 'ftp_' + Math.random().toString(36).slice(2, 7);
+  setTimeout(function () { var f = document.getElementById(id); if (f) f.style.width = pct + '%'; }, 60);
+  return '<div class="ft-track"><div class="ft-fill" id="' + id + '"></div></div>';
+};
+
+/** items: [{ cat|emoji|label, spent, budget }] — muestra las 4 mayores */
+FT.catBars = function (items, o) {
+  o = o || {};
+  items = (items || []).slice().sort(function (a, b) { return (b.spent || 0) - (a.spent || 0); }).slice(0, o.max || 4);
+  var maxRef = Math.max.apply(null, items.map(function (i) { return Math.max(i.spent || 0, i.budget || 0); }).concat([1]));
+  var total = items.reduce(function (a, i) { return a + (i.spent || 0); }, 0) || 1;
+  return '<div class="ft-catbars">' + items.map(function (it, idx) {
+    var meta = it.emoji ? { emoji: it.emoji, label: it.label, pastel: PASTELS[idx % PASTELS.length] } : FT.catMeta(it.cat, idx);
+    var spentH = Math.max(66 / 196 * 100, (it.spent || 0) / maxRef * 100);
+    var budH = it.budget ? (it.budget / maxRef * 100) : 0;
+    var pctTotal = Math.round((it.spent || 0) / total * 100);
+    return '<div class="ft-catcol ' + meta.pastel + '" data-cat="' + (it.cat || meta.label) + '">' +
+      (budH > spentH ? '<div class="ft-catbudget" style="height:' + budH + '%"></div>' : '') +
+      '<div class="ft-catfill tap" style="height:' + spentH + '%">' +
+        '<span class="emo">' + (meta.emoji || '•') + '</span>' +
+        '<span class="val">' + FT.money(it.spent || 0, { compact: true }) + '</span>' +
+        '<span class="pct">' + pctTotal + '%</span>' +
+      '</div></div>';
+  }).join('') + '</div>';
+};
+
+/** tx = transacción de ft_data. Devuelve una fila .ft-tx */
+FT.txRow = function (t, idx) {
+  var meta = FT.catMeta(t.cat, idx);
+  var isIn = t.type === 'ingreso';
+  var amt = FT.money(t.amount, { cents: true, sign: true });
+  amt = (isIn ? '+' : '−') + FT.money(t.amount, { cents: true });
+  var isCheque = t.incomeKind === 'cheque';
+  var mid;
+  if (isCheque) {
+    var h = FT.hogar();
+    var totH = (parseFloat(h.payPctHogar) || 50) + (parseFloat(h.saveHogarPct) || 10);
+    var hogarAmt = (t.amount || 0) * totH / 100, persAmt = (t.amount || 0) - hogarAmt;
+    mid = '<div class="ft-tx-name">' + (t.desc || FT.catMeta(t.cat).label) + '</div>' +
+          '<div class="ft-tx-breakdown">🏠 ' + FT.money(hogarAmt) + ' &nbsp;+&nbsp; 👤 ' + FT.money(persAmt) + '</div>';
+  } else {
+    mid = '<div class="ft-tx-name">' + (t.desc || meta.label) + '</div>' +
+          '<span class="ft-hashtag">#' + (meta.label || 'gasto').toLowerCase().replace(/\s+/g, '') + '</span>';
+  }
+  return '<div class="ft-tx tap" data-txid="' + t.id + '">' +
+    '<div class="ft-tx-top"><span class="ft-pill">' + FT.date(t.date) + '</span>' +
+      '<span class="ft-pill"' + (isIn ? ' style="color:var(--g-main)"' : '') + '>' + (isIn ? '+' : '−') + FT.money(t.amount, { cents: true, noSymbol: false }).replace('−', '') + '</span></div>' +
+    '<div class="ft-tx-body">' +
+      '<div class="ft-tx-ico ' + meta.pastel + '">' + (meta.emoji || '•') + '</div>' +
+      '<div class="ft-tx-main"><div class="ft-tx-label">' + meta.label + '</div>' + mid + '</div>' +
+      '<div class="ft-tx-amt ' + (isIn ? 'in' : 'out') + '">' + amt + '</div>' +
+    '</div></div>';
+};
+
+/** Hoja de detalle de una transacción — compartida por dashboard.html (solo mis
+ *  movimientos) e historial.html (los míos + los de mi pareja marcados hogar).
+ *  `tx` puede ser un id (busca en FT.txs()) o el objeto ya resuelto por el
+ *  caller (necesario para movimientos de la pareja, que no viven en mi ft_data).
+ *  `opts.readOnly` oculta editar/eliminar (para movimientos de solo lectura). */
+FT.openTxDetail = function (tx, opts) {
+  opts = opts || {};
+  var es = FT.lang === 'es';
+  if (typeof tx !== 'object' || tx === null) tx = FT.txs().find(function (t) { return String(t.id) === String(tx); });
+  if (!tx) return;
+  var typeName = { gasto: es ? 'Gasto' : 'Expense', ingreso: es ? 'Ingreso' : 'Income', ahorro: es ? 'Ahorro' : 'Savings', inversion: es ? 'Inversión' : 'Investment', suscripcion: es ? 'Suscripción' : 'Subscription', hipoteca: es ? 'Renta/Hipoteca' : 'Rent/Mortgage' }[tx.type] || tx.type;
+  var esHogar = tx.hogar === true || tx.isHogar === true;
+  var createdMs = parseInt(tx.id, 10);
+  var created = new Date(createdMs);
+  var hora = isNaN(created.getTime()) ? '—' : created.toLocaleTimeString(es ? 'es-MX' : 'en-US', { hour: '2-digit', minute: '2-digit' });
+  var rows = [
+    [es ? 'Tipo' : 'Type', typeName],
+    [es ? 'Categoría' : 'Category', tx.cat || '—'],
+    [es ? 'Fecha' : 'Date', FT.date(tx.date)],
+    [es ? 'Hora de registro' : 'Time recorded', hora]
+  ];
+  if (tx.createdBy) rows.push([es ? 'Registrado por' : 'Recorded by', tx.createdBy]);
+  if (tx.auto) rows.push([es ? 'Origen' : 'Source', es ? 'Automático' : 'Automatic']);
+  var html = '<div style="text-align:center;margin-bottom:16px">' +
+      '<div class="ft-num" style="font-size:28px;color:' + (tx.type === 'ingreso' ? 'var(--g-main)' : 'var(--ink)') + '">' + (tx.type === 'ingreso' ? '+' : '−') + FT.money(tx.amount, { cents: true }) + '</div>' +
+      (esHogar ? '<span style="background:var(--g-light);color:var(--g-dark);font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;display:inline-block;margin-top:4px">🏠 ' + (es ? 'Del hogar' : 'Household') + '</span>' : '') +
+    '</div>' +
+    rows.map(function (r) { return '<div class="ft-row"><span class="k">' + r[0] + '</span><span class="v">' + r[1] + '</span></div>'; }).join('') +
+    (tx.note ? '<div style="margin-top:10px"><div style="font-size:11px;color:var(--text3);margin-bottom:4px">' + (es ? 'Nota' : 'Note') + '</div><div style="background:var(--sunk);border-radius:10px;padding:10px;font-size:13px">' + tx.note + '</div></div>' : '');
+  var actions = opts.readOnly ? [] : [
+    { label: '✏️ ' + (es ? 'Editar' : 'Edit'), onClick: function () { _editTxDetail(tx); } },
+    { label: '🗑️ ' + (es ? 'Eliminar' : 'Delete'), onClick: function () {
+        FT.confirm(es ? '¿Eliminar este movimiento? Se revierten los saldos vinculados.' : 'Delete this entry? Linked balances will be reverted.').then(function (ok) {
+          if (ok) { FT.deleteTx(tx.id); FT.toast(es ? '🗑️ Eliminado' : '🗑️ Deleted'); }
+        });
+      } }
+  ];
+  FT.sheet({ title: tx.desc || typeName, html: html, actions: actions });
+};
+function _editTxDetail(tx) {
+  var es = FT.lang === 'es';
+  FT.modal({
+    title: es ? 'Editar registro' : 'Edit entry',
+    html: '<div class="ft-field"><label>' + (es ? 'Descripción' : 'Description') + '</label><input id="etDesc" value="' + (tx.desc || '').replace(/"/g, '&quot;') + '"></div>' +
+      '<div class="ft-field"><label>' + (es ? 'Monto' : 'Amount') + '</label><input id="etAmount" type="number" step="0.01" value="' + tx.amount + '"></div>' +
+      '<div class="ft-field"><label>' + (es ? 'Fecha' : 'Date') + '</label><input id="etDate" type="date" value="' + tx.date + '"></div>' +
+      '<div class="ft-field"><label>' + (es ? 'Nota' : 'Note') + '</label><input id="etNote" value="' + (tx.note || '').replace(/"/g, '&quot;') + '"></div>',
+    onSave: function (body) {
+      var d = FT.data();
+      var i = d.transactions.findIndex(function (t) { return String(t.id) === String(tx.id); });
+      if (i >= 0) {
+        d.transactions[i] = Object.assign({}, d.transactions[i], {
+          desc: body.querySelector('#etDesc').value.trim(),
+          amount: parseFloat(body.querySelector('#etAmount').value) || 0,
+          date: body.querySelector('#etDate').value,
+          note: body.querySelector('#etNote').value.trim()
+        });
+        FT.saveData(d);
+        FT.toast(es ? '✅ Registro actualizado' : '✅ Entry updated');
+      }
+      FT.closeTop(); // cierra el modal de edición
+      FT.closeTop(); // cierra también la hoja de detalle (los datos ya cambiaron)
+      return true;   // evita que el wrapper intente cerrar una tercera vez
+    }
+  });
 }
 
-function filterHelpFAQ(query){ renderHelpFAQ(query); }
+/* ─────────────────────────────────────────────────────────────────────────
+   13 · NAVEGACIÓN — pila para "atrás" real
+   ───────────────────────────────────────────────────────────────────────── */
+FT.go = function (url) {
+  try {
+    var st = JSON.parse(sessionStorage.getItem(K.navStack) || '[]');
+    st.push(location.pathname.split('/').pop() || 'dashboard.html');
+    sessionStorage.setItem(K.navStack, JSON.stringify(st.slice(-20)));
+  } catch (e) {}
+  location.href = url;
+};
+FT.back = function (fallback) {
+  try {
+    var st = JSON.parse(sessionStorage.getItem(K.navStack) || '[]');
+    var prev = st.pop();
+    sessionStorage.setItem(K.navStack, JSON.stringify(st));
+    if (prev) { location.href = prev; return; }
+  } catch (e) {}
+  location.href = fallback || 'dashboard.html';
+};
 
-function showHelpModal(){
-  injectHelpModal();
-  renderHelpFAQ('');
-  document.getElementById('ftHelpSearch').value = '';
-  document.getElementById('ftHelpOverlay').style.display = 'flex';
-}
+/* ─────────────────────────────────────────────────────────────────────────
+   14 · SHELL — header + menú inferior + hoja "Más"
+   ───────────────────────────────────────────────────────────────────────── */
+var MORE_GROUPS = [
+  { key: 'money_group_your', items: [['l_ahorro', 'ahorro.html', '💵'], ['l_emergencia', 'emergencia.html', '🛡️'], ['l_inversiones', 'inversiones.html', '🏦'], ['l_metas', 'metas.html', '🎯']] },
+  { key: 'money_group_debts', items: [['l_deudas', 'deudas.html', '💳'], ['l_suscripciones', 'suscripciones.html', '🔄'], ['l_servicios', 'servicios.html', '🏠'], ['l_recurrentes', 'recurrentes.html', '♻️']] },
+  { key: 'money_group_input', items: [['l_scanner', 'scanner.html', '📷'], ['l_importar', 'importar.html', '📥']] },
+  { key: 'money_group_analysis', items: [['l_analisis', 'analisis.html', '📈'], ['l_reporte', 'reporte.html', '📄']] },
+  { key: 'money_group_account', items: [['l_perfil', 'perfil.html', '👤'], ['l_config', 'config.html', '⚙️'], ['l_saldos', 'onboarding.html', '🧮']] }
+];
 
-function hideHelpModal(){
-  const overlay = document.getElementById('ftHelpOverlay');
-  if(overlay) overlay.style.display = 'none';
-}
+FT.openMore = function () {
+  var here = (location.pathname.split('/').pop() || 'dashboard.html').toLowerCase();
+  var html = MORE_GROUPS.map(function (g) {
+    var items = g.items.filter(function (it) { return it[1].toLowerCase() !== here; });
+    if (!items.length) return '';
+    return '<div class="ft-more-group"><h5>' + FT.t(g.key) + '</h5><div class="ft-more-grid">' +
+      items.map(function (it) {
+        return '<a class="ft-more-item tap" href="' + it[1] + '"><span class="ic">' + it[2] + '</span><span>' + FT.t(it[0]) + '</span></a>';
+      }).join('') + '</div></div>';
+  }).join('') +
+  '<button class="ft-btn ft-btn-ghost tap" id="ft-logout-btn" style="margin-top:4px">🚪 ' + FT.t('logout') + '</button>';
+  var ov = FT.sheet({ title: FT.t('more'), html: html });
+  ov.querySelector('#ft-logout-btn').addEventListener('click', FT.logout);
+  ov.querySelectorAll('.ft-more-item').forEach(function (a) {
+    a.addEventListener('click', function (e) { e.preventDefault(); FT.go(a.getAttribute('href')); });
+  });
+};
+
+FT.openNotifications = function () {
+  var items = (FT._notifProvider ? FT._notifProvider() : FT.getNotifications()) || [];
+  var html = items.length
+    ? items.map(function (n) {
+        return '<button class="ft-row tap" style="width:100%;text-align:left;background:none;border:none;border-bottom:1px solid var(--hair)" data-go="' + (n.url || '') + '">' +
+          '<span class="k">' + (n.icon || '🔔') + ' ' + n.text + '</span>' + (n.amount != null ? '<span class="v">' + FT.money(n.amount) + '</span>' : '') + '</button>';
+      }).join('')
+    : '<p style="font-size:13px;color:var(--text3);text-align:center;padding:20px 0">' + FT.t('notif_empty') + '</p>';
+  var ov = FT.sheet({ title: FT.t('notif_title'), html: html });
+  ov.querySelectorAll('[data-go]').forEach(function (b) {
+    b.addEventListener('click', function () { var u = b.getAttribute('data-go'); if (u) FT.go(u); });
+  });
+};
+/** Una pantalla registra su lista de notificaciones: FT.setNotifications(fn) */
+FT.setNotifications = function (fn) { FT._notifProvider = fn; };
+
+FT.openKebab = function (extraActions) {
+  var base = [
+    { label: '🌐 ' + (FT.lang === 'es' ? 'English' : 'Español'), onClick: function () { FT.setLang(FT.lang === 'es' ? 'en' : 'es'); } },
+    { label: '❓ ' + FT.t('help'), onClick: function () { FT.showHelpModal(); } }
+  ];
+  FT.sheet({ title: '', html: '<div class="ft-sheet-grab" style="display:none"></div>', actions: (extraActions || []).concat(base) });
+};
+
+/**
+ * FT.shell({ active, title, month, onMonth, onPlus, kebab })
+ *  active: 'home'|'hist'|'hogar'  · title: string/HTML
+ *  month:  true → muestra selector de mes  · onMonth(delta)
+ *  onPlus: fn — qué hace el "＋" en esta pantalla (§3)
+ *  kebab:  [{label,onClick}] extra
+ */
+FT.shell = function (opts) {
+  opts = opts || {};
+  var app = document.querySelector('.ft-app');
+  if (!app) {
+    // Envuelve el body si la pantalla aún no trae .ft-app
+    app = document.createElement('div'); app.className = 'ft-app';
+    while (document.body.firstChild) app.appendChild(document.body.firstChild);
+    document.body.appendChild(app);
+  }
+  document.body.classList.add('ft-ready');
+
+  // HEADER
+  var hdr = document.createElement('header');
+  hdr.className = 'ft-header';
+  hdr.innerHTML =
+    '<button class="ft-title tap">' + (opts.title || '') + (opts.onSwitch ? ' <span class="car">⌄</span>' : '') + '</button>' +
+    '<div class="ft-head-actions">' +
+      (opts.month ? '<span class="ft-monthpick"><span data-m="-1">‹</span><b id="ft-month">' + (opts.monthLabel || '') + '</b><span data-m="1">›</span></span>' : '') +
+      '<button class="ft-ico tap" data-act="bell">🔔<span class="ft-dot" id="ft-bell-dot" hidden></span></button>' +
+      '<button class="ft-ico tap" data-act="kebab">⋯</button>' +
+    '</div>';
+  var page = app.querySelector('.ft-page') || app.firstElementChild;
+  app.insertBefore(hdr, app.firstChild);
+
+  hdr.querySelector('.ft-title').addEventListener('click', function () { opts.onSwitch ? opts.onSwitch() : FT.back(); });
+  hdr.querySelector('[data-act="bell"]').addEventListener('click', FT.openNotifications);
+  hdr.querySelector('[data-act="kebab"]').addEventListener('click', function () { FT.openKebab(opts.kebab); });
+  if (opts.month) hdr.querySelectorAll('[data-m]').forEach(function (s) {
+    s.addEventListener('click', function () { opts.onMonth && opts.onMonth(parseInt(s.getAttribute('data-m'), 10)); });
+  });
+
+  // NAV
+  var nav = document.createElement('nav');
+  nav.className = 'ft-nav';
+  function item(k, ico, label, url) {
+    return '<a class="ft-nav-item tap ' + (opts.active === k ? 'on' : '') + '" data-k="' + k + '" href="' + url + '"><span class="i">' + ico + '</span>' + label + '</a>';
+  }
+  nav.innerHTML =
+    item('home', '🏠', FT.t('home'), 'dashboard.html') +
+    item('hist', '📅', FT.t('history'), 'historial.html') +
+    '<button class="ft-nav-plus tap" data-act="plus" aria-label="+">＋</button>' +
+    item('hogar', '👥', FT.t('household'), 'hogar.html') +
+    '<button class="ft-nav-item tap" data-act="more"><span class="i">⋯</span>' + FT.t('more') + '</button>';
+  document.body.appendChild(nav);
+  nav.querySelectorAll('a[data-k]').forEach(function (a) {
+    a.addEventListener('click', function (e) { e.preventDefault(); FT.go(a.getAttribute('href')); });
+  });
+  nav.querySelector('[data-act="more"]').addEventListener('click', FT.openMore);
+  nav.querySelector('[data-act="plus"]').addEventListener('click', function () {
+    if (opts.onPlus) opts.onPlus();
+    else FT.go('dashboard.html');
+  });
+
+  FT.applyLang(hdr); FT.applyLang(nav);
+  return {
+    header: hdr, nav: nav,
+    setBellDot: function (on) { var d = document.getElementById('ft-bell-dot'); if (d) d.hidden = !on; },
+    setMonth: function (s) { var m = document.getElementById('ft-month'); if (m) m.textContent = s; },
+    setTitle: function (html) { var b = hdr.querySelector('.ft-title'); if (b) b.innerHTML = html + (opts.onSwitch ? ' <span class="car">⌄</span>' : ''); }
+  };
+};
+
+FT.logout = function () {
+  try { sessionStorage.clear(); } catch (e) {}
+  [K.user, K.setup, K.premium].forEach(FT.del);
+  location.replace('login.html');
+};
+
+/* ─────────────────────────────────────────────────────────────────────────
+   15 · MODAL DE AYUDA — bilingüe con búsqueda
+   ───────────────────────────────────────────────────────────────────────── */
+var FT_HELP_FAQ = [
+  { es: ['ahorro libre', 'emergencia', 'diferencia', 'cuando retirar'], en: ['free savings', 'emergency', 'difference', 'when withdraw'],
+    q: { es: '¿Cuál es la diferencia entre Ahorro libre y Fondo de emergencia?', en: 'What’s the difference between Free Savings and the Emergency Fund?' },
+    a: { es: 'Ahorro libre se usa sin restricciones, para lo que quieras. El Fondo de emergencia está pensado solo para emergencias reales (perder el trabajo, un gasto médico grande).', en: 'Free Savings can be used for anything. The Emergency Fund is meant only for real emergencies (losing your job, a big medical expense).' } },
+  { es: ['cheque', 'reparte', 'hogar', 'personal', 'porcentaje'], en: ['paycheck', 'split', 'household', 'personal', 'percentage'],
+    q: { es: '¿Cómo se reparte mi cheque entre hogar y personal?', en: 'How does my paycheck get split between household and personal?' },
+    a: { es: 'Configuras el % en Perfil → Frecuencia de pago. Cada vez que registras un cheque, la app calcula automáticamente cuánto es de cada lado.', en: 'You set the % in Profile → Pay Frequency. Every time you log a paycheck, the app splits it automatically.' } },
+  { es: ['pagate primero', 'ahorro automático'], en: ['pay yourself first', 'automatic savings'],
+    q: { es: '¿Qué es "Págate primero"?', en: 'What is "Pay Yourself First"?' },
+    a: { es: 'Cuando registras un cheque, un % de tu parte personal se aparta automáticamente a Ahorro libre al momento — antes de que puedas gastarlo.', en: 'When you log a paycheck, a % of your personal share is automatically moved into Free Savings right away.' } },
+  { es: ['recurrente', 'pago automático', 'se repite'], en: ['recurring', 'automatic payment', 'repeats'],
+    q: { es: '¿Qué son los recurrentes y dónde los veo?', en: 'What are recurring payments and where do I see them?' },
+    a: { es: 'Pagos que se repiten solos (abonos a deuda, ahorro, inversión). Todos juntos están en Más → Recurrentes.', en: 'Payments that repeat on their own (debt payments, savings, investments). All of them live in More → Recurring.' } },
+  { es: ['pareja', 'hogar', 'sincroniza', 'conectar'], en: ['partner', 'household', 'sync', 'connect'],
+    q: { es: '¿Cómo conecto mi cuenta con la de mi pareja?', en: 'How do I connect my account with my partner’s?' },
+    a: { es: 'En Hogar → Cambiar modo, generas un código y se lo compartes a tu pareja para que lo ingrese.', en: 'In Household → Change mode, you generate a code and share it with your partner.' } },
+  { es: ['importar', 'ia', 'creditos', 'escanear recibo'], en: ['import', 'ai', 'credits', 'scan receipt'],
+    q: { es: '¿Cómo funcionan los créditos de análisis con IA?', en: 'How do AI analysis credits work?' },
+    a: { es: 'Con Premium tienes 10 análisis con IA al mes; se resetean cada mes. Si se acaban, puedes comprar más o usar la importación por formato de banco, que no gasta créditos.', en: 'With Premium you get 10 AI analyses per month, reset monthly. If you run out, buy more or use bank-format import, which uses no credits.' } },
+  { es: ['idioma', 'cambiar idioma'], en: ['language', 'change language'],
+    q: { es: '¿Dónde cambio el idioma de la app?', en: 'Where do I change the app’s language?' },
+    a: { es: 'En Configuración, o directo desde el menú "⋯" de cualquier pantalla.', en: 'In Settings, or from the "⋯" menu on any screen.' } }
+];
+FT.showHelpModal = function () {
+  var render = function (q) {
+    var l = FT.lang, ql = (q || '').toLowerCase().trim();
+    var list = FT_HELP_FAQ.filter(function (it) {
+      if (!ql) return true;
+      var kws = (l === 'es' ? it.es : it.en).concat(it.q[l].toLowerCase());
+      return kws.some(function (k) { return k.indexOf(ql) > -1; }) || it.a[l].toLowerCase().indexOf(ql) > -1;
+    });
+    return list.length
+      ? list.map(function (it, i) {
+          return '<details class="ft-help-item"' + (ql && i === 0 ? ' open' : '') + '><summary>' + it.q[l] + '</summary><div class="a">' + it.a[l] + '</div></details>';
+        }).join('')
+      : '<p style="text-align:center;padding:24px 0;color:var(--text3);font-size:13px">' + (FT.lang === 'es' ? 'Sin resultados' : 'No results') + '</p>';
+  };
+  var ov = FT.sheet({
+    title: '❓ ' + FT.t('help'),
+    html: '<input id="ft-help-q" type="text" placeholder="' + (FT.lang === 'es' ? 'Busca tu problema…' : 'Search your issue…') + '" style="width:100%;padding:11px 14px;border:1.5px solid var(--hair);border-radius:12px;font-size:14px;margin-bottom:12px;outline:none"><div id="ft-help-list">' + render('') + '</div>'
+  });
+  var inp = ov.querySelector('#ft-help-q'), listEl = ov.querySelector('#ft-help-list');
+  inp.addEventListener('input', function () { listEl.innerHTML = render(inp.value); });
+};
+
+/* ─────────────────────────────────────────────────────────────────────────
+   16 · UPGRADE MODAL
+   ───────────────────────────────────────────────────────────────────────── */
+FT.showUpgradeModal = function () {
+  var es = FT.lang === 'es';
+  var feats = es
+    ? ['📷 Escanear recibos con IA', '📧 Reporte mensual por email', '📥 Exportar todos tus datos', '💡 Insights avanzados', '🔄 Suscripciones ilimitadas', '🎯 Metas ilimitadas', '🏠 Hogar compartido', '📐 Amortización real de deudas']
+    : ['📷 Scan receipts with AI', '📧 Monthly email report', '📥 Export all your data', '💡 Advanced insights', '🔄 Unlimited subscriptions', '🎯 Unlimited goals', '🏠 Shared household', '📐 Real debt amortization'];
+  FT.sheet({
+    title: '💎 ' + (es ? 'Función Premium' : 'Premium feature'),
+    html: '<p style="font-size:12.5px;color:var(--text3);margin:0 0 12px">' + (es ? 'Incluida en FinTrack Pro Premium.' : 'Included in FinTrack Pro Premium.') + '</p>' +
+      '<div style="background:var(--sunk);border-radius:12px;padding:14px;margin-bottom:6px">' +
+      feats.map(function (f) { return '<div style="font-size:12.5px;padding:4px 0">✓ ' + f + '</div>'; }).join('') + '</div>',
+    actions: [{ label: '🛒 ' + (es ? 'Obtener Premium' : 'Get Premium'), primary: true, onClick: function () { window.open('https://www.etsy.com/shop/finanzone', '_blank'); } }]
+  });
+};
+FT.premiumBadge = function () {
+  return '<span style="display:inline-flex;align-items:center;gap:3px;background:linear-gradient(135deg,var(--g-dark),var(--g-main));color:#fff;font-size:9px;font-weight:800;padding:2px 8px;border-radius:20px;margin-left:6px;vertical-align:middle">💎 Premium</span>';
+};
+
+/* ─────────────────────────────────────────────────────────────────────────
+   16b · PANTALLA DE SALDO DE DOMINIO — compartida por ahorro.html y
+         emergencia.html (mismo arquetipo, cambia el flag `emerg`).
+   Uso:  FT.balanceScreen({ emerg:false, mount:'#root' })
+   ───────────────────────────────────────────────────────────────────────── */
+FT.balanceScreen = function (opts) {
+  opts = opts || {};
+  var E = !!opts.emerg;
+  var mount = document.querySelector(opts.mount || '#root');
+  if (!mount) return;
+
+  function bal() { return E ? FT.emergencyBalance() : FT.savingsBalance(); }
+  function hist() { return E ? FT.emergencyHist() : FT.savingsHist(); }
+  function hAmt(h) { return E ? (parseFloat(h.amount) || 0) : (parseFloat(h.monto) || 0); }
+  function hTipo(h) { return h.tipo || (hAmt(h) < 0 ? 'retiro' : 'deposito'); }
+  function hNota(h) { return h.nota || h.note || ''; }
+  function hFecha(h) { return h.fecha || h.date || ''; }
+  function hId(h) { return String(h.id != null ? h.id : ''); }
+  function goal() { return (FT.user().income || 0) * 3; }
+  function es() { return FT.lang === 'es'; }
+
+  function render() {
+    var L = es(), b = bal();
+    var rows = hist().slice().sort(function (a, c) { return String(hFecha(c)).localeCompare(String(hFecha(a))); });
+
+    var hero = '<div class="ft-bs-hero' + (E ? ' emerg' : '') + '">' +
+      '<button class="cap" data-x="bal">' + (L ? 'Saldo' : 'Balance') + ' <span class="ft-info">i</span></button>' +
+      '<div class="amt">' + FT.money(b) + '</div>';
+    if (E) {
+      var g = goal(), pct = g > 0 ? Math.min(100, Math.round(b / g * 100)) : 0;
+      hero += '<button class="cap" data-x="goal" style="margin-top:4px">' + (L ? 'Meta: ' : 'Goal: ') + FT.money(g) + ' (' + (L ? '3 meses de ingreso' : '3 months income') + ') <span class="ft-info">i</span></button>' +
+        '<div class="ft-bs-gtrack"><div class="ft-bs-gfill" id="ftbsGf" style="width:0"></div></div>' +
+        '<div class="ft-bs-grow"><span>' + pct + '% ' + (L ? 'completado' : 'complete') + '</span><span>' + (L ? 'Faltan ' : 'Missing ') + FT.money(Math.max(0, g - b)) + '</span></div>';
+    } else {
+      hero += '<div class="sub">' + (L ? 'Sin restricciones — úsalo para lo que quieras' : 'No restrictions — use it for anything') + '</div>';
+    }
+    hero += '</div>';
+
+    var acts = '<div class="ft-bs-acts">' +
+      '<button class="prim tap" data-a="deposito"><span class="e">＋</span>' + (L ? 'Depositar' : 'Deposit') + '</button>' +
+      '<button class="tap" data-a="retiro"><span class="e">↩</span>' + (L ? 'Retirar' : 'Withdraw') + '</button>' +
+      '<button class="tap" data-a="rec"><span class="e">🔄</span>' + (L ? 'Recurrente' : 'Recurring') + '</button></div>';
+
+    var info = E ? '<div class="ft-bs-info"><b>⚠️ ' + (L ? '¿Cuándo puedo retirar de aquí?' : 'When can I withdraw?') + '</b><p>' +
+      (L ? 'Solo para emergencias reales (perder el trabajo, un gasto médico grande). Para gastos normales del mes usa el Ahorro libre.' : 'Only for real emergencies (job loss, a big medical bill). For regular monthly spending use Free savings.') + '</p></div>' : '';
+
+    var recs = FT.recurList(function (r) { return r.kind === 'ahorro' && (E ? r.dest === 'emergencia' : r.dest !== 'emergencia'); });
+    var recSec = recs.length ? '<div class="ft-section-head" style="margin-top:22px"><h3>🔄 ' + (L ? 'Recurrentes' : 'Recurring') + '</h3><button class="link" data-go="recurrentes.html">' + (L ? 'Ver todos' : 'See all') + '</button></div>' +
+      recs.map(function (r) { var RL = FT.recurLabel(r); return '<div class="ft-mv tap" data-rec="' + r.id + '"><div class="ic rec">🔄</div><div class="m"><div class="n">' + RL.name + '</div><div class="d">' + RL.sub + '</div></div><div class="amt in">' + FT.money(r.amount) + '</div></div>'; }).join('') : '';
+
+    var histSec = '<div class="ft-section-head" style="margin-top:22px"><h3>' + (L ? 'Historial' : 'History') + '</h3></div>' +
+      (rows.length ? rows.map(function (h) {
+        var t = hTipo(h), out = t === 'retiro', cob = !!h.cobId;
+        return '<div class="ft-mv tap" data-mv="' + hId(h) + '"><div class="ic ' + (cob || out ? 'dn' : 'up') + '">' + (cob ? '🔗' : out ? '↩' : '＋') + '</div>' +
+          '<div class="m"><div class="n">' + (hNota(h) || (out ? (L ? 'Retiro' : 'Withdrawal') : (L ? 'Depósito' : 'Deposit'))) + '</div>' +
+          '<div class="d">' + FT.date(hFecha(h)) + (h.auto ? (L ? ' · automático' : ' · automatic') : h.recId ? (L ? ' · recurrente' : ' · recurring') : cob ? (L ? ' · cubrió un gasto' : ' · covered an expense') : '') + '</div></div>' +
+          '<div class="amt ' + (out ? 'out' : 'in') + '">' + (out ? '−' : '+') + FT.money(Math.abs(hAmt(h)), { cents: true }) + '</div></div>';
+      }).join('') : '<div class="ft-empty">' + (L ? 'Sin movimientos aún' : 'No movements yet') + '</div>');
+
+    mount.innerHTML = hero + acts + info + recSec + histSec;
+
+    if (E) requestAnimationFrame(function () { var gf = document.getElementById('ftbsGf'); if (gf) { var g = goal(); gf.style.width = (g > 0 ? Math.min(100, b / g * 100) : 0) + '%'; } });
+
+    mount.querySelectorAll('[data-x]').forEach(function (el) { el.onclick = function () { el.getAttribute('data-x') === 'goal' ? explainGoal() : explainBal(); }; });
+    mount.querySelectorAll('[data-a]').forEach(function (el) { el.onclick = function () { var a = el.getAttribute('data-a'); a === 'rec' ? openRec() : openMove(a); }; });
+    mount.querySelectorAll('[data-mv]').forEach(function (el) { el.onclick = function () { openDetail(el.getAttribute('data-mv')); }; });
+    mount.querySelectorAll('[data-rec]').forEach(function (el) { el.onclick = function () { openRecDetail(el.getAttribute('data-rec')); }; });
+    mount.querySelectorAll('[data-go]').forEach(function (el) { el.onclick = function () { FT.go(el.getAttribute('data-go')); }; });
+  }
+
+  function explainBal() {
+    var L = es();
+    var rows = hist().slice().sort(function (a, c) { return String(hFecha(c)).localeCompare(String(hFecha(a))); }).slice(0, 6)
+      .map(function (h) { return [(hNota(h) || (L ? 'Movimiento' : 'Movement')) + ' · ' + FT.date(hFecha(h)), (hTipo(h) === 'retiro' ? '−' : '+') + FT.money(Math.abs(hAmt(h)))]; });
+    rows.push([L ? '= Saldo actual' : '= Current balance', FT.money(bal())]);
+    FT.sheet({ title: (L ? '¿Cómo se calcula?' : 'How is it calculated?') + ' · ' + (E ? (L ? 'Fondo de emergencia' : 'Emergency fund') : (L ? 'Ahorro libre' : 'Free savings')),
+      html: rows.map(function (r) { return '<div class="ft-row"><span class="k">' + r[0] + '</span><span class="v">' + r[1] + '</span></div>'; }).join('') });
+  }
+  function explainGoal() {
+    var L = es(), g = goal(), b = bal();
+    FT.sheet({ title: L ? 'Meta del fondo' : 'Fund goal', html: [
+      [L ? 'Tu ingreso mensual' : 'Your monthly income', FT.money(FT.user().income || 0)],
+      ['× 3 ' + (L ? 'meses (colchón estándar)' : 'months (standard cushion)'), FT.money(g)],
+      [L ? 'Tienes hoy' : 'You have today', FT.money(b)],
+      [L ? 'Falta' : 'Missing', FT.money(Math.max(0, g - b))]
+    ].map(function (r) { return '<div class="ft-row"><span class="k">' + r[0] + '</span><span class="v">' + r[1] + '</span></div>'; }).join('') });
+  }
+
+  function openMove(mode) {
+    var L = es(), isW = mode === 'retiro';
+    var origen = 'previo'; // 'previo' = ya lo tenía (no toca el mes) · 'mes' = de mi disponible
+    var origToggle = isW ? '' :
+      '<div class="ft-field"><label>' + (L ? '¿De dónde sale este dinero?' : 'Where does this money come from?') + '</label>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px" id="mOrig">' +
+        '<button type="button" data-o="previo" style="padding:9px 6px;border-radius:10px;border:1.5px solid var(--g-main);background:var(--g-light);color:var(--g-dark);font-family:var(--ui-font);font-size:11px;font-weight:800;cursor:pointer;line-height:1.35">' + (L ? 'Ya lo tenía' : 'I already had it') + '<br><span style="font-weight:600;font-size:9.5px;opacity:.8">' + (L ? 'no afecta tu mes' : "doesn't affect your month") + '</span></button>' +
+        '<button type="button" data-o="mes" style="padding:9px 6px;border-radius:10px;border:1.5px solid var(--hair);background:var(--sunk);color:var(--text2);font-family:var(--ui-font);font-size:11px;font-weight:800;cursor:pointer;line-height:1.35">' + (L ? 'De mi disponible del mes' : "From this month's available") + '<br><span style="font-weight:600;font-size:9.5px;opacity:.8">' + (L ? 'cuenta como ahorro del mes' : 'counts as this-month saving') + '</span></button>' +
+      '</div></div>';
+    FT.modal({
+      title: isW ? (E ? (L ? 'Retirar del fondo' : 'Withdraw from fund') : (L ? 'Retirar del ahorro' : 'Withdraw from savings')) : (L ? 'Depositar' : 'Deposit'),
+      html: (isW && E ? '<div class="ft-bs-info" style="margin:0 0 12px"><p>⚠️ ' + (L ? 'Este fondo es solo para emergencias reales. ¿Esto es una emergencia, o debería salir de tu Ahorro libre?' : 'This fund is only for real emergencies. Is this an emergency, or should it come from Free savings?') + '</p></div>' : '') +
+        '<div class="ft-field"><label>' + (L ? 'Monto' : 'Amount') + '</label><input id="mAmt" inputmode="decimal" placeholder="$0"></div>' +
+        origToggle +
+        '<div class="ft-field"><label>' + (L ? 'Nota (opcional)' : 'Note (optional)') + '</label><input id="mNote"></div>' +
+        '<div class="ft-field"><label>' + (L ? 'Fecha' : 'Date') + '</label><input id="mDate" type="date" value="' + FT.todayISO() + '"></div>',
+      saveLabel: isW ? (L ? 'Confirmar retiro' : 'Confirm withdrawal') : (L ? 'Guardar depósito' : 'Save deposit'),
+      onOpen: function (body) {
+        var seg = body.querySelector('#mOrig');
+        if (seg) seg.querySelectorAll('button').forEach(function (b) {
+          b.onclick = function () {
+            origen = b.getAttribute('data-o');
+            seg.querySelectorAll('button').forEach(function (x) {
+              var on = x === b;
+              x.style.borderColor = on ? 'var(--g-main)' : 'var(--hair)';
+              x.style.background = on ? 'var(--g-light)' : 'var(--sunk)';
+              x.style.color = on ? 'var(--g-dark)' : 'var(--text2)';
+            });
+          };
+        });
+      },
+      onSave: function (body) {
+        var amt = parseFloat(body.querySelector('#mAmt').value) || 0;
+        if (!amt || amt <= 0) { FT.toast(L ? 'Ingresa un monto' : 'Enter an amount'); return true; }
+        if (isW && amt > bal()) { FT.toast(L ? 'No tienes suficiente' : 'Not enough'); return true; }
+        var id = Date.now();
+        var counts = !isW && origen === 'mes';
+        var payload = { id: id, amount: amt, date: body.querySelector('#mDate').value || FT.todayISO(), tipo: mode, note: body.querySelector('#mNote').value.trim() || (isW ? (L ? 'Retiro' : 'Withdrawal') : ''), monthTx: counts || null };
+        if (E) FT.addEmergency(payload); else FT.addSavings(payload);
+        if (counts) {
+          var d = FT.data();
+          d.transactions.push({ id: id, type: 'ahorro', desc: payload.note || (E ? (L ? 'Depósito a Emergencia' : 'To Emergency') : (L ? 'Depósito a Ahorro libre' : 'To Free savings')), amount: amt, date: payload.date, cat: E ? '🛡️ Emergencia' : '💵 Ahorro', dest: E ? 'emergencia' : 'libre', createdBy: FT.userName() });
+          FT.saveData(d);
+        }
+        FT.toast(isW ? (L ? '✅ Retiro registrado' : '✅ Withdrawal recorded') : (L ? '✅ Depósito guardado' : '✅ Deposit saved'));
+        render();
+      }
+    });
+  }
+
+  function openRec() {
+    var L = es(), st = { freq: 'monthly' };
+    var seg = ['weekly:' + (L ? 'Semanal' : 'Weekly'), 'biweekly:' + (L ? 'Quincenal' : 'Biweekly'), 'monthly:' + (L ? 'Mensual' : 'Monthly')];
+    FT.modal({
+      title: L ? 'Depósito recurrente' : 'Recurring deposit',
+      html: '<div class="ft-field"><label>' + (L ? 'Monto' : 'Amount') + '</label><input id="rAmt" inputmode="decimal" placeholder="$0"></div>' +
+        '<div class="ft-field"><label>' + (L ? 'Frecuencia' : 'Frequency') + '</label><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px" id="rFreq">' +
+        seg.map(function (o) { var v = o.split(':')[0], on = v === 'monthly'; return '<button type="button" data-f="' + v + '" style="padding:8px;border-radius:9px;border:1.5px solid ' + (on ? 'var(--g-main)' : 'var(--hair)') + ';background:' + (on ? 'var(--g-light)' : 'var(--sunk)') + ';font-family:var(--ui-font);font-size:11.5px;font-weight:800;color:' + (on ? 'var(--g-dark)' : 'var(--text2)') + ';cursor:pointer">' + o.split(':')[1] + '</button>'; }).join('') + '</div></div>' +
+        '<div class="ft-field"><label>' + (L ? 'Primera fecha' : 'First date') + '</label><input id="rDate" type="date" value="' + FT.todayISO() + '"></div>' +
+        '<div style="background:var(--sky-bg);color:#2A4CC0;border-radius:10px;padding:9px 11px;font-size:11px;font-weight:600">' + (L ? 'Aparecerá en Recurrentes, donde podrás editar la fecha, pausarlo o eliminarlo.' : 'It will appear in Recurring for editing, pausing or deleting.') + '</div>',
+      saveLabel: L ? 'Activar recurrente' : 'Activate',
+      onOpen: function (body) {
+        body.querySelectorAll('#rFreq button').forEach(function (b) {
+          b.onclick = function () {
+            st.freq = b.getAttribute('data-f');
+            body.querySelectorAll('#rFreq button').forEach(function (x) { var on = x === b; x.style.borderColor = on ? 'var(--g-main)' : 'var(--hair)'; x.style.background = on ? 'var(--g-light)' : 'var(--sunk)'; x.style.color = on ? 'var(--g-dark)' : 'var(--text2)'; });
+          };
+        });
+      },
+      onSave: function (body) {
+        var amt = parseFloat(body.querySelector('#rAmt').value) || 0;
+        if (!amt || amt <= 0) { FT.toast(es() ? 'Ingresa un monto' : 'Enter an amount'); return true; }
+        var rec = FT.recurring();
+        rec.push({ id: 'rec_' + Date.now(), kind: 'ahorro', dest: E ? 'emergencia' : 'libre',
+          desc: E ? (es() ? 'Aporte a Emergencia' : 'To Emergency') : (es() ? 'Aporte a Ahorro libre' : 'To Free savings'),
+          amount: amt, freq: st.freq, hogar: false, nextDate: body.querySelector('#rDate').value || FT.todayISO(), active: true, createdBy: FT.userName() });
+        FT.set(K.recurring, rec);
+        FT.toast(es() ? '🔄 Recurrente activado' : '🔄 Recurring activated');
+        render();
+      }
+    });
+  }
+  function openRecDetail(id) {
+    var L = es(), r = FT.recurGet(id); if (!r) return;
+    var RL = FT.recurLabel(r);
+    FT.sheet({
+      title: RL.name,
+      html: '<div class="ft-row"><span class="k">' + (L ? 'Monto' : 'Amount') + '</span><span class="v">' + FT.money(r.amount) + '</span></div><div class="ft-row"><span class="k">' + (L ? 'Frecuencia' : 'Frequency') + '</span><span class="v">' + RL.sub + '</span></div>',
+      actions: [
+        { label: '✏️ ' + (L ? 'Editar' : 'Edit'), onClick: function () { editRec(id); } },
+        { label: r.paused ? '▶️ ' + (L ? 'Reanudar' : 'Resume') : '⏸ ' + (L ? 'Pausar' : 'Pause'), onClick: function () { FT.recurPause(id, !r.paused); FT.toast(r.paused ? (L ? 'Reanudado' : 'Resumed') : (L ? 'Pausado' : 'Paused')); render(); } },
+        { label: '🗑️ ' + (L ? 'Eliminar' : 'Delete'), onClick: function () { FT.confirm(L ? '¿Eliminar este recurrente?' : 'Delete this recurring item?').then(function (ok) { if (ok) { FT.recurDelete(id); FT.toast(L ? 'Eliminado' : 'Deleted'); render(); } }); } },
+        { label: L ? 'Ver en Recurrentes →' : 'Open in Recurring →', onClick: function () { FT.go('recurrentes.html'); } }
+      ]
+    });
+  }
+  function editRec(id) {
+    var L = es(), r = FT.recurGet(id); if (!r) return;
+    FT.modal({
+      title: L ? 'Editar recurrente' : 'Edit recurring',
+      html: '<div class="ft-field"><label>' + (L ? 'Monto' : 'Amount') + '</label><input id="eAmt" inputmode="decimal" value="' + r.amount + '"></div><div class="ft-field"><label>' + (L ? 'Próxima fecha' : 'Next date') + '</label><input id="eNext" type="date" value="' + (r.nextDate || FT.todayISO()) + '"></div>',
+      onSave: function (body) { FT.recurUpdate(id, { amount: body.querySelector('#eAmt').value, nextDate: body.querySelector('#eNext').value }); FT.toast(L ? 'Actualizado' : 'Updated'); render(); }
+    });
+  }
+
+  function openDetail(id) {
+    var L = es();
+    var h = hist().find(function (x) { return hId(x) === String(id); });
+    if (!h) return;
+    var t = hTipo(h), cob = !!h.cobId;
+    var rows = [
+      [L ? 'Tipo' : 'Type', cob ? (L ? 'Cobertura de gasto' : 'Expense coverage') : t === 'retiro' ? (L ? 'Retiro' : 'Withdrawal') : (L ? 'Depósito' : 'Deposit')],
+      [L ? 'Fecha' : 'Date', FT.date(hFecha(h))],
+      [L ? 'Monto' : 'Amount', FT.money(Math.abs(hAmt(h)), { cents: true })]
+    ];
+    if (h.auto) rows.push([L ? 'Origen' : 'Source', L ? 'Automático (cheque)' : 'Automatic (paycheck)']);
+    if (cob) rows.push(['🔗 ' + (L ? 'Gasto vinculado' : 'Linked expense'), h.cobFor || '—']);
+    FT.sheet({
+      title: hNota(h) || (L ? 'Movimiento' : 'Movement'),
+      html: rows.map(function (r) { return '<div class="ft-row"><span class="k">' + r[0] + '</span><span class="v">' + r[1] + '</span></div>'; }).join('') +
+        (cob ? '<p style="font-size:11px;color:var(--text3);margin-top:8px">' + (L ? 'Cubrió la parte de «' + (h.cobFor || '') + '» que excedía tu disponible del mes.' : 'Covered the part of "' + (h.cobFor || '') + '" over your monthly available.') + '</p>' : ''),
+      actions: [
+        { label: cob ? '↩ ' + (L ? 'Deshacer cobertura' : 'Undo coverage') : '🗑️ ' + (L ? 'Eliminar' : 'Delete'),
+          onClick: function () {
+            FT.confirm(cob ? (L ? '¿Deshacer la cobertura? El dinero vuelve al pozo y el gasto vuelve a contar contra tu disponible.' : 'Undo coverage? Money returns to the fund and the expense counts again.') : (L ? '¿Eliminar este movimiento? Se revierte el saldo.' : 'Delete this movement? The balance is reverted.')).then(function (ok) {
+              if (!ok) return;
+              if (cob) FT.undoCobertura(h.cobId);
+              else if (h.monthTx) FT.deleteTx(String(h.id).replace(/^tx_/, ''));
+              else if (E) FT.reverseEmergency(h.id);
+              else FT.reverseSavings(h.id);
+              FT.toast(L ? 'Listo' : 'Done'); render();
+            });
+          } }
+      ]
+    });
+  }
+
+  document.addEventListener('ft:datachanged', render);
+  document.addEventListener('ft:langchange', render);
+  render();
+  return { render: render };
+};
+
+/* ─────────────────────────────────────────────────────────────────────────
+   16c · PANTALLA DE ÍTEMS RECURRENTES DE CATÁLOGO — compartida por
+         suscripciones.html y servicios.html (mismo arquetipo: nombre + monto
+         + frecuencia + fecha de cobro, con historial/tendencia y próximas a
+         pagar). Cambia el flag `opts.kind` ('sub' | 'serv').
+   Uso:  FT.recurringItemsScreen({ kind:'sub', mount:'#root' })
+   ───────────────────────────────────────────────────────────────────────── */
+FT.recurringItemsScreen = function (opts) {
+  opts = opts || {};
+  var isSub = opts.kind !== 'serv';
+  var mount = document.querySelector(opts.mount || '#root');
+  if (!mount) return;
+
+  var key = isSub ? K.subs : K.servicios;
+  var histKey = isSub ? K.subsHist : K.serviciosHist;
+  var icon = isSub ? '🔄' : '🏠';
+  var pastel = isSub ? 'pink' : 'coral';
+  var pastelTx = isSub ? 'var(--pink-tx)' : 'var(--coral-tx)';
+  var CATS = isSub
+    ? ['Entretenimiento', 'Música', 'Trabajo', 'Salud', 'Fitness', 'Cloud/Tech', 'Otro']
+    : ['💡 Luz', '💧 Agua', '🔥 Gas', '📶 Internet', '🧹 Mantenimiento', 'Otro'];
+  var idPrefix = isSub ? 's_' : 'sv_';
+
+  function list() { return FT.get(key, []) || []; }
+  function saveList(l) { FT.set(key, l); FT._changed(); }
+  function es() { return FT.lang === 'es'; }
+  function toMonthly(s) { if (s.freq === 'annual') return (parseFloat(s.amount) || 0) / 12; if (s.freq === 'weekly') return (parseFloat(s.amount) || 0) * 4.33; return parseFloat(s.amount) || 0; }
+  function freqLbl(f) { var L = es(); return { monthly: L ? 'Mensual' : 'Monthly', annual: L ? 'Anual' : 'Annual', weekly: L ? 'Semanal' : 'Weekly' }[f] || f; }
+  function nextBillingDate(s) {
+    if (!s.date) return null;
+    var p = s.date.split('-').map(Number), d = new Date(p[0], p[1] - 1, p[2]);
+    var today = new Date(); today.setHours(0, 0, 0, 0);
+    var guard = 0;
+    while (d < today && guard < 1000) {
+      if (s.freq === 'annual') d.setFullYear(d.getFullYear() + 1);
+      else if (s.freq === 'weekly') d.setDate(d.getDate() + 7);
+      else d.setMonth(d.getMonth() + 1);
+      guard++;
+    }
+    return d;
+  }
+  function loadHistory6() {
+    var hist = FT.get(histKey, {}) || {}, now = new Date(), out = [];
+    for (var i = 5; i >= 0; i--) {
+      var d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      var k = d.toISOString().slice(0, 7);
+      out.push({ month: k, label: d.toLocaleDateString(es() ? 'es-MX' : 'en-US', { month: 'short' }), value: hist[k] != null ? hist[k] : null });
+    }
+    return out;
+  }
+  function updateHistorySnapshot(totalMonthly) {
+    var hist = FT.get(histKey, {}) || {};
+    hist[new Date().toISOString().slice(0, 7)] = totalMonthly;
+    FT.set(histKey, hist);
+  }
+
+  var filterMode = 'all';
+
+  function trendChartHTML(trend) {
+    var L = es(), W = 800, H = 150, padL = 16, padR = 16, padT = 14, padB = 26;
+    var vals = trend.map(function (t) { return t.value; }).filter(function (v) { return v != null; });
+    var maxVal = Math.max(1, vals.reduce(function (a, b) { return Math.max(a, b); }, 0));
+    var stepX = (W - padL - padR) / (trend.length - 1 || 1);
+    function scaleY(v) { return H - padB - (v / maxVal) * (H - padT - padB); }
+    var pts = trend.map(function (t, i) { return t.value != null ? { x: padL + i * stepX, y: scaleY(t.value) } : null; });
+    var path = '';
+    pts.forEach(function (p) { if (p) path += (path === '' ? 'M' : 'L') + p.x.toFixed(1) + ',' + p.y.toFixed(1) + ' '; });
+    var dots = pts.map(function (p) { return p ? '<circle cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="4" fill="var(--g-main)"/>' : ''; }).join('');
+    var labels = trend.map(function (t, i) { return '<text x="' + (padL + i * stepX).toFixed(1) + '" y="' + (H - 6) + '" font-size="12" fill="#A0A3AF" text-anchor="middle">' + t.label + '</text>'; }).join('');
+    var known = trend.filter(function (t) { return t.value != null; });
+    var msg = known.length > 1
+      ? (known[known.length - 1].value > known[known.length - 2].value
+          ? (L ? '⚠️ Tu gasto subió vs el mes pasado' : '⚠️ Your spending went up vs last month')
+          : (L ? '✅ Tu gasto bajó o se mantuvo' : '✅ Your spending went down or stayed the same'))
+      : (L ? 'Vamos guardando el histórico mes a mes' : "We're building your monthly history");
+    return '<div class="ft-card"><div style="font-size:13px;font-weight:800;margin-bottom:8px">📈 ' + (L ? 'Tendencia (6 meses)' : 'Trend (6 months)') + '</div>' +
+      '<svg style="width:100%;max-height:150px;display:block" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid meet">' +
+      (path ? '<path d="' + path + '" fill="none" stroke="var(--g-main)" stroke-width="3"/>' : '') + dots + labels + '</svg>' +
+      '<div style="font-size:11px;color:var(--text3);margin-top:4px">' + msg + '</div></div>';
+  }
+
+  function render() {
+    var L = es(), all = list();
+    var filtered = filterMode === 'all' ? all : all.filter(function (s) { return s.freq === filterMode; });
+    var active = all.filter(function (s) { return !s.paused; });
+    var total = active.reduce(function (a, s) { return a + toMonthly(s); }, 0);
+    updateHistorySnapshot(total);
+
+    var upcoming = active.map(function (s) { return { s: s, next: nextBillingDate(s) }; }).filter(function (x) { return x.next; })
+      .sort(function (a, b) { return a.next - b.next; }).slice(0, 5);
+
+    var h = '<div class="ft-card"><div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">' +
+      '<div style="text-align:center"><div class="ft-num" style="font-size:21px;color:' + pastelTx + '">' + FT.money(total) + '</div><div style="font-size:11px;color:var(--text3)">' + (L ? 'al mes' : 'per month') + '</div></div>' +
+      '<div style="text-align:center"><div class="ft-num" style="font-size:21px;color:var(--red)">' + FT.money(total * 12) + '</div><div style="font-size:11px;color:var(--text3)">' + (L ? 'al año' : 'per year') + '</div></div></div></div>';
+
+    h += trendChartHTML(loadHistory6());
+
+    if (upcoming.length) {
+      h += '<div class="ft-card"><div style="font-size:13px;font-weight:800;margin-bottom:8px">⏰ ' + (L ? 'Próximas a pagar' : 'Upcoming payments') + '</div>' +
+        upcoming.map(function (x) {
+          var days = Math.ceil((x.next - new Date(new Date().toDateString())) / 86400000);
+          return '<div class="tap" data-open="' + x.s.id + '" style="display:flex;align-items:center;gap:10px;padding:7px 0;cursor:pointer">' +
+            '<div class="ft-tx-ico ' + pastel + '" style="width:34px;height:34px;font-size:15px;display:grid;place-items:center;border-radius:10px">' + icon + '</div>' +
+            '<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:700">' + x.s.name + '</div>' +
+            '<div style="font-size:10px;color:' + (days <= 3 ? 'var(--red)' : 'var(--text3)') + '">' + FT.date(x.s.date) + ' · ' + (days === 0 ? (L ? 'hoy' : 'today') : days + 'd') + '</div></div>' +
+            '<div style="font-size:13px;font-weight:800">' + FT.money(parseFloat(x.s.amount) || 0) + '</div></div>';
+        }).join('') + '</div>';
+    }
+
+    h += '<div class="ft-chip-row" style="display:flex;gap:6px;overflow-x:auto;margin-bottom:12px">' +
+      ['all', 'monthly', 'annual'].map(function (f) {
+        var lbl = f === 'all' ? (L ? 'Todas' : 'All') : freqLbl(f) + (f === 'monthly' ? 's' : 'es');
+        return '<button class="ft-chip tap' + (filterMode === f ? ' on' : '') + '" data-f="' + f + '" style="flex-shrink:0;background:' + (filterMode === f ? 'var(--ink)' : 'var(--sunk)') + ';border:1.5px solid ' + (filterMode === f ? 'var(--ink)' : 'var(--hair)') + ';color:' + (filterMode === f ? '#fff' : 'var(--text2)') + ';border-radius:99px;padding:6px 13px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer">' + lbl + '</button>';
+      }).join('') + '</div>';
+
+    h += '<div class="ft-card" style="padding:2px 16px">';
+    if (!filtered.length) {
+      h += '<div class="ft-empty">' + (isSub ? (L ? 'Sin suscripciones' : 'No subscriptions') : (L ? 'Sin servicios registrados' : 'No services yet')) + '</div>';
+    } else {
+      h += filtered.map(function (s) {
+        return '<div class="tap" data-open="' + s.id + '" style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--hair);cursor:pointer;' + (s.paused ? 'opacity:.55' : '') + '">' +
+          '<div class="ft-tx-ico ' + pastel + '" style="width:42px;height:42px;font-size:19px;display:grid;place-items:center;border-radius:13px;flex-shrink:0">' + icon + '</div>' +
+          '<div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:800">' + s.name + (s.paused ? ' <span style="font-size:9px;background:var(--chip);color:var(--text3);padding:2px 7px;border-radius:20px;font-weight:800">' + (L ? 'PAUSADA' : 'PAUSED') + '</span>' : '') + '</div>' +
+          '<div style="font-size:11px;color:var(--text3)">' + freqLbl(s.freq) + ' · ' + (s.cat || '') + ' · ' + FT.date(s.date) + '</div></div>' +
+          '<div style="font-size:14px;font-weight:800;color:' + pastelTx + '">' + FT.money(parseFloat(s.amount) || 0) + '</div></div>';
+      }).join('');
+    }
+    h += '</div>';
+
+    h += '<div class="tap" data-go="recurrentes.html" style="font-size:12px;font-weight:700;color:var(--blue);text-align:center;padding:6px 0 4px">♻️ ' + (L ? 'Ver todos tus recurrentes' : 'See all your recurring items') + ' →</div>';
+
+    mount.innerHTML = h;
+    mount.querySelectorAll('[data-f]').forEach(function (b) { b.onclick = function () { filterMode = b.getAttribute('data-f'); render(); }; });
+    mount.querySelectorAll('[data-open]').forEach(function (b) { b.onclick = function () { openDetail(b.getAttribute('data-open')); }; });
+    mount.querySelectorAll('[data-go]').forEach(function (b) { b.onclick = function () { FT.go(b.getAttribute('data-go')); }; });
+  }
+
+  function formFields(s) {
+    var L = es();
+    return '<div class="ft-field"><label>' + (L ? 'Nombre' : 'Name') + '</label><input id="siName" value="' + (s ? s.name || '' : '') + '" placeholder="' + (isSub ? 'Netflix, Spotify...' : (L ? 'Luz, Agua, Internet...' : 'Power, Water, Internet...')) + '"></div>' +
+      '<div class="ft-field"><label>' + (L ? 'Monto' : 'Amount') + ' ($)</label><input id="siAmount" type="number" step="0.01" min="0" value="' + (s ? s.amount : '') + '"></div>' +
+      '<div class="ft-field"><label>' + (L ? 'Frecuencia' : 'Frequency') + '</label><select id="siFreq">' +
+        ['monthly', 'annual', 'weekly'].map(function (f) { return '<option value="' + f + '" ' + (s && s.freq === f ? 'selected' : '') + '>' + freqLbl(f) + '</option>'; }).join('') + '</select></div>' +
+      '<div class="ft-field"><label>' + (L ? 'Fecha de cobro' : 'Billing date') + '</label><input id="siDate" type="date" value="' + (s ? s.date : FT.todayISO()) + '"></div>' +
+      '<div class="ft-field"><label>' + (L ? 'Categoría' : 'Category') + '</label><select id="siCat">' +
+        CATS.map(function (c) { return '<option ' + (s && s.cat === c ? 'selected' : '') + '>' + c + '</option>'; }).join('') + '</select></div>';
+  }
+
+  function openForm(id) {
+    var L = es(), s = id ? list().find(function (x) { return String(x.id) === String(id); }) : null;
+    FT.modal({
+      title: s ? (L ? 'Editar' : 'Edit') : (isSub ? (L ? 'Nueva suscripción' : 'New subscription') : (L ? 'Nuevo servicio' : 'New service')),
+      html: formFields(s),
+      onSave: function (body) {
+        var name = body.querySelector('#siName').value.trim();
+        var amount = parseFloat(body.querySelector('#siAmount').value) || 0;
+        if (!name || !amount) { FT.toast(L ? '⚠️ Llena todos los campos' : '⚠️ Fill all fields'); return true; }
+        var freq = body.querySelector('#siFreq').value, date = body.querySelector('#siDate').value, cat = body.querySelector('#siCat').value;
+        var l = list();
+        if (s) {
+          var i = l.findIndex(function (x) { return String(x.id) === String(id); });
+          l[i] = isSub ? Object.assign({}, l[i], { name: name, amount: amount, freq: freq, date: date, cat: cat })
+                       : Object.assign({}, l[i], { name: name, amount: amount, freq: freq, date: date, cat: cat, hogar: true });
+        } else {
+          l.push(isSub
+            ? { id: idPrefix + Date.now(), name: name, amount: amount, freq: freq, date: date, cat: cat, paused: false }
+            : { id: idPrefix + Date.now(), name: name, amount: amount, freq: freq, date: date, cat: cat, paused: false, hogar: true, createdBy: FT.userName() });
+        }
+        saveList(l);
+        FT.toast(L ? '✅ Guardado' : '✅ Saved');
+        render();
+      }
+    });
+  }
+
+  function openDetail(id) {
+    var L = es(), s = list().find(function (x) { return String(x.id) === String(id); });
+    if (!s) return;
+    var next = nextBillingDate(s);
+    FT.sheet({
+      title: s.name,
+      html: '<div style="text-align:center;margin-bottom:16px">' +
+        '<div class="ft-tx-ico ' + pastel + '" style="width:54px;height:54px;font-size:24px;display:grid;place-items:center;border-radius:16px;margin:0 auto 8px">' + icon + '</div>' +
+        '<div class="ft-num" style="font-size:26px;color:' + pastelTx + '">' + FT.money(parseFloat(s.amount) || 0) + '</div>' +
+        (s.paused ? '<span style="background:var(--chip);color:var(--text3);font-size:10px;font-weight:800;padding:3px 10px;border-radius:20px;display:inline-block;margin-top:6px">⏸️ ' + (L ? 'Pausada' : 'Paused') + '</span>' : '') + '</div>' +
+        '<div class="ft-row"><span class="k">' + (L ? 'Frecuencia' : 'Frequency') + '</span><span class="v">' + freqLbl(s.freq) + '</span></div>' +
+        '<div class="ft-row"><span class="k">' + (L ? 'Categoría' : 'Category') + '</span><span class="v">' + (s.cat || '—') + '</span></div>' +
+        '<div class="ft-row"><span class="k">' + (L ? 'Equivalente mensual' : 'Monthly equivalent') + '</span><span class="v">' + FT.money(toMonthly(s)) + '</span></div>' +
+        (next && !s.paused ? '<div class="ft-row"><span class="k">' + (L ? 'Próximo cobro' : 'Next charge') + '</span><span class="v">' + FT.date(next) + '</span></div>' : ''),
+      actions: [
+        { label: '✏️ ' + (L ? 'Editar' : 'Edit'), onClick: function () { openForm(id); } },
+        { label: s.paused ? '▶️ ' + (L ? 'Reanudar' : 'Resume') : '⏸️ ' + (L ? 'Pausar' : 'Pause'), onClick: function () { var l = list(); var i = l.findIndex(function (x) { return String(x.id) === String(id); }); l[i].paused = !l[i].paused; saveList(l); FT.toast(l[i].paused ? (L ? '⏸️ Pausada' : '⏸️ Paused') : (L ? '▶️ Reanudada' : '▶️ Resumed')); render(); } },
+        { label: '🗑️ ' + (L ? 'Eliminar' : 'Delete'), onClick: function () { FT.confirm(L ? '¿Eliminar?' : 'Delete?').then(function (ok) { if (ok) { saveList(list().filter(function (x) { return String(x.id) !== String(id); })); FT.toast(L ? '🗑️ Eliminado' : '🗑️ Deleted'); render(); } }); } }
+      ]
+    });
+  }
+
+  document.addEventListener('ft:datachanged', render);
+  document.addEventListener('ft:langchange', render);
+  render();
+  return { render: render, openForm: openForm };
+};
+
+/* ─────────────────────────────────────────────────────────────────────────
+   17 · BOOT
+   ───────────────────────────────────────────────────────────────────────── */
+FT.lang = (function () { try { return sessionStorage.getItem(K.lang) || localStorage.getItem(K.lang) || 'es'; } catch (e) { return 'es'; } })();
+
+FT.boot = function () {
+  var isPublic = document.documentElement.hasAttribute('data-ft-public');
+  var u = FT.loadUser();
+  if (!u && !isPublic) {
+    if (!FT.getRaw(K.setup)) { location.replace('login.html'); return; }
+  }
+  if (u && !sessionStorage.getItem(K.user)) { try { sessionStorage.setItem(K.user, JSON.stringify(u)); } catch (e) {} }
+  FT.lang = (u && u.lang) ? (localStorage.getItem(K.lang) || u.lang) : FT.lang;
+  FT.applyLang(document);
+  if (!isPublic) {
+    try { FT.runAutomations(); } catch (e) {}
+    try { FT.syncPartner(); } catch (e) {}
+  }
+  document.dispatchEvent(new CustomEvent('ft:ready'));
+};
+
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', FT.boot);
+else FT.boot();
+
+/* ─────────────────────────────────────────────────────────────────────────
+   18 · SHIM — nombres globales viejos (quitar cuando todas las pantallas usen FT.*)
+   ───────────────────────────────────────────────────────────────────────── */
+window.isPremium = FT.isPremium;
+window.isFree = FT.isFree;
+window.getActivePlan = FT.getActivePlan;
+window.getPremiumInfo = FT.getPremiumInfo;
+window.savePlan = FT.savePlan;
+window.clearPlan = FT.clearPlan;
+window.canUse = FT.canUse;
+window.hasAccess = function () { return true; };
+window.protectPage = function () { return true; };
+window.checkAccessWithGAS = FT.checkAccess;
+window.premiumBadge = FT.premiumBadge;
+window.showHelpModal = FT.showHelpModal;
+window.showUpgradeModal = FT.showUpgradeModal;
+window.hideUpgradeModal = FT.closeTop;
+window.getCredits = FT.getCredits;
+window.creditsLeft = FT.creditsLeft;
+window.useCredit = FT.useCredit;
+window.addExtraCredits = FT.addExtraCredits;
+
+})(window, document);

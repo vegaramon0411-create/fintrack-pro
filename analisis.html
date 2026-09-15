@@ -4,575 +4,214 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>FinTrack Pro · Análisis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
 <script src="premium.js"></script>
-<style>
-:root{--g-dark:#0F5132;--g-main:#1A7A4A;--g-light:#E8F7EF;--white:#fff;--off:#F7F8FC;--border:#E4E6F0;--text:#1A1D2E;--text2:#4A4E69;--text3:#9395A5;--red:#E63946;--red-dim:rgba(230,57,70,.1);--amber:#F4A261;--blue:#4A6CF7;--blu-dim:rgba(74,108,247,.1);--shadow:0 2px 12px rgba(0,0,0,.06);--sidebar:240px;--topbar:58px;--round-font:'Nunito',-apple-system,'SF Pro Rounded',sans-serif;--glass-bg:rgba(255,255,255,.55);--glass-border:rgba(255,255,255,.6);--glass-shadow:0 8px 32px -12px rgba(20,20,30,.10);--bg-gradient:linear-gradient(160deg,#FDEEE3 0%,#E9F3FC 45%,#EAF8EF 100%);--tag-bg:#EFEFF1;}
-*{margin:0;padding:0;box-sizing:border-box;}
-html,body{overflow-x:hidden;max-width:100vw;}
-body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg-gradient);background-attachment:fixed;color:var(--text);min-height:100vh;}
-.glass{background:var(--glass-bg);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid var(--glass-border);box-shadow:var(--glass-shadow);}
-.round-num{font-family:var(--round-font);font-weight:800;}
-.app{display:flex;min-height:100vh;}
-.sidebar{width:var(--sidebar);background:var(--white);border-right:1px solid var(--border);position:fixed;top:0;left:0;bottom:0;display:flex;flex-direction:column;z-index:50;overflow-y:auto;transition:width .18s ease;}
-.sidebar.collapsed{width:64px;}
-.sidebar.collapsed .sb-name,.sidebar.collapsed .sb-tag,.sidebar.collapsed .sb-section,.sidebar.collapsed .sb-link span:last-child{display:none;}
-.sidebar.collapsed .sb-link{justify-content:center;padding:10px 0;}
-.sidebar.collapsed .sb-logo{justify-content:center;padding:0 8px;}
-.sidebar.collapsed .sb-logo>div:last-child{display:none;}
-.sb-collapse-btn{position:absolute;top:14px;right:-13px;width:26px;height:26px;border-radius:50%;background:var(--white);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;z-index:51;box-shadow:0 2px 6px rgba(0,0,0,.08);}
-.sidebar.collapsed ~ .main{margin-left:64px;}
-.sb-logo{display:flex;align-items:center;gap:10px;padding:22px 18px 18px;border-bottom:1px solid var(--border);}
-.sb-mark{width:36px;height:36px;background:linear-gradient(135deg,var(--g-dark),var(--g-main));border-radius:11px;display:grid;place-items:center;color:white;font-size:17px;}
-.sb-name{font-size:15px;font-weight:800;}.sb-tag{font-size:10px;color:var(--text3);}
-.sb-nav{padding:14px 10px;flex:1;}
-.sb-section{font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);padding:10px 8px 5px;}
-.sb-link{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:10px;font-size:13px;font-weight:600;color:var(--text2);cursor:pointer;margin-bottom:2px;transition:all .15s;}
-.sb-link:hover{background:var(--off);}
-.sb-link.on{background:var(--g-light);color:var(--g-main);}
-.sb-ico{font-size:15px;width:20px;text-align:center;flex-shrink:0;}
-.sb-footer{border-top:1px solid var(--border);padding:12px 10px;}
-.sb-user{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:10px;cursor:pointer;}
-.sb-user:hover{background:var(--off);}
-.sb-avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--g-dark),var(--g-main));display:grid;place-items:center;color:white;font-size:13px;font-weight:700;}
-.sb-uname{font-size:13px;font-weight:700;}.sb-umail{font-size:10px;color:var(--text3);}
-.main{margin-left:var(--sidebar);flex:1;display:flex;flex-direction:column;padding-bottom:0;}
-.topbar{background:var(--glass-bg);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-bottom:1px solid var(--glass-border);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
-.topbar-title{font-size:17px;font-weight:800;}
-.page{padding:16px;overflow-x:hidden;}
-.page [style*="grid-template-columns"] > *{min-width:0;}
-.card{background:var(--glass-bg);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid var(--glass-border);border-radius:16px;padding:14px;margin-bottom:12px;box-shadow:var(--glass-shadow);}
-.lang-toggle{display:flex;background:var(--off);border:1px solid var(--border);border-radius:20px;overflow:hidden;font-size:11px;font-weight:700;}
-.kebab-btn{cursor:pointer;width:36px;height:36px;border-radius:99px;background:var(--off);display:grid;place-items:center;font-size:18px;flex-shrink:0;color:var(--text2);border:none;font-family:inherit;line-height:1;}
-.kebab-menu{position:absolute;top:56px;right:16px;background:white;border:1px solid var(--border);border-radius:14px;box-shadow:0 12px 28px -8px rgba(20,20,30,.18);padding:6px;z-index:60;display:none;min-width:180px;}
-.kebab-menu.on{display:block;}
-.kebab-menu button{width:100%;text-align:left;background:none;border:none;padding:10px 12px;font-size:13px;font-weight:700;color:var(--text);cursor:pointer;font-family:inherit;border-radius:8px;display:flex;align-items:center;gap:8px;}
-.kebab-menu button:hover{background:var(--off);}
-
-.lt-opt{padding:5px 12px;cursor:pointer;color:var(--text3);}
-.lt-opt.on{background:var(--g-main);color:white;}
-.cat-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--off);}
-.cat-row:last-child{border-bottom:none;}
-.cat-bar-wrap{flex:1;height:8px;background:var(--border);border-radius:100px;overflow:hidden;}
-.cat-bar{height:100%;border-radius:100px;}
-.mob-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--white);border-top:1px solid var(--border);padding:8px 0 calc(8px + env(safe-area-inset-bottom));z-index:100;gap:0;}
-.mob-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:9px;font-weight:700;color:var(--text3);cursor:pointer;padding:4px 0;}
-.mob-item.on{color:var(--g-main);}
-.mob-ico{font-size:22px;line-height:1.2;}
-.mob-plus{width:52px;height:52px;border-radius:50%;background:var(--g-main);display:flex;align-items:center;justify-content:center;font-size:26px;color:white;margin-top:-18px;box-shadow:0 4px 14px rgba(26,122,74,.4);}
-.more-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;align-items:flex-end;z-index:200;}
-.more-overlay.open{display:flex;}
-.more-panel{background:var(--white);width:100%;border-radius:24px 24px 0 0;padding:12px 20px calc(28px + env(safe-area-inset-bottom));}
-.more-handle{width:36px;height:4px;background:var(--border);border-radius:100px;margin:0 auto 16px;}
-.more-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
-.more-item{display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;}
-.more-ico{width:52px;height:52px;border-radius:16px;display:grid;place-items:center;font-size:24px;}
-.more-item span{font-size:11px;font-weight:600;color:var(--text2);text-align:center;}
-#toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#1A1D2E;color:white;padding:12px 20px;border-radius:20px;font-size:13px;font-weight:600;display:none;z-index:300;}
-@media(max-width:860px){
-  .sidebar{display:none;}
-  .main{margin-left:0;padding-bottom:90px;max-width:100vw;overflow-x:hidden;min-width:0;}
-  .mob-nav{display:flex!important;}
-}
-.trend-chart{width:100%;max-height:180px;display:block;}
-</style>
 </head>
 <body>
-<div class="app">
-<aside class="sidebar" id="sidebar">
-  <div class="sb-collapse-btn" id="sbCollapseBtn" onclick="toggleSidebar()">◀</div>
-  <div class="sb-logo"><div class="sb-mark">💎</div><div><div class="sb-name">FinTrack Pro</div><div class="sb-tag">Panel financiero</div></div></div>
-  <nav class="sb-nav">
-    <div class="sb-section">Principal</div>
-    <div class="sb-link" onclick="go('dashboard.html')"><span class="sb-ico">📊</span><span>Dashboard</span></div>
-    <div class="sb-link" onclick="go('dashboard.html')"><span class="sb-ico">➕</span><span data-es="Nuevo registro" data-en="New entry">Nuevo registro</span></div>
-    <div class="sb-link" onclick="go('suscripciones.html')"><span class="sb-ico">🔄</span><span data-es="Suscripciones" data-en="Subscriptions">Suscripciones</span></div>
-    <div class="sb-link" onclick="go('metas.html')"><span class="sb-ico">🎯</span><span data-es="Metas" data-en="Goals">Metas</span></div>
-    <div class="sb-link" onclick="go('deudas.html')"><span class="sb-ico">💳</span><span data-es="Deudas" data-en="Debts">Deudas</span></div>
-    <div class="sb-section">Análisis</div>
-    <div class="sb-link on"><span class="sb-ico">📈</span><span data-es="Por categoría" data-en="By category">Por categoría</span></div>
-    <div class="sb-link" onclick="go('historial.html')"><span class="sb-ico">📅</span><span data-es="Historial" data-en="History">Historial</span></div>
-    <div class="sb-link" onclick="go('inversiones.html')"><span class="sb-ico">🏦</span><span data-es="Inversiones" data-en="Investments">Inversiones</span></div>
-    <div class="sb-link" onclick="go('reporte.html')"><span class="sb-ico">📄</span><span data-es="Reporte mensual" data-en="Monthly report">Reporte mensual</span></div>
-    <div class="sb-section">Herramientas</div>
-    <div class="sb-link" onclick="go('scanner.html')"><span class="sb-ico">📷</span><span data-es="Escanear recibo" data-en="Scan receipt">Escanear recibo</span></div>
-    <div class="sb-link" onclick="go('importar.html')"><span class="sb-ico">📥</span><span data-es="Importar CSV" data-en="Import CSV">Importar CSV</span></div>
-    <div class="sb-link" onclick="go('emergencia.html')"><span class="sb-ico">🛡️</span><span data-es="Fondo emergencia" data-en="Emergency fund">Fondo emergencia</span></div>
-    <div class="sb-link" onclick="go('ahorro.html')"><span class="sb-ico">💵</span><span data-es="Ahorro libre" data-en="Free savings">Ahorro libre</span></div>
-    <div class="sb-link" onclick="go('hogar.html')"><span class="sb-ico">🏠</span><span data-es="Hogar" data-en="Household">Hogar</span></div>
-    <div class="sb-section">Cuenta</div>
-    <div class="sb-link" onclick="go('perfil.html')"><span class="sb-ico">👤</span><span data-es="Mi perfil" data-en="My profile">Mi perfil</span></div>
-    <div class="sb-link" onclick="go('config.html')"><span class="sb-ico">⚙️</span><span data-es="Configuración" data-en="Settings">Configuración</span></div>
-    <div class="sb-link" onclick="logout()"><span class="sb-ico">🚪</span><span data-es="Cerrar sesión" data-en="Log out">Cerrar sesión</span></div>
-  </nav>
-  <div class="sb-footer"><div class="sb-user" onclick="go('perfil.html')"><div class="sb-avatar" id="sbAvatar">R</div><div><div class="sb-uname" id="sbName">—</div><div class="sb-umail" id="sbEmail">—</div></div></div></div>
-</aside>
-
-<div class="main">
-<div class="topbar" style="position:relative;">
-  <div class="topbar-title">📊 <span data-es="Análisis" data-en="Analysis">Análisis</span></div>
-  <button class="kebab-btn" onclick="document.getElementById('kebabMenu').classList.toggle('on')">⋯</button>
-  <div id="kebabMenu" class="kebab-menu" onclick="document.getElementById('kebabMenu').classList.remove('on')">
-    <button onclick="showHelpModal()">❓ <span data-es="Ayuda" data-en="Help">Ayuda</span></button>
-    <button onclick="setLang(lang==='es'?'en':'es')">🌐 <span data-es="English" data-en="Español">English</span></button>
-  </div>
-</div>
-<div class="lang-toggle" style="display:none">
-  <div class="lt-opt on" id="ltES" onclick="setLang('es')">ES</div>
-  <div class="lt-opt" id="ltEN" onclick="setLang('en')">EN</div>
-</div>
-
-<div class="page" id="content"></div>
-</div>
-</div>
-<div id="toast"></div>
-
-<div class="more-overlay" id="moreOverlay" onclick="if(event.target===this)closeMoreMenu()">
-  <div class="more-panel">
-    <div class="more-handle"></div>
-    <div class="more-grid">
-      <div class="more-item" onclick="go('analisis.html')"><div class="more-ico" style="background:var(--g-light)">📈</div><span data-es="Análisis" data-en="Analysis">Análisis</span></div>
-      <div class="more-item" onclick="go('metas.html')"><div class="more-ico" style="background:var(--amb-dim)">🎯</div><span data-es="Metas" data-en="Goals">Metas</span></div>
-      <div class="more-item" onclick="go('deudas.html')"><div class="more-ico" style="background:var(--red-dim)">💳</div><span data-es="Deudas" data-en="Debts">Deudas</span></div>
-      <div class="more-item" onclick="go('ahorro.html')"><div class="more-ico" style="background:var(--pur-dim,rgba(123,94,167,.1))">💵</div><span data-es="Ahorro libre" data-en="Free savings">Ahorro libre</span></div>
-      <div class="more-item" onclick="go('inversiones.html')"><div class="more-ico" style="background:var(--blu-dim)">🏦</div><span data-es="Inversiones" data-en="Investments">Inversiones</span></div>
-      <div class="more-item" onclick="go('scanner.html')"><div class="more-ico" style="background:rgba(123,94,167,.1)">📷</div><span data-es="Escanear" data-en="Scan">Escanear</span></div>
-      <div class="more-item" onclick="go('importar.html')"><div class="more-ico" style="background:var(--blu-dim)">📥</div><span data-es="Importar CSV" data-en="Import CSV">Importar CSV</span></div>
-      <div class="more-item" onclick="go('emergencia.html')"><div class="more-ico" style="background:var(--amb-dim)">🛡️</div><span data-es="Emergencia" data-en="Emergency">Emergencia</span></div>
-      <div class="more-item" onclick="go('suscripciones.html')"><div class="more-ico" style="background:rgba(123,94,167,.1)">🔄</div><span data-es="Suscripciones" data-en="Subscriptions">Suscripciones</span></div>
-      <div class="more-item" onclick="go('config.html')"><div class="more-ico" style="background:var(--off)">⚙️</div><span data-es="Config" data-en="Settings">Config</span></div>
-      <div class="more-item" onclick="go('perfil.html')"><div class="more-ico" style="background:var(--blu-dim)">👤</div><span data-es="Perfil" data-en="Profile">Perfil</span></div>
-    </div>
-  </div>
-</div>
-
-<nav class="mob-nav">
-  <div class="mob-item" onclick="go('dashboard.html')"><div class="mob-ico">📊</div><span data-es="Inicio" data-en="Home">Inicio</span></div>
-  <div class="mob-item" onclick="go('historial.html')"><div class="mob-ico">📅</div><span data-es="Historial" data-en="History">Historial</span></div>
-  <div class="mob-item" onclick="go('dashboard.html')"><div class="mob-plus">＋</div></div>
-  <div class="mob-item" onclick="go('hogar.html')"><div class="mob-ico">🏠</div><span data-es="Hogar" data-en="Household">Hogar</span></div>
-  <div class="mob-item" onclick="openMoreMenu()"><div class="mob-ico">☰</div><span data-es="Más" data-en="More">Más</span></div>
-</nav>
-
+<div class="ft-app"><div class="ft-page" id="root"></div></div>
 <script>
-let user={},lang='es';
-const COLORS=['#1A7A4A','#E63946','#4A6CF7','#F4A261','#7B5EA7','#2EC4B6','#FF6B6B','#A8DADC'];
+var COLORS = ['var(--g-main)', 'var(--red)', 'var(--blue)', 'var(--amber)', 'var(--purple)', '#2EC4B6', '#FF6B6B', '#A8DADC'];
+function es() { return FT.lang === 'es'; }
 
-function loadData(){ try{return JSON.parse(localStorage.getItem('ft_data'))||{transactions:[],emergency:0,subscriptions:[]};}catch(e){return{transactions:[],emergency:0,subscriptions:[]};} }
-function fmt(n){ return '$'+Math.abs(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
-function go(url){ window.location.href=url; }
-function logout(){sessionStorage.clear();['ft_user','ft_user_setup','ft_premium','ft_lang'].forEach(k=>localStorage.removeItem(k));window.location.replace('login.html');}
-function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.style.display='block';setTimeout(()=>t.style.display='none',3000);}
-function openMoreMenu(){document.getElementById('moreOverlay').classList.add('open');}
-function closeMoreMenu(){document.getElementById('moreOverlay').classList.remove('open');}
-
-/* ── SIDEBAR COLLAPSE (desktop only) ── */
-function toggleSidebar(){
-  const sb = document.getElementById('sidebar');
-  const btn = document.getElementById('sbCollapseBtn');
-  if(!sb) return;
-  const collapsed = sb.classList.toggle('collapsed');
-  if(btn) btn.textContent = collapsed ? '▶' : '◀';
-  localStorage.setItem('ft_sidebar_collapsed', collapsed ? '1' : '0');
-}
-(function initSidebarState(){
-  if(window.innerWidth <= 860) return;
-  const sb = document.getElementById('sidebar');
-  const btn = document.getElementById('sbCollapseBtn');
-  if(!sb) return;
-  if(localStorage.getItem('ft_sidebar_collapsed') === '1'){
-    sb.classList.add('collapsed');
-    if(btn) btn.textContent = '▶';
-  }
-})();
-
-function setLang(l){
-  lang=l;localStorage.setItem('ft_lang',l);
-  document.getElementById('ltES').classList.toggle('on',l==='es');
-  document.getElementById('ltEN').classList.toggle('on',l==='en');
-  document.querySelectorAll('[data-es]').forEach(el=>{const v=el.getAttribute('data-'+l);if(v)el.textContent=v;});
-  render();
-}
-
-function buildMonthlyTrend(data){
-  const now = new Date();
-  const months = [];
-  for(let i=5;i>=0;i--){
-    const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
-    months.push(d.toISOString().slice(0,7));
-  }
-  return months.map(m => {
-    const txs = (data.transactions||[]).filter(t=>(t.date||'').startsWith(m));
-    let income=0, expenses=0;
-    txs.forEach(t=>{
-      const a = parseFloat(t.amount)||0;
-      if(t.type==='ingreso') income+=a;
-      else if((t.type==='gasto'||t.type==='suscripcion'||t.type==='hipoteca') && !(t.hogar==true)) expenses+=a;
+function buildMonthlyTrend(data) {
+  var now = new Date(), months = [];
+  for (var i = 5; i >= 0; i--) months.push(new Date(now.getFullYear(), now.getMonth() - i, 1).toISOString().slice(0, 7));
+  return months.map(function (m) {
+    var txs = (data.transactions || []).filter(function (t) { return (t.date || '').startsWith(m); });
+    var income = 0, expenses = 0;
+    txs.forEach(function (t) {
+      var a = parseFloat(t.amount) || 0;
+      if (t.type === 'ingreso') income += a;
+      else if ((t.type === 'gasto' || t.type === 'suscripcion' || t.type === 'hipoteca') && t.hogar !== true) expenses += a;
     });
-    const d = new Date(m+'-02');
-    return { month:m, label:d.toLocaleDateString(lang==='es'?'es-MX':'en-US',{month:'short'}), income, expenses };
+    var d = new Date(m + '-02');
+    return { month: m, label: d.toLocaleDateString(es() ? 'es-MX' : 'en-US', { month: 'short' }), income: income, expenses: expenses };
   });
 }
 
-function renderTrendChart(trend){
-  const es = lang==='es';
-  const W=800,H=200,padL=20,padR=20,padT=16,padB=30;
-  const maxVal = Math.max(1, ...trend.map(t=>Math.max(t.income,t.expenses)));
-  const stepX = (W-padL-padR)/(trend.length-1||1);
-  const scaleY = v => H-padB - (v/maxVal)*(H-padT-padB);
-
-  const pathFor = key => trend.map((t,i)=>`${i===0?'M':'L'}${(padL+i*stepX).toFixed(1)},${scaleY(t[key]).toFixed(1)}`).join(' ');
-
-  const dots = key => trend.map((t,i)=>`<circle cx="${(padL+i*stepX).toFixed(1)}" cy="${scaleY(t[key]).toFixed(1)}" r="4.5" fill="${key==='income'?'#1A7A4A':'#E63946'}"/>`).join('');
-
-  const labels = trend.map((t,i)=>`<text x="${(padL+i*stepX).toFixed(1)}" y="${H-8}" font-size="13" fill="#9395A5" text-anchor="middle">${t.label}</text>`).join('');
-
-  const trendUp = trend.length>1 && trend[trend.length-1].expenses > trend[trend.length-2].expenses;
-
-  return `
-  <div class="card">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-      <div style="font-size:13px;font-weight:800">📈 ${es?'Tendencia (6 meses)':'Trend (6 months)'}</div>
-      <div style="display:flex;gap:12px;font-size:10px;color:var(--text3)">
-        <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#1A7A4A;margin-right:3px"></span>${es?'Ingresos':'Income'}</span>
-        <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#E63946;margin-right:3px"></span>${es?'Gastos':'Expenses'}</span>
-      </div>
-    </div>
-    <svg class="trend-chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">
-      <path d="${pathFor('income')}" fill="none" stroke="#1A7A4A" stroke-width="3"/>
-      <path d="${pathFor('expenses')}" fill="none" stroke="#E63946" stroke-width="3"/>
-      ${dots('income')}${dots('expenses')}
-      ${labels}
-    </svg>
-    <div style="font-size:11px;color:var(--text3);margin-top:6px">
-      ${trendUp?(es?'⚠️ Tus gastos subieron respecto al mes pasado':'⚠️ Your expenses went up vs last month')
-              :(es?'✅ Tus gastos bajaron o se mantuvieron vs el mes pasado':'✅ Your expenses went down or stayed the same vs last month')}
-    </div>
-  </div>`;
+function renderTrendChart(trend) {
+  var L = es(), W = 800, H = 190, padL = 20, padR = 20, padT = 16, padB = 30;
+  var maxVal = Math.max(1, trend.reduce(function (m, t) { return Math.max(m, t.income, t.expenses); }, 0));
+  var stepX = (W - padL - padR) / (trend.length - 1 || 1);
+  function scaleY(v) { return H - padB - (v / maxVal) * (H - padT - padB); }
+  function pathFor(key) { return trend.map(function (t, i) { return (i === 0 ? 'M' : 'L') + (padL + i * stepX).toFixed(1) + ',' + scaleY(t[key]).toFixed(1); }).join(' '); }
+  function dots(key) { return trend.map(function (t, i) { return '<circle cx="' + (padL + i * stepX).toFixed(1) + '" cy="' + scaleY(t[key]).toFixed(1) + '" r="4.5" fill="' + (key === 'income' ? '#1A7A4A' : '#E14B4F') + '"/>'; }).join(''); }
+  var labels = trend.map(function (t, i) { return '<text x="' + (padL + i * stepX).toFixed(1) + '" y="' + (H - 8) + '" font-size="13" fill="#A0A3AF" text-anchor="middle">' + t.label + '</text>'; }).join('');
+  var trendUp = trend.length > 1 && trend[trend.length - 1].expenses > trend[trend.length - 2].expenses;
+  return '<div class="ft-card">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">' +
+      '<div style="font-size:13px;font-weight:800">📈 ' + (L ? 'Tendencia (6 meses)' : 'Trend (6 months)') + '</div>' +
+      '<div style="display:flex;gap:12px;font-size:10px;color:var(--text3)">' +
+        '<span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#1A7A4A;margin-right:3px"></span>' + (L ? 'Ingresos' : 'Income') + '</span>' +
+        '<span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#E14B4F;margin-right:3px"></span>' + (L ? 'Gastos' : 'Expenses') + '</span>' +
+      '</div></div>' +
+    '<svg style="width:100%;max-height:190px;display:block" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid meet">' +
+      '<path d="' + pathFor('income') + '" fill="none" stroke="#1A7A4A" stroke-width="3"/>' +
+      '<path d="' + pathFor('expenses') + '" fill="none" stroke="#E14B4F" stroke-width="3"/>' + dots('income') + dots('expenses') + labels +
+    '</svg>' +
+    '<div style="font-size:11px;color:var(--text3);margin-top:6px">' + (trendUp ? (L ? '⚠️ Tus gastos subieron respecto al mes pasado' : '⚠️ Your expenses went up vs last month') : (L ? '✅ Tus gastos bajaron o se mantuvieron vs el mes pasado' : '✅ Your expenses went down or stayed the same vs last month')) + '</div>' +
+  '</div>';
 }
 
-function render(){
-  const data=loadData();
-  const es=lang==='es';
-  const now=new Date();
-  const month=now.toISOString().slice(0,7);
-  const txs=(data.transactions||[]).filter(t=>(t.date||'').startsWith(month));
+function render() {
+  var L = es(), data = FT.data(), now = new Date(), month = FT.todayISO().slice(0, 7);
+  var txs = (data.transactions || []).filter(function (t) { return (t.date || '').startsWith(month); });
 
-  let income=0,expenses=0,invested=0,hogarExpenses=0,personalAhorro=0,extraIncome=0,chequeIncome=0;
-  const catMap={};
-  txs.forEach(t=>{
-    const a=parseFloat(t.amount)||0;
-    if(t.type==='ingreso'){
-      income+=a;
-      if(t.incomeKind==='extra') extraIncome+=a; else chequeIncome+=a;
-      return;
-    }
-    if(t.type==='inversion'){ invested+=a; return; }
-    if(t.type==='ahorro'){ if(!(t.hogar==true)) personalAhorro+=a; return; }
-    if(t.type==='gasto'||t.type==='suscripcion'||t.type==='hipoteca'){
-      if(t.hogar==true){ hogarExpenses+=a; return; } // gasto del hogar — no cuenta en tu análisis personal
-      expenses+=a;
-      const cat=t.category||t.cat||t.type||'Otro';
-      catMap[cat]=(catMap[cat]||0)+a;
+  var income = 0, expenses = 0, invested = 0, hogarExpenses = 0, personalAhorro = 0, extraIncome = 0, chequeIncome = 0;
+  var catMap = {};
+  txs.forEach(function (t) {
+    var a = parseFloat(t.amount) || 0;
+    if (t.type === 'ingreso') { income += a; if (t.incomeKind === 'extra') extraIncome += a; else chequeIncome += a; return; }
+    if (t.type === 'inversion') { invested += a; return; }
+    if (t.type === 'ahorro') { if (t.hogar !== true) personalAhorro += a; return; }
+    if (t.type === 'gasto' || t.type === 'suscripcion' || t.type === 'hipoteca') {
+      if (t.hogar === true) { hogarExpenses += a; return; }
+      expenses += a;
+      var cat = t.cat || t.type || 'Otro';
+      catMap[cat] = (catMap[cat] || 0) + a;
     }
   });
+  var cats = Object.keys(catMap).map(function (k) { return [k, catMap[k]]; }).sort(function (a, b) { return b[1] - a[1]; });
+  var maxCat = cats[0] ? cats[0][1] : 1;
+  var trend = buildMonthlyTrend(data);
 
-  const cats=Object.entries(catMap).sort((a,b)=>b[1]-a[1]);
-  const maxCat=cats[0]?cats[0][1]:1;
+  var hogar = FT.hogar(), hogarConn = FT.hogarConnected();
+  var hogarPct = hogarConn ? ((parseFloat(hogar.payPctHogar) || 50) + (parseFloat(hogar.saveHogarPct) || 10)) : 0;
+  var persPct = hogarConn ? (100 - hogarPct) : 100;
+  var monthlyIncome = FT.user().income || 0;
+  var personalBudget = hogarConn ? (chequeIncome * persPct / 100 + extraIncome) : monthlyIncome;
+  var personalLeft = personalBudget - expenses - personalAhorro - invested;
 
-  const trend = buildMonthlyTrend(data);
+  var dayOfMonth = now.getDate(), daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  var dailyRate = dayOfMonth > 0 ? expenses / dayOfMonth : 0;
+  var projectedTotal = dailyRate * daysInMonth;
+  var willOverspend = personalBudget > 0 && projectedTotal > personalBudget;
 
-  // ── Contexto de hogar: cuánto de tu sueldo se va al hogar ──
-  const hogar = (() => { try{ return JSON.parse(localStorage.getItem('ft_hogar')||'{}'); }catch(e){ return {}; } })();
-  const hogarConn = hogar.connected && !hogar.manuallyLeft;
-  const hogarPct = hogarConn ? ((parseFloat(hogar.payPctHogar)||50) + (parseFloat(hogar.saveHogarPct)||10)) : 0;
-  const persPct = hogarConn ? (100-hogarPct) : 100;
-  const monthlyIncome = user.income||0;
-  const personalBudget = hogarConn ? (chequeIncome*persPct/100 + extraIncome) : monthlyIncome;
-  const personalLeft = personalBudget - expenses - personalAhorro - invested;
-
-  const dayOfMonth = now.getDate();
-  const daysInMonth = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
-  const dailyRate = dayOfMonth>0 ? expenses/dayOfMonth : 0;
-  const projectedTotal = dailyRate * daysInMonth;
-  const willOverspend = personalBudget>0 && projectedTotal > personalBudget;
-
-  // ── Ahorro potencial REAL: personal + tu parte del sobrante combinado del hogar ──
-  // (gasto hogar combinado = el mío + el de mi pareja, porque un gasto hogar es de los dos)
-  const _mesActualHogar = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
-  let partnerHogarExpenses = 0;
-  let _partnerProfileAn = null;
-  if(hogarConn && hogar.partnerEmail){
-    try{
-      const _k = 'profile_'+hogar.partnerEmail.replace(/[^a-z0-9]/gi,'_');
-      _partnerProfileAn = JSON.parse(localStorage.getItem(_k)||'null');
-      if(_partnerProfileAn && _partnerProfileAn.data && _partnerProfileAn.data.transactions){
-        partnerHogarExpenses = _partnerProfileAn.data.transactions
-          .filter(t=>t.hogar===true && (t.type==='gasto'||t.type==='suscripcion'||t.type==='hipoteca') && String(t.date||'').startsWith(_mesActualHogar))
-          .reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
-      }
-    }catch(e){}
+  var mesActualHogar = month, partnerHogarExpenses = 0, pp = null;
+  if (hogarConn && hogar.partnerEmail) {
+    pp = FT.partnerProfile();
+    if (pp && pp.data && pp.data.transactions) {
+      partnerHogarExpenses = pp.data.transactions.filter(function (t) { return t.hogar === true && (t.type === 'gasto' || t.type === 'suscripcion' || t.type === 'hipoteca') && String(t.date || '').startsWith(mesActualHogar); })
+        .reduce(function (a, t) { return a + (parseFloat(t.amount) || 0); }, 0);
+    }
   }
-  // Ingreso de la pareja: preferir el del perfil ya sincronizado (misma fuente que el gasto de arriba),
-  // con hogar.partnerIncome como respaldo si aún no hay perfil sincronizado.
-  const partnerIncomeAn = (_partnerProfileAn && parseFloat(_partnerProfileAn.income)>0)
-    ? parseFloat(_partnerProfileAn.income)
-    : (parseFloat(hogar.partnerIncome)||0);
-  const hogarExpensesCombined = hogarExpenses + partnerHogarExpenses;
-  const totalIncomeHogar = monthlyIncome + partnerIncomeAn;
-  const hogarBudgetCombined = totalIncomeHogar * ((parseFloat(hogar.payPctHogar)||50)/100);
-  const hogarSurplusCombinedRaw = hogarBudgetCombined - hogarExpensesCombined; // puede ser negativo (déficit)
-  const hogarSurplusCombined = Math.max(0, hogarSurplusCombinedRaw); // igual que Hogar y Dashboard: nunca negativo
-  // Reparto del sobrante: respeta el modo configurado en Hogar (mismo criterio que hogar.html) —
-  // "Equitativo" es 50/50 fijo; cualquier otro modo es proporcional a ingreso.
-  let _myPctHogarAn = 50;
-  if(hogar.mode !== 'equal' && hogar.mode !== 'common'){
-    _myPctHogarAn = totalIncomeHogar > 0 ? Math.round((monthlyIncome/totalIncomeHogar)*100) : 50;
-  }
-  const miParteSurplusHogar = hogarConn ? (hogarSurplusCombined * _myPctHogarAn/100) : 0;
-  // Lo que "todavía" podrías ahorrar = ingreso menos TODO lo que ya salió: gastos,
-  // lo que ya se fue a ahorro, y lo que ya se invirtió. Antes solo restaba gastos,
-  // lo que hacía ver dinero "libre" que en realidad ya estaba comprometido.
-  const ahorroPotencialPersonal = income - expenses - personalAhorro - invested;
-  const ahorroPotencialCombinado = ahorroPotencialPersonal + miParteSurplusHogar;
+  var partnerIncomeAn = (pp && parseFloat(pp.income) > 0) ? parseFloat(pp.income) : (parseFloat(hogar.partnerIncome) || 0);
+  var hogarExpensesCombined = hogarExpenses + partnerHogarExpenses;
+  var totalIncomeHogar = monthlyIncome + partnerIncomeAn;
+  var hogarBudgetCombined = totalIncomeHogar * ((parseFloat(hogar.payPctHogar) || 50) / 100);
+  var hogarSurplusCombinedRaw = hogarBudgetCombined - hogarExpensesCombined;
+  var hogarSurplusCombined = Math.max(0, hogarSurplusCombinedRaw);
+  var myPctHogarAn = 50;
+  if (hogar.mode !== 'equal' && hogar.mode !== 'common') myPctHogarAn = totalIncomeHogar > 0 ? Math.round(monthlyIncome / totalIncomeHogar * 100) : 50;
+  var miParteSurplusHogar = hogarConn ? (hogarSurplusCombined * myPctHogarAn / 100) : 0;
+  var ahorroPotencialPersonal = income - expenses - personalAhorro - invested;
+  var ahorroPotencialCombinado = ahorroPotencialPersonal + miParteSurplusHogar;
 
-  const hogarExplainCard = hogarConn ? `
-    <div class="card">
-      <div style="font-size:13px;font-weight:800;margin-bottom:10px">🏠 ${es?'Cómo se reparte tu sueldo':'How your paycheck splits'}</div>
-      <div style="font-size:12px;color:var(--text2);line-height:1.5;margin-bottom:10px">
-        ${es
-          ? `De cada cheque, <b>${hogarPct}%</b> se va al presupuesto del hogar (modo "${hogar.mode==='common'?'fondo común':hogar.mode||'equal'}") y <b>${persPct}%</b> es tuyo, personal. El dinero extra (bonos, freelance, etc.) no se reparte — es 100% tuyo.`
-          : `From each paycheck, <b>${hogarPct}%</b> goes to the household budget (mode "${hogar.mode==='common'?'common fund':hogar.mode||'equal'}") and <b>${persPct}%</b> is yours. Extra income (bonuses, freelance, etc.) isn't split — it's 100% yours.`}
-      </div>
-      <div style="display:flex;justify-content:space-between;font-size:12px;padding:8px 0;border-top:1px solid var(--off)">
-        <span style="color:var(--text3)">${es?'Gastado del hogar este mes':'Household spent this month'}</span>
-        <span style="font-weight:700">${fmt(hogarExpenses)}</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;font-size:12px;padding:8px 0;border-top:1px solid var(--off)">
-        <span style="color:var(--text3)">${es?'Gastado personal este mes':'Personal spent this month'}</span>
-        <span style="font-weight:700">${fmt(expenses)}</span>
-      </div>
-      ${extraIncome>0?`<div style="display:flex;justify-content:space-between;font-size:12px;padding:8px 0;border-top:1px solid var(--off)">
-        <span style="color:var(--text3)">${es?'Ingreso extra recibido este mes':'Extra income received this month'}</span>
-        <span style="font-weight:700;color:var(--g-main)">+${fmt(extraIncome)}</span>
-      </div>`:''}
-      <div style="font-size:10px;color:var(--text3);margin-top:6px">${es?'Lo del hogar nunca cuenta en tu análisis personal de abajo.':'Household spending never counts toward your personal analysis below.'}</div>
-    </div>` : '';
+  var hogarExplainCard = hogarConn ? '<div class="ft-card">' +
+      '<div style="font-size:13px;font-weight:800;margin-bottom:10px">🏠 ' + (L ? 'Cómo se reparte tu sueldo' : 'How your paycheck splits') + '</div>' +
+      '<div style="font-size:12px;color:var(--text2);line-height:1.5;margin-bottom:10px">' +
+        (L ? 'De cada cheque, <b>' + hogarPct + '%</b> se va al presupuesto del hogar (modo "' + (hogar.mode === 'common' ? 'fondo común' : hogar.mode || 'equal') + '") y <b>' + persPct + '%</b> es tuyo, personal. El dinero extra (bonos, freelance, etc.) no se reparte — es 100% tuyo.'
+           : 'From each paycheck, <b>' + hogarPct + '%</b> goes to the household budget (mode "' + (hogar.mode === 'common' ? 'common fund' : hogar.mode || 'equal') + '") and <b>' + persPct + '%</b> is yours. Extra income (bonuses, freelance, etc.) isn\'t split — it\'s 100% yours.') +
+      '</div>' +
+      '<div class="ft-row"><span class="k">' + (L ? 'Gastado del hogar este mes' : 'Household spent this month') + '</span><span class="v">' + FT.money(hogarExpenses) + '</span></div>' +
+      '<div class="ft-row"><span class="k">' + (L ? 'Gastado personal este mes' : 'Personal spent this month') + '</span><span class="v">' + FT.money(expenses) + '</span></div>' +
+      (extraIncome > 0 ? '<div class="ft-row"><span class="k">' + (L ? 'Ingreso extra recibido este mes' : 'Extra income received this month') + '</span><span class="v" style="color:var(--g-main)">+' + FT.money(extraIncome) + '</span></div>' : '') +
+      '<div style="font-size:10px;color:var(--text3);margin-top:6px">' + (L ? 'Lo del hogar nunca cuenta en tu análisis personal de abajo.' : "Household spending never counts toward your personal analysis below.") + '</div>' +
+    '</div>' : '';
 
-  // ── Diagnóstico honesto: cómo vas, y por qué ──
-  let diagnosisMsg = '';
-  if(hogarConn && personalBudget>0){
-    if(extraIncome>0 && expenses>personalBudget-extraIncome){
-      diagnosisMsg = es
-        ? `Este mes gastaste más de lo normal, pero recibiste <b>${fmt(extraIncome)}</b> extra — por eso no estás en números rojos. Sin ese ingreso extra, ya habrías pasado tu presupuesto personal.`
-        : `You spent more than usual this month, but you received <b>${fmt(extraIncome)}</b> extra — that's why you're not in the red. Without that extra income, you'd already be over your personal budget.`;
-    } else if(willOverspend){
-      diagnosisMsg = es
-        ? `Estás gastando más rápido de lo que tu presupuesto aguanta. No es solo este mes — si es un patrón que se repite, conviene ajustar el presupuesto o el gasto, no solo taparlo con ingresos extra cuando lleguen.`
-        : `You're spending faster than your budget can handle. If this repeats month after month, it's worth adjusting your budget or your spending — not just patching it with extra income when it shows up.`;
+  var diagnosisMsg = '';
+  if (hogarConn && personalBudget > 0) {
+    if (extraIncome > 0 && expenses > personalBudget - extraIncome) {
+      diagnosisMsg = L ? 'Este mes gastaste más de lo normal, pero recibiste <b>' + FT.money(extraIncome) + '</b> extra — por eso no estás en números rojos. Sin ese ingreso extra, ya habrías pasado tu presupuesto personal.'
+        : 'You spent more than usual this month, but you received <b>' + FT.money(extraIncome) + '</b> extra — that\'s why you\'re not in the red. Without that extra income, you\'d already be over your personal budget.';
+    } else if (willOverspend) {
+      diagnosisMsg = L ? 'Estás gastando más rápido de lo que tu presupuesto aguanta. No es solo este mes — si es un patrón que se repite, conviene ajustar el presupuesto o el gasto, no solo taparlo con ingresos extra cuando lleguen.'
+        : "You're spending faster than your budget can handle. If this repeats month after month, it's worth adjusting your budget or your spending — not just patching it with extra income when it shows up.";
     } else {
-      diagnosisMsg = es
-        ? `Vas dentro de tu presupuesto personal. Sigue así.`
-        : `You're within your personal budget. Keep it up.`;
+      diagnosisMsg = L ? 'Vas dentro de tu presupuesto personal. Sigue así.' : "You're within your personal budget. Keep it up.";
     }
   }
 
-  const statusCard = hogarConn && personalBudget>0 ? `
-    <div class="card" style="background:${willOverspend?'var(--red-dim)':'var(--g-light)'}">
-      <div style="font-size:13px;font-weight:800;margin-bottom:8px;color:${willOverspend?'var(--red)':'var(--g-dark)'}">${willOverspend?'⚠️':'✅'} ${es?'¿Cómo vas este mes?':'How are you doing this month?'}</div>
-      <div style="font-size:12px;color:var(--text2);line-height:1.6">
-        ${es
-          ? `Llevas gastados <b>${fmt(expenses)}</b> de tu presupuesto personal de <b>${fmt(personalBudget)}</b> (${persPct}% de tu cheque${extraIncome>0?' + tu ingreso extra':''}).`
-          : `You've spent <b>${fmt(expenses)}</b> of your personal budget of <b>${fmt(personalBudget)}</b> (${persPct}% of your paycheck${extraIncome>0?' + your extra income':''}).`}
-      </div>
-      <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:800;margin-top:10px;padding-top:10px;border-top:1px solid rgba(0,0,0,.08)">
-        <span>${es?'Te queda este mes':'Left this month'}</span>
-        <span style="color:${personalLeft<0?'var(--red)':'var(--g-main)'}">${personalLeft<0?'-':''}${fmt(personalLeft)}</span>
-      </div>
-      <div style="font-size:11px;color:var(--text3);margin-top:10px">
-        ${willOverspend
-          ? (es?`Si sigues gastando a este ritmo ($${Math.round(dailyRate)}/día), vas a terminar el mes en <b>${fmt(projectedTotal)}</b> — <b style="color:var(--red)">${fmt(projectedTotal-personalBudget)} por encima</b> de tu presupuesto.`:`If you keep spending at this rate ($${Math.round(dailyRate)}/day), you'll end the month at <b>${fmt(projectedTotal)}</b> — <b style="color:var(--red)">${fmt(projectedTotal-personalBudget)} over</b> your budget.`)
-          : (es?`A este ritmo ($${Math.round(dailyRate)}/día) terminarías el mes en ${fmt(projectedTotal)}, dentro de tu presupuesto.`:`At this rate ($${Math.round(dailyRate)}/day) you'd end the month at ${fmt(projectedTotal)}, within budget.`)}
-      </div>
-      ${diagnosisMsg?`<div style="font-size:11.5px;color:var(--text2);margin-top:10px;padding-top:10px;border-top:1px solid rgba(0,0,0,.08);line-height:1.5">💬 ${diagnosisMsg}</div>`:''}
-    </div>` : '';
+  var statusCard = hogarConn && personalBudget > 0 ? '<div class="ft-card" style="background:' + (willOverspend ? 'var(--red-dim)' : 'var(--g-light)') + '">' +
+      '<div style="font-size:13px;font-weight:800;margin-bottom:8px;color:' + (willOverspend ? 'var(--red)' : 'var(--g-dark)') + '">' + (willOverspend ? '⚠️' : '✅') + ' ' + (L ? '¿Cómo vas este mes?' : 'How are you doing this month?') + '</div>' +
+      '<div style="font-size:12px;color:var(--text2);line-height:1.6">' + (L ? 'Llevas gastados <b>' + FT.money(expenses) + '</b> de tu presupuesto personal de <b>' + FT.money(personalBudget) + '</b> (' + persPct + '% de tu cheque' + (extraIncome > 0 ? ' + tu ingreso extra' : '') + ').' : 'You\'ve spent <b>' + FT.money(expenses) + '</b> of your personal budget of <b>' + FT.money(personalBudget) + '</b> (' + persPct + '% of your paycheck' + (extraIncome > 0 ? ' + your extra income' : '') + ').') + '</div>' +
+      '<div style="display:flex;justify-content:space-between;font-size:13px;font-weight:800;margin-top:10px;padding-top:10px;border-top:1px solid rgba(0,0,0,.08)"><span>' + (L ? 'Te queda este mes' : 'Left this month') + '</span><span style="color:' + (personalLeft < 0 ? 'var(--red)' : 'var(--g-main)') + '">' + (personalLeft < 0 ? '-' : '') + FT.money(Math.abs(personalLeft)) + '</span></div>' +
+      '<div style="font-size:11px;color:var(--text3);margin-top:10px">' + (willOverspend
+        ? (L ? 'Si sigues gastando a este ritmo ($' + Math.round(dailyRate) + '/día), vas a terminar el mes en <b>' + FT.money(projectedTotal) + '</b> — <b style="color:var(--red)">' + FT.money(projectedTotal - personalBudget) + ' por encima</b> de tu presupuesto.' : 'If you keep spending at this rate ($' + Math.round(dailyRate) + '/day), you\'ll end the month at <b>' + FT.money(projectedTotal) + '</b> — <b style="color:var(--red)">' + FT.money(projectedTotal - personalBudget) + ' over</b> your budget.')
+        : (L ? 'A este ritmo ($' + Math.round(dailyRate) + '/día) terminarías el mes en ' + FT.money(projectedTotal) + ', dentro de tu presupuesto.' : 'At this rate ($' + Math.round(dailyRate) + '/day) you\'d end the month at ' + FT.money(projectedTotal) + ', within budget.')) + '</div>' +
+      (diagnosisMsg ? '<div style="font-size:11.5px;color:var(--text2);margin-top:10px;padding-top:10px;border-top:1px solid rgba(0,0,0,.08);line-height:1.5">💬 ' + diagnosisMsg + '</div>' : '') +
+    '</div>' : '';
 
-  // ── Actividad recurrente automática este mes ──
-  const autoTxs = txs.filter(t=>t.autoRecurring===true).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-  const autoTotal = autoTxs.reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
-  const recurringCard = autoTxs.length ? `
-    <div class="card">
-      <div style="font-size:13px;font-weight:800;margin-bottom:4px">🔄 ${es?'Automático este mes':'Automatic this month'}</div>
-      <div style="font-size:10.5px;color:var(--text3);margin-bottom:12px">${es?'Esto se aplicó solo, sin que tuvieras que entrar — así vas a ir todo el mes.':'This applied automatically, without you having to check in — this is how it goes all month.'}</div>
-      <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;background:var(--off);border-radius:10px;padding:10px 12px;margin-bottom:10px">
-        <span>${es?'Total automático':'Automatic total'}</span>
-        <span>${fmt(autoTotal)}</span>
-      </div>
-      <div style="display:flex;flex-direction:column;gap:8px">
-        ${autoTxs.map(t=>{
-          const kindIco = t.type==='gasto'?'💳':t.type==='ahorro'?'💰':t.type==='inversion'?'📈':'📝';
-          const hogarTag = t.hogar==true ? '🏠' : '👤';
-          return `<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--off)">
-            <div style="font-size:16px;flex-shrink:0">${kindIco}</div>
-            <div style="flex:1;min-width:0">
-              <div style="font-size:12px;font-weight:700">${t.desc||''}</div>
-              <div style="font-size:10px;color:var(--text3)">${hogarTag} ${t.hogar==true?(es?'Hogar':'Household'):(es?'Personal':'Personal')} · ${t.date||''}</div>
-            </div>
-            <div style="font-size:12.5px;font-weight:800;color:${t.type==='ingreso'?'var(--g-main)':'var(--red)'};flex-shrink:0">${t.type==='ingreso'?'+':'-'}${fmt(t.amount||0)}</div>
-          </div>`;
-        }).join('')}
-      </div>
-    </div>` : '';
+  var autoTxs = txs.filter(function (t) { return t.autoRecurring === true; }).sort(function (a, b) { return String(b.date || '').localeCompare(String(a.date || '')); });
+  var autoTotal = autoTxs.reduce(function (a, t) { return a + (parseFloat(t.amount) || 0); }, 0);
+  var recurringCard = autoTxs.length ? '<div class="ft-card">' +
+      '<div style="font-size:13px;font-weight:800;margin-bottom:4px">🔄 ' + (L ? 'Automático este mes' : 'Automatic this month') + '</div>' +
+      '<div style="font-size:10.5px;color:var(--text3);margin-bottom:12px">' + (L ? 'Esto se aplicó solo, sin que tuvieras que entrar — así vas a ir todo el mes.' : "This applied automatically, without you having to check in — this is how it goes all month.") + '</div>' +
+      '<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;background:var(--sunk);border-radius:10px;padding:10px 12px;margin-bottom:10px"><span>' + (L ? 'Total automático' : 'Automatic total') + '</span><span>' + FT.money(autoTotal) + '</span></div>' +
+      autoTxs.map(function (t) {
+        var ico = t.type === 'gasto' ? '💳' : t.type === 'ahorro' ? '💰' : t.type === 'inversion' ? '📈' : '📝';
+        var tag = t.hogar === true ? '🏠' : '👤';
+        return '<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--hair)">' +
+          '<div style="font-size:16px;flex-shrink:0">' + ico + '</div>' +
+          '<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:700">' + (t.desc || '') + '</div><div style="font-size:10px;color:var(--text3)">' + tag + ' ' + (t.hogar === true ? (L ? 'Hogar' : 'Household') : (L ? 'Personal' : 'Personal')) + ' · ' + (t.date || '') + '</div></div>' +
+          '<div style="font-size:12.5px;font-weight:800;color:' + (t.type === 'ingreso' ? 'var(--g-main)' : 'var(--red)') + ';flex-shrink:0">' + (t.type === 'ingreso' ? '+' : '-') + FT.money(t.amount || 0) + '</div></div>';
+      }).join('') +
+    '</div>' : '';
 
-  document.getElementById('content').innerHTML=`
-    ${renderTrendChart(trend)}
-    ${hogarExplainCard}
-    ${statusCard}
-    ${recurringCard}
-    <div class="card">
-      <div style="font-size:13px;font-weight:800;margin-bottom:14px">📅 ${es?'Resumen del mes (personal)':'Month summary (personal)'}</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
-        <div style="background:var(--g-light);border-radius:12px;padding:12px;text-align:center">
-          <div style="font-size:16px;font-weight:800;color:var(--g-main)">${fmt(income)}</div>
-          <div style="font-size:10px;color:var(--g-dark)">${es?'Ingresos':'Income'}</div>
-        </div>
-        <div style="background:var(--red-dim);border-radius:12px;padding:12px;text-align:center">
-          <div style="font-size:16px;font-weight:800;color:var(--red)">${fmt(expenses)}</div>
-          <div style="font-size:10px;color:var(--red)">${es?'Gastos':'Expenses'}</div>
-        </div>
-        <div style="background:var(--blu-dim);border-radius:12px;padding:12px;text-align:center">
-          <div style="font-size:16px;font-weight:800;color:var(--blue)">${fmt(invested)}</div>
-          <div style="font-size:10px;color:var(--blue)">${es?'Inversiones':'Investments'}</div>
-        </div>
-      </div>
-      ${income>0?`
-      <div style="margin-top:14px">
-        <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700;margin-bottom:6px">
-          <span>${es?'Ahorro potencial':'Potential savings'}</span>
-          <span style="color:${ahorroPotencialPersonal>=0?'var(--g-main)':'var(--red)'}">${fmt(ahorroPotencialPersonal)}</span>
-        </div>
-        <div style="background:var(--border);border-radius:100px;height:8px;overflow:hidden">
-          <div style="height:100%;background:${ahorroPotencialPersonal>=0?'var(--g-main)':'var(--red)'};width:${Math.min(100,Math.max(0,((expenses+personalAhorro+invested)/income)*100)).toFixed(0)}%;border-radius:100px"></div>
-        </div>
-        <div style="font-size:9px;color:var(--text3);margin-top:4px">${es?'Ingreso menos gastos, ahorro e inversión ya hechos este mes':'Income minus expenses, savings and investing already done this month'}</div>
-      </div>`:''}
-    </div>
+  var h = renderTrendChart(trend) + hogarExplainCard + statusCard + recurringCard +
+    '<div class="ft-card">' +
+      '<div style="font-size:13px;font-weight:800;margin-bottom:14px">📅 ' + (L ? 'Resumen del mes (personal)' : 'Month summary (personal)') + '</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">' +
+        '<div style="background:var(--g-light);border-radius:12px;padding:12px;text-align:center"><div style="font-size:16px;font-weight:800;color:var(--g-main)">' + FT.money(income) + '</div><div style="font-size:10px;color:var(--g-dark)">' + (L ? 'Ingresos' : 'Income') + '</div></div>' +
+        '<div style="background:var(--red-dim);border-radius:12px;padding:12px;text-align:center"><div style="font-size:16px;font-weight:800;color:var(--red)">' + FT.money(expenses) + '</div><div style="font-size:10px;color:var(--red)">' + (L ? 'Gastos' : 'Expenses') + '</div></div>' +
+        '<div style="background:var(--sky-bg);border-radius:12px;padding:12px;text-align:center"><div style="font-size:16px;font-weight:800;color:var(--blue)">' + FT.money(invested) + '</div><div style="font-size:10px;color:var(--blue)">' + (L ? 'Inversiones' : 'Investments') + '</div></div>' +
+      '</div>' +
+      (income > 0 ? '<div style="margin-top:14px">' +
+        '<div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700;margin-bottom:6px"><span>' + (L ? 'Ahorro potencial' : 'Potential savings') + '</span><span style="color:' + (ahorroPotencialPersonal >= 0 ? 'var(--g-main)' : 'var(--red)') + '">' + FT.money(ahorroPotencialPersonal) + '</span></div>' +
+        '<div class="ft-track"><div class="ft-fill" data-pct="' + Math.min(100, Math.max(0, (expenses + personalAhorro + invested) / income * 100)).toFixed(0) + '" style="width:0;background:' + (ahorroPotencialPersonal >= 0 ? 'var(--g-main)' : 'var(--red)') + '"></div></div>' +
+        '<div style="font-size:9px;color:var(--text3);margin-top:4px">' + (L ? 'Ingreso menos gastos, ahorro e inversión ya hechos este mes' : 'Income minus expenses, savings and investing already done this month') + '</div></div>' : '') +
+    '</div>' +
 
-    ${hogarConn?`
-    <div class="card" style="border:2px solid var(--purple);background:linear-gradient(180deg,rgba(123,94,167,.04),transparent)">
-      <div style="font-size:13px;font-weight:800;margin-bottom:2px;color:var(--purple)">🏠+👤 ${es?'Tu ahorro potencial REAL (personal + hogar)':'Your REAL savings potential (personal + household)'}</div>
-      <div style="font-size:10px;color:var(--text3);margin-bottom:12px">${es?'Esto es distinto al de arriba \u2014 aquí sí se suma lo que sobra en el hogar. El de arriba es solo tu presupuesto personal, sin tocar':'This is different from the one above \u2014 here the household surplus IS added in. The one above is only your personal budget, untouched'}</div>
+    (hogarConn ? '<div class="ft-card" style="border:2px solid var(--purple)">' +
+      '<div style="font-size:13px;font-weight:800;margin-bottom:2px;color:var(--purple)">🏠+👤 ' + (L ? 'Tu ahorro potencial REAL (personal + hogar)' : 'Your REAL savings potential (personal + household)') + '</div>' +
+      '<div style="font-size:10px;color:var(--text3);margin-bottom:12px">' + (L ? 'Esto es distinto al de arriba — aquí sí se suma lo que sobra en el hogar. El de arriba es solo tu presupuesto personal, sin tocar' : 'This is different from the one above — here the household surplus IS added in. The one above is only your personal budget, untouched') + '</div>' +
+      '<div class="ft-row"><span class="k">1️⃣ ' + (L ? 'Tu ahorro potencial personal' : 'Your personal savings potential') + '</span><span class="v" style="color:' + (ahorroPotencialPersonal >= 0 ? 'var(--g-main)' : 'var(--red)') + '">' + FT.money(ahorroPotencialPersonal) + '</span></div>' +
+      '<div style="padding:9px 0;border-bottom:1px solid var(--hair)">' +
+        '<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px"><span class="k" style="color:var(--text2)">2️⃣ ' + (L ? 'Sobrante combinado del hogar (tú + tu pareja)' : 'Combined household surplus (you + your partner)') + '</span><span style="font-weight:800;color:' + (hogarSurplusCombinedRaw >= 0 ? 'var(--g-main)' : 'var(--red)') + '">' + (hogarSurplusCombinedRaw >= 0 ? '' : '-') + FT.money(Math.abs(hogarSurplusCombinedRaw)) + '</span></div>' +
+        '<div style="background:var(--sunk);border-radius:8px;padding:8px 10px;font-size:10.5px;color:var(--text3);line-height:1.6">' +
+          '<div>' + (L ? 'Presupuesto del hogar' : 'Household budget') + ' (' + FT.money(totalIncomeHogar) + ' × ' + (parseFloat(hogar.payPctHogar) || 50) + '%): <b>' + FT.money(hogarBudgetCombined) + '</b></div>' +
+          '<div>− ' + (L ? 'Gastado del hogar (de los dos, es un solo gasto compartido)' : 'Household spent (both, one shared expense)') + ': <b>' + FT.money(hogarExpensesCombined) + '</b></div>' +
+          '<div style="margin-top:2px;padding-top:2px;border-top:1px dashed var(--hair)">= ' + (hogarSurplusCombinedRaw >= 0 ? (L ? 'Sobrante combinado' : 'Combined surplus') : (L ? 'Déficit combinado (no se resta del ahorro, solo no suma)' : "Combined deficit (doesn't subtract from savings, just doesn't add)")) + ': <b>' + FT.money(Math.abs(hogarSurplusCombinedRaw)) + '</b></div>' +
+        '</div></div>' +
+      '<div class="ft-row"><span class="k">3️⃣ ' + (L ? 'Tu parte de ese sobrante (' + myPctHogarAn + '%, ' + ((hogar.mode === 'equal' || hogar.mode === 'common') ? 'reparto equitativo' : 'según tu ingreso') + ')' : 'Your share of that surplus (' + myPctHogarAn + '%, ' + ((hogar.mode === 'equal' || hogar.mode === 'common') ? 'equal split' : 'based on your income') + ')') + '</span><span class="v" style="color:' + (miParteSurplusHogar >= 0 ? 'var(--g-main)' : 'var(--red)') + '">' + (miParteSurplusHogar >= 0 ? '+' : '-') + FT.money(Math.abs(miParteSurplusHogar)) + '</span></div>' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;font-size:13.5px;padding:12px 0 4px;border-top:2px solid var(--purple);margin-top:4px"><span style="font-weight:800;color:var(--purple)">= ' + (L ? 'Total que podrías ahorrar este mes' : 'Total you could save this month') + '</span><span style="font-weight:800;font-size:16px;color:' + (ahorroPotencialCombinado >= 0 ? 'var(--g-main)' : 'var(--red)') + '">' + FT.money(ahorroPotencialCombinado) + '</span></div>' +
+      '<div style="font-size:10px;color:var(--text3);margin-top:4px">' + (L ? '(1) + (3) — tu presupuesto personal más tu parte del hogar, si sobró algo' : '(1) + (3) — your personal budget plus your share of the household, if anything was left over') + '</div>' +
+    '</div>' : '') +
 
-      <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:8px 0;border-top:1px solid var(--off)">
-        <span style="color:var(--text2)">1️⃣ ${es?'Tu ahorro potencial personal':'Your personal savings potential'}</span>
-        <span style="font-weight:800;color:${ahorroPotencialPersonal>=0?'var(--g-main)':'var(--red)'}">${fmt(ahorroPotencialPersonal)}</span>
-      </div>
+    (cats.length ? '<div class="ft-card">' +
+      '<div style="font-size:13px;font-weight:800;margin-bottom:4px">🏷️ ' + (L ? 'Gastos por categoría (personal)' : 'Expenses by category (personal)') + '</div>' +
+      '<div style="font-size:10px;color:var(--text3);margin-bottom:10px">' + (L ? 'No incluye gastos marcados "del hogar"' : 'Excludes expenses tagged "household"') + '</div>' +
+      cats.map(function (c, i) {
+        var meta = FT.catMeta(c[0], i);
+        return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--hair)">' +
+          '<div style="font-size:12px;font-weight:600;width:90px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (meta.emoji ? meta.emoji + ' ' : '') + meta.label + '</div>' +
+          '<div class="ft-track" style="flex:1"><div class="ft-fill" data-pct="' + (c[1] / maxCat * 100).toFixed(0) + '" style="width:0;background:' + COLORS[i % COLORS.length] + '"></div></div>' +
+          '<div style="font-size:12px;font-weight:800;flex-shrink:0;width:70px;text-align:right">' + FT.money(c[1]) + '</div></div>';
+      }).join('') +
+    '</div>' : '<div class="ft-card" style="text-align:center;padding:40px 20px"><div style="font-size:36px;margin-bottom:10px">📊</div><div style="font-size:13px;color:var(--text3)">' + (L ? 'Sin gastos este mes' : 'No expenses this month') + '</div></div>');
 
-      <div style="padding:8px 0;border-top:1px solid var(--off)">
-        <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;margin-bottom:6px">
-          <span style="color:var(--text2)">2️⃣ ${es?'Sobrante combinado del hogar (tú + tu pareja)':'Combined household surplus (you + your partner)'}</span>
-          <span style="font-weight:800;color:${hogarSurplusCombinedRaw>=0?'var(--g-main)':'var(--red)'}">${hogarSurplusCombinedRaw>=0?'':'-'}${fmt(Math.abs(hogarSurplusCombinedRaw))}</span>
-        </div>
-        <div style="background:var(--off);border-radius:8px;padding:8px 10px;font-size:10.5px;color:var(--text3);line-height:1.6">
-          <div>${es?'Presupuesto del hogar':'Household budget'} (${fmt(totalIncomeHogar)} × ${parseFloat(hogar.payPctHogar)||50}%): <b>${fmt(hogarBudgetCombined)}</b></div>
-          <div>− ${es?'Gastado del hogar (de los dos, es un solo gasto compartido)':'Household spent (both, one shared expense)'}: <b>${fmt(hogarExpensesCombined)}</b></div>
-          <div style="margin-top:2px;padding-top:2px;border-top:1px dashed var(--border)">= ${hogarSurplusCombinedRaw>=0?(es?'Sobrante combinado':'Combined surplus'):(es?'Déficit combinado (no se resta del ahorro, solo no suma)':'Combined deficit (doesn\u2019t subtract from savings, just doesn\u2019t add)')}: <b>${fmt(Math.abs(hogarSurplusCombinedRaw))}</b></div>
-        </div>
-      </div>
-
-      <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:8px 0;border-top:1px solid var(--off)">
-        <span style="color:var(--text2)">3️⃣ ${es?`Tu parte de ese sobrante (${_myPctHogarAn}%, ${(hogar.mode==='equal'||hogar.mode==='common')?'reparto equitativo':'según tu ingreso'})`:`Your share of that surplus (${_myPctHogarAn}%, ${(hogar.mode==='equal'||hogar.mode==='common')?'equal split':'based on your income'})`}</span>
-        <span style="font-weight:800;color:${miParteSurplusHogar>=0?'var(--g-main)':'var(--red)'}">${miParteSurplusHogar>=0?'+':'-'}${fmt(Math.abs(miParteSurplusHogar))}</span>
-      </div>
-
-      <div style="display:flex;justify-content:space-between;align-items:center;font-size:13.5px;padding:12px 0 4px;border-top:2px solid var(--purple);margin-top:4px">
-        <span style="font-weight:800;color:var(--purple)">= ${es?'Total que podrías ahorrar este mes':'Total you could save this month'}</span>
-        <span style="font-weight:800;font-size:16px;color:${ahorroPotencialCombinado>=0?'var(--g-main)':'var(--red)'}">${fmt(ahorroPotencialCombinado)}</span>
-      </div>
-      <div style="font-size:10px;color:var(--text3);margin-top:4px">${es?'(1) + (3) \u2014 tu presupuesto personal más tu parte del hogar, si sobró algo':'(1) + (3) \u2014 your personal budget plus your share of the household, if anything was left over'}</div>
-    </div>` : ''}
-
-    ${cats.length?`
-    <div class="card">
-      <div style="font-size:13px;font-weight:800;margin-bottom:4px">🏷️ ${es?'Gastos por categoría (personal)':'Expenses by category (personal)'}</div>
-      <div style="font-size:10px;color:var(--text3);margin-bottom:10px">${es?'No incluye gastos marcados "del hogar"':'Excludes expenses tagged "household"'}</div>
-      ${cats.map(([cat,amt],i)=>`
-      <div class="cat-row">
-        <div style="font-size:12px;font-weight:600;width:90px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${cat}</div>
-        <div class="cat-bar-wrap"><div class="cat-bar" style="width:${(amt/maxCat*100).toFixed(0)}%;background:${COLORS[i%COLORS.length]}"></div></div>
-        <div style="font-size:12px;font-weight:800;flex-shrink:0;width:70px;text-align:right">${fmt(amt)}</div>
-      </div>`).join('')}
-    </div>`:`
-    <div class="card" style="text-align:center;padding:40px 20px">
-      <div style="font-size:36px;margin-bottom:10px">📊</div>
-      <div style="font-size:13px;color:var(--text3)">${es?'Sin gastos este mes':'No expenses this month'}</div>
-    </div>`}
-  `;
+  document.getElementById('root').innerHTML = h;
+  requestAnimationFrame(function () { document.querySelectorAll('.ft-fill[data-pct]').forEach(function (f) { f.style.width = f.getAttribute('data-pct') + '%'; }); });
 }
 
-(function init(){
-  let s=localStorage.getItem('ft_user')||sessionStorage.getItem('ft_user');
-  if(!s){ window.location.replace('login.html'); return; }
-  try{ user=JSON.parse(s); }catch(e){ window.location.replace('login.html'); return; }
-  lang=localStorage.getItem('ft_lang')||user.lang||'es';
-  if(!sessionStorage.getItem('ft_user')) sessionStorage.setItem('ft_user',s);
-  const nameEl=document.getElementById('sbName'), emailEl=document.getElementById('sbEmail'), avEl=document.getElementById('sbAvatar');
-  if(nameEl) nameEl.textContent = user.name || '—';
-  if(emailEl) emailEl.textContent = user.email || '—';
-  if(avEl) avEl.textContent = (user.name||'?').charAt(0).toUpperCase();
-  setLang(lang);
-})();
-
-
-
-
-/* ══════════════════════════════════════════
-   SYNC EN SEGUNDO PLANO — mantiene fresco el perfil de tu pareja
-   sin importar en qué pantalla estés. COMBINA con lo que ya había
-   en caché en vez de reemplazar, para que un pull incompleto/viejo
-   de Sheets no borre transacciones que ya tenías vistas.
-══════════════════════════════════════════ */
-(function backgroundSyncPartner(){
-  try {
-    const _bgHogar = JSON.parse(localStorage.getItem('ft_hogar')||'{}');
-    if(!_bgHogar.connected || !_bgHogar.partnerEmail || _bgHogar.manuallyLeft) return;
-    const _bgGasUrl = 'https://script.google.com/macros/s/AKfycbwITyU4qld-IOEVKyLU9XHI46T8g_LjJaNp3nlQgler8-nMeIlztMmG_lZMVMm9cBkP/exec';
-    const _bgKey = 'profile_'+_bgHogar.partnerEmail.replace(/[^a-z0-9]/gi,'_');
-
-    function _bgMergeById(oldArr, newArr){
-      oldArr = oldArr||[]; newArr = newArr||[];
-      const byId = {};
-      oldArr.forEach(x=>{ if(x && x.id!=null) byId[x.id]=x; });
-      newArr.forEach(x=>{ if(x && x.id!=null) byId[x.id]=x; }); // lo nuevo pisa lo viejo si coincide el id
-      return Object.values(byId);
-    }
-
-    fetch(`${_bgGasUrl}?action=getProfile&email=${encodeURIComponent(_bgHogar.partnerEmail)}`)
-      .then(r=>r.json())
-      .then(data=>{
-        if(!data || !data.success) return;
-        let _bgNewData = {transactions:[],emergency:0,subscriptions:[],sharedDebts:[],hogarInv:[]};
-        try{ _bgNewData = JSON.parse(data.dataJson||'{}'); }catch(e){}
-
-        let _bgOld = null;
-        try{ _bgOld = JSON.parse(localStorage.getItem(_bgKey)||'null'); }catch(e){}
-        const _bgOldData = (_bgOld && _bgOld.data) || {};
-
-        const _bgMergedData = {
-          transactions: _bgMergeById(_bgOldData.transactions, _bgNewData.transactions),
-          emergency: (_bgNewData.emergency!=null ? _bgNewData.emergency : _bgOldData.emergency) || 0,
-          subscriptions: _bgMergeById(_bgOldData.subscriptions, _bgNewData.subscriptions),
-          sharedDebts: _bgMergeById(_bgOldData.sharedDebts, _bgNewData.sharedDebts),
-          hogarInv: _bgMergeById(_bgOldData.hogarInv, _bgNewData.hogarInv)
-        };
-
-        const _bgPp = { name:data.name||(_bgOld&&_bgOld.name)||'', email:data.email||_bgHogar.partnerEmail, income:parseFloat(data.income)||0, needs:parseFloat(data.needs)||0, wants:parseFloat(data.wants)||0, savings:parseFloat(data.savings)||0, data:_bgMergedData };
-        localStorage.setItem(_bgKey, JSON.stringify(_bgPp));
-        localStorage.setItem('ft_profile_B', JSON.stringify(_bgPp));
-      }).catch(()=>{});
-  } catch(e){}
-})();
-
+document.addEventListener('ft:ready', function () {
+  var t = function () { return FT.lang === 'es' ? 'Análisis' : 'Analysis'; };
+  var sh = FT.shell({ active: '', title: t() });
+  document.addEventListener('ft:langchange', function () { sh.setTitle(t()); render(); });
+  document.addEventListener('ft:datachanged', render);
+  render();
+});
 </script>
 </body>
 </html>

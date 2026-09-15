@@ -1,0 +1,10 @@
+{
+  "name": "fintrack-pro",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "FinTrack Pro — finanzas personales (HTML/CSS/JS + Google Apps Script). La función serverless api/scan.js usa ESM nativo.",
+  "engines": {
+    "node": ">=18"
+  }
+}

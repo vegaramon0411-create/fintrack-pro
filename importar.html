@@ -4,70 +4,19 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>FinTrack Pro · Importar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
 <script src="premium.js"></script>
-<script>
-/* ─── openMoreMenu universal ─── */
-function setLang(l){
-  lang=l; localStorage.setItem('ft_lang',l);
-  document.getElementById('ltES')?.classList.toggle('on',l==='es');
-  document.getElementById('ltEN')?.classList.toggle('on',l==='en');
-  document.querySelectorAll('[data-es]').forEach(el=>{const v=el.getAttribute('data-'+l);if(v)el.textContent=v;});
-}
-function openMoreMenu(){
-  if(document.getElementById('_moreOv')) return;
-  const links=[
-    {ico:'📈',es:'Análisis',en:'Análisis',u:'analisis.html'},
-    {ico:'🎯',es:'Metas',en:'Goals',u:'metas.html'},
-    {ico:'💳',es:'Deudas',en:'Debts',u:'deudas.html'},
-    {ico:'🏦',es:'Inversiones',en:'Investments',u:'inversiones.html'},
-    {ico:'📷',es:'Escanear',en:'Scan',u:'scanner.html'},
-    {ico:'📥',es:'Importar CSV',en:'Import CSV',u:'importar.html'},
-    {ico:'🛡️',es:'Emergencia',en:'Emergency',u:'emergencia.html'},
-    {ico:'💵',es:'Ahorro libre',en:'Free savings',u:'ahorro.html'},
-    {ico:'🔄',es:'Suscripciones',en:'Subscriptions',u:'suscripciones.html'},
-    {ico:'⚙️',es:'Config',en:'Settings',u:'config.html'},
-    {ico:'👤',es:'Perfil',en:'Profile',u:'perfil.html'},
-  ];
-  const ov=document.createElement('div');
-  ov.id='_moreOv';
-  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:300;display:flex;align-items:flex-end;';
-  ov.addEventListener('click',function(e){if(e.target===ov)ov.remove();});
-  ov.innerHTML='<div style="background:white;border-radius:24px 24px 0 0;padding:16px 20px calc(20px + env(safe-area-inset-bottom));width:100%;"><div style="width:36px;height:4px;background:#ddd;border-radius:100px;margin:0 auto 16px;"></div><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px 8px;">'+
-    links.map(function(k){return '<div onclick="window.location.href=\''+k.u+'\'" style="display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;"><div style="width:52px;height:52px;background:#f5f5f7;border-radius:14px;display:grid;place-items:center;font-size:24px;">'+k.ico+'</div><span style="font-size:10px;font-weight:600;color:#4A4E69;text-align:center;">'+(lang==='es'?k.es:k.en)+'</span></div>';}).join('')+
-    '</div></div>';
-  document.body.appendChild(ov);
-}
-</script>
 <style>
+/* Alias de nombres viejos -> tokens del DS compartido, para no tener que
+   reescribir cada regla de este importador (es la pantalla mas grande de
+   logica propia del rebuild: parsers de banco/broker + flujo IA). */
 :root{
-  --g-dark:#0F5132;--g-main:#1A7A4A;--g-light:#E8F7EF;
-  --white:#fff;--off:#F7F8FC;--border:#E4E6F0;
-  --text:#1A1D2E;--text2:#4A4E69;--text3:#9395A5;
-  --red:#E63946;--red-dim:rgba(230,57,70,.1);
-  --amber:#F4A261;--amb-dim:rgba(244,162,97,.12);
-  --blue:#4A6CF7;--blu-dim:rgba(74,108,247,.1);
-  --shadow:0 2px 12px rgba(0,0,0,.06);
-  --shadow-md:0 4px 24px rgba(0,0,0,.09);
---round-font:'Nunito',-apple-system,'SF Pro Rounded',sans-serif;--glass-bg:rgba(255,255,255,.55);--glass-border:rgba(255,255,255,.6);--glass-shadow:0 8px 32px -12px rgba(20,20,30,.10);--bg-gradient:linear-gradient(160deg,#FDEEE3 0%,#E9F3FC 45%,#EAF8EF 100%);--tag-bg:#EFEFF1;}
-*{margin:0;padding:0;box-sizing:border-box;}
-html,body{overflow-x:hidden;max-width:100vw;}
-body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg-gradient);background-attachment:fixed;color:var(--text);min-height:100vh;}
-.glass{background:var(--glass-bg);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid var(--glass-border);box-shadow:var(--glass-shadow);}
-.round-num{font-family:var(--round-font);font-weight:800;}
-
-/* TOPBAR */
-.topbar{background:var(--glass-bg);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-bottom:1px solid var(--glass-border);padding:0 20px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
-.tb-left{display:flex;align-items:center;gap:10px;}
-.tb-back{width:36px;height:36px;border-radius:10px;background:var(--off);border:none;cursor:pointer;display:grid;place-items:center;font-size:18px;}
-.lang-toggle{display:flex;background:var(--off);border:1px solid var(--border);border-radius:20px;overflow:hidden;font-size:11px;font-weight:700;}
-.lt-opt{padding:5px 10px;cursor:pointer;color:var(--text3);}
-.lt-opt.on{background:var(--g-main);color:white;}
-.tb-title{font-size:16px;font-weight:800;}
-.tb-subtitle{font-size:11px;color:var(--text3);margin-top:1px;}
-
-/* STEPS */
-.steps{display:flex;gap:0;padding:20px 16px 0;max-width:700px;margin:0 auto;}
+  --text:var(--ink); --off:var(--sunk); --border:var(--hair);
+  --shadow:0 2px 12px rgba(0,0,0,.06); --shadow-md:0 4px 24px rgba(0,0,0,.09);
+  --blu-dim:rgba(67,97,224,.10); --amb-dim:rgba(224,149,46,.12);
+}
+.steps{display:flex;gap:0;padding:4px 0 0;max-width:700px;margin:0 auto;}
 .step{flex:1;text-align:center;position:relative;}
 .step::after{content:'';position:absolute;top:14px;left:50%;width:100%;height:2px;background:var(--border);z-index:0;}
 .step:last-child::after{display:none;}
@@ -77,16 +26,10 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg-gradient);ba
 .step-label{font-size:10px;font-weight:600;color:var(--text3);}
 .step.active .step-label{color:var(--g-main);}
 .step.done .step-label{color:var(--g-main);}
-
-/* MAIN */
-.page{padding:16px;max-width:700px;margin:0 auto;padding-bottom:40px;}
-
-/* CARDS */
-.card{background:var(--glass-bg);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid var(--glass-border);border-radius:16px;padding:20px;margin-bottom:14px;box-shadow:var(--glass-shadow);}
+.page{padding:16px 0;max-width:700px;margin:0 auto;padding-bottom:40px;}
+.card{background:var(--white);border:1px solid var(--hair);border-radius:16px;padding:18px;margin-bottom:14px;box-shadow:0 1px 3px rgba(20,20,30,.035);}
 .card-title{font-size:14px;font-weight:800;margin-bottom:4px;}
 .card-sub{font-size:12px;color:var(--text3);margin-bottom:16px;}
-
-/* FORMAT SELECTOR */
 .format-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
 .fmt-card{border:2px solid var(--border);border-radius:14px;padding:16px;cursor:pointer;transition:all .15s;background:var(--white);}
 .fmt-card:hover{border-color:var(--g-main);background:var(--g-light);}
@@ -94,27 +37,20 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg-gradient);ba
 .fmt-ico{font-size:28px;margin-bottom:8px;}
 .fmt-name{font-size:13px;font-weight:800;margin-bottom:3px;}
 .fmt-sub{font-size:11px;color:var(--text3);}
-
-/* UPLOAD ZONE */
 .upload-zone{border:2px dashed var(--border);border-radius:14px;padding:32px 20px;text-align:center;cursor:pointer;transition:all .2s;background:var(--off);}
 .upload-zone:hover,.upload-zone.drag{border-color:var(--g-main);background:var(--g-light);}
 .upload-zone input{display:none;}
 .uz-ico{font-size:36px;margin-bottom:10px;}
 .uz-title{font-size:14px;font-weight:700;margin-bottom:4px;}
 .uz-sub{font-size:12px;color:var(--text3);}
-
-/* AI CREDITS BADGE */
 .credits-badge{display:flex;align-items:center;gap:8px;background:linear-gradient(135deg,var(--g-dark),var(--g-main));color:white;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12px;font-weight:600;}
 .credits-badge .cb-num{font-size:20px;font-weight:800;margin-left:auto;}
-
-/* REVIEW TABLE */
 .review-filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;}
-.rf-chip{background:var(--off);border:1.5px solid var(--border);border-radius:20px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;color:var(--text3);transition:all .15s;}
+.rf-chip{background:var(--off);border:1.5px solid var(--border);border-radius:20px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;color:var(--text3);}
 .rf-chip.on{background:var(--g-main);border-color:var(--g-main);color:white;}
-
-.tx-review-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--off);transition:background .1s;min-width:0;}
+.tx-review-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--off);min-width:0;}
 .tx-review-row:last-child{border-bottom:none;}
-.trr-check{width:20px;height:20px;border-radius:6px;border:2px solid var(--border);display:grid;place-items:center;cursor:pointer;flex-shrink:0;transition:all .15s;}
+.trr-check{width:20px;height:20px;border-radius:6px;border:2px solid var(--border);display:grid;place-items:center;cursor:pointer;flex-shrink:0;}
 .trr-check.on{background:var(--g-main);border-color:var(--g-main);}
 .trr-status{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
 .trr-info{flex:1;min-width:0;}
@@ -122,2021 +58,915 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg-gradient);ba
 .trr-meta{font-size:10px;color:var(--text3);margin-top:1px;}
 .trr-amt{font-size:13px;font-weight:800;flex-shrink:0;}
 .trr-cat{font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;flex-shrink:0;}
-
-/* ZELLE DECISION */
 .zelle-opts{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px;}
-.zo-btn{font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;border:1.5px solid var(--border);cursor:pointer;background:var(--white);color:var(--text2);transition:all .1s;}
+.zo-btn{font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;border:1.5px solid var(--border);cursor:pointer;background:var(--white);color:var(--text2);}
 .zo-btn.on{background:var(--g-main);border-color:var(--g-main);color:white;}
-
-/* SUMMARY BOX */
 .summary-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:16px;}
 .sum-card{background:var(--off);border-radius:12px;padding:14px;text-align:center;}
 .sum-val{font-size:20px;font-weight:800;margin-bottom:3px;}
 .sum-lbl{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;}
-
-/* DUPLICATE WARNING */
 .dup-warn{background:#FFF3E0;border:1px solid #FAD9B5;border-radius:10px;padding:10px 12px;font-size:11px;color:#7A3B0A;margin-top:6px;display:flex;align-items:center;gap:8px;}
-
-/* BUTTONS */
-.btn-primary{background:linear-gradient(135deg,var(--g-dark),var(--g-main));color:white;border:none;border-radius:12px;padding:14px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;width:100%;transition:opacity .15s;}
-.btn-primary:hover{opacity:.9;}
-.btn-primary:disabled{opacity:.5;cursor:not-allowed;}
-.btn-secondary{background:var(--off);border:1.5px solid var(--border);color:var(--text2);border-radius:12px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;width:100%;}
-
-/* TOAST */
-#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--text);color:white;padding:12px 20px;border-radius:20px;font-size:13px;font-weight:600;display:none;z-index:200;white-space:nowrap;}
-
-/* MOBILE NAV */
-/* ─── MOBILE NAV ─── */
-.mob-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--white);border-top:1px solid var(--border);padding:8px 0 calc(8px + env(safe-area-inset-bottom));z-index:100;align-items:center;}
-.mob-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:9px;font-weight:600;color:var(--text3);cursor:pointer;-webkit-tap-highlight-color:transparent;}
-.mob-item.on{color:var(--g-main);}
-.mob-item.mob-center{flex:1.2;}
-.mob-ico{font-size:21px;line-height:1;}
-.mob-add{width:48px;height:48px;background:linear-gradient(135deg,var(--g-dark),var(--g-main));border-radius:50%;border:none;display:grid;place-items:center;color:white;font-size:26px;cursor:pointer;margin-top:-16px;box-shadow:0 4px 16px rgba(15,81,50,.35);-webkit-tap-highlight-color:transparent;}
-.app{display:flex;min-height:100vh;}
-.sidebar{width:var(--sidebar,240px);background:var(--white);border-right:1px solid var(--border);position:fixed;top:0;left:0;bottom:0;display:flex;flex-direction:column;z-index:50;overflow-y:auto;transition:width .18s ease;}
-.sidebar.collapsed{width:64px;}
-.sidebar.collapsed .sb-name,.sidebar.collapsed .sb-tag,.sidebar.collapsed .sb-section,.sidebar.collapsed .sb-link span:last-child{display:none;}
-.sidebar.collapsed .sb-link{justify-content:center;padding:10px 0;}
-.sidebar.collapsed .sb-logo{justify-content:center;padding:0 8px;}
-.sidebar.collapsed .sb-logo>div:last-child{display:none;}
-.sb-collapse-btn{position:absolute;top:14px;right:-13px;width:26px;height:26px;border-radius:50%;background:var(--white);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;z-index:51;box-shadow:0 2px 6px rgba(0,0,0,.08);}
-.sidebar.collapsed ~ .main{margin-left:64px;}
-.sb-logo{display:flex;align-items:center;gap:10px;padding:22px 18px 18px;border-bottom:1px solid var(--border);}
-.sb-mark{width:36px;height:36px;background:linear-gradient(135deg,var(--g-dark),var(--g-main));border-radius:11px;display:grid;place-items:center;color:white;font-size:17px;}
-.sb-name{font-size:15px;font-weight:800;}.sb-tag{font-size:10px;color:var(--text3);}
-.sb-nav{padding:14px 10px;flex:1;}
-.sb-section{font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);padding:10px 8px 5px;}
-.sb-link{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:10px;font-size:13px;font-weight:600;color:var(--text2);cursor:pointer;margin-bottom:2px;transition:all .15s;}
-.sb-link:hover{background:var(--off);}
-.sb-link.on{background:var(--g-light);color:var(--g-main);}
-.sb-ico{font-size:15px;width:20px;text-align:center;flex-shrink:0;}
-.sb-footer{border-top:1px solid var(--border);padding:12px 10px;}
-.sb-user{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:10px;cursor:pointer;}
-.sb-user:hover{background:var(--off);}
-.sb-avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--g-dark),var(--g-main));display:grid;place-items:center;color:white;font-size:13px;font-weight:700;}
-.sb-uname{font-size:13px;font-weight:700;}.sb-umail{font-size:10px;color:var(--text3);}
-.main{margin-left:var(--sidebar,240px);flex:1;display:flex;flex-direction:column;}
-@media(max-width:860px){.sidebar{display:none;}.main{margin-left:0;max-width:100vw;overflow-x:hidden;min-width:0;}.mob-nav{display:flex!important;}}
-
-input, select, textarea { font-size: 16px !important; }
+.ai-q{padding:12px 0;border-bottom:1px solid var(--border);}
+.ai-q-label{font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px;}
+.ai-q-opts{display:flex;gap:6px;flex-wrap:wrap;}
+.ai-opt{background:white;border:1.5px solid var(--border);border-radius:20px;padding:7px 13px;font-size:11.5px;font-weight:700;color:var(--text2);cursor:pointer;font-family:inherit;}
+.ai-opt.on{background:var(--g-main);border-color:var(--g-main);color:white;}
+.ai-q-input{width:100%;margin-top:8px;padding:9px 11px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-family:inherit;box-sizing:border-box;}
 </style>
 </head>
 <body>
-<div class="app">
-<aside class="sidebar" id="sidebar">
-  <div class="sb-collapse-btn" id="sbCollapseBtn" onclick="toggleSidebar()">◀</div>
-  <div class="sb-logo"><div class="sb-mark">💎</div><div><div class="sb-name">FinTrack Pro</div><div class="sb-tag">Panel financiero</div></div></div>
-  <nav class="sb-nav">
-    <div class="sb-section">Principal</div>
-    <div class="sb-link" onclick="go('dashboard.html')"><span class="sb-ico">📊</span><span>Dashboard</span></div>
-    <div class="sb-link" onclick="go('dashboard.html')"><span class="sb-ico">➕</span><span data-es="Nuevo registro" data-en="New entry">Nuevo registro</span></div>
-    <div class="sb-link" onclick="go('suscripciones.html')"><span class="sb-ico">🔄</span><span data-es="Suscripciones" data-en="Subscriptions">Suscripciones</span></div>
-    <div class="sb-link" onclick="go('metas.html')"><span class="sb-ico">🎯</span><span data-es="Metas" data-en="Goals">Metas</span></div>
-    <div class="sb-link" onclick="go('deudas.html')"><span class="sb-ico">💳</span><span data-es="Deudas" data-en="Debts">Deudas</span></div>
-    <div class="sb-section">Análisis</div>
-    <div class="sb-link" onclick="go('analisis.html')"><span class="sb-ico">📈</span><span data-es="Por categoría" data-en="By category">Por categoría</span></div>
-    <div class="sb-link" onclick="go('historial.html')"><span class="sb-ico">📅</span><span data-es="Historial" data-en="History">Historial</span></div>
-    <div class="sb-link" onclick="go('inversiones.html')"><span class="sb-ico">🏦</span><span data-es="Inversiones" data-en="Investments">Inversiones</span></div>
-    <div class="sb-link" onclick="go('reporte.html')"><span class="sb-ico">📄</span><span data-es="Reporte mensual" data-en="Monthly report">Reporte mensual</span></div>
-    <div class="sb-section">Herramientas</div>
-    <div class="sb-link" onclick="go('scanner.html')"><span class="sb-ico">📷</span><span data-es="Escanear recibo" data-en="Scan receipt">Escanear recibo</span></div>
-    <div class="sb-link on"><span class="sb-ico">📥</span><span data-es="Importar CSV" data-en="Import CSV">Importar CSV</span></div>
-    <div class="sb-link" onclick="go('emergencia.html')"><span class="sb-ico">🛡️</span><span data-es="Fondo emergencia" data-en="Emergency fund">Fondo emergencia</span></div>
-    <div class="sb-link" onclick="go('ahorro.html')"><span class="sb-ico">💵</span><span data-es="Ahorro libre" data-en="Free savings">Ahorro libre</span></div>
-    <div class="sb-link" onclick="go('hogar.html')"><span class="sb-ico">🏠</span><span data-es="Hogar" data-en="Household">Hogar</span></div>
-    <div class="sb-section">Cuenta</div>
-    <div class="sb-link" onclick="go('perfil.html')"><span class="sb-ico">👤</span><span data-es="Mi perfil" data-en="My profile">Mi perfil</span></div>
-    <div class="sb-link" onclick="go('config.html')"><span class="sb-ico">⚙️</span><span data-es="Configuración" data-en="Settings">Configuración</span></div>
-    <div class="sb-link" onclick="logout()"><span class="sb-ico">🚪</span><span data-es="Cerrar sesión" data-en="Log out">Cerrar sesión</span></div>
-  </nav>
-  <div class="sb-footer"><div class="sb-user" onclick="go('perfil.html')"><div class="sb-avatar" id="sbAvatar">R</div><div><div class="sb-uname" id="sbName">—</div><div class="sb-umail" id="sbEmail">—</div></div></div></div>
-</aside>
-<div class="main">
-
-<div class="topbar">
-  <div class="tb-left">
-    <button class="tb-back" onclick="history.back()">←</button>
-    <div>
-      <div class="tb-title" id="topTitle">Importar transacciones</div>
-      <div class="tb-subtitle" id="topSub">CSV · PDF · Imagen</div>
-    </div>
+<div class="ft-app"><div class="ft-page">
+  <div class="steps" id="stepsBar">
+    <div class="step active" id="s1"><div class="step-dot">1</div><div class="step-label" data-es="Formato" data-en="Format">Formato</div></div>
+    <div class="step" id="s2"><div class="step-dot">2</div><div class="step-label" data-es="Archivo" data-en="File">Archivo</div></div>
+    <div class="step" id="s3"><div class="step-dot">3</div><div class="step-label" data-es="Revisar" data-en="Review">Revisar</div></div>
+    <div class="step" id="s4"><div class="step-dot">4</div><div class="step-label" data-es="Importar" data-en="Import">Importar</div></div>
   </div>
-  <div style="display:flex;align-items:center;gap:8px">
-    <div id="creditsBadge" onclick="showUpgradeModal()" style="font-size:11px;font-weight:700;color:var(--g-main);cursor:pointer;display:flex;align-items:center;gap:4px">
-      💎 <span id="creditsLeft">0</span> análisis IA
-    </div>
-  </div>
-</div>
+  <div class="page" id="page"></div>
+</div></div>
 
-<!-- STEPS -->
-<div class="steps" id="stepsBar">
-  <div class="step active" id="s1"><div class="step-dot">1</div><div class="step-label">Formato</div></div>
-  <div class="step" id="s2"><div class="step-dot">2</div><div class="step-label">Archivo</div></div>
-  <div class="step" id="s3"><div class="step-dot">3</div><div class="step-label">Revisar</div></div>
-  <div class="step" id="s4"><div class="step-dot">4</div><div class="step-label">Importar</div></div>
-</div>
-
-<div class="page" id="page"></div>
-
-<!-- PANEL CREDITOS - estático para iOS Safari -->
-<div id="creditsPanel" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:400;display:none;align-items:flex-end;justify-content:center">
+<!-- PANEL DE CRÉDITOS IA — su propio overlay (no FT.sheet), incluye compra + canje de código -->
+<div id="creditsPanel" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:400;align-items:flex-end;justify-content:center">
   <div style="background:white;border-radius:20px 20px 0 0;width:100%;max-width:500px;padding:24px;padding-bottom:calc(24px + env(safe-area-inset-bottom))">
     <div style="text-align:center;margin-bottom:16px">
       <div style="font-size:32px;margin-bottom:6px">💎</div>
       <div id="creditsPanelTitle" style="font-size:17px;font-weight:800;margin-bottom:4px">Créditos IA</div>
-      <div id="creditsPanelSub" style="font-size:12px;color:#9395A5"></div>
+      <div id="creditsPanelSub" style="font-size:12px;color:var(--text3)"></div>
     </div>
-    <div style="background:#F7F8FC;border-radius:14px;padding:14px;margin-bottom:12px">
-      <div style="font-size:12px;font-weight:800;margin-bottom:8px">⚡ Créditos extra — se acumulan, nunca vencen</div>
+    <div style="background:var(--sunk);border-radius:14px;padding:14px;margin-bottom:12px">
+      <div style="font-size:12px;font-weight:800;margin-bottom:8px">⚡ <span data-es="Créditos extra — se acumulan, nunca vencen" data-en="Extra credits — they add up, never expire">Créditos extra — se acumulan, nunca vencen</span></div>
       <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:10px">
-        <div style="background:white;border:1.5px solid #E4E6F0;border-radius:10px;padding:10px;text-align:center">
-          <div style="font-size:18px;font-weight:800">+5</div>
-          <div style="font-size:13px;font-weight:700;color:#1A7A4A">$2.99</div>
-        </div>
-        <div style="background:white;border:1.5px solid #E4E6F0;border-radius:10px;padding:10px;text-align:center">
-          <div style="font-size:18px;font-weight:800">+15</div>
-          <div style="font-size:13px;font-weight:700;color:#1A7A4A">$6.99</div>
-        </div>
+        <div style="background:white;border:1.5px solid var(--hair);border-radius:10px;padding:10px;text-align:center"><div style="font-size:18px;font-weight:800">+5</div><div style="font-size:13px;font-weight:700;color:var(--g-main)">$2.99</div></div>
+        <div style="background:white;border:1.5px solid var(--hair);border-radius:10px;padding:10px;text-align:center"><div style="font-size:18px;font-weight:800">+15</div><div style="font-size:13px;font-weight:700;color:var(--g-main)">$6.99</div></div>
       </div>
-      <button id="btnComprarEtsy" style="width:100%;background:#1A7A4A;color:white;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:10px">🛒 Comprar créditos en Etsy</button>
-      <div style="font-size:11px;color:#9395A5;text-align:center;margin-bottom:8px">Después de comprar, activa tu código aquí:</div>
+      <button id="btnComprarEtsy" style="width:100%;background:var(--g-main);color:white;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:10px">🛒 <span data-es="Comprar créditos en Etsy" data-en="Buy credits on Etsy">Comprar créditos en Etsy</span></button>
+      <div style="font-size:11px;color:var(--text3);text-align:center;margin-bottom:8px" data-es="Después de comprar, activa tu código aquí:" data-en="After buying, activate your code here:">Después de comprar, activa tu código aquí:</div>
       <div style="display:flex;gap:8px">
-        <input id="codeInputStatic" type="text" placeholder="Ej: FZ5-R4M9" autocomplete="off" autocorrect="off" autocapitalize="characters" style="flex:1;background:white;border:1.5px solid #E4E6F0;border-radius:10px;padding:10px;font-size:14px;font-family:inherit;outline:none">
-        <button id="btnActivarCode" style="background:#4A6CF7;color:white;border:none;border-radius:10px;padding:10px 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">Activar</button>
+        <input id="codeInputStatic" type="text" placeholder="Ej: FZ5-R4M9" autocomplete="off" autocorrect="off" autocapitalize="characters" style="flex:1;background:white;border:1.5px solid var(--hair);border-radius:10px;padding:10px;font-size:14px;font-family:inherit;outline:none">
+        <button id="btnActivarCode" style="background:var(--blue);color:white;border:none;border-radius:10px;padding:10px 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">Activar</button>
       </div>
       <div id="codeResult" style="margin-top:8px;font-size:12px;font-weight:700;text-align:center;min-height:18px"></div>
     </div>
-    <button id="btnCerrarCredits" style="width:100%;background:#F7F8FC;border:1.5px solid #E4E6F0;border-radius:10px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">Cerrar</button>
+    <button id="btnCerrarCredits" style="width:100%;background:var(--sunk);border:1.5px solid var(--hair);border-radius:10px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">Cerrar</button>
   </div>
 </div>
-</div><!-- /main -->
-</div><!-- /app -->
-
-<nav class="mob-nav">
-  <div class="mob-item " onclick="go('dashboard.html')"><div class="mob-ico">📊</div><span data-es="Inicio" data-en="Home">Inicio</span></div>
-  <div class="mob-item " onclick="go('historial.html')"><div class="mob-ico">📅</div><span data-es="Historial" data-en="History">Historial</span></div>
-  <div class="mob-item mob-center"><button class="mob-add" onclick="go('dashboard.html')" onclick="openModal()">＋</button></div>
-  <div class="mob-item " onclick="go('hogar.html')"><div class="mob-ico">🏠</div><span data-es="Hogar" data-en="Household">Hogar</span></div>
-  <div class="mob-item on" onclick="openMoreMenu()"><div class="mob-ico">☰</div><span data-es="Más" data-en="More">Más</span></div>
-</nav>
-
-<div id="toast"></div>
 
 <script>
+var step = 1;
+var importMode = null;   // 'bank' | 'fidelity' | 'manual' | 'ai'
+var importIsHogar = false;
+var parsedRows = [];     // filas detectadas
+var reviewRows = [];     // filas clasificadas
+var activeFilter = 'all';
+var aiAnswers = {};
 
-/* ── RESTORED UTILS ── */
-function loadDebts(){ try{return JSON.parse(localStorage.getItem('ft_debts'))||[];}catch(e){return[];} }
-function saveDebts(d){ localStorage.setItem('ft_debts',JSON.stringify(d)); }
-function fmtD(n){ return '$'+Math.abs(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
-/* ═══════════════════════════════════════════
-   FinTrack Pro — Importador Inteligente
-   Soporta: CSV manual, SoFi, Capital One, Fidelity
-   + IA (foto/PDF) para usuarios Premium
-═══════════════════════════════════════════ */
-
-const STORE_KEY = 'ft_data';
-const INV_KEY   = 'ft_investments';
-
-let lang = 'es';
-let user = {};
-let step = 1;
-let importMode = null;   // 'bank' | 'fidelity' | 'manual' | 'ai'
-let importIsHogar = false;
-let parsedRows = [];     // all detected rows
-let reviewRows = [];     // rows after classification
-let activeFilter = 'all';
-
-function isHogarConnected(){
-  try{ const h=JSON.parse(localStorage.getItem('ft_hogar')||'{}'); return h.connected===true&&!h.manuallyLeft; }
-  catch(e){ return false; }
+function es() { return FT.lang === 'es'; }
+function go(url) { FT.go(url); }
+function openCreditsPanel() {
+  var L = es(), prem = FT.isPremium();
+  var panel = document.getElementById('creditsPanel');
+  document.getElementById('creditsPanelTitle').textContent = prem ? (L ? 'Tus créditos IA se agotaron' : 'Your AI credits ran out') : (L ? 'Función Premium' : 'Premium Feature');
+  document.getElementById('creditsPanelSub').textContent = prem ? (L ? 'Usaste tus ' + MAX_AI_PREMIUM + ' créditos del mes. Compra más para seguir.' : 'You used your ' + MAX_AI_PREMIUM + ' monthly credits. Buy more to continue.') : (L ? 'El análisis IA es exclusivo para usuarios Premium.' : 'AI analysis is exclusive to Premium users.');
+  panel.style.display = 'flex';
+  document.getElementById('codeResult').textContent = '';
+  document.getElementById('codeInputStatic').value = '';
 }
-function setImportHogar(val){
-  importIsHogar=val;
-  const bH=document.getElementById('impBtnHogar');
-  const bP=document.getElementById('impBtnPersonal');
-  const hint=document.getElementById('impHogarHint');
-  if(!bH||!bP) return;
-  bH.style.background=val?'var(--g-light)':'var(--off)';
-  bH.style.borderColor=val?'var(--g-main)':'var(--border)';
-  bH.style.color=val?'var(--g-dark)':'';
-  bP.style.background=!val?'var(--blu-dim)':'var(--off)';
-  bP.style.borderColor=!val?'var(--blue)':'var(--border)';
-  bP.style.color=!val?'var(--blue)':'';
-  if(hint) hint.textContent=val
-    ?(lang==='es'?'Sale del fondo del hogar · visible para tu pareja':'From household fund · visible to partner')
-    :(lang==='es'?'Solo tuyo · privado':'Only yours · private');
-}
-
-/* ── SESSION ── */
-function loadSession() {
-  try {
-    let s = localStorage.getItem('ft_user') || sessionStorage.getItem('ft_user');
-    if (!s) {
-      const setup = localStorage.getItem('ft_user_setup');
-      if (setup) {
-        const fb = {name:'Usuario',email:'',income:3000,currency:'USD',lang:localStorage.getItem('ft_lang')||'es',needs:1500,wants:900,savings:600,setupDone:true,createdAt:new Date().toISOString()};
-        try{const gu=JSON.parse(sessionStorage.getItem('ft_google_user')||'{}');if(gu.name)fb.name=gu.name;if(gu.email)fb.email=gu.email;}catch(e){}
-        s = JSON.stringify(fb);
-        localStorage.setItem('ft_user', s);
-        sessionStorage.setItem('ft_user', s);
-      } else {
-        window.location.replace('login.html'); return;
-      }
-    }
-    user = JSON.parse(s);
-    lang = localStorage.getItem('ft_lang') || user.lang || 'es';
-    localStorage.setItem('ft_user', s);
-    sessionStorage.setItem('ft_user', s);
-    {const nameEl=document.getElementById('sbName'), emailEl=document.getElementById('sbEmail'), avEl=document.getElementById('sbAvatar'); if(nameEl) nameEl.textContent=user.name||'—'; if(emailEl) emailEl.textContent=user.email||'—'; if(avEl) avEl.textContent=(user.name||'?').charAt(0).toUpperCase();}
-  } catch(e) {
-    try {
-      const s = localStorage.getItem('ft_user');
-      if (s) { user = JSON.parse(s); lang = localStorage.getItem('ft_lang')||user.lang||'es'; return; }
-    } catch(e2) {}
-    window.location.replace('login.html');
-  }
-}
-
-function loadData(){
-  try{return JSON.parse(localStorage.getItem(STORE_KEY))||{transactions:[],emergency:0,subscriptions:[]};}
-  catch(e){return{transactions:[],emergency:0,subscriptions:[]};}
-}
-function saveData(d){localStorage.setItem(STORE_KEY,JSON.stringify(d));}
-
-function loadInvestments(){
-  try{return JSON.parse(localStorage.getItem(INV_KEY))||[];}catch(e){return[];}
-}
-function saveInvestments(arr){localStorage.setItem(INV_KEY,JSON.stringify(arr));}
-
-const AI_KEY    = 'ft_ai_credits';
-const MAX_AI_PREMIUM = 10;
-
-/* ── AI CREDITS ── */
-function getCredits(){
-  try{
-    const c = JSON.parse(localStorage.getItem(AI_KEY)||'{}');
-    const thisMonth = new Date().toISOString().slice(0,7);
-    // Nuevo mes: resetear usedThisMonth a 0 (los extra se conservan)
-    if(c.month !== thisMonth){
-      const reset = {used:0, month:thisMonth, extra:c.extra||0};
-      localStorage.setItem(AI_KEY,JSON.stringify(reset));
-      return reset;
-    }
-    return {used:c.used||0, month:thisMonth, extra:c.extra||0};
-  } catch(e){ return {used:0, month:new Date().toISOString().slice(0,7), extra:0}; }
-}
-function useCredit(){
-  const c=getCredits();
-  // Primero consume los mensuales, luego los extra
-  const mensualLeft=Math.max(0,MAX_AI_PREMIUM-c.used);
-  if(mensualLeft>0){ c.used++; }
-  else if(c.extra>0){ c.extra--; }
-  localStorage.setItem(AI_KEY,JSON.stringify(c));
-}
-function creditsLeft(){
-  const prem=typeof isPremium!=='undefined'&&isPremium();
-  if(!prem) return 0;
-  const c=getCredits();
-  const mensual=Math.max(0,MAX_AI_PREMIUM-c.used);
-  return mensual+(c.extra||0);
-}
-function addExtraCredits(qty){
-  const c=getCredits();
-  c.extra=(c.extra||0)+qty;
-  localStorage.setItem(AI_KEY,JSON.stringify(c));
-}
-function showUpgradeModal(){
-  const es=lang==='es';
-  const prem=typeof isPremium!=='undefined'&&isPremium();
-  const panel=document.getElementById('creditsPanel');
-  const title=document.getElementById('creditsPanelTitle');
-  const sub=document.getElementById('creditsPanelSub');
-  if(title) title.textContent=prem?(es?'Tus créditos IA se agotaron':'Your AI credits ran out'):(es?'Función Premium':'Premium Feature');
-  if(sub) sub.textContent=prem?(es?`Usaste tus ${MAX_AI_PREMIUM} créditos del mes. Compra más para seguir.`:`You used your ${MAX_AI_PREMIUM} monthly credits. Buy more to continue.`):(es?'El análisis IA es exclusivo para usuarios Premium.':'AI analysis is exclusive to Premium users.');
-  if(panel){panel.style.display='flex';}
-  document.getElementById('codeResult').textContent='';
-  document.getElementById('codeInputStatic').value='';
-}
-function activarCodigoCreditos(){
-  const es=lang==='es';
-  const input=document.getElementById('codeInputStatic');
-  const result=document.getElementById('codeResult');
-  if(!input) return;
-  const code=input.value.trim().toUpperCase();
-  if(!code){if(result)result.textContent=es?'⚠️ Escribe el código':'⚠️ Enter the code';return;}
-  const match5=code.match(/^FZ5-[A-Z0-9]{4}$/);
-  const match15=code.match(/^FZ15-[A-Z0-9]{4}$/);
-  const usedCodes=JSON.parse(localStorage.getItem('ft_used_codes')||'[]');
-  if(usedCodes.includes(code)){
-    if(result)result.textContent=es?'⚠️ Código ya usado':'⚠️ Code already used';
-    return;
-  }
-  if(match5||match15){
-    const qty=match15?15:5;
-    addExtraCredits(qty);
-    usedCodes.push(code);
-    localStorage.setItem('ft_used_codes',JSON.stringify(usedCodes));
-    if(result){result.style.color='#1A7A4A';result.textContent='✅ +'+qty+' créditos activados';}
-    input.value='';
-    setTimeout(function(){
-      var panel=document.getElementById('creditsPanel');
-      if(panel)panel.style.display='none';
-      renderStep1();
-    },1500);
+var MAX_AI_PREMIUM = 10;
+function activarCodigoCreditos() {
+  var L = es(), input = document.getElementById('codeInputStatic'), result = document.getElementById('codeResult');
+  var code = input.value.trim().toUpperCase();
+  if (!code) { result.textContent = L ? '⚠️ Escribe el código' : '⚠️ Enter the code'; return; }
+  var r = FT.redeemCode(code);
+  if (r.ok) {
+    result.style.color = 'var(--g-main)'; result.textContent = '✅ +' + r.added + ' ' + (L ? 'créditos activados' : 'credits activated');
+    input.value = '';
+    setTimeout(function () { document.getElementById('creditsPanel').style.display = 'none'; renderStep1(); }, 1500);
   } else {
-    if(result){result.style.color='#E63946';result.textContent=es?'❌ Código inválido. Ej: FZ5-R4M9':'❌ Invalid code. Ex: FZ5-R4M9';}
+    result.style.color = 'var(--red)'; result.textContent = '❌ ' + r.msg;
   }
 }
 
-/* ── UTILS ── */
-function fmt(n){return '$'+Math.abs(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
-function go(url){window.location.href=url;}
-/* ── SIDEBAR COLLAPSE (desktop only) ── */
-function toggleSidebar(){
-  const sb = document.getElementById('sidebar');
-  const btn = document.getElementById('sbCollapseBtn');
-  if(!sb) return;
-  const collapsed = sb.classList.toggle('collapsed');
-  if(btn) btn.textContent = collapsed ? '▶' : '◀';
-  localStorage.setItem('ft_sidebar_collapsed', collapsed ? '1' : '0');
-}
-(function initSidebarState(){
-  if(window.innerWidth <= 860) return;
-  const sb = document.getElementById('sidebar');
-  const btn = document.getElementById('sbCollapseBtn');
-  if(!sb) return;
-  if(localStorage.getItem('ft_sidebar_collapsed') === '1'){
-    sb.classList.add('collapsed');
-    if(btn) btn.textContent = '▶';
-  }
-})();
-
-function logout(){sessionStorage.clear();localStorage.removeItem('ft_premium');window.location.replace('login.html');}
-function showToast(msg,dur=3000){const t=document.getElementById('toast');t.textContent=msg;t.style.display='block';setTimeout(()=>t.style.display='none',dur);}
-
-function setStep(n){
-  step=n;
-  [1,2,3,4].forEach(i=>{
-    const el=document.getElementById('s'+i);
-    el.classList.remove('active','done');
-    if(i<n) el.classList.add('done');
-    if(i===n) el.classList.add('active');
+function setStep(n) {
+  step = n;
+  [1, 2, 3, 4].forEach(function (i) {
+    var el = document.getElementById('s' + i);
+    el.classList.remove('active', 'done');
+    if (i < n) el.classList.add('done');
+    if (i === n) el.classList.add('active');
   });
 }
 
 /* ══════════════════════════════════════
-   STEP 1 — FORMAT SELECTOR
+   PASO 1 — SELECTOR DE FORMATO
 ══════════════════════════════════════ */
-function renderStep1(){
+function renderStep1() {
   setStep(1);
-  aiAnswers = {}; // aquí sí se limpia: elegir formato de nuevo = importación nueva de verdad
-  document.getElementById('topTitle').textContent = lang==='es'?'Importar transacciones':'Import transactions';
+  aiAnswers = {}; // elegir formato de nuevo = importación nueva de verdad
+  var L = es();
+  var isPrem = FT.isPremium(), left = FT.creditsLeft();
 
-  const isPrem = typeof isPremium!=='undefined' && isPremium();
-  const left = creditsLeft();
-  const cb = document.getElementById('creditsBadge');
-  const c = getCredits();
-  const mensual = isPrem ? Math.max(0,MAX_AI_PREMIUM-c.used) : 0;
-  const extra = c.extra||0;
-  const total = mensual + extra;
-  cb.style.display = 'flex';
-  cb.style.color = total > 0 ? 'var(--g-main)' : 'var(--red)';
-  document.getElementById('creditsLeft').textContent = total;
-
-  const es = lang === 'es';
-
-  document.getElementById('page').innerHTML = `
-  <div class="card" style="margin-top:16px">
-    <div class="card-title">${es?'¿Qué quieres importar?':'What do you want to import?'}</div>
-    <div class="card-sub">${es?'Selecciona el tipo de archivo — detectamos el formato automáticamente':'Select the file type — we detect the format automatically'}</div>
-
-    <div class="format-grid">
-
-      <!-- BANCO -->
-      <div class="fmt-card" onclick="selectFormat('bank')" id="fmt_bank">
-        <div class="fmt-ico">🏦</div>
-        <div class="fmt-name">${es?'Banco':'Bank'}</div>
-        <div class="fmt-sub" style="margin-bottom:8px">${es?'CSV de tu banco':'Your bank CSV'}</div>
-        <div style="display:flex;flex-wrap:wrap;gap:3px">
-          ${['SoFi','Chase','Capital One','Wells Fargo','BBVA MX','Banorte','Banamex'].map(b=>`<span style="font-size:9px;font-weight:600;background:var(--off);color:var(--text3);padding:1px 6px;border-radius:20px">${b}</span>`).join('')}
-          <span style="font-size:9px;font-weight:600;background:var(--off);color:var(--text3);padding:1px 6px;border-radius:20px">${es?'+ más':'+ more'}</span>
-        </div>
-      </div>
-
-      <!-- BROKER -->
-      <div class="fmt-card" onclick="selectFormat('fidelity')" id="fmt_fidelity">
-        <div class="fmt-ico">📈</div>
-        <div class="fmt-name">${es?'Broker / Inversiones':'Broker / Investments'}</div>
-        <div class="fmt-sub" style="margin-bottom:8px">${es?'CSV de tu broker':'Your broker CSV'}</div>
-        <div style="display:flex;flex-wrap:wrap;gap:3px">
-          ${['Fidelity','Schwab','Robinhood','Vanguard','GBM+','E*TRADE'].map(b=>`<span style="font-size:9px;font-weight:600;background:var(--off);color:var(--text3);padding:1px 6px;border-radius:20px">${b}</span>`).join('')}
-          <span style="font-size:9px;font-weight:600;background:var(--off);color:var(--text3);padding:1px 6px;border-radius:20px">${es?'+ más':'+ more'}</span>
-        </div>
-      </div>
-
-      <!-- HOJA MANUAL -->
-      <div class="fmt-card" onclick="selectFormat('manual')" id="fmt_manual">
-        <div class="fmt-ico">📋</div>
-        <div class="fmt-name">${es?'Mi hoja propia':'My spreadsheet'}</div>
-        <div class="fmt-sub">${es?'CSV personalizado con tus gastos en cualquier formato':'Custom CSV with your expenses in any format'}</div>
-      </div>
-
-      <!-- IA -->
-      <div class="fmt-card" onclick="${isPrem&&left>0?'selectFormat(\'ai\')':'showUpgradeModal()'}" id="fmt_ai"
-           style="${!isPrem?'opacity:.6':''}">
-        <div class="fmt-ico">🤖</div>
-        <div class="fmt-name">${es?'IA — Cualquier formato ✨':'AI — Any format ✨'}</div>
-        <div class="fmt-sub" style="margin-bottom:6px">${es?'Foto · PDF · CSV desconocido':'Photo · PDF · Unknown CSV'}</div>
-        <div style="font-size:10px;color:var(--text2);margin-bottom:6px">
-          ${es?'EUA 🇺🇸 · México 🇲🇽 · Cualquier país 🌍':'USA 🇺🇸 · Mexico 🇲🇽 · Any country 🌍'}
-        </div>
-        ${!isPrem
-          ?`<div style="font-size:9px;font-weight:700;background:var(--g-light);color:var(--g-main);padding:2px 8px;border-radius:20px;display:inline-block">💎 Premium</div>`
-          :left===0
-            ?`<div style="font-size:9px;font-weight:700;background:var(--amb-dim);color:var(--amber);padding:2px 8px;border-radius:20px;display:inline-block">${es?'Límite del mes alcanzado':'Monthly limit reached'}</div>`
-            :`<div style="font-size:9px;font-weight:700;background:var(--g-light);color:var(--g-main);padding:2px 8px;border-radius:20px;display:inline-block">✨ ${left} ${es?'análisis disponibles':'analyses left'}</div>`
-        }
-      </div>
-
-    </div>
-  </div>`;
+  document.getElementById('page').innerHTML =
+  '<div class="card">' +
+    '<div class="card-title">' + (L ? '¿Qué quieres importar?' : 'What do you want to import?') + '</div>' +
+    '<div class="card-sub">' + (L ? 'Selecciona el tipo de archivo — detectamos el formato automáticamente' : 'Select the file type — we detect the format automatically') + '</div>' +
+    '<div class="format-grid">' +
+      '<div class="fmt-card" onclick="selectFormat(\'bank\')" id="fmt_bank"><div class="fmt-ico">🏦</div><div class="fmt-name">' + (L ? 'Banco' : 'Bank') + '</div><div class="fmt-sub" style="margin-bottom:8px">' + (L ? 'CSV de tu banco' : 'Your bank CSV') + '</div>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:3px">' + ['SoFi', 'Chase', 'Capital One', 'Wells Fargo', 'BBVA MX', 'Banorte', 'Banamex'].map(function (b) { return '<span style="font-size:9px;font-weight:600;background:var(--off);color:var(--text3);padding:1px 6px;border-radius:20px">' + b + '</span>'; }).join('') + '<span style="font-size:9px;font-weight:600;background:var(--off);color:var(--text3);padding:1px 6px;border-radius:20px">' + (L ? '+ más' : '+ more') + '</span></div></div>' +
+      '<div class="fmt-card" onclick="selectFormat(\'fidelity\')" id="fmt_fidelity"><div class="fmt-ico">📈</div><div class="fmt-name">' + (L ? 'Broker / Inversiones' : 'Broker / Investments') + '</div><div class="fmt-sub" style="margin-bottom:8px">' + (L ? 'CSV de tu broker' : 'Your broker CSV') + '</div>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:3px">' + ['Fidelity', 'Schwab', 'Robinhood', 'Vanguard', 'GBM+', 'E*TRADE'].map(function (b) { return '<span style="font-size:9px;font-weight:600;background:var(--off);color:var(--text3);padding:1px 6px;border-radius:20px">' + b + '</span>'; }).join('') + '<span style="font-size:9px;font-weight:600;background:var(--off);color:var(--text3);padding:1px 6px;border-radius:20px">' + (L ? '+ más' : '+ more') + '</span></div></div>' +
+      '<div class="fmt-card" onclick="selectFormat(\'manual\')" id="fmt_manual"><div class="fmt-ico">📋</div><div class="fmt-name">' + (L ? 'Mi hoja propia' : 'My spreadsheet') + '</div><div class="fmt-sub">' + (L ? 'CSV personalizado con tus gastos en cualquier formato' : 'Custom CSV with your expenses in any format') + '</div></div>' +
+      '<div class="fmt-card" onclick="' + (isPrem && left > 0 ? "selectFormat('ai')" : 'openCreditsPanel()') + '" id="fmt_ai" style="' + (!isPrem ? 'opacity:.6' : '') + '">' +
+        '<div class="fmt-ico">🤖</div><div class="fmt-name">' + (L ? 'IA — Cualquier formato ✨' : 'AI — Any format ✨') + '</div><div class="fmt-sub" style="margin-bottom:6px">' + (L ? 'Foto · PDF · CSV desconocido' : 'Photo · PDF · Unknown CSV') + '</div>' +
+        '<div style="font-size:10px;color:var(--text2);margin-bottom:6px">' + (L ? 'EUA 🇺🇸 · México 🇲🇽 · Cualquier país 🌍' : 'USA 🇺🇸 · Mexico 🇲🇽 · Any country 🌍') + '</div>' +
+        (!isPrem ? '<div style="font-size:9px;font-weight:700;background:var(--g-light);color:var(--g-main);padding:2px 8px;border-radius:20px;display:inline-block">💎 Premium</div>'
+          : left === 0 ? '<div style="font-size:9px;font-weight:700;background:var(--amb-dim);color:var(--amber);padding:2px 8px;border-radius:20px;display:inline-block">' + (L ? 'Límite del mes alcanzado' : 'Monthly limit reached') + '</div>'
+          : '<div style="font-size:9px;font-weight:700;background:var(--g-light);color:var(--g-main);padding:2px 8px;border-radius:20px;display:inline-block">✨ ' + left + ' ' + (L ? 'análisis disponibles' : 'analyses left') + '</div>') +
+      '</div>' +
+    '</div>' +
+    (isPrem ? '<div class="credits-badge" onclick="openCreditsPanel()" style="margin-top:14px;cursor:pointer"><span>💎 ' + (L ? 'análisis IA disponibles' : 'AI analyses left') + '</span><span class="cb-num">' + left + '</span></div>' : '') +
+  '</div>';
 }
 
-function selectFormat(fmt){
+function selectFormat(fmt) {
   importMode = fmt;
-  document.querySelectorAll('.fmt-card').forEach(c=>c.classList.remove('selected'));
-  const el = document.getElementById('fmt_'+fmt);
-  if(el) el.classList.add('selected');
-  setTimeout(()=>renderStep2(), 300);
+  document.querySelectorAll('.fmt-card').forEach(function (c) { c.classList.remove('selected'); });
+  var el = document.getElementById('fmt_' + fmt);
+  if (el) el.classList.add('selected');
+  setTimeout(renderStep2, 300);
 }
 
 /* ══════════════════════════════════════
-   STEP 2 — FILE UPLOAD
+   PASO 2 — SUBIR ARCHIVO
 ══════════════════════════════════════ */
-// ── CUESTIONARIO IA — respuestas guardadas en memoria mientras dura la sesión de import ──
-let aiAnswers = {};
-
-function toggleAiQuestions(){
-  const content = document.getElementById('aiQContent');
-  const chev = document.getElementById('aiQChevron');
-  const open = content.style.display !== 'none';
+function toggleAiQuestions() {
+  var content = document.getElementById('aiQContent'), chev = document.getElementById('aiQChevron');
+  var open = content.style.display !== 'none';
   content.style.display = open ? 'none' : 'block';
   chev.style.transform = open ? 'rotate(0deg)' : 'rotate(180deg)';
 }
+function toggleAiOpt(btn) {
+  var q = btn.dataset.q, v = btn.dataset.v;
+  var group = document.querySelectorAll('.ai-opt[data-q="' + q + '"]');
+  group.forEach(function (b) { b.classList.remove('on'); });
+  btn.classList.add('on');
+  aiAnswers[q] = v;
 
-function toggleAiOpt(btn, single){
-  const q = btn.dataset.q, v = btn.dataset.v;
-  const group = document.querySelectorAll(`.ai-opt[data-q="${q}"]`);
-  if(single){
-    // preguntas de una sola respuesta (sí/no): desactiva las hermanas
-    group.forEach(b=>b.classList.remove('on'));
-    btn.classList.add('on');
-    aiAnswers[q] = v;
-  } else {
-    // preguntas de opción única también, pero puede variar por tipo — mismo criterio simple
-    group.forEach(b=>b.classList.remove('on'));
-    btn.classList.add('on');
-    aiAnswers[q] = v;
-  }
-
-  // Revelar preguntas de seguimiento condicionales
-  const showIf = (id, cond) => {
-    const el = document.getElementById(id);
-    if(el) el.style.display = cond ? 'block' : 'none';
-  };
-  showIf('aiQ_pagaCredito', q==='pago' && (v==='credito'||v==='ambos'));
-  showIf('aiQ_zelleSi', q==='zelle' && v==='si');
-
-  const detalle = (id) => document.getElementById(id);
-  if(q==='pagaCredito') detalle('aiQ_pagaCreditoDetalle').style.display = v==='si' ? 'block' : 'none';
-  if(q==='multiTarjeta') detalle('aiQ_multiTarjetaDetalle').style.display = v==='si' ? 'block' : 'none';
-  if(q==='chequeCambio') detalle('aiQ_chequeCambioDetalle').style.display = v==='si' ? 'block' : 'none';
-  if(q==='vaults') detalle('aiQ_vaultsDetalle').style.display = v==='si' ? 'block' : 'none';
+  var showIf = function (id, cond) { var el = document.getElementById(id); if (el) el.style.display = cond ? 'block' : 'none'; };
+  showIf('aiQ_pagaCredito', q === 'pago' && (v === 'credito' || v === 'ambos'));
+  showIf('aiQ_zelleSi', q === 'zelle' && v === 'si');
+  var detalle = function (id) { return document.getElementById(id); };
+  if (q === 'pagaCredito') detalle('aiQ_pagaCreditoDetalle').style.display = v === 'si' ? 'block' : 'none';
+  if (q === 'multiTarjeta') detalle('aiQ_multiTarjetaDetalle').style.display = v === 'si' ? 'block' : 'none';
+  if (q === 'chequeCambio') detalle('aiQ_chequeCambioDetalle').style.display = v === 'si' ? 'block' : 'none';
+  if (q === 'vaults') detalle('aiQ_vaultsDetalle').style.display = v === 'si' ? 'block' : 'none';
 }
+function buildAiInstructionsFromQuestions() {
+  var L = es(), parts = [];
+  var val = function (id) { var el = document.getElementById(id); return el ? el.value.trim() : ''; };
 
-function buildAiInstructionsFromQuestions(){
-  const es = lang==='es';
-  const parts = [];
-  const val = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
+  if (aiAnswers.pago === 'credito') parts.push(L ? 'La mayoría de sus compras las paga con tarjeta de crédito.' : 'Most purchases are paid with credit card.');
+  if (aiAnswers.pago === 'debito') parts.push(L ? 'La mayoría de sus compras las paga con débito o cheques.' : 'Most purchases are paid with debit or checking.');
+  if (aiAnswers.pago === 'ambos') parts.push(L ? 'Paga sus compras mezclando crédito y débito/cheques.' : 'Payments are a mix of credit and debit/checking.');
 
-  if(aiAnswers.pago==='credito') parts.push(es?'La mayoría de sus compras las paga con tarjeta de crédito.':'Most purchases are paid with credit card.');
-  if(aiAnswers.pago==='debito') parts.push(es?'La mayoría de sus compras las paga con débito o cheques.':'Most purchases are paid with debit or checking.');
-  if(aiAnswers.pago==='ambos') parts.push(es?'Paga sus compras mezclando crédito y débito/cheques.':'Payments are a mix of credit and debit/checking.');
-
-  if(aiAnswers.pagaCredito==='si'){
-    const d = val('aiQ_pagaCreditoDetalle');
-    parts.push(es
-      ? `Paga su(s) tarjeta(s) de crédito desde otra cuenta que también aparece en este archivo — ese pago de tarjeta NO es un gasto nuevo, es una transferencia interna (marca is_transfer:true).${d?` Detalle: ${d}`:''}`
-      : `They pay their credit card(s) from another account that also appears in this file — that card payment is NOT a new expense, it's an internal transfer (mark is_transfer:true).${d?` Detail: ${d}`:''}`);
-  } else if(aiAnswers.pagaCredito==='no'){
-    parts.push(es?'El pago de la tarjeta ya está reflejado aparte, no viene en este archivo — no hay riesgo de duplicado por eso.':'The card payment is already reflected separately, not in this file — no duplicate risk from that.');
+  if (aiAnswers.pagaCredito === 'si') {
+    var d = val('aiQ_pagaCreditoDetalle');
+    parts.push(L ? 'Paga su(s) tarjeta(s) de crédito desde otra cuenta que también aparece en este archivo — ese pago de tarjeta NO es un gasto nuevo, es una transferencia interna (marca is_transfer:true).' + (d ? ' Detalle: ' + d : '')
+      : 'They pay their credit card(s) from another account that also appears in this file — that card payment is NOT a new expense, it\'s an internal transfer (mark is_transfer:true).' + (d ? ' Detail: ' + d : ''));
+  } else if (aiAnswers.pagaCredito === 'no') {
+    parts.push(L ? 'El pago de la tarjeta ya está reflejado aparte, no viene en este archivo — no hay riesgo de duplicado por eso.' : 'The card payment is already reflected separately, not in this file — no duplicate risk from that.');
   }
-
-  if(aiAnswers.multiTarjeta==='si'){
-    const d = val('aiQ_multiTarjetaDetalle');
-    parts.push(es?`Tiene más de una tarjeta de crédito${d?` (${d})`:''} — trata cada una como cuenta separada, no las mezcles.`:`They have more than one credit card${d?` (${d})`:''} — treat each as a separate account, don't merge them.`);
+  if (aiAnswers.multiTarjeta === 'si') {
+    var d2 = val('aiQ_multiTarjetaDetalle');
+    parts.push(L ? 'Tiene más de una tarjeta de crédito' + (d2 ? ' (' + d2 + ')' : '') + ' — trata cada una como cuenta separada, no las mezcles.' : 'They have more than one credit card' + (d2 ? ' (' + d2 + ')' : '') + ' — treat each as a separate account, don\'t merge them.');
   }
-
-  if(aiAnswers.zelle==='si'){
-    if(aiAnswers.zelleTipo==='cobro') parts.push(es?'Los depósitos de Zelle/Venmo normalmente son gente devolviéndole su parte de un gasto compartido — NO son ingreso nuevo.':'Zelle/Venmo deposits are usually people paying back their share of a shared expense — NOT new income.');
-    else if(aiAnswers.zelleTipo==='pago') parts.push(es?'Los movimientos de Zelle/Venmo normalmente son pagos suyos a alguien más — trátalos como gasto normal.':'Zelle/Venmo movements are usually their own payments to someone else — treat as a normal expense.');
-    else if(aiAnswers.zelleTipo==='varia') parts.push(es?'Usa Zelle/Venmo seguido pero el motivo varía — usa el contexto de la descripción para decidir si es gasto o solo un reembolso entre personas.':'They use Zelle/Venmo often but the reason varies — use the description context to decide if it\'s a real expense or just a reimbursement between people.');
+  if (aiAnswers.zelle === 'si') {
+    if (aiAnswers.zelleTipo === 'cobro') parts.push(L ? 'Los depósitos de Zelle/Venmo normalmente son gente devolviéndole su parte de un gasto compartido — NO son ingreso nuevo.' : 'Zelle/Venmo deposits are usually people paying back their share of a shared expense — NOT new income.');
+    else if (aiAnswers.zelleTipo === 'pago') parts.push(L ? 'Los movimientos de Zelle/Venmo normalmente son pagos suyos a alguien más — trátalos como gasto normal.' : "Zelle/Venmo movements are usually their own payments to someone else — treat as a normal expense.");
+    else if (aiAnswers.zelleTipo === 'varia') parts.push(L ? 'Usa Zelle/Venmo seguido pero el motivo varía — usa el contexto de la descripción para decidir si es gasto o solo un reembolso entre personas.' : "They use Zelle/Venmo often but the reason varies — use the description context to decide if it's a real expense or just a reimbursement between people.");
   }
-
-  if(aiAnswers.chequeCambio==='si'){
-    const d = aiAnswers.chequeCambioDetalle || val('aiQ_chequeCambioDetalle');
-    parts.push(es?`Su cheque de nómina cambió de cuenta destino recientemente.${d?` Detalle: ${d}`:''} Usa la fecha de cada transacción para saber a cuál cuenta debió haber llegado en ese momento.`:`Their paycheck destination account changed recently.${d?` Detail: ${d}`:''} Use each transaction's date to figure out which account it should have landed in at that time.`);
+  if (aiAnswers.chequeCambio === 'si') {
+    var d3 = aiAnswers.chequeCambioDetalle || val('aiQ_chequeCambioDetalle');
+    parts.push(L ? 'Su cheque de nómina cambió de cuenta destino recientemente.' + (d3 ? ' Detalle: ' + d3 : '') + ' Usa la fecha de cada transacción para saber a cuál cuenta debió haber llegado en ese momento.' : 'Their paycheck destination account changed recently.' + (d3 ? ' Detail: ' + d3 : '') + " Use each transaction's date to figure out which account it should have landed in at that time.");
   }
-
-  if(aiAnswers.vaults==='si'){
-    const d = aiAnswers.vaultsDetalle || val('aiQ_vaultsDetalle');
-    parts.push(es
-      ? `Su banco tiene bolsillos/sub-cuentas internas (como SoFi Vaults) donde mueve dinero propio de un lado a otro — esos movimientos NUNCA son gasto ni ingreso real, siempre son transferencias internas (is_transfer:true), sin importar el nombre que tenga el bolsillo.${d?` Detalle: ${d}`:''}`
-      : `Their bank has internal pockets/sub-accounts (like SoFi Vaults) where they move their own money around — those movements are NEVER real spending or income, always internal transfers (is_transfer:true), no matter what the pocket is named.${d?` Detail: ${d}`:''}`);
+  if (aiAnswers.vaults === 'si') {
+    var d4 = aiAnswers.vaultsDetalle || val('aiQ_vaultsDetalle');
+    parts.push(L ? 'Su banco tiene bolsillos/sub-cuentas internas (como SoFi Vaults) donde mueve dinero propio de un lado a otro — esos movimientos NUNCA son gasto ni ingreso real, siempre son transferencias internas (is_transfer:true), sin importar el nombre que tenga el bolsillo.' + (d4 ? ' Detalle: ' + d4 : '')
+      : 'Their bank has internal pockets/sub-accounts (like SoFi Vaults) where they move their own money around — those movements are NEVER real spending or income, always internal transfers (is_transfer:true), no matter what the pocket is named.' + (d4 ? ' Detail: ' + d4 : ''));
   }
-
-  const extra = aiAnswers.extra || val('aiQ_extra');
-  if(extra) parts.push(extra);
-
+  var extra = aiAnswers.extra || val('aiQ_extra');
+  if (extra) parts.push(extra);
   return parts.join(' ');
 }
 
-function renderStep2(){
+function renderStep2() {
   setStep(2);
-  // aiAnswers NO se borra aquí a propósito: si el usuario se equivoca y regresa
-  // desde el paso 3 (revisar) o cambia de archivo sin haber elegido otro formato,
-  // sus respuestas ya dadas se quedan y no tiene que repetir el cuestionario.
-  // Solo se limpia en renderStep1() — ahí sí es una importación nueva de verdad.
+  // aiAnswers NO se borra aquí a propósito: si el usuario regresa desde el paso 3
+  // o cambia de archivo sin elegir otro formato, sus respuestas ya dadas se quedan.
+  var L = es(), isAI = importMode === 'ai';
+  var accept = isAI ? 'image/*,.pdf,.csv,.xlsx' : '.csv';
+  var modeLabel = { bank: L ? 'Estado de cuenta bancario' : 'Bank statement', fidelity: L ? 'Historial Fidelity' : 'Fidelity history', manual: L ? 'Mi hoja de gastos' : 'My expense sheet', ai: L ? 'Foto o PDF' : 'Photo or PDF' }[importMode];
 
-  const isAI = importMode === 'ai';
-  const isFid = importMode === 'fidelity';
-
-  const accept = isAI ? 'image/*,.pdf,.csv,.xlsx' : '.csv';
-  const modeLabel = {
-    bank: lang==='es'?'Estado de cuenta bancario':'Bank statement',
-    fidelity: lang==='es'?'Historial Fidelity':'Fidelity history',
-    manual: lang==='es'?'Mi hoja de gastos':'My expense sheet',
-    ai: lang==='es'?'Foto o PDF':'Photo or PDF',
-  }[importMode];
-
-  document.getElementById('page').innerHTML = `
-  <div class="card" style="margin-top:16px">
-    <div class="card-title">${modeLabel}</div>
-    <div class="card-sub">
-      ${isAI
-        ? (lang==='es'?'Sube una foto del recibo, estado de cuenta o PDF. La IA extraerá los datos automáticamente.':'Upload a photo of a receipt, bank statement or PDF. AI will extract the data automatically.')
-        : (lang==='es'?'Sube tu archivo CSV. Detectaremos el formato automáticamente.':'Upload your CSV file. We will detect the format automatically.')
-      }
-    </div>
-
-    ${isAI && typeof isPremium!=='undefined' && isPremium() ? `
-    <div class="credits-badge">
-      <span>✨ Análisis IA restantes este mes</span>
-      <span class="cb-num">${creditsLeft()}</span>
-    </div>` : ''}
-
-    ${isAI ? `
-    <div class="card" id="aiQBox" style="margin-top:14px;background:var(--off);border:1.5px solid var(--border);padding:14px">
-      <button type="button" onclick="toggleAiQuestions()" style="width:100%;background:none;border:none;padding:0;display:flex;align-items:center;justify-content:space-between;cursor:pointer;font-family:inherit;text-align:left">
-        <div>
-          <div style="font-size:12.5px;font-weight:800;color:var(--text2)">
-            💬 ${lang==='es'?'¿Cuéntale a la IA cómo te administras?':'Tell the AI how you manage your money?'}
-          </div>
-          <div style="font-size:10.5px;color:var(--text3);margin-top:2px">
-            ${lang==='es'?'Opcional · 30 seg · evita que confunda transferencias con gasto real':'Optional · 30 sec · avoids confusing transfers with real spending'}
-          </div>
-        </div>
-        <span id="aiQChevron" style="color:var(--text3);font-size:14px;transition:transform .2s ease;flex-shrink:0;margin-left:10px;display:inline-block;transform:rotate(${Object.keys(aiAnswers).length>0?'180':'0'}deg)">▾</span>
-      </button>
-
-      <div id="aiQContent" style="display:${Object.keys(aiAnswers).length>0?'block':'none'};margin-top:14px">
-      <div class="ai-q">
-        <div class="ai-q-label">${lang==='es'?'¿Con qué pagas la mayoría de tus compras?':'What do you pay for most purchases with?'}</div>
-        <div class="ai-q-opts">
-          <button type="button" class="ai-opt ${aiAnswers.pago==='credito'?'on':''}" data-q="pago" data-v="credito" onclick="toggleAiOpt(this)">💳 ${lang==='es'?'Crédito':'Credit'}</button>
-          <button type="button" class="ai-opt ${aiAnswers.pago==='debito'?'on':''}" data-q="pago" data-v="debito" onclick="toggleAiOpt(this)">🏦 ${lang==='es'?'Débito / cheques':'Debit / checking'}</button>
-          <button type="button" class="ai-opt ${aiAnswers.pago==='ambos'?'on':''}" data-q="pago" data-v="ambos" onclick="toggleAiOpt(this)">🔀 ${lang==='es'?'Ambos':'Both'}</button>
-        </div>
-      </div>
-
-      <div class="ai-q" id="aiQ_pagaCredito" style="display:${(aiAnswers.pago==='credito'||aiAnswers.pago==='ambos')?'block':'none'}">
-        <div class="ai-q-label">${lang==='es'?'¿Pagas esa tarjeta desde OTRA cuenta que también quieres que se registre aquí?':'Do you pay that card from ANOTHER account you also want tracked here?'}</div>
-        <div class="ai-q-opts">
-          <button type="button" class="ai-opt ${aiAnswers.pagaCredito==='si'?'on':''}" data-q="pagaCredito" data-v="si" onclick="toggleAiOpt(this,true)">${lang==='es'?'Sí':'Yes'}</button>
-          <button type="button" class="ai-opt ${aiAnswers.pagaCredito==='no'?'on':''}" data-q="pagaCredito" data-v="no" onclick="toggleAiOpt(this,true)">${lang==='es'?'No, ya viene reflejado':"No, it's already reflected"}</button>
-        </div>
-        <input type="text" id="aiQ_pagaCreditoDetalle" oninput="aiAnswers.pagaCreditoDetalle=this.value" value="${aiAnswers.pagaCreditoDetalle||''}" style="display:${aiAnswers.pagaCredito==='si'?'block':'none'}" class="ai-q-input" placeholder="${lang==='es'?'Ej: pago mi Capital One desde mi saving de SoFi':'Ex: I pay my Capital One from my SoFi savings'}">
-      </div>
-
-      <div class="ai-q">
-        <div class="ai-q-label">${lang==='es'?'¿Tienes más de una tarjeta de crédito que quieras que distinga?':'Do you have more than one credit card you want it to tell apart?'}</div>
-        <div class="ai-q-opts">
-          <button type="button" class="ai-opt ${aiAnswers.multiTarjeta==='si'?'on':''}" data-q="multiTarjeta" data-v="si" onclick="toggleAiOpt(this,true)">${lang==='es'?'Sí':'Yes'}</button>
-          <button type="button" class="ai-opt ${aiAnswers.multiTarjeta==='no'?'on':''}" data-q="multiTarjeta" data-v="no" onclick="toggleAiOpt(this,true)">${lang==='es'?'No':'No'}</button>
-        </div>
-        <input type="text" id="aiQ_multiTarjetaDetalle" oninput="aiAnswers.multiTarjetaDetalle=this.value" value="${aiAnswers.multiTarjetaDetalle||''}" style="display:${aiAnswers.multiTarjeta==='si'?'block':'none'}" class="ai-q-input" placeholder="${lang==='es'?'Ej: Chase y Capital One':'Ex: Chase and Capital One'}">
-      </div>
-
-      <div class="ai-q">
-        <div class="ai-q-label">${lang==='es'?'¿Tu banco tiene "bolsillos" o sub-cuentas internas (como SoFi Vaults) donde mueves dinero entre ellas?':'Does your bank have internal "pockets" or sub-accounts (like SoFi Vaults) where you move money between them?'}</div>
-        <div class="ai-q-opts">
-          <button type="button" class="ai-opt ${aiAnswers.vaults==='si'?'on':''}" data-q="vaults" data-v="si" onclick="toggleAiOpt(this,true)">${lang==='es'?'Sí':'Yes'}</button>
-          <button type="button" class="ai-opt ${aiAnswers.vaults==='no'?'on':''}" data-q="vaults" data-v="no" onclick="toggleAiOpt(this,true)">${lang==='es'?'No':'No'}</button>
-        </div>
-        <input type="text" id="aiQ_vaultsDetalle" oninput="aiAnswers.vaultsDetalle=this.value" value="${aiAnswers.vaultsDetalle||''}" style="display:${aiAnswers.vaults==='si'?'block':'none'}" class="ai-q-input" placeholder="${lang==='es'?'Ej: tengo vaults de Casa, Tarjetas, Boda — son míos, no gasto real':'Ex: I have House, Cards, Wedding vaults — they\'re mine, not real spending'}">
-      </div>
-
-      <div class="ai-q">
-        <div class="ai-q-label">${lang==='es'?'¿Usas Zelle/Venmo seguido?':'Do you use Zelle/Venmo often?'}</div>
-        <div class="ai-q-opts">
-          <button type="button" class="ai-opt ${aiAnswers.zelle==='si'?'on':''}" data-q="zelle" data-v="si" onclick="toggleAiOpt(this,true)">${lang==='es'?'Sí':'Yes'}</button>
-          <button type="button" class="ai-opt ${aiAnswers.zelle==='no'?'on':''}" data-q="zelle" data-v="no" onclick="toggleAiOpt(this,true)">${lang==='es'?'No':'No'}</button>
-        </div>
-      </div>
-      <div class="ai-q" id="aiQ_zelleSi" style="display:${aiAnswers.zelle==='si'?'block':'none'}">
-        <div class="ai-q-label">${lang==='es'?'Generalmente, ¿qué son esos movimientos?':'What are those movements usually?'}</div>
-        <div class="ai-q-opts">
-          <button type="button" class="ai-opt ${aiAnswers.zelleTipo==='cobro'?'on':''}" data-q="zelleTipo" data-v="cobro" onclick="toggleAiOpt(this)">${lang==='es'?'Gente pagándome su parte':'People paying me back their share'}</button>
-          <button type="button" class="ai-opt ${aiAnswers.zelleTipo==='pago'?'on':''}" data-q="zelleTipo" data-v="pago" onclick="toggleAiOpt(this)">${lang==='es'?'Pagos míos a alguien':'My payments to someone'}</button>
-          <button type="button" class="ai-opt ${aiAnswers.zelleTipo==='varia'?'on':''}" data-q="zelleTipo" data-v="varia" onclick="toggleAiOpt(this)">${lang==='es'?'Varía':'It varies'}</button>
-        </div>
-      </div>
-
-      <div class="ai-q">
-        <div class="ai-q-label">${lang==='es'?'¿Tu cheque de nómina cambió de cuenta destino recientemente?':'Has your paycheck destination account changed recently?'}</div>
-        <div class="ai-q-opts">
-          <button type="button" class="ai-opt ${aiAnswers.chequeCambio==='si'?'on':''}" data-q="chequeCambio" data-v="si" onclick="toggleAiOpt(this,true)">${lang==='es'?'Sí':'Yes'}</button>
-          <button type="button" class="ai-opt ${aiAnswers.chequeCambio==='no'?'on':''}" data-q="chequeCambio" data-v="no" onclick="toggleAiOpt(this,true)">${lang==='es'?'No':'No'}</button>
-        </div>
-        <input type="text" id="aiQ_chequeCambioDetalle" oninput="aiAnswers.chequeCambioDetalle=this.value" value="${aiAnswers.chequeCambioDetalle||''}" style="display:${aiAnswers.chequeCambio==='si'?'block':'none'}" class="ai-q-input" placeholder="${lang==='es'?'Ej: antes a mi saving personal, ahora al joint saving, desde hace ~1 mes':'Ex: before to my personal savings, now to the joint savings, since ~1 month ago'}">
-      </div>
-
-      <div class="ai-q" style="border-bottom:none;padding-bottom:0">
-        <div class="ai-q-label">${lang==='es'?'¿Algo más que deba saber?':'Anything else it should know?'}</div>
-        <textarea id="aiQ_extra" oninput="aiAnswers.extra=this.value" rows="2" placeholder="${lang==='es'?'Opcional — cualquier otro detalle de tus finanzas':'Optional — any other detail about your finances'}" class="ai-q-input" style="resize:vertical">${aiAnswers.extra||''}</textarea>
-      </div>
-      </div><!-- /aiQContent -->
-    </div>` : ''}
-
-    <style>
-      .ai-q{padding:12px 0;border-bottom:1px solid var(--border);}
-      .ai-q-label{font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px;}
-      .ai-q-opts{display:flex;gap:6px;flex-wrap:wrap;}
-      .ai-opt{background:white;border:1.5px solid var(--border);border-radius:20px;padding:7px 13px;font-size:11.5px;font-weight:700;color:var(--text2);cursor:pointer;font-family:inherit;transition:all .12s;}
-      .ai-opt.on{background:var(--g-main);border-color:var(--g-main);color:white;}
-      .ai-q-input{width:100%;margin-top:8px;padding:9px 11px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-family:inherit;box-sizing:border-box;}
-    </style>
-
-
-    <div class="upload-zone" id="dropZone"
-         ondragover="event.preventDefault();this.classList.add('drag')"
-         ondragleave="this.classList.remove('drag')"
-         ondrop="handleDrop(event)"
-         onclick="document.getElementById('fileInput').click()">
-      <input type="file" id="fileInput" accept="${accept}" onchange="handleFileSelect(this)">
-      <div class="uz-ico">${isAI?'📷':'📄'}</div>
-      <div class="uz-title">
-        ${isAI
-          ? (lang==='es'?'Toca para tomar foto o subir PDF':'Tap to take photo or upload PDF')
-          : (lang==='es'?'Toca para seleccionar tu CSV':'Tap to select your CSV')}
-      </div>
-      <div class="uz-sub">
-        ${isAI?'JPG · PNG · HEIC · PDF · CSV — cualquier formato':'CSV · máx 10MB'}
-      </div>
-    </div>
-
-    ${importMode === 'bank' ? `
-    <div style="margin-top:14px;background:var(--blu-dim);border-radius:10px;padding:12px;font-size:11px;color:#1D2C5E">
-      <strong>💡 ${lang==='es'?'Tip:':'Tip:'}</strong>
-      ${lang==='es'
-        ?'El importador detecta automáticamente SoFi, Capital One y otros bancos. Las transferencias entre tus propias cuentas las verás marcadas en rojo para que puedas excluirlas.'
-        :'The importer automatically detects SoFi, Capital One and other banks. Transfers between your own accounts will be marked in red so you can exclude them.'}
-    </div>` : ''}
-
-    ${importMode === 'fidelity' ? `
-    <div style="margin-top:14px;background:var(--blu-dim);border-radius:10px;padding:12px;font-size:11px;color:#1D2C5E">
-      <strong>💡 Fidelity:</strong>
-      ${lang==='es'
-        ?'Ve a Accounts & Trade → History → Download. Exporta en formato CSV. Los depósitos electrónicos se ignoran automáticamente (ya están reflejados en las compras).'
-        :'Go to Accounts & Trade → History → Download. Export as CSV. Electronic deposits are automatically ignored (they\'re already reflected in purchases).'}
-    </div>` : ''}
-  </div>
-
-  <button class="btn-secondary" onclick="renderStep1()">← ${lang==='es'?'Cambiar formato':'Change format'}</button>`;
+  document.getElementById('page').innerHTML =
+  '<div class="card">' +
+    '<div class="card-title">' + modeLabel + '</div>' +
+    '<div class="card-sub">' + (isAI ? (L ? 'Sube una foto del recibo, estado de cuenta o PDF. La IA extraerá los datos automáticamente.' : 'Upload a photo of a receipt, bank statement or PDF. AI will extract the data automatically.') : (L ? 'Sube tu archivo CSV. Detectaremos el formato automáticamente.' : 'Upload your CSV file. We will detect the format automatically.')) + '</div>' +
+    (isAI && FT.isPremium() ? '<div class="credits-badge"><span>✨ ' + (L ? 'Análisis IA restantes este mes' : 'AI analyses left this month') + '</span><span class="cb-num">' + FT.creditsLeft() + '</span></div>' : '') +
+    (isAI ? aiQuestionsHtml() : '') +
+    '<div class="upload-zone" id="dropZone" ondragover="event.preventDefault();this.classList.add(\'drag\')" ondragleave="this.classList.remove(\'drag\')" ondrop="handleDrop(event)" onclick="document.getElementById(\'fileInput\').click()">' +
+      '<input type="file" id="fileInput" accept="' + accept + '" onchange="handleFileSelect(this)">' +
+      '<div class="uz-ico">' + (isAI ? '📷' : '📄') + '</div>' +
+      '<div class="uz-title">' + (isAI ? (L ? 'Toca para tomar foto o subir PDF' : 'Tap to take photo or upload PDF') : (L ? 'Toca para seleccionar tu CSV' : 'Tap to select your CSV')) + '</div>' +
+      '<div class="uz-sub">' + (isAI ? 'JPG · PNG · HEIC · PDF · CSV — ' + (L ? 'cualquier formato' : 'any format') : 'CSV · ' + (L ? 'máx 10MB' : 'max 10MB')) + '</div>' +
+    '</div>' +
+    (importMode === 'bank' ? '<div style="margin-top:14px;background:var(--blu-dim);border-radius:10px;padding:12px;font-size:11px;color:#1D2C5E"><strong>💡 ' + (L ? 'Tip:' : 'Tip:') + '</strong> ' + (L ? 'El importador detecta automáticamente SoFi, Capital One y otros bancos. Las transferencias entre tus propias cuentas las verás marcadas en rojo para que puedas excluirlas.' : 'The importer automatically detects SoFi, Capital One and other banks. Transfers between your own accounts will be marked in red so you can exclude them.') + '</div>' : '') +
+    (importMode === 'fidelity' ? '<div style="margin-top:14px;background:var(--blu-dim);border-radius:10px;padding:12px;font-size:11px;color:#1D2C5E"><strong>💡 Fidelity:</strong> ' + (L ? 'Ve a Accounts & Trade → History → Download. Exporta en formato CSV. Los depósitos electrónicos se ignoran automáticamente (ya están reflejados en las compras).' : "Go to Accounts & Trade → History → Download. Export as CSV. Electronic deposits are automatically ignored (they're already reflected in purchases).") + '</div>' : '') +
+  '</div>' +
+  '<button class="ft-btn ft-btn-ghost tap" onclick="renderStep1()">← ' + (L ? 'Cambiar formato' : 'Change format') + '</button>';
 }
-
-function handleDrop(e){
-  e.preventDefault();
-  document.getElementById('dropZone').classList.remove('drag');
-  const file = e.dataTransfer.files[0];
-  if(file) processFile(file);
+function aiQuestionsHtml() {
+  var L = es(), open = Object.keys(aiAnswers).length > 0;
+  return '<div class="card" id="aiQBox" style="margin-top:14px;background:var(--off);border:1.5px solid var(--border);padding:14px">' +
+    '<button type="button" onclick="toggleAiQuestions()" style="width:100%;background:none;border:none;padding:0;display:flex;align-items:center;justify-content:space-between;cursor:pointer;font-family:inherit;text-align:left">' +
+      '<div><div style="font-size:12.5px;font-weight:800;color:var(--text2)">💬 ' + (L ? '¿Cuéntale a la IA cómo te administras?' : 'Tell the AI how you manage your money?') + '</div>' +
+      '<div style="font-size:10.5px;color:var(--text3);margin-top:2px">' + (L ? 'Opcional · 30 seg · evita que confunda transferencias con gasto real' : 'Optional · 30 sec · avoids confusing transfers with real spending') + '</div></div>' +
+      '<span id="aiQChevron" style="color:var(--text3);font-size:14px;transition:transform .2s ease;flex-shrink:0;margin-left:10px;display:inline-block;transform:rotate(' + (open ? '180' : '0') + 'deg)">▾</span></button>' +
+    '<div id="aiQContent" style="display:' + (open ? 'block' : 'none') + ';margin-top:14px">' +
+      aiQ(L ? '¿Con qué pagas la mayoría de tus compras?' : 'What do you pay for most purchases with?', [['pago', 'credito', '💳 ' + (L ? 'Crédito' : 'Credit')], ['pago', 'debito', '🏦 ' + (L ? 'Débito / cheques' : 'Debit / checking')], ['pago', 'ambos', '🔀 ' + (L ? 'Ambos' : 'Both')]]) +
+      '<div class="ai-q" id="aiQ_pagaCredito" style="display:' + ((aiAnswers.pago === 'credito' || aiAnswers.pago === 'ambos') ? 'block' : 'none') + '">' +
+        '<div class="ai-q-label">' + (L ? '¿Pagas esa tarjeta desde OTRA cuenta que también quieres que se registre aquí?' : 'Do you pay that card from ANOTHER account you also want tracked here?') + '</div>' +
+        '<div class="ai-q-opts">' + aiOptBtn('pagaCredito', 'si', L ? 'Sí' : 'Yes') + aiOptBtn('pagaCredito', 'no', L ? 'No, ya viene reflejado' : "No, it's already reflected") + '</div>' +
+        '<input type="text" id="aiQ_pagaCreditoDetalle" oninput="aiAnswers.pagaCreditoDetalle=this.value" value="' + (aiAnswers.pagaCreditoDetalle || '') + '" style="display:' + (aiAnswers.pagaCredito === 'si' ? 'block' : 'none') + '" class="ai-q-input" placeholder="' + (L ? 'Ej: pago mi Capital One desde mi saving de SoFi' : 'Ex: I pay my Capital One from my SoFi savings') + '"></div>' +
+      '<div class="ai-q"><div class="ai-q-label">' + (L ? '¿Tienes más de una tarjeta de crédito que quieras que distinga?' : 'Do you have more than one credit card you want it to tell apart?') + '</div>' +
+        '<div class="ai-q-opts">' + aiOptBtn('multiTarjeta', 'si', L ? 'Sí' : 'Yes') + aiOptBtn('multiTarjeta', 'no', L ? 'No' : 'No') + '</div>' +
+        '<input type="text" id="aiQ_multiTarjetaDetalle" oninput="aiAnswers.multiTarjetaDetalle=this.value" value="' + (aiAnswers.multiTarjetaDetalle || '') + '" style="display:' + (aiAnswers.multiTarjeta === 'si' ? 'block' : 'none') + '" class="ai-q-input" placeholder="' + (L ? 'Ej: Chase y Capital One' : 'Ex: Chase and Capital One') + '"></div>' +
+      '<div class="ai-q"><div class="ai-q-label">' + (L ? '¿Tu banco tiene "bolsillos" o sub-cuentas internas (como SoFi Vaults) donde mueves dinero entre ellas?' : 'Does your bank have internal "pockets" or sub-accounts (like SoFi Vaults) where you move money between them?') + '</div>' +
+        '<div class="ai-q-opts">' + aiOptBtn('vaults', 'si', L ? 'Sí' : 'Yes') + aiOptBtn('vaults', 'no', L ? 'No' : 'No') + '</div>' +
+        '<input type="text" id="aiQ_vaultsDetalle" oninput="aiAnswers.vaultsDetalle=this.value" value="' + (aiAnswers.vaultsDetalle || '') + '" style="display:' + (aiAnswers.vaults === 'si' ? 'block' : 'none') + '" class="ai-q-input" placeholder="' + (L ? 'Ej: tengo vaults de Casa, Tarjetas, Boda — son míos, no gasto real' : "Ex: I have House, Cards, Wedding vaults — they're mine, not real spending") + '"></div>' +
+      '<div class="ai-q"><div class="ai-q-label">' + (L ? '¿Usas Zelle/Venmo seguido?' : 'Do you use Zelle/Venmo often?') + '</div><div class="ai-q-opts">' + aiOptBtn('zelle', 'si', L ? 'Sí' : 'Yes') + aiOptBtn('zelle', 'no', L ? 'No' : 'No') + '</div></div>' +
+      '<div class="ai-q" id="aiQ_zelleSi" style="display:' + (aiAnswers.zelle === 'si' ? 'block' : 'none') + '"><div class="ai-q-label">' + (L ? 'Generalmente, ¿qué son esos movimientos?' : 'What are those movements usually?') + '</div>' +
+        '<div class="ai-q-opts">' + aiOptBtn('zelleTipo', 'cobro', L ? 'Gente pagándome su parte' : 'People paying me back their share') + aiOptBtn('zelleTipo', 'pago', L ? 'Pagos míos a alguien' : 'My payments to someone') + aiOptBtn('zelleTipo', 'varia', L ? 'Varía' : 'It varies') + '</div></div>' +
+      '<div class="ai-q"><div class="ai-q-label">' + (L ? '¿Tu cheque de nómina cambió de cuenta destino recientemente?' : "Has your paycheck destination account changed recently?") + '</div>' +
+        '<div class="ai-q-opts">' + aiOptBtn('chequeCambio', 'si', L ? 'Sí' : 'Yes') + aiOptBtn('chequeCambio', 'no', L ? 'No' : 'No') + '</div>' +
+        '<input type="text" id="aiQ_chequeCambioDetalle" oninput="aiAnswers.chequeCambioDetalle=this.value" value="' + (aiAnswers.chequeCambioDetalle || '') + '" style="display:' + (aiAnswers.chequeCambio === 'si' ? 'block' : 'none') + '" class="ai-q-input" placeholder="' + (L ? 'Ej: antes a mi saving personal, ahora al joint saving, desde hace ~1 mes' : 'Ex: before to my personal savings, now to the joint savings, since ~1 month ago') + '"></div>' +
+      '<div class="ai-q" style="border-bottom:none;padding-bottom:0"><div class="ai-q-label">' + (L ? '¿Algo más que deba saber?' : 'Anything else it should know?') + '</div>' +
+        '<textarea id="aiQ_extra" oninput="aiAnswers.extra=this.value" rows="2" placeholder="' + (L ? 'Opcional — cualquier otro detalle de tus finanzas' : 'Optional — any other detail about your finances') + '" class="ai-q-input" style="resize:vertical">' + (aiAnswers.extra || '') + '</textarea></div>' +
+    '</div></div>';
 }
+function aiQ(label, opts) { return '<div class="ai-q"><div class="ai-q-label">' + label + '</div><div class="ai-q-opts">' + opts.map(function (o) { return aiOptBtn(o[0], o[1], o[2]); }).join('') + '</div></div>'; }
+function aiOptBtn(q, v, label) { return '<button type="button" class="ai-opt ' + (aiAnswers[q] === v ? 'on' : '') + '" data-q="' + q + '" data-v="' + v + '" onclick="toggleAiOpt(this)">' + label + '</button>'; }
 
-function handleFileSelect(input){
-  const file = input.files[0];
-  if(file) processFile(file);
-}
+function handleDrop(e) { e.preventDefault(); document.getElementById('dropZone').classList.remove('drag'); var f = e.dataTransfer.files[0]; if (f) processFile(f); }
+function handleFileSelect(input) { var f = input.files[0]; if (f) processFile(f); }
 
-function processFile(file){
-  const zone = document.getElementById('dropZone');
-  zone.innerHTML = `<div class="uz-ico">⏳</div><div class="uz-title">${lang==='es'?'Procesando...':'Processing...'}</div>`;
+function processFile(file) {
+  var L = es(), zone = document.getElementById('dropZone');
+  zone.innerHTML = '<div class="uz-ico">⏳</div><div class="uz-title">' + (L ? 'Procesando...' : 'Processing...') + '</div>';
+  var isCSV = file.name.toLowerCase().endsWith('.csv') || file.type === 'text/csv';
 
-  const isCSV = file.name.toLowerCase().endsWith('.csv') || file.type === 'text/csv';
-  const isImage = file.type.startsWith('image/');
-  const isPDF = file.type === 'application/pdf';
-
-  if(importMode === 'ai'){
-    if(isCSV){
-      // AI mode + CSV: read as text, try auto-detect first
-      const reader = new FileReader();
-      reader.onload = e => {
-        const text = e.target.result;
-        const clean = text.replace(/^﻿/,'').replace(/\r\n/g,'\n').replace(/\r/g,'\n');
-        const lines = clean.split('\n').filter(l=>l.trim());
-        const header = lines.length > 0 ? parseCSVLine(lines[0]).map(h=>h.trim().toLowerCase()) : [];
-
-        // Check if it's a known format — if yes, parse directly (no AI credit used)
-        const isKnown = header.includes('symbol') || header.includes('account name') ||
-                        header.includes('primary category') || header.includes('fecha') ||
-                        header.includes('monto');
-
-        if(isKnown){
-          showToast(lang==='es'?'✅ Formato detectado — sin usar crédito IA':'✅ Format detected — no AI credit used');
-          try { parseCSV(text, file.name); }
-          catch(err){ zone.innerHTML=`<div class="uz-ico">❌</div><div class="uz-title">${err.message}</div>`; }
+  if (importMode === 'ai') {
+    if (isCSV) {
+      var reader = new FileReader();
+      reader.onload = function (e) {
+        var text = e.target.result;
+        var clean = text.replace(/^﻿/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        var lines = clean.split('\n').filter(function (l) { return l.trim(); });
+        var header = lines.length > 0 ? parseCSVLine(lines[0]).map(function (h) { return h.trim().toLowerCase(); }) : [];
+        var isKnown = header.indexOf('symbol') > -1 || header.indexOf('account name') > -1 || header.indexOf('primary category') > -1 || header.indexOf('fecha') > -1 || header.indexOf('monto') > -1;
+        if (isKnown) {
+          FT.toast(L ? '✅ Formato detectado — sin usar crédito IA' : '✅ Format detected — no AI credit used');
+          try { parseCSV(text, file.name); } catch (err) { zone.innerHTML = '<div class="uz-ico">❌</div><div class="uz-title">' + err.message + '</div>'; }
         } else {
-          // Unknown CSV — send to Claude as text
           processAIFile(file, 'text/csv', text);
         }
       };
       reader.readAsText(file, 'UTF-8');
     } else {
-      // Image or PDF
       processAIFile(file);
     }
     return;
   }
-
-  // Non-AI modes
-  if(isCSV || file.name.toLowerCase().endsWith('.csv')){
-    const reader = new FileReader();
-    reader.onload = e => {
+  if (isCSV) {
+    var reader2 = new FileReader();
+    reader2.onload = function (e) {
       try { parseCSV(e.target.result, file.name); }
-      catch(err){ zone.innerHTML=`<div class="uz-ico">❌</div><div class="uz-title">${lang==='es'?'Error al leer el archivo':'Error reading file'}</div><div class="uz-sub">${err.message}</div>`; }
+      catch (err) { zone.innerHTML = '<div class="uz-ico">❌</div><div class="uz-title">' + (L ? 'Error al leer el archivo' : 'Error reading file') + '</div><div class="uz-sub">' + err.message + '</div>'; }
     };
-    reader.readAsText(file, 'UTF-8');
+    reader2.readAsText(file, 'UTF-8');
   } else {
-    zone.innerHTML = `<div class="uz-ico">❌</div><div class="uz-title">${lang==='es'?'Formato no soportado en este modo':'Format not supported in this mode'}</div><div class="uz-sub">${lang==='es'?'Usa el modo Foto/PDF para imágenes':'Use Photo/PDF mode for images'}</div>`;
+    zone.innerHTML = '<div class="uz-ico">❌</div><div class="uz-title">' + (L ? 'Formato no soportado en este modo' : 'Format not supported in this mode') + '</div><div class="uz-sub">' + (L ? 'Usa el modo Foto/PDF para imágenes' : 'Use Photo/PDF mode for images') + '</div>';
   }
 }
 
 /* ══════════════════════════════════════
-   CSV PARSER — Detecta formato automáticamente
+   PARSER CSV — detecta formato automáticamente
 ══════════════════════════════════════ */
-function parseCSV(text, filename){
-  // Clean BOM and normalize line endings
-  const clean = text.replace(/^﻿/, '').replace(/\r\n/g,'\n').replace(/\r/g,'\n');
-  const lines = clean.split('\n').filter(l=>l.trim());
+function parseCSV(text, filename) {
+  var L = es();
+  var clean = text.replace(/^﻿/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  var lines = clean.split('\n').filter(function (l) { return l.trim(); });
 
-  // Find header line (skip empty/metadata lines at top)
-  let headerIdx = 0;
-  for(let i=0;i<Math.min(5,lines.length);i++){
-    if(lines[i].includes(',') && lines[i].length > 5){
-      headerIdx = i;
-      break;
-    }
-  }
-
-  const header = parseCSVLine(lines[headerIdx]).map(h=>h.trim().toLowerCase());
+  var headerIdx = 0;
+  for (var i = 0; i < Math.min(5, lines.length); i++) { if (lines[i].indexOf(',') > -1 && lines[i].length > 5) { headerIdx = i; break; } }
+  var header = parseCSVLine(lines[headerIdx]).map(function (h) { return h.trim().toLowerCase(); });
 
   // Si el CSV no trae ninguna columna de fecha reconocible, avisar ANTES de
   // importar — si no, cada fila se guarda con la fecha de HOY en silencio,
   // y luego es imposible saber si algo se duplicó o son transacciones distintas.
-  const DATE_COLS = ['fecha','date','transaction date','posted date','trade date','activity date','run date','authorized date','post date','process date'];
-  const hasDateCol = DATE_COLS.some(c => header.includes(c));
-  if(!hasDateCol){
-    const seguir = confirm(
-      lang==='es'
-        ? '⚠️ Este archivo no tiene una columna de fecha reconocible.\n\nSi continúas, TODAS las filas se guardarán con la fecha de HOY, y no vas a poder distinguir después si algo se duplicó o son movimientos distintos.\n\nCancela y agrega una columna "Fecha" (formato AAAA-MM-DD) antes de volver a intentar.\n\n¿Continuar de todos modos, sabiendo que perderás las fechas reales?'
-        : '⚠️ This file has no recognizable date column.\n\nIf you continue, ALL rows will be saved with TODAY\'s date, and you won\'t be able to tell later if something was duplicated or is a different transaction.\n\nCancel and add a "Date" column (YYYY-MM-DD format) before trying again.\n\nContinue anyway, knowing you\'ll lose the real dates?'
-    );
-    if(!seguir){
-      const zone = document.getElementById('dropZone');
-      if(zone) zone.innerHTML = `<div class="uz-ico">📅</div><div class="uz-title">${lang==='es'?'Agrega una columna de fecha':'Add a date column'}</div><div class="uz-sub">${lang==='es'?'Vuelve a subir el archivo cuando esté lista':'Re-upload the file once it’s ready'}</div>`;
+  var DATE_COLS = ['fecha', 'date', 'transaction date', 'posted date', 'trade date', 'activity date', 'run date', 'authorized date', 'post date', 'process date'];
+  var hasDateCol = DATE_COLS.some(function (c) { return header.indexOf(c) > -1; });
+  if (!hasDateCol) {
+    var seguir = confirm(L
+      ? '⚠️ Este archivo no tiene una columna de fecha reconocible.\n\nSi continúas, TODAS las filas se guardarán con la fecha de HOY, y no vas a poder distinguir después si algo se duplicó o son movimientos distintos.\n\nCancela y agrega una columna "Fecha" (formato AAAA-MM-DD) antes de volver a intentar.\n\n¿Continuar de todos modos, sabiendo que perderás las fechas reales?'
+      : '⚠️ This file has no recognizable date column.\n\nIf you continue, ALL rows will be saved with TODAY\'s date, and you won\'t be able to tell later if something was duplicated or is a different transaction.\n\nCancel and add a "Date" column (YYYY-MM-DD format) before trying again.\n\nContinue anyway, knowing you\'ll lose the real dates?');
+    if (!seguir) {
+      var zone = document.getElementById('dropZone');
+      if (zone) zone.innerHTML = '<div class="uz-ico">📅</div><div class="uz-title">' + (L ? 'Agrega una columna de fecha' : 'Add a date column') + '</div><div class="uz-sub">' + (L ? 'Vuelve a subir el archivo cuando esté lista' : 'Re-upload the file once it’s ready') + '</div>';
       return;
     }
   }
 
-  // Detect format
-  if(header.includes('symbol') || header.includes('action')){
-    importMode = 'fidelity';
-    parseFidelity(header, lines.slice(headerIdx+1));
-  } else if(header.includes('account name') || header.includes('primary category')){
-    importMode = 'bank';
-    parseSoFi(header, lines.slice(headerIdx+1));
-  } else if(header.includes('fecha') || header.includes('monto') || header.includes('descripción')){
-    importMode = 'manual';
-    parseManual(header, lines.slice(headerIdx+1));
-  } else {
-    // Unknown format — try generic
-    parseGeneric(header, lines.slice(headerIdx+1));
-  }
+  if (header.indexOf('symbol') > -1 || header.indexOf('action') > -1) { importMode = 'fidelity'; parseFidelity(header, lines.slice(headerIdx + 1)); }
+  else if (header.indexOf('account name') > -1 || header.indexOf('primary category') > -1) { importMode = 'bank'; parseSoFi(header, lines.slice(headerIdx + 1)); }
+  else if (header.indexOf('fecha') > -1 || header.indexOf('monto') > -1 || header.indexOf('descripción') > -1) { importMode = 'manual'; parseManual(header, lines.slice(headerIdx + 1)); }
+  else { parseGeneric(header, lines.slice(headerIdx + 1)); }
 }
 
-function parseCSVLine(line){
-  const result = [];
-  let cur = '';
-  let inQ = false;
-  for(let i=0;i<line.length;i++){
-    const c = line[i];
-    if(c==='"' && !inQ){ inQ=true; continue; }
-    if(c==='"' && inQ){ inQ=false; continue; }
-    if(c===',' && !inQ){ result.push(cur.trim()); cur=''; continue; }
+function parseCSVLine(line) {
+  var result = [], cur = '', inQ = false;
+  for (var i = 0; i < line.length; i++) {
+    var c = line[i];
+    if (c === '"' && !inQ) { inQ = true; continue; }
+    if (c === '"' && inQ) { inQ = false; continue; }
+    if (c === ',' && !inQ) { result.push(cur.trim()); cur = ''; continue; }
     cur += c;
   }
   result.push(cur.trim());
   return result;
 }
-
-function parseAmount(str){
-  if(!str) return 0;
-  // Handle --$20.00, -$20.00, $20.00, 20.00, -20.00
-  const clean = String(str).replace(/--/,'-').replace(/\$/g,'').replace(/,/g,'').trim();
-  return parseFloat(clean)||0;
+function parseAmount(str) {
+  if (!str) return 0;
+  var clean = String(str).replace(/--/, '-').replace(/\$/g, '').replace(/,/g, '').trim();
+  return parseFloat(clean) || 0;
 }
-
-function parseDate(str){
-  if(!str) return new Date().toISOString().split('T')[0];
+function parseDate(str) {
+  if (!str) return FT.todayISO();
   str = str.trim();
-  // YYYY-MM-DD
-  if(/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
-  // MM/DD/YYYY
-  if(/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(str)){
-    const [m,d,y]=str.split('/');
-    return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
-  }
-  // "2 jun 2025" / "24 jun 2026"
-  const months={ene:1,jan:1,feb:2,mar:3,abr:4,apr:4,may:5,jun:6,jul:7,ago:8,aug:8,sep:9,oct:10,nov:11,dic:12,dec:12};
-  const m2 = str.toLowerCase().match(/(\d{1,2})\s+([a-z]+)\s+(\d{4})/);
-  if(m2){
-    const mo = months[m2[2].slice(0,3)];
-    if(mo) return `${m2[3]}-${String(mo).padStart(2,'0')}-${m2[1].padStart(2,'0')}`;
-  }
-  return new Date().toISOString().split('T')[0];
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+  if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(str)) { var p = str.split('/'); return p[2] + '-' + p[0].padStart(2, '0') + '-' + p[1].padStart(2, '0'); }
+  var months = { ene: 1, jan: 1, feb: 2, mar: 3, abr: 4, apr: 4, may: 5, jun: 6, jul: 7, ago: 8, aug: 8, sep: 9, oct: 10, nov: 11, dic: 12, dec: 12 };
+  var m2 = str.toLowerCase().match(/(\d{1,2})\s+([a-z]+)\s+(\d{4})/);
+  if (m2) { var mo = months[m2[2].slice(0, 3)]; if (mo) return m2[3] + '-' + String(mo).padStart(2, '0') + '-' + m2[1].padStart(2, '0'); }
+  return FT.todayISO();
 }
 
 /* ══════════════════════════════════════
    PARSER: Bancos — SoFi, Chase, Capital One,
    Wells Fargo, BBVA MX, Banorte, Banamex, etc.
 ══════════════════════════════════════ */
-function parseSoFi(header, lines){
-  // Detect Mexican bank format (Cargo/Abono columns)
-  const hasCargo = header.includes('cargo') || header.includes('retiro') || header.includes('débito') || header.includes('debito');
-  const hasAbono = header.includes('abono') || header.includes('depósito') || header.includes('deposito') || header.includes('crédito');
+function parseSoFi(header, lines) {
+  var hasCargo = header.indexOf('cargo') > -1 || header.indexOf('retiro') > -1 || header.indexOf('débito') > -1 || header.indexOf('debito') > -1;
+  var hasAbono = header.indexOf('abono') > -1 || header.indexOf('depósito') > -1 || header.indexOf('deposito') > -1 || header.indexOf('crédito') > -1;
+  if (hasCargo || hasAbono) { parseMexicanBank(header, lines); return; }
 
-  if(hasCargo || hasAbono){
-    parseMexicanBank(header, lines);
-    return;
-  }
-
-  // Wells Fargo (separate debit/credit columns)
-  const hasDebit  = header.includes('debit amount') || header.includes('withdrawals');
-  const hasCredit = header.includes('credit amount') || header.includes('deposits');
-
-  // Capital One (separate debit/credit)
-  const hasCapOneDebit  = header.indexOf('debit') >= 0 && !hasCargo;
-  const hasCapOneCredit = header.indexOf('credit') >= 0 && !hasAbono;
-
-  const idx = {
-    date:    ['authorized date','transaction date','date','fecha'].map(k=>header.indexOf(k)).find(i=>i>=0) ?? -1,
-    posted:  ['posted date','post date'].map(k=>header.indexOf(k)).find(i=>i>=0) ?? -1,
-    account: ['account name','account'].map(k=>header.indexOf(k)).find(i=>i>=0) ?? -1,
-    desc:    ['description','merchant','payee','concepto'].map(k=>header.indexOf(k)).find(i=>i>=0) ?? -1,
-    cat:     ['primary category','category','type'].map(k=>header.indexOf(k)).find(i=>i>=0) ?? -1,
-    detcat:  ['detailed category'].map(k=>header.indexOf(k)).find(i=>i>=0) ?? -1,
-    amount:  ['amount','importe','monto'].map(k=>header.indexOf(k)).find(i=>i>=0) ?? -1,
-    debit:   ['debit amount','debit','withdrawals'].map(k=>header.indexOf(k)).find(i=>i>=0) ?? -1,
-    credit:  ['credit amount','credit','deposits'].map(k=>header.indexOf(k)).find(i=>i>=0) ?? -1,
+  function find(keys) { for (var i = 0; i < keys.length; i++) { var idx = header.indexOf(keys[i]); if (idx >= 0) return idx; } return -1; }
+  var idx = {
+    date: find(['authorized date', 'transaction date', 'date', 'fecha']),
+    posted: find(['posted date', 'post date']),
+    account: find(['account name', 'account']),
+    desc: find(['description', 'merchant', 'payee', 'concepto']),
+    cat: find(['primary category', 'category', 'type']),
+    detcat: find(['detailed category']),
+    amount: find(['amount', 'importe', 'monto']),
+    debit: find(['debit amount', 'debit', 'withdrawals']),
+    credit: find(['credit amount', 'credit', 'deposits'])
   };
 
-  parsedRows = lines.filter(l=>l.trim()).map(l=>{
-    const c = parseCSVLine(l);
-    let amount = 0;
-
-    if(idx.amount >= 0 && c[idx.amount]){
-      amount = parseAmount(c[idx.amount]);
-    } else if(idx.debit >= 0 || idx.credit >= 0){
-      // Separate debit/credit columns
-      const debit  = parseAmount(c[idx.debit]  || '0');
-      const credit = parseAmount(c[idx.credit] || '0');
-      amount = credit > 0 ? credit : -Math.abs(debit);
-    }
-
+  parsedRows = lines.filter(function (l) { return l.trim(); }).map(function (l) {
+    var c = parseCSVLine(l), amount = 0;
+    if (idx.amount >= 0 && c[idx.amount]) amount = parseAmount(c[idx.amount]);
+    else if (idx.debit >= 0 || idx.credit >= 0) { var debit = parseAmount(c[idx.debit] || '0'), credit = parseAmount(c[idx.credit] || '0'); amount = credit > 0 ? credit : -Math.abs(debit); }
     return {
-      date:    parseDate(c[idx.date >= 0 ? idx.date : idx.posted] || ''),
-      account: idx.account >= 0 ? (c[idx.account]||'') : '',
-      desc:    idx.desc >= 0 ? (c[idx.desc]||'') : '',
-      cat:     idx.cat >= 0 ? (c[idx.cat]||'') : '',
-      detcat:  idx.detcat >= 0 ? (c[idx.detcat]||'') : '',
-      amount,
+      date: parseDate(c[idx.date >= 0 ? idx.date : idx.posted] || ''),
+      account: idx.account >= 0 ? (c[idx.account] || '') : '',
+      desc: idx.desc >= 0 ? (c[idx.desc] || '') : '',
+      cat: idx.cat >= 0 ? (c[idx.cat] || '') : '',
+      detcat: idx.detcat >= 0 ? (c[idx.detcat] || '') : '',
+      amount: amount
     };
-  }).filter(r=>r.desc);
-
+  }).filter(function (r) { return r.desc; });
   classifyBankRows();
 }
 
-/* ── MEXICAN BANKS (BBVA, Banorte, Banamex, Santander MX) ── */
-function parseMexicanBank(header, lines){
-  const idx = {
-    date:   ['fecha','date'].map(k=>header.indexOf(k)).find(i=>i>=0) ?? 0,
-    desc:   ['descripción','descripcion','concepto','description'].map(k=>header.indexOf(k)).find(i=>i>=0) ?? 1,
-    cargo:  ['cargo','retiro','débito','debito','debit'].map(k=>header.indexOf(k)).find(i=>i>=0) ?? -1,
-    abono:  ['abono','depósito','deposito','crédito','credito','credit'].map(k=>header.indexOf(k)).find(i=>i>=0) ?? -1,
-    saldo:  ['saldo','balance'].map(k=>header.indexOf(k)).find(i=>i>=0) ?? -1,
+function parseMexicanBank(header, lines) {
+  function find(keys, def) { for (var i = 0; i < keys.length; i++) { var idx = header.indexOf(keys[i]); if (idx >= 0) return idx; } return def == null ? -1 : def; }
+  var idx = {
+    date: find(['fecha', 'date'], 0), desc: find(['descripción', 'descripcion', 'concepto', 'description'], 1),
+    cargo: find(['cargo', 'retiro', 'débito', 'debito', 'debit']), abono: find(['abono', 'depósito', 'deposito', 'crédito', 'credito', 'credit']),
+    saldo: find(['saldo', 'balance'])
   };
-
-  parsedRows = lines.filter(l=>l.trim()).map(l=>{
-    const c = parseCSVLine(l);
-    const cargo = parseAmount(c[idx.cargo] || '0');
-    const abono = parseAmount(c[idx.abono] || '0');
-    // Cargo = expense (negative), Abono = income (positive)
-    const amount = abono > 0 ? abono : -Math.abs(cargo);
-
-    return {
-      date:    parseDate(c[idx.date]||''),
-      account: 'MX',
-      desc:    c[idx.desc]||'',
-      cat:     '',
-      detcat:  '',
-      amount,
-      currency: 'MXN',
-    };
-  }).filter(r=>r.desc && r.amount !== 0);
-
+  parsedRows = lines.filter(function (l) { return l.trim(); }).map(function (l) {
+    var c = parseCSVLine(l), cargo = parseAmount(c[idx.cargo] || '0'), abono = parseAmount(c[idx.abono] || '0');
+    var amount = abono > 0 ? abono : -Math.abs(cargo);
+    return { date: parseDate(c[idx.date] || ''), account: 'MX', desc: c[idx.desc] || '', cat: '', detcat: '', amount: amount, currency: 'MXN' };
+  }).filter(function (r) { return r.desc && r.amount !== 0; });
   classifyBankRows();
 }
 
 /* ══════════════════════════════════════
    PARSER: Manual (tu hoja)
 ══════════════════════════════════════ */
-function parseManual(header, lines){
-  const idx = {
-    date:  header.indexOf('fecha'),
-    desc:  header.indexOf('descripción') >= 0 ? header.indexOf('descripción') : header.indexOf('descripcion'),
-    cat:   header.indexOf('categoría') >= 0 ? header.indexOf('categoría') : header.indexOf('categoria'),
-    amount:header.indexOf('monto'),
-  };
+function parseManual(header, lines) {
+  var idx = { date: header.indexOf('fecha'), desc: header.indexOf('descripción') >= 0 ? header.indexOf('descripción') : header.indexOf('descripcion'), cat: header.indexOf('categoría') >= 0 ? header.indexOf('categoría') : header.indexOf('categoria'), amount: header.indexOf('monto') };
+  parsedRows = lines.filter(function (l) { return l.trim(); }).map(function (l) {
+    var c = parseCSVLine(l);
+    return { date: parseDate(c[idx.date] || ''), desc: c[idx.desc] || '', cat: c[idx.cat] || '', amount: parseAmount(c[idx.amount] || '0') };
+  }).filter(function (r) { return r.desc; });
 
-  parsedRows = lines.filter(l=>l.trim()).map(l=>{
-    const c = parseCSVLine(l);
-    return {
-      date:   parseDate(c[idx.date]||''),
-      desc:   c[idx.desc]||'',
-      cat:    c[idx.cat]||'',
-      amount: parseAmount(c[idx.amount]||'0'),
-    };
-  }).filter(r=>r.desc);
-
-  // Manual sheet is all expenses — classify directly
-  reviewRows = parsedRows.map(r=>({
-    ...r,
-    status: 'include',
-    type: 'gasto',
-    ftCat: mapManualCategory(r.cat),
-    zelleType: null,
-    isDuplicate: checkDuplicate(r.date, Math.abs(r.amount), r.desc),
-    selected: true,
-  }));
-
+  reviewRows = parsedRows.map(function (r) { return Object.assign({}, r, { status: 'include', type: 'gasto', ftCat: mapManualCategory(r.cat), zelleType: null, isDuplicate: checkDuplicate(r.date, Math.abs(r.amount), r.desc), selected: true }); });
   renderStep3();
 }
 
 /* ══════════════════════════════════════
-   PARSER: Brokers — Fidelity, Schwab, Robinhood,
-   Vanguard, E*TRADE, GBM+
+   PARSER: Brokers — Fidelity, Schwab, Robinhood, Vanguard
 ══════════════════════════════════════ */
-function parseFidelity(header, lines){
-  // Detect broker by column signatures
-  const isSchwab    = header.includes('action') && header.includes('symbol') && !header.includes('run date');
-  const isRobinhood = header.includes('activity date') || header.includes('trans code') || header.includes('instrument');
-  const isVanguard  = header.includes('trade date') && (header.includes('transaction type') || header.includes('shares'));
+function parseFidelity(header, lines) {
+  var isSchwab = header.indexOf('action') > -1 && header.indexOf('symbol') > -1 && header.indexOf('run date') === -1;
+  var isRobinhood = header.indexOf('activity date') > -1 || header.indexOf('trans code') > -1 || header.indexOf('instrument') > -1;
+  var isVanguard = header.indexOf('trade date') > -1 && (header.indexOf('transaction type') > -1 || header.indexOf('shares') > -1);
+  if (isSchwab && header.indexOf('run date') === -1) { parseSchwab(header, lines); return; }
+  if (isRobinhood) { parseRobinhood(header, lines); return; }
+  if (isVanguard) { parseVanguard(header, lines); return; }
 
-  if(isSchwab && !header.includes('run date'))    { parseSchwab(header, lines); return; }
-  if(isRobinhood) { parseRobinhood(header, lines); return; }
-  if(isVanguard)  { parseVanguard(header, lines); return; }
-
-  // Default: Fidelity
-  const idx = {
-    date:   header.indexOf('run date'),
-    action: header.indexOf('action'),
-    symbol: header.indexOf('symbol'),
-    desc:   header.indexOf('description'),
-    price:  ['price ($)','price'].map(k=>header.indexOf(k)).find(i=>i>=0) ?? -1,
-    qty:    header.indexOf('quantity'),
-    amount: ['amount ($)','amount'].map(k=>header.indexOf(k)).find(i=>i>=0) ?? -1,
-    acct:   header.indexOf('account number'),
-  };
-
-  parsedRows = lines.filter(l=>l.trim()).map(l=>{
-    const c = parseCSVLine(l);
-    const action = c[idx.action]||'';
-    return {
-      date:   parseDate(c[idx.date >= 0 ? idx.date : 0]||''),
-      action,
-      symbol: (c[idx.symbol >= 0 ? idx.symbol : -1]||'').trim(),
-      desc:   c[idx.desc >= 0 ? idx.desc : -1]||'',
-      price:  parseFloat((c[idx.price >= 0 ? idx.price : -1]||'').replace(/[$,]/g,''))||0,
-      qty:    parseFloat(c[idx.qty >= 0 ? idx.qty : -1]||'0')||0,
-      amount: parseAmount(c[idx.amount >= 0 ? idx.amount : -1]||'0'),
-      acct:   c[idx.acct >= 0 ? idx.acct : -1]||'',
-      broker: 'Fidelity',
-    };
-  }).filter(r=>r.action);
-
+  function find(keys, def) { for (var i = 0; i < keys.length; i++) { var idx = header.indexOf(keys[i]); if (idx >= 0) return idx; } return def == null ? -1 : def; }
+  var idx = { date: header.indexOf('run date'), action: header.indexOf('action'), symbol: header.indexOf('symbol'), desc: header.indexOf('description'), price: find(['price ($)', 'price']), qty: header.indexOf('quantity'), amount: find(['amount ($)', 'amount']), acct: header.indexOf('account number') };
+  parsedRows = lines.filter(function (l) { return l.trim(); }).map(function (l) {
+    var c = parseCSVLine(l), action = c[idx.action] || '';
+    return { date: parseDate(c[idx.date >= 0 ? idx.date : 0] || ''), action: action, symbol: (c[idx.symbol >= 0 ? idx.symbol : -1] || '').trim(), desc: c[idx.desc >= 0 ? idx.desc : -1] || '', price: parseFloat((c[idx.price >= 0 ? idx.price : -1] || '').replace(/[$,]/g, '')) || 0, qty: parseFloat(c[idx.qty >= 0 ? idx.qty : -1] || '0') || 0, amount: parseAmount(c[idx.amount >= 0 ? idx.amount : -1] || '0'), acct: c[idx.acct >= 0 ? idx.acct : -1] || '', broker: 'Fidelity' };
+  }).filter(function (r) { return r.action; });
+  classifyBrokerRows();
+}
+function parseSchwab(header, lines) {
+  function find(keys, def) { for (var i = 0; i < keys.length; i++) { var idx = header.indexOf(keys[i]); if (idx >= 0) return idx; } return def == null ? -1 : def; }
+  var idx = { date: find(['date', 'transaction date'], 0), action: header.indexOf('action'), symbol: header.indexOf('symbol'), desc: header.indexOf('description'), qty: header.indexOf('quantity'), price: header.indexOf('price'), amount: header.indexOf('amount') };
+  parsedRows = lines.filter(function (l) { return l.trim(); }).map(function (l) {
+    var c = parseCSVLine(l);
+    return { date: parseDate(c[idx.date] || ''), action: c[idx.action] || '', symbol: (c[idx.symbol >= 0 ? idx.symbol : -1] || '').trim(), desc: c[idx.desc >= 0 ? idx.desc : -1] || '', price: parseFloat((c[idx.price >= 0 ? idx.price : -1] || '').replace(/[$,]/g, '')) || 0, qty: parseFloat(c[idx.qty >= 0 ? idx.qty : -1] || '0') || 0, amount: parseAmount(c[idx.amount >= 0 ? idx.amount : -1] || '0'), broker: 'Schwab' };
+  }).filter(function (r) { return r.action; });
+  classifyBrokerRows();
+}
+function parseRobinhood(header, lines) {
+  function find(keys, def) { for (var i = 0; i < keys.length; i++) { var idx = header.indexOf(keys[i]); if (idx >= 0) return idx; } return def == null ? -1 : def; }
+  var idx = { date: find(['activity date', 'process date'], 0), action: find(['trans code', 'transaction code', 'type']), symbol: find(['instrument', 'symbol']), desc: header.indexOf('description'), qty: header.indexOf('quantity'), price: header.indexOf('price'), amount: header.indexOf('amount') };
+  parsedRows = lines.filter(function (l) { return l.trim(); }).map(function (l) {
+    var c = parseCSVLine(l), code = (c[idx.action >= 0 ? idx.action : -1] || '').toLowerCase();
+    var action = code.indexOf('buy') > -1 ? 'YOU BOUGHT' : code.indexOf('sell') > -1 ? 'YOU SOLD' : code.indexOf('div') > -1 ? 'DIVIDEND' : (c[idx.action >= 0 ? idx.action : -1] || '');
+    return { date: parseDate(c[idx.date] || ''), action: action, symbol: (c[idx.symbol >= 0 ? idx.symbol : -1] || '').trim(), desc: c[idx.desc >= 0 ? idx.desc : -1] || '', price: parseFloat((c[idx.price >= 0 ? idx.price : -1] || '').replace(/[$,]/g, '')) || 0, qty: parseFloat(c[idx.qty >= 0 ? idx.qty : -1] || '0') || 0, amount: parseAmount(c[idx.amount >= 0 ? idx.amount : -1] || '0'), broker: 'Robinhood' };
+  }).filter(function (r) { return r.action; });
+  classifyBrokerRows();
+}
+function parseVanguard(header, lines) {
+  var idx = { date: header.indexOf('trade date'), action: header.indexOf('transaction type'), symbol: (function () { var i = header.indexOf('symbol'); return i >= 0 ? i : header.indexOf('ticker'); })(), desc: header.indexOf('investment name'), qty: header.indexOf('shares'), price: header.indexOf('share price'), amount: (function () { var i = header.indexOf('transaction amount'); return i >= 0 ? i : header.indexOf('amount'); })() };
+  parsedRows = lines.filter(function (l) { return l.trim(); }).map(function (l) {
+    var c = parseCSVLine(l), v = (c[idx.action >= 0 ? idx.action : -1] || '').toLowerCase();
+    var action = (v.indexOf('buy') > -1 || v.indexOf('purchase') > -1) ? 'YOU BOUGHT' : (v.indexOf('sell') > -1 || v.indexOf('redemption') > -1) ? 'YOU SOLD' : v.indexOf('dividend') > -1 ? 'DIVIDEND' : (c[idx.action >= 0 ? idx.action : -1] || '');
+    return { date: parseDate(c[idx.date >= 0 ? idx.date : 0] || ''), action: action, symbol: (c[idx.symbol >= 0 ? idx.symbol : -1] || '').trim(), desc: c[idx.desc >= 0 ? idx.desc : -1] || '', price: parseFloat((c[idx.price >= 0 ? idx.price : -1] || '').replace(/[$,]/g, '')) || 0, qty: parseFloat(c[idx.qty >= 0 ? idx.qty : -1] || '0') || 0, amount: parseAmount(c[idx.amount >= 0 ? idx.amount : -1] || '0'), broker: 'Vanguard' };
+  }).filter(function (r) { return r.action; });
   classifyBrokerRows();
 }
 
-function parseSchwab(header, lines){
-  const idx = {
-    date:   ['date','transaction date'].map(k=>header.indexOf(k)).find(i=>i>=0) ?? 0,
-    action: header.indexOf('action'),
-    symbol: header.indexOf('symbol'),
-    desc:   header.indexOf('description'),
-    qty:    header.indexOf('quantity'),
-    price:  header.indexOf('price'),
-    amount: header.indexOf('amount'),
-  };
-  parsedRows = lines.filter(l=>l.trim()).map(l=>{
-    const c = parseCSVLine(l);
-    return {
-      date:   parseDate(c[idx.date]||''),
-      action: c[idx.action]||'',
-      symbol: (c[idx.symbol >= 0 ? idx.symbol : -1]||'').trim(),
-      desc:   c[idx.desc >= 0 ? idx.desc : -1]||'',
-      price:  parseFloat((c[idx.price >= 0 ? idx.price : -1]||'').replace(/[$,]/g,''))||0,
-      qty:    parseFloat(c[idx.qty >= 0 ? idx.qty : -1]||'0')||0,
-      amount: parseAmount(c[idx.amount >= 0 ? idx.amount : -1]||'0'),
-      broker: 'Schwab',
-    };
-  }).filter(r=>r.action);
-  classifyBrokerRows();
-}
-
-function parseRobinhood(header, lines){
-  const idx = {
-    date:   ['activity date','process date'].map(k=>header.indexOf(k)).find(i=>i>=0) ?? 0,
-    action: ['trans code','transaction code','type'].map(k=>header.indexOf(k)).find(i=>i>=0) ?? -1,
-    symbol: ['instrument','symbol'].map(k=>header.indexOf(k)).find(i=>i>=0) ?? -1,
-    desc:   header.indexOf('description'),
-    qty:    header.indexOf('quantity'),
-    price:  header.indexOf('price'),
-    amount: header.indexOf('amount'),
-  };
-  parsedRows = lines.filter(l=>l.trim()).map(l=>{
-    const c = parseCSVLine(l);
-    const code = (c[idx.action >= 0 ? idx.action : -1]||'').toLowerCase();
-    const action = code.includes('buy') ? 'YOU BOUGHT'
-      : code.includes('sell') ? 'YOU SOLD'
-      : code.includes('div') ? 'DIVIDEND'
-      : c[idx.action >= 0 ? idx.action : -1]||'';
-    return {
-      date:   parseDate(c[idx.date]||''),
-      action,
-      symbol: (c[idx.symbol >= 0 ? idx.symbol : -1]||'').trim(),
-      desc:   c[idx.desc >= 0 ? idx.desc : -1]||'',
-      price:  parseFloat((c[idx.price >= 0 ? idx.price : -1]||'').replace(/[$,]/g,''))||0,
-      qty:    parseFloat(c[idx.qty >= 0 ? idx.qty : -1]||'0')||0,
-      amount: parseAmount(c[idx.amount >= 0 ? idx.amount : -1]||'0'),
-      broker: 'Robinhood',
-    };
-  }).filter(r=>r.action);
-  classifyBrokerRows();
-}
-
-function parseVanguard(header, lines){
-  const idx = {
-    date:   header.indexOf('trade date'),
-    action: header.indexOf('transaction type'),
-    symbol: ['symbol','ticker'].map(k=>header.indexOf(k)).find(i=>i>=0) ?? -1,
-    desc:   header.indexOf('investment name'),
-    qty:    header.indexOf('shares'),
-    price:  header.indexOf('share price'),
-    amount: ['transaction amount','amount'].map(k=>header.indexOf(k)).find(i=>i>=0) ?? -1,
-  };
-  parsedRows = lines.filter(l=>l.trim()).map(l=>{
-    const c = parseCSVLine(l);
-    const v = (c[idx.action >= 0 ? idx.action : -1]||'').toLowerCase();
-    const action = v.includes('buy')||v.includes('purchase') ? 'YOU BOUGHT'
-      : v.includes('sell')||v.includes('redemption') ? 'YOU SOLD'
-      : v.includes('dividend') ? 'DIVIDEND' : c[idx.action >= 0 ? idx.action : -1]||'';
-    return {
-      date:   parseDate(c[idx.date >= 0 ? idx.date : 0]||''),
-      action,
-      symbol: (c[idx.symbol >= 0 ? idx.symbol : -1]||'').trim(),
-      desc:   c[idx.desc >= 0 ? idx.desc : -1]||'',
-      price:  parseFloat((c[idx.price >= 0 ? idx.price : -1]||'').replace(/[$,]/g,''))||0,
-      qty:    parseFloat(c[idx.qty >= 0 ? idx.qty : -1]||'0')||0,
-      amount: parseAmount(c[idx.amount >= 0 ? idx.amount : -1]||'0'),
-      broker: 'Vanguard',
-    };
-  }).filter(r=>r.action);
-  classifyBrokerRows();
-}
-
-/* ── UNIFIED BROKER CLASSIFIER ── */
-function classifyBrokerRows(){
-  reviewRows = parsedRows.map(r=>{
-    const action = (r.action||'').toLowerCase();
-    let status, type, selected;
-
-    if(action.includes('electronic funds transfer')||action.includes('funds transfer')||action.includes('eft')){
-      status='exclude'; type='deposito'; selected=false;
-    } else if(action.includes('bought')||action.includes('buy')||action.includes('purchase')){
-      status='include'; type='inversion'; selected=true;
-    } else if(action.includes('sold')||action.includes('sell')||action.includes('redemption')){
-      status='pending'; type='venta'; selected=true;
-    } else if(action.includes('dividend')||action.includes('cdiv')){
-      status='include'; type='ingreso'; selected=true;
-    } else {
-      status='decide'; type='otro'; selected=false;
-    }
-
-    return {
-      ...r, status, type, selected,
-      ftCat:'📈 Inversión',
-      isDuplicate:false,
-      isFZILX: r.symbol==='FZILX',
-      sellDisposition:null,
-    };
+/* ── CLASIFICADOR UNIFICADO DE BROKER ── */
+function classifyBrokerRows() {
+  reviewRows = parsedRows.map(function (r) {
+    var action = (r.action || '').toLowerCase(), status, type, selected;
+    if (action.indexOf('electronic funds transfer') > -1 || action.indexOf('funds transfer') > -1 || action.indexOf('eft') > -1) { status = 'exclude'; type = 'deposito'; selected = false; }
+    else if (action.indexOf('bought') > -1 || action.indexOf('buy') > -1 || action.indexOf('purchase') > -1) { status = 'include'; type = 'inversion'; selected = true; }
+    else if (action.indexOf('sold') > -1 || action.indexOf('sell') > -1 || action.indexOf('redemption') > -1) { status = 'pending'; type = 'venta'; selected = true; }
+    else if (action.indexOf('dividend') > -1 || action.indexOf('cdiv') > -1) { status = 'include'; type = 'ingreso'; selected = true; }
+    else { status = 'decide'; type = 'otro'; selected = false; }
+    return Object.assign({}, r, { status: status, type: type, selected: selected, ftCat: '📈 Inversión', isDuplicate: false, isFZILX: r.symbol === 'FZILX', sellDisposition: null });
   });
   renderStep3();
 }
+function classifyFidelityRows() { classifyBrokerRows(); } // alias retrocompatible
 
-/* ── KEEP classifyFidelityRows as alias for backwards compat ── */
-function classifyFidelityRows(){ classifyBrokerRows(); }
+function parseGeneric(header, lines) {
+  var L = es();
+  var amtCols = ['amount', 'monto', 'total', 'debit', 'credit', 'cargo', 'abono', 'importe'];
+  var descCols = ['description', 'descripcion', 'descripción', 'merchant', 'name', 'payee', 'concepto'];
+  var dateCols = ['date', 'fecha', 'transaction date', 'posted date'];
+  var amtIdx = header.findIndex(function (h) { return amtCols.some(function (a) { return h.indexOf(a) > -1; }); });
+  var descIdx = header.findIndex(function (h) { return descCols.some(function (d) { return h.indexOf(d) > -1; }); });
+  var dateIdx = header.findIndex(function (h) { return dateCols.some(function (d) { return h.indexOf(d) > -1; }); });
 
-function parseGeneric(header, lines){
-  const amtCols  = ['amount','monto','total','debit','credit','cargo','abono','importe'];
-  const descCols = ['description','descripcion','descripción','merchant','name','payee','concepto'];
-  const dateCols = ['date','fecha','transaction date','posted date'];
-
-  const amtIdx  = header.findIndex(h=>amtCols.some(a=>h.includes(a)));
-  const descIdx = header.findIndex(h=>descCols.some(d=>h.includes(d)));
-  const dateIdx = header.findIndex(h=>dateCols.some(d=>h.includes(d)));
-
-  if(amtIdx < 0 || descIdx < 0){
-    showToast(lang==='es'
-      ?'❌ Formato no reconocido. Usa el modo IA para detectarlo automáticamente.'
-      :'❌ Unrecognized format. Use AI mode to detect it automatically.');
+  if (amtIdx < 0 || descIdx < 0) {
+    FT.toast(L ? '❌ Formato no reconocido. Usa el modo IA para detectarlo automáticamente.' : '❌ Unrecognized format. Use AI mode to detect it automatically.');
     renderStep2();
     return;
   }
+  parsedRows = lines.filter(function (l) { return l.trim(); }).map(function (l) {
+    var c = parseCSVLine(l);
+    return { date: parseDate(c[dateIdx >= 0 ? dateIdx : 0] || ''), desc: c[descIdx] || '', cat: '', amount: parseAmount(c[amtIdx] || '0') };
+  }).filter(function (r) { return r.desc && r.amount !== 0; });
 
-  parsedRows = lines.filter(l=>l.trim()).map(l=>{
-    const c = parseCSVLine(l);
-    return {
-      date:   parseDate(c[dateIdx >= 0 ? dateIdx : 0]||''),
-      desc:   c[descIdx]||'',
-      cat:    '',
-      amount: parseAmount(c[amtIdx]||'0'),
-    };
-  }).filter(r=>r.desc && r.amount !== 0);
-
-  reviewRows = parsedRows.map(r=>({
-    ...r,
-    status: r.amount < 0 ? 'include' : 'decide',
-    type: r.amount < 0 ? 'gasto' : 'ingreso',
-    ftCat: '📦 Otros',
-    zelleType: null,
-    isDuplicate: checkDuplicate(r.date, Math.abs(r.amount), r.desc),
-    selected: r.amount < 0,
-  }));
-
+  reviewRows = parsedRows.map(function (r) { return Object.assign({}, r, { status: r.amount < 0 ? 'include' : 'decide', type: r.amount < 0 ? 'gasto' : 'ingreso', ftCat: '📦 Otros', zelleType: null, isDuplicate: checkDuplicate(r.date, Math.abs(r.amount), r.desc), selected: r.amount < 0 }); });
   renderStep3();
 }
 
 /* ══════════════════════════════════════
-   CLASSIFIERS
+   CLASIFICADORES
 ══════════════════════════════════════ */
-const TRANSFER_KEYWORDS = [
-  'transfer to','transfer from','transferencia','zelle payment to',
-  'apple cash sent','venmo','paypal transfer','credit card payment',
-  'debt payment','sofi credit card','capital one payment',
-];
-const ZELLE_KEYWORDS = ['zelle','apple cash','venmo','cash app','paypal'];
-const INCOME_KEYWORDS = ['direct deposit','payroll','salary','deposit','dividend','interest paid'];
+var TRANSFER_KEYWORDS = ['transfer to', 'transfer from', 'transferencia', 'zelle payment to', 'apple cash sent', 'venmo', 'paypal transfer', 'credit card payment', 'debt payment', 'sofi credit card', 'capital one payment'];
+var ZELLE_KEYWORDS = ['zelle', 'apple cash', 'venmo', 'cash app', 'paypal'];
+var INCOME_KEYWORDS = ['direct deposit', 'payroll', 'salary', 'deposit', 'dividend', 'interest paid'];
 
-function isTransfer(row){
-  const d = (row.desc+' '+row.cat+' '+row.detcat).toLowerCase();
-  if(row.cat && row.cat.toLowerCase().includes('transfer')) return true;
-  if(row.cat && row.cat.toLowerCase().includes('debt payment')) return true;
-  return TRANSFER_KEYWORDS.some(k=>d.includes(k));
+function isTransfer(row) {
+  var d = (row.desc + ' ' + row.cat + ' ' + (row.detcat || '')).toLowerCase();
+  if (row.cat && row.cat.toLowerCase().indexOf('transfer') > -1) return true;
+  if (row.cat && row.cat.toLowerCase().indexOf('debt payment') > -1) return true;
+  return TRANSFER_KEYWORDS.some(function (k) { return d.indexOf(k) > -1; });
 }
+function isZelle(row) { var d = row.desc.toLowerCase(); return ZELLE_KEYWORDS.some(function (k) { return d.indexOf(k) > -1; }); }
+function isIncome(row) { var d = (row.desc + ' ' + row.cat).toLowerCase(); return INCOME_KEYWORDS.some(function (k) { return d.indexOf(k) > -1; }) && row.amount > 0; }
 
-function isZelle(row){
-  const d = row.desc.toLowerCase();
-  return ZELLE_KEYWORDS.some(k=>d.includes(k));
-}
-
-function isIncome(row){
-  const d = (row.desc+' '+row.cat).toLowerCase();
-  return INCOME_KEYWORDS.some(k=>d.includes(k)) && row.amount > 0;
-}
-
-function classifyBankRows(){
-  reviewRows = parsedRows.map(r=>{
-    let status, type, selected, zelleType=null;
-
-    if(isTransfer(r)){
-      status = 'exclude'; type = 'transferencia'; selected = false;
-    } else if(isZelle(r)){
-      status = 'decide'; type = r.amount < 0 ? 'gasto' : 'ingreso'; selected = false; zelleType = null;
-    } else if(isIncome(r)){
-      status = 'include'; type = 'ingreso'; selected = true;
-    } else if(r.amount < 0){
-      status = 'include'; type = 'gasto'; selected = true;
-    } else {
-      status = 'decide'; type = 'ingreso'; selected = false;
-    }
-
-    return {
-      ...r,
-      status, type, selected, zelleType,
-      ftCat: mapBankCategory(r.cat, r.detcat, r.desc),
-      isDuplicate: checkDuplicate(r.date, Math.abs(r.amount), r.desc),
-    };
+function classifyBankRows() {
+  reviewRows = parsedRows.map(function (r) {
+    var status, type, selected, zelleType = null;
+    if (isTransfer(r)) { status = 'exclude'; type = 'transferencia'; selected = false; }
+    else if (isZelle(r)) { status = 'decide'; type = r.amount < 0 ? 'gasto' : 'ingreso'; selected = false; zelleType = null; }
+    else if (isIncome(r)) { status = 'include'; type = 'ingreso'; selected = true; }
+    else if (r.amount < 0) { status = 'include'; type = 'gasto'; selected = true; }
+    else { status = 'decide'; type = 'ingreso'; selected = false; }
+    return Object.assign({}, r, { status: status, type: type, selected: selected, zelleType: zelleType, ftCat: mapBankCategory(r.cat, r.detcat, r.desc), isDuplicate: checkDuplicate(r.date, Math.abs(r.amount), r.desc) });
   });
-
   renderStep3();
 }
 
-function classifyFidelityRows(){
-  reviewRows = parsedRows.map(r=>{
-    const action = r.action.toLowerCase();
-    let status, type, selected;
-
-    if(action.includes('electronic funds transfer') || action.includes('funds transfer')){
-      status = 'exclude'; type = 'deposito'; selected = false;
-    } else if(action.includes('you bought') || action.includes('bought')){
-      status = 'include'; type = 'inversion'; selected = true;
-    } else if(action.includes('you sold') || action.includes('sold')){
-      status = 'pending'; type = 'venta'; selected = true;
-    } else if(action.includes('dividend')){
-      status = 'include'; type = 'ingreso'; selected = true;
-    } else {
-      status = 'decide'; type = 'otro'; selected = false;
-    }
-
-    // Warn about FZILX (user discarded this fund)
-    const isFZILX = r.symbol === 'FZILX';
-
-    return {
-      ...r,
-      status, type, selected,
-      ftCat: '📈 Inversión',
-      isDuplicate: false,
-      isFZILX,
-      sellDisposition: null, // 'reinvest' | 'withdraw' | 'cash'
-    };
-  });
-
-  renderStep3();
+/* ── RAZONES DE EXCLUSIÓN — explica al usuario por qué una transacción fue excluida ── */
+function getExclusionReason(row) {
+  var L = es(), reasons = [], relatedTx = [];
+  var d = (row.desc + ' ' + (row.cat || '') + ' ' + (row.detcat || '')).toLowerCase();
+  if (row.cat && row.cat.toLowerCase().indexOf('transfer') > -1) reasons.push(L ? 'La categoría del banco dice "' + row.cat + '"' : 'Bank category says "' + row.cat + '"');
+  if (row.cat && row.cat.toLowerCase().indexOf('debt payment') > -1) reasons.push(L ? 'Es un pago de tarjeta de crédito propia' : "It's a payment to your own credit card");
+  TRANSFER_KEYWORDS.forEach(function (k) { if (d.indexOf(k) > -1) reasons.push(L ? 'La descripción contiene "' + k + '"' : 'Description contains "' + k + '"'); });
+  var mirror = reviewRows.filter(function (r2) { return r2 !== row && r2.date === row.date && Math.abs(Math.abs(r2.amount) - Math.abs(row.amount)) < 0.01 && Math.sign(r2.amount) !== Math.sign(row.amount); });
+  if (mirror.length) { reasons.push(L ? 'Encontramos una transacción espejo del mismo monto el mismo día' : 'We found a mirror transaction for the same amount on the same day'); mirror.forEach(function (m) { relatedTx.push(m); }); }
+  return { reasons: reasons, relatedTx: relatedTx };
 }
-
-/* ══════════════════════════════════════
-   EXCLUSION REASONS — explica al usuario
-   por qué una transacción fue excluida
-══════════════════════════════════════ */
-function getExclusionReason(row){
-  const es = lang === 'es';
-  const reasons = [];
-  const relatedTx = [];
-
-  const d = (row.desc+' '+(row.cat||'')+' '+(row.detcat||'')).toLowerCase();
-
-  if(row.cat && row.cat.toLowerCase().includes('transfer')){
-    reasons.push(es ? `La categoría del banco dice "${row.cat}"` : `Bank category says "${row.cat}"`);
-  }
-  if(row.cat && row.cat.toLowerCase().includes('debt payment')){
-    reasons.push(es ? 'Es un pago de tarjeta de crédito propia' : 'It\'s a payment to your own credit card');
-  }
-  TRANSFER_KEYWORDS.forEach(k=>{
-    if(d.includes(k)) reasons.push(es ? `La descripción contiene "${k}"` : `Description contains "${k}"`);
-  });
-
-  // Find mirror transaction (same amount, same date, opposite sign)
-  const mirror = reviewRows.filter(r2 =>
-    r2 !== row &&
-    r2.date === row.date &&
-    Math.abs(Math.abs(r2.amount) - Math.abs(row.amount)) < 0.01 &&
-    Math.sign(r2.amount) !== Math.sign(row.amount)
-  );
-  if(mirror.length){
-    reasons.push(es ? 'Encontramos una transacción espejo del mismo monto el mismo día' : 'We found a mirror transaction for the same amount on the same day');
-    mirror.forEach(m => relatedTx.push(m));
-  }
-
-  return { reasons, relatedTx };
-}
-
-function showExclusionReason(idx){
-  const row = reviewRows[idx];
-  if(!row) return;
-  const es = lang === 'es';
-  const { reasons, relatedTx } = getExclusionReason(row);
-
-  // Remove existing panel
-  const existing = document.getElementById('exclusionPanel');
-  if(existing) existing.remove();
-
-  const panel = document.createElement('div');
+function showExclusionReason(idx) {
+  var row = reviewRows[idx]; if (!row) return;
+  var L = es(), ex = getExclusionReason(row);
+  var existing = document.getElementById('exclusionPanel'); if (existing) existing.remove();
+  var panel = document.createElement('div');
   panel.id = 'exclusionPanel';
-  panel.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);display:grid;place-items:center;z-index:200;backdrop-filter:blur(4px);';
-  panel.onclick = e => { if(e.target===panel) panel.remove(); };
-
-  const relatedHtml = relatedTx.length ? `
-    <div style="margin-top:10px">
-      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">
-        ${es?'Transacciones relacionadas:':'Related transactions:'}
-      </div>
-      ${relatedTx.map(r=>`
-        <div style="display:flex;justify-content:space-between;background:var(--off);border-radius:8px;padding:8px 10px;margin-bottom:4px;font-size:12px">
-          <span style="color:var(--text2)">${r.date} · ${r.desc}</span>
-          <span style="font-weight:700;color:${r.amount>0?'var(--g-main)':'var(--red)'}">${r.amount>0?'+':''}${Math.abs(r.amount).toFixed(2)}</span>
-        </div>`).join('')}
-    </div>` : '';
-
-  panel.innerHTML = `
-  <div style="background:var(--white);border-radius:18px;padding:22px;width:400px;max-width:calc(100vw - 32px);box-shadow:0 16px 48px rgba(0,0,0,.18)">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-      <div style="font-size:15px;font-weight:800">🔴 ${es?'¿Por qué está excluida?':'Why is it excluded?'}</div>
-      <div onclick="document.getElementById('exclusionPanel').remove()" style="color:var(--text3);cursor:pointer;font-size:20px">✕</div>
-    </div>
-
-    <div style="background:var(--red-dim);border-radius:10px;padding:10px 12px;margin-bottom:12px">
-      <div style="font-size:12px;font-weight:700;color:var(--red);margin-bottom:2px">${row.desc}</div>
-      <div style="font-size:11px;color:var(--text2)">${row.date} · ${row.amount<0?'-':'+'}\$${Math.abs(row.amount).toFixed(2)}</div>
-    </div>
-
-    <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">
-      ${es?'El sistema la excluyó porque detectó:':'The system excluded it because it detected:'}
-    </div>
-    ${reasons.map(r=>`
-      <div style="display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-bottom:1px solid var(--off);font-size:12px;color:var(--text2)">
-        <span style="color:var(--red);flex-shrink:0">→</span>
-        <span>${r}</span>
-      </div>`).join('')}
-
-    ${relatedHtml}
-
-    <div style="display:flex;gap:8px;margin-top:14px">
-      <button onclick="forceInclude(${idx})" style="flex:1;background:linear-gradient(135deg,var(--g-dark),var(--g-main));color:white;border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">
-        ✅ ${es?'Incluir de todas formas':'Include anyway'}
-      </button>
-      <button onclick="document.getElementById('exclusionPanel').remove()" style="background:var(--off);border:1.5px solid var(--border);color:var(--text2);border-radius:10px;padding:11px 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">
-        ${es?'Cerrar':'Close'}
-      </button>
-    </div>
-  </div>`;
-
+  panel.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);display:grid;place-items:center;z-index:410;backdrop-filter:blur(4px);';
+  panel.onclick = function (e) { if (e.target === panel) panel.remove(); };
+  var relatedHtml = ex.relatedTx.length ? '<div style="margin-top:10px"><div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">' + (L ? 'Transacciones relacionadas:' : 'Related transactions:') + '</div>' +
+    ex.relatedTx.map(function (r) { return '<div style="display:flex;justify-content:space-between;background:var(--off);border-radius:8px;padding:8px 10px;margin-bottom:4px;font-size:12px"><span style="color:var(--text2)">' + r.date + ' · ' + r.desc + '</span><span style="font-weight:700;color:' + (r.amount > 0 ? 'var(--g-main)' : 'var(--red)') + '">' + (r.amount > 0 ? '+' : '') + Math.abs(r.amount).toFixed(2) + '</span></div>'; }).join('') + '</div>' : '';
+  panel.innerHTML = '<div style="background:var(--white);border-radius:18px;padding:22px;width:400px;max-width:calc(100vw - 32px);box-shadow:0 16px 48px rgba(0,0,0,.18)">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div style="font-size:15px;font-weight:800">🔴 ' + (L ? '¿Por qué está excluida?' : 'Why is it excluded?') + '</div><div onclick="document.getElementById(\'exclusionPanel\').remove()" style="color:var(--text3);cursor:pointer;font-size:20px">✕</div></div>' +
+    '<div style="background:var(--red-dim);border-radius:10px;padding:10px 12px;margin-bottom:12px"><div style="font-size:12px;font-weight:700;color:var(--red);margin-bottom:2px">' + row.desc + '</div><div style="font-size:11px;color:var(--text2)">' + row.date + ' · ' + (row.amount < 0 ? '-' : '+') + '$' + Math.abs(row.amount).toFixed(2) + '</div></div>' +
+    '<div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">' + (L ? 'El sistema la excluyó porque detectó:' : 'The system excluded it because it detected:') + '</div>' +
+    ex.reasons.map(function (r) { return '<div style="display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-bottom:1px solid var(--off);font-size:12px;color:var(--text2)"><span style="color:var(--red);flex-shrink:0">→</span><span>' + r + '</span></div>'; }).join('') +
+    relatedHtml +
+    '<div style="display:flex;gap:8px;margin-top:14px"><button onclick="forceInclude(' + idx + ')" style="flex:1;background:linear-gradient(135deg,var(--g-dark),var(--g-main));color:white;border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">✅ ' + (L ? 'Incluir de todas formas' : 'Include anyway') + '</button>' +
+    '<button onclick="document.getElementById(\'exclusionPanel\').remove()" style="background:var(--off);border:1.5px solid var(--border);color:var(--text2);border-radius:10px;padding:11px 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">' + (L ? 'Cerrar' : 'Close') + '</button></div></div>';
   document.body.appendChild(panel);
 }
-
-function forceInclude(idx){
-  reviewRows[idx].selected = true;
-  reviewRows[idx].status = 'include';
-  document.getElementById('exclusionPanel')?.remove();
+function forceInclude(idx) {
+  reviewRows[idx].selected = true; reviewRows[idx].status = 'include';
+  var p = document.getElementById('exclusionPanel'); if (p) p.remove();
   renderTxList();
-  showToast(lang==='es'?'✅ Transacción incluida':'✅ Transaction included');
+  FT.toast(es() ? '✅ Transacción incluida' : '✅ Transaction included');
 }
-function mapBankCategory(cat, detcat, desc){
-  const c = (cat+' '+detcat+' '+desc).toLowerCase();
-  if(c.includes('food') || c.includes('restaurant') || c.includes('bar') || c.includes('dunkin') || c.includes('mcdonald') || c.includes('taco') || c.includes('pizza')) return '🍔 Restaurantes';
-  if(c.includes('grocery') || c.includes('supermarket') || c.includes('walmart') || c.includes('target') || c.includes('costco') || c.includes('cermak') || c.includes('aldi')) return '🛒 Supermercado';
-  if(c.includes('gas') || c.includes('fuel') || c.includes('gasoline') || c.includes('exxon') || c.includes('shell') || c.includes('bp')) return '⛽ Gasolina';
-  if(c.includes('transport') || c.includes('uber') || c.includes('lyft') || c.includes('transit') || c.includes('cta')) return '⛽ Gasolina';
-  if(c.includes('health') || c.includes('medical') || c.includes('pharmacy') || c.includes('doctor') || c.includes('gym') || c.includes('fitness')) return '💊 Salud';
-  if(c.includes('entertain') || c.includes('movie') || c.includes('netflix') || c.includes('spotify') || c.includes('amazon prime') || c.includes('disney')) return '🎬 Entretenimiento';
-  if(c.includes('shop') || c.includes('amazon') || c.includes('clothing') || c.includes('apparel') || c.includes('fashion')) return '👕 Ropa';
-  if(c.includes('utility') || c.includes('electric') || c.includes('peoples gas') || c.includes('water') || c.includes('internet') || c.includes('phone') || c.includes('comcast') || c.includes('att')) return '📱 Teléfono/Internet';
-  if(c.includes('rent') || c.includes('mortgage') || c.includes('housing')) return '🏠 Renta / Hipoteca';
+function mapBankCategory(cat, detcat, desc) {
+  var c = (cat + ' ' + detcat + ' ' + desc).toLowerCase();
+  if (c.indexOf('food') > -1 || c.indexOf('restaurant') > -1 || c.indexOf('bar') > -1 || c.indexOf('dunkin') > -1 || c.indexOf('mcdonald') > -1 || c.indexOf('taco') > -1 || c.indexOf('pizza') > -1) return '🍔 Restaurantes';
+  if (c.indexOf('grocery') > -1 || c.indexOf('supermarket') > -1 || c.indexOf('walmart') > -1 || c.indexOf('target') > -1 || c.indexOf('costco') > -1 || c.indexOf('cermak') > -1 || c.indexOf('aldi') > -1) return '🛒 Supermercado';
+  if (c.indexOf('gas') > -1 || c.indexOf('fuel') > -1 || c.indexOf('gasoline') > -1 || c.indexOf('exxon') > -1 || c.indexOf('shell') > -1 || c.indexOf('bp') > -1) return '⛽ Gasolina';
+  if (c.indexOf('transport') > -1 || c.indexOf('uber') > -1 || c.indexOf('lyft') > -1 || c.indexOf('transit') > -1 || c.indexOf('cta') > -1) return '⛽ Gasolina';
+  if (c.indexOf('health') > -1 || c.indexOf('medical') > -1 || c.indexOf('pharmacy') > -1 || c.indexOf('doctor') > -1 || c.indexOf('gym') > -1 || c.indexOf('fitness') > -1) return '💊 Salud';
+  if (c.indexOf('entertain') > -1 || c.indexOf('movie') > -1 || c.indexOf('netflix') > -1 || c.indexOf('spotify') > -1 || c.indexOf('amazon prime') > -1 || c.indexOf('disney') > -1) return '🎬 Entretenimiento';
+  if (c.indexOf('shop') > -1 || c.indexOf('amazon') > -1 || c.indexOf('clothing') > -1 || c.indexOf('apparel') > -1 || c.indexOf('fashion') > -1) return '👕 Ropa';
+  if (c.indexOf('utility') > -1 || c.indexOf('electric') > -1 || c.indexOf('peoples gas') > -1 || c.indexOf('water') > -1 || c.indexOf('internet') > -1 || c.indexOf('phone') > -1 || c.indexOf('comcast') > -1 || c.indexOf('att') > -1) return '📱 Teléfono/Internet';
+  if (c.indexOf('rent') > -1 || c.indexOf('mortgage') > -1 || c.indexOf('housing') > -1) return '🏠 Renta / Hipoteca';
   return '📦 Otros';
 }
-
-function mapManualCategory(cat){
-  const c = (cat||'').toLowerCase();
-  if(c.includes('food')) return '🍔 Restaurantes';
-  if(c.includes('transport') || c.includes('car') && !c.includes('carwash')) return '⛽ Gasolina';
-  if(c.includes('health') || c.includes('beauty')) return '💊 Salud';
-  if(c.includes('cloth') || c.includes('shop')) return '👕 Ropa';
-  if(c.includes('entertain')) return '🎬 Entretenimiento';
+function mapManualCategory(cat) {
+  var c = (cat || '').toLowerCase();
+  if (c.indexOf('food') > -1) return '🍔 Restaurantes';
+  if (c.indexOf('transport') > -1 || (c.indexOf('car') > -1 && c.indexOf('carwash') === -1)) return '⛽ Gasolina';
+  if (c.indexOf('health') > -1 || c.indexOf('beauty') > -1) return '💊 Salud';
+  if (c.indexOf('cloth') > -1 || c.indexOf('shop') > -1) return '👕 Ropa';
+  if (c.indexOf('entertain') > -1) return '🎬 Entretenimiento';
   return '📦 Otros';
 }
 
 /* ══════════════════════════════════════
-   DUPLICATE CHECK
+   REVISIÓN DE DUPLICADOS
 ══════════════════════════════════════ */
-function checkDuplicate(date, amount, desc){
-  const data = loadData();
-  const txs = data.transactions||[];
-  const dNorm = (desc||'').toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,10);
-  return txs.some(t=>{
-    if(t.date !== date) return false;
-    if(Math.abs(parseFloat(t.amount)-amount)>0.01) return false;
-    const tNorm = (t.desc||'').toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,10);
+function checkDuplicate(date, amount, desc) {
+  var txs = FT.txs();
+  var dNorm = (desc || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 10);
+  return txs.some(function (t) {
+    if (t.date !== date) return false;
+    if (Math.abs(parseFloat(t.amount) - amount) > 0.01) return false;
+    var tNorm = (t.desc || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 10);
     return tNorm === dNorm;
   });
 }
 
 /* ══════════════════════════════════════
-   STEP 3 — REVIEW
+   PASO 3 — REVISAR
 ══════════════════════════════════════ */
-function renderStep3(){
+function renderStep3() {
   setStep(3);
   activeFilter = 'all';
+  var L = es(), isFid = importMode === 'fidelity';
+  var total = reviewRows.length, toInclude = reviewRows.filter(function (r) { return r.selected; }).length;
+  var excluded = reviewRows.filter(function (r) { return r.status === 'exclude'; }).length;
+  var toDecide = reviewRows.filter(function (r) { return r.status === 'decide' || r.status === 'pending'; }).length;
 
-  const isFid = importMode === 'fidelity';
-  const total     = reviewRows.length;
-  const toInclude = reviewRows.filter(r=>r.selected).length;
-  const excluded  = reviewRows.filter(r=>r.status==='exclude').length;
-  const toDecide  = reviewRows.filter(r=>r.status==='decide'||r.status==='pending').length;
+  var hogarConnected = FT.hogarConnected();
+  var hogarToggleHtml = hogarConnected ? '<div class="card" style="border:2px solid var(--g-main)">' +
+    '<div style="font-size:12px;font-weight:800;color:var(--g-dark);margin-bottom:10px">🏠 ' + (L ? '¿Estas transacciones son del hogar o personales?' : 'Are these transactions household or personal?') + '</div>' +
+    '<div style="font-size:11px;color:var(--text3);margin-bottom:10px">' + (L ? 'Aplica a todos los gastos importados. Las inversiones se ruteán según esta selección.' : 'Applies to all imported expenses. Investments are routed based on this selection.') + '</div>' +
+    '<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px">' +
+      '<button id="impBtnPersonal" onclick="setImportHogar(false)" type="button" style="padding:10px;border-radius:10px;border:2px solid var(--blue);background:var(--blu-dim);color:var(--blue);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">👤 ' + (L ? 'Personal' : 'Personal') + '</button>' +
+      '<button id="impBtnHogar" onclick="setImportHogar(true)" type="button" style="padding:10px;border-radius:10px;border:2px solid var(--border);background:var(--off);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">🏠 ' + (L ? 'Del hogar' : 'Household') + '</button>' +
+    '</div><div id="impHogarHint" style="font-size:10px;color:var(--text3);margin-top:6px;text-align:center">' + (L ? "Solo tuyo · privado · no afecta el hogar" : "Only yours · private · doesn't affect household") + '</div></div>' : '';
 
-  // Toggle hogar global solo si hay hogar conectado
-  const hogarConnected = isHogarConnected();
-  const hogarToggleHtml = hogarConnected ? `
-  <div class="card" style="margin-top:12px;border:2px solid var(--g-main)">
-    <div style="font-size:12px;font-weight:800;color:var(--g-dark);margin-bottom:10px">
-      🏠 ${lang==='es'?'¿Estas transacciones son del hogar o personales?':'Are these transactions household or personal?'}
-    </div>
-    <div style="font-size:11px;color:var(--text3);margin-bottom:10px">
-      ${lang==='es'?'Aplica a todos los gastos importados. Las inversiones se ruteán según esta selección.':'Applies to all imported expenses. Investments are routed based on this selection.'}
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px">
-      <button id="impBtnPersonal" onclick="setImportHogar(false)" type="button"
-        style="padding:10px;border-radius:10px;border:2px solid var(--blue);background:var(--blu-dim);color:var(--blue);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">
-        👤 ${lang==='es'?'Personal':'Personal'}
-      </button>
-      <button id="impBtnHogar" onclick="setImportHogar(true)" type="button"
-        style="padding:10px;border-radius:10px;border:2px solid var(--border);background:var(--off);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">
-        🏠 ${lang==='es'?'Del hogar':'Household'}
-      </button>
-    </div>
-    <div id="impHogarHint" style="font-size:10px;color:var(--text3);margin-top:6px;text-align:center">
-      ${lang==='es'?'Solo tuyo · privado · no afecta el hogar':'Only yours · private · doesn\'t affect household'}
-    </div>
-  </div>` : '';
+  document.getElementById('page').innerHTML = hogarToggleHtml +
+  '<div class="card">' +
+    '<div class="card-title">' + (L ? 'Revisa las transacciones' : 'Review transactions') + '</div>' +
+    '<div class="card-sub">' + (L ? total + ' encontradas · ✅ ' + toInclude + ' para importar · 🔴 ' + excluded + ' excluidas · ⚠️ ' + toDecide + ' necesitan tu decisión' : total + ' found · ✅ ' + toInclude + ' to import · 🔴 ' + excluded + ' excluded · ⚠️ ' + toDecide + ' need your decision') + '</div>' +
+    '<div class="review-filters">' +
+      '<div class="rf-chip on" onclick="setFilter(\'all\',this)">' + (L ? 'Todas' : 'All') + ' (' + total + ')</div>' +
+      '<div class="rf-chip" onclick="setFilter(\'include\',this)">✅ ' + (L ? 'Importar' : 'Import') + ' (' + toInclude + ')</div>' +
+      '<div class="rf-chip" onclick="setFilter(\'decide\',this)">⚠️ ' + (L ? 'Decidir' : 'Decide') + ' (' + toDecide + ')</div>' +
+      '<div class="rf-chip" onclick="setFilter(\'exclude\',this)">🔴 ' + (L ? 'Excluidas' : 'Excluded') + ' (' + excluded + ')</div>' +
+    '</div>' +
+    '<div style="background:var(--off);border-radius:10px;padding:10px;margin-bottom:10px">' +
+      '<div style="font-size:10.5px;font-weight:700;color:var(--text3);margin-bottom:6px">📅 ' + (L ? 'Filtrar por fecha' : 'Filter by date') + '</div>' +
+      '<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:8px">' +
+        '<input type="date" id="dateFilterFrom" style="padding:8px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-family:inherit;width:100%;min-width:0;box-sizing:border-box" onchange="renderTxList()">' +
+        '<input type="date" id="dateFilterTo" style="padding:8px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-family:inherit;width:100%;min-width:0;box-sizing:border-box" onchange="renderTxList()">' +
+      '</div><div style="display:flex;gap:8px">' +
+        '<button onclick="toggleSelectAll(true,true)" class="ft-btn ft-btn-ghost tap" style="flex:1;padding:7px;font-size:10.5px;margin:0">✅ ' + (L ? 'Seleccionar rango visible' : 'Select visible range') + '</button>' +
+        '<button onclick="clearDateFilter()" class="ft-btn ft-btn-ghost tap" style="flex:1;padding:7px;font-size:10.5px;margin:0">✕ ' + (L ? 'Quitar filtro' : 'Clear filter') + '</button>' +
+      '</div></div>' +
+    '<div id="txList"></div>' +
+    '<div style="display:flex;gap:8px;margin-top:12px;border-top:1px solid var(--border);padding-top:12px">' +
+      '<button onclick="toggleSelectAll(true)" class="ft-btn ft-btn-ghost tap" style="flex:1;padding:8px;font-size:11px;margin:0">' + (L ? '✅ Seleccionar todas' : '✅ Select all') + '</button>' +
+      '<button onclick="toggleSelectAll(false)" class="ft-btn ft-btn-ghost tap" style="flex:1;padding:8px;font-size:11px;margin:0">' + (L ? '☐ Deseleccionar' : '☐ Deselect all') + '</button>' +
+    '</div></div>' +
+  '<button class="ft-btn ft-btn-primary tap" onclick="renderStep4()" id="importBtn">' + (L ? 'Importar ' + toInclude + ' transacciones →' : 'Import ' + toInclude + ' transactions →') + '</button>' +
+  '<div style="height:8px"></div>' +
+  '<button class="ft-btn ft-btn-ghost tap" onclick="renderStep2()">← ' + (L ? 'Cambiar archivo' : 'Change file') + '</button>';
 
-  document.getElementById('page').innerHTML = `
-  ${hogarToggleHtml}
-  <div class="card" style="margin-top:12px">
-    <div class="card-title">${lang==='es'?'Revisa las transacciones':'Review transactions'}</div>
-    <div class="card-sub">
-      ${lang==='es'
-        ?`${total} encontradas · ✅ ${toInclude} para importar · 🔴 ${excluded} excluidas · ⚠️ ${toDecide} necesitan tu decisión`
-        :`${total} found · ✅ ${toInclude} to import · 🔴 ${excluded} excluded · ⚠️ ${toDecide} need your decision`}
-    </div>
-
-    <div class="review-filters">
-      <div class="rf-chip on" onclick="setFilter('all',this)">${lang==='es'?'Todas':'All'} (${total})</div>
-      <div class="rf-chip" onclick="setFilter('include',this)">✅ ${lang==='es'?'Importar':'Import'} (${toInclude})</div>
-      <div class="rf-chip" onclick="setFilter('decide',this)">⚠️ ${lang==='es'?'Decidir':'Decide'} (${toDecide})</div>
-      <div class="rf-chip" onclick="setFilter('exclude',this)">🔴 ${lang==='es'?'Excluidas':'Excluded'} (${excluded})</div>
-    </div>
-
-    <div style="background:var(--off);border-radius:10px;padding:10px;margin-bottom:10px">
-      <div style="font-size:10.5px;font-weight:700;color:var(--text3);margin-bottom:6px">📅 ${lang==='es'?'Filtrar por fecha':'Filter by date'}</div>
-      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:8px">
-        <input type="date" id="dateFilterFrom" style="padding:8px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-family:inherit;width:100%;min-width:0;box-sizing:border-box" onchange="renderTxList()">
-        <input type="date" id="dateFilterTo" style="padding:8px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-family:inherit;width:100%;min-width:0;box-sizing:border-box" onchange="renderTxList()">
-      </div>
-      <div style="display:flex;gap:8px">
-        <button onclick="toggleSelectAll(true,true)" class="btn-secondary" style="flex:1;padding:7px;font-size:10.5px">✅ ${lang==='es'?'Seleccionar rango visible':'Select visible range'}</button>
-        <button onclick="clearDateFilter()" class="btn-secondary" style="flex:1;padding:7px;font-size:10.5px">✕ ${lang==='es'?'Quitar filtro':'Clear filter'}</button>
-      </div>
-    </div>
-
-    <div id="txList"></div>
-
-    <div style="display:flex;gap:8px;margin-top:12px;border-top:1px solid var(--border);padding-top:12px">
-      <button onclick="toggleSelectAll(true)" class="btn-secondary" style="flex:1;padding:8px;font-size:11px">${lang==='es'?'✅ Seleccionar todas':'✅ Select all'}</button>
-      <button onclick="toggleSelectAll(false)" class="btn-secondary" style="flex:1;padding:8px;font-size:11px">${lang==='es'?'☐ Deseleccionar':'☐ Deselect all'}</button>
-    </div>
-  </div>
-
-  <button class="btn-primary" onclick="renderStep4()" id="importBtn">
-    ${lang==='es'?`Importar ${toInclude} transacciones →`:`Import ${toInclude} transactions →`}
-  </button>
-  <div style="height:8px"></div>
-  <button class="btn-secondary" onclick="renderStep2()">← ${lang==='es'?'Cambiar archivo':'Change file'}</button>`;
-
+  if (hogarConnected) setImportHogar(importIsHogar);
   renderTxList();
 }
-
-function setFilter(f, el){
-  activeFilter = f;
-  document.querySelectorAll('.rf-chip').forEach(c=>c.classList.remove('on'));
-  el.classList.add('on');
-  renderTxList();
+function isHogarConnected() { return FT.hogarConnected(); }
+function setImportHogar(val) {
+  importIsHogar = val;
+  var bH = document.getElementById('impBtnHogar'), bP = document.getElementById('impBtnPersonal'), hint = document.getElementById('impHogarHint');
+  if (!bH || !bP) return;
+  bH.style.background = val ? 'var(--g-light)' : 'var(--off)'; bH.style.borderColor = val ? 'var(--g-main)' : 'var(--border)'; bH.style.color = val ? 'var(--g-dark)' : '';
+  bP.style.background = !val ? 'var(--blu-dim)' : 'var(--off)'; bP.style.borderColor = !val ? 'var(--blue)' : 'var(--border)'; bP.style.color = !val ? 'var(--blue)' : '';
+  if (hint) hint.textContent = val ? (es() ? 'Sale del fondo del hogar · visible para tu pareja' : 'From household fund · visible to partner') : (es() ? 'Solo tuyo · privado' : 'Only yours · private');
 }
 
-function renderTxList(){
-  const isFid = importMode === 'fidelity';
-  const dFrom = document.getElementById('dateFilterFrom')?.value || '';
-  const dTo = document.getElementById('dateFilterTo')?.value || '';
-  const filtered = reviewRows.filter(r=>{
-    if(dFrom && r.date < dFrom) return false;
-    if(dTo && r.date > dTo) return false;
-    if(activeFilter==='all') return true;
-    if(activeFilter==='include') return r.selected;
-    if(activeFilter==='decide') return r.status==='decide'||r.status==='pending';
-    if(activeFilter==='exclude') return r.status==='exclude';
+function setFilter(f, el) { activeFilter = f; document.querySelectorAll('.rf-chip').forEach(function (c) { c.classList.remove('on'); }); el.classList.add('on'); renderTxList(); }
+
+function renderTxList() {
+  var L = es(), isFid = importMode === 'fidelity';
+  var dFrom = (document.getElementById('dateFilterFrom') || {}).value || '';
+  var dTo = (document.getElementById('dateFilterTo') || {}).value || '';
+  var filtered = reviewRows.filter(function (r) {
+    if (dFrom && r.date < dFrom) return false;
+    if (dTo && r.date > dTo) return false;
+    if (activeFilter === 'all') return true;
+    if (activeFilter === 'include') return r.selected;
+    if (activeFilter === 'decide') return r.status === 'decide' || r.status === 'pending';
+    if (activeFilter === 'exclude') return r.status === 'exclude';
     return true;
   });
+  var container = document.getElementById('txList'); if (!container) return;
+  if (!filtered.length) { container.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text3);font-size:13px">' + (L ? 'No hay transacciones en este filtro' : 'No transactions in this filter') + '</div>'; return; }
 
-  const container = document.getElementById('txList');
-  if(!container) return;
+  container.innerHTML = filtered.map(function (r) {
+    var globalIdx = reviewRows.indexOf(r);
+    var statusColor = { include: '#1A7A4A', exclude: '#E14B4F', decide: '#E0952E', pending: '#4361E0' }[r.status] || '#A0A3AF';
+    var isPos = isFid ? (r.type === 'venta' || r.type === 'ingreso') : r.amount > 0;
+    var amtColor = isPos ? 'var(--g-main)' : 'var(--red)';
+    var amtStr = isFid ? (r.amount !== 0 ? FT.money(Math.abs(r.amount), { cents: true }) : r.qty + ' acc × $' + r.price) : FT.money(Math.abs(r.amount), { cents: true });
+    var sign = isPos ? '+' : '-';
+    var extraHtml = '';
 
-  if(!filtered.length){
-    container.innerHTML = `<div style="text-align:center;padding:24px;color:var(--text3);font-size:13px">${lang==='es'?'No hay transacciones en este filtro':'No transactions in this filter'}</div>`;
-    return;
-  }
-
-  container.innerHTML = filtered.map((r,i)=>{
-    const globalIdx = reviewRows.indexOf(r);
-    const statusColor = {include:'#1A7A4A',exclude:'#E63946',decide:'#F4A261',pending:'#4A6CF7'}[r.status]||'#9395A5';
-    const isPos = isFid ? (r.type==='venta'||r.type==='ingreso') : r.amount > 0;
-    const amtColor = isPos ? 'var(--g-main)' : 'var(--red)';
-    const amtStr = isFid
-      ? (r.amount!==0 ? fmt(Math.abs(r.amount)) : `${r.qty} acc × $${r.price}`)
-      : fmt(Math.abs(r.amount));
-    const sign = isPos ? '+' : '-';
-
-    let extraHtml = '';
-
-    // Zelle decision
-    if(r.status==='decide' && !isFid && isZelle(r)){
-      extraHtml = `
-      <div class="zelle-opts">
-        <span style="font-size:10px;color:var(--text3);margin-right:4px">¿Qué fue?</span>
-        <button class="zo-btn ${r.zelleType==='gasto'?'on':''}" onclick="setZelle(${globalIdx},'gasto')">💸 ${lang==='es'?'Pago':'Payment'}</button>
-        <button class="zo-btn ${r.zelleType==='ingreso'?'on':''}" onclick="setZelle(${globalIdx},'ingreso')">💰 ${lang==='es'?'Cobro':'Income'}</button>
-        <button class="zo-btn ${r.zelleType==='ignore'?'on':''}" onclick="setZelle(${globalIdx},'ignore')">🎁 ${lang==='es'?'Ignorar':'Ignore'}</button>
-      </div>`;
+    if (r.status === 'decide' && !isFid && isZelle(r)) {
+      extraHtml = '<div class="zelle-opts"><span style="font-size:10px;color:var(--text3);margin-right:4px">¿Qué fue?</span>' +
+        '<button class="zo-btn ' + (r.zelleType === 'gasto' ? 'on' : '') + '" onclick="setZelle(' + globalIdx + ",'gasto')\">💸 " + (L ? 'Pago' : 'Payment') + '</button>' +
+        '<button class="zo-btn ' + (r.zelleType === 'ingreso' ? 'on' : '') + '" onclick="setZelle(' + globalIdx + ",'ingreso')\">💰 " + (L ? 'Cobro' : 'Income') + '</button>' +
+        '<button class="zo-btn ' + (r.zelleType === 'ignore' ? 'on' : '') + '" onclick="setZelle(' + globalIdx + ",'ignore')\">🎁 " + (L ? 'Ignorar' : 'Ignore') + '</button></div>';
     }
-
-    // Fidelity sell disposition
-    if(r.status==='pending' && r.type==='venta'){
-      extraHtml = `
-      <div class="zelle-opts">
-        <span style="font-size:10px;color:var(--text3);margin-right:4px">${lang==='es'?'¿Qué hiciste?':'What did you do?'}</span>
-        <button class="zo-btn ${r.sellDisposition==='reinvest'?'on':''}" onclick="setSell(${globalIdx},'reinvest')">🔄 ${lang==='es'?'Reinvertí':'Reinvested'}</button>
-        <button class="zo-btn ${r.sellDisposition==='withdraw'?'on':''}" onclick="setSell(${globalIdx},'withdraw')">🏦 ${lang==='es'?'Retiré':'Withdrew'}</button>
-        <button class="zo-btn ${r.sellDisposition==='cash'?'on':''}" onclick="setSell(${globalIdx},'cash')">💵 ${lang==='es'?'Cash en cuenta':'Cash in account'}</button>
-      </div>`;
+    if (r.status === 'pending' && r.type === 'venta') {
+      extraHtml = '<div class="zelle-opts"><span style="font-size:10px;color:var(--text3);margin-right:4px">' + (L ? '¿Qué hiciste?' : 'What did you do?') + '</span>' +
+        '<button class="zo-btn ' + (r.sellDisposition === 'reinvest' ? 'on' : '') + '" onclick="setSell(' + globalIdx + ",'reinvest')\">🔄 " + (L ? 'Reinvertí' : 'Reinvested') + '</button>' +
+        '<button class="zo-btn ' + (r.sellDisposition === 'withdraw' ? 'on' : '') + '" onclick="setSell(' + globalIdx + ",'withdraw')\">🏦 " + (L ? 'Retiré' : 'Withdrew') + '</button>' +
+        '<button class="zo-btn ' + (r.sellDisposition === 'cash' ? 'on' : '') + '" onclick="setSell(' + globalIdx + ",'cash')\">💵 " + (L ? 'Cash en cuenta' : 'Cash in account') + '</button></div>';
     }
+    if (r.isFZILX) extraHtml += '<div class="dup-warn">⚠️ ' + (L ? 'Este fondo (FZILX) ya no está en tu portafolio actual.' : 'This fund (FZILX) is no longer in your current portfolio.') + '</div>';
+    if (r.isDuplicate) extraHtml += '<div class="dup-warn">⚠️ ' + (L ? 'Posible duplicado — ya existe una transacción similar.' : 'Possible duplicate — a similar transaction already exists.') + '</div>';
 
-    // FZILX warning
-    if(r.isFZILX){
-      extraHtml += `<div class="dup-warn">⚠️ ${lang==='es'?'Este fondo (FZILX) ya no está en tu portafolio actual.':'This fund (FZILX) is no longer in your current portfolio.'}</div>`;
-    }
-
-    // Duplicate warning
-    if(r.isDuplicate){
-      extraHtml += `<div class="dup-warn">⚠️ ${lang==='es'?'Posible duplicado — ya existe una transacción similar.':'Possible duplicate — a similar transaction already exists.'}</div>`;
-    }
-
-    return `
-    <div class="tx-review-row" style="${r.status==='exclude'?'opacity:.5':''}">
-      <div class="trr-check ${r.selected?'on':''}" onclick="toggleRow(${globalIdx})">
-        ${r.selected?'<span style="color:white;font-size:12px;line-height:1">✓</span>':''}
-      </div>
-      <div class="trr-status" style="background:${statusColor}"></div>
-      <div class="trr-info">
-        <div class="trr-name">
-          ${isFid&&r.symbol?`<strong>${r.symbol}</strong> · `:''}${r.desc||r.action||'—'}
-          ${r.status==='pending'?'<span style="font-size:9px;font-weight:700;background:var(--blu-dim);color:var(--blue);padding:1px 6px;border-radius:20px;margin-left:4px">PENDIENTE</span>':''}
-        </div>
-        <div class="trr-meta">
-          ${r.date}
-          ${r.account?` · ${r.account}`:''}
-          ${r.status==='exclude'
-            ?` · <span style="color:var(--red);cursor:pointer;text-decoration:underline;font-weight:600" onclick="showExclusionReason(${globalIdx})">${lang==='es'?'¿Por qué? →':'Why? →'}</span>`
-            :''}
-        </div>
-        ${extraHtml}
-      </div>
-      <div style="text-align:right;flex-shrink:0">
-        <div class="trr-amt" style="color:${amtColor}">${sign}${amtStr}</div>
-        <div class="trr-cat" style="background:var(--off);color:var(--text3)">${r.ftCat}</div>
-      </div>
-    </div>`;
+    return '<div class="tx-review-row" style="' + (r.status === 'exclude' ? 'opacity:.5' : '') + '">' +
+      '<div class="trr-check ' + (r.selected ? 'on' : '') + '" onclick="toggleRow(' + globalIdx + ')">' + (r.selected ? '<span style="color:white;font-size:12px;line-height:1">✓</span>' : '') + '</div>' +
+      '<div class="trr-status" style="background:' + statusColor + '"></div>' +
+      '<div class="trr-info"><div class="trr-name">' + (isFid && r.symbol ? '<strong>' + r.symbol + '</strong> · ' : '') + (r.desc || r.action || '—') + (r.status === 'pending' ? '<span style="font-size:9px;font-weight:700;background:var(--blu-dim);color:var(--blue);padding:1px 6px;border-radius:20px;margin-left:4px">PENDIENTE</span>' : '') + '</div>' +
+      '<div class="trr-meta">' + r.date + (r.account ? ' · ' + r.account : '') + (r.status === 'exclude' ? ' · <span style="color:var(--red);cursor:pointer;text-decoration:underline;font-weight:600" onclick="showExclusionReason(' + globalIdx + ')">' + (L ? '¿Por qué? →' : 'Why? →') + '</span>' : '') + '</div>' +
+      extraHtml + '</div>' +
+      '<div style="text-align:right;flex-shrink:0"><div class="trr-amt" style="color:' + amtColor + '">' + sign + amtStr + '</div><div class="trr-cat" style="background:var(--off);color:var(--text3)">' + r.ftCat + '</div></div></div>';
   }).join('');
 
-  // Update button count
-  const selected = reviewRows.filter(r=>r.selected).length;
-  const btn = document.getElementById('importBtn');
-  if(btn) btn.textContent = lang==='es' ? `Importar ${selected} transacciones →` : `Import ${selected} transactions →`;
+  var selected = reviewRows.filter(function (r) { return r.selected; }).length;
+  var btn = document.getElementById('importBtn');
+  if (btn) btn.textContent = (L ? 'Importar ' : 'Import ') + selected + (L ? ' transacciones →' : ' transactions →');
 }
 
-function toggleRow(idx){
-  reviewRows[idx].selected = !reviewRows[idx].selected;
-  if(reviewRows[idx].selected && reviewRows[idx].status==='exclude'){
-    reviewRows[idx].status = 'include';
-  }
-  renderTxList();
-}
-
-function toggleSelectAll(val, onlyVisible){
-  const dFrom = document.getElementById('dateFilterFrom')?.value || '';
-  const dTo = document.getElementById('dateFilterTo')?.value || '';
-  reviewRows.forEach(r=>{
-    if(r.status==='exclude') return;
-    if(onlyVisible){
-      if(dFrom && r.date < dFrom) return;
-      if(dTo && r.date > dTo) return;
-    }
-    r.selected=val;
+function toggleRow(idx) { reviewRows[idx].selected = !reviewRows[idx].selected; if (reviewRows[idx].selected && reviewRows[idx].status === 'exclude') reviewRows[idx].status = 'include'; renderTxList(); }
+function toggleSelectAll(val, onlyVisible) {
+  var dFrom = (document.getElementById('dateFilterFrom') || {}).value || '';
+  var dTo = (document.getElementById('dateFilterTo') || {}).value || '';
+  reviewRows.forEach(function (r) {
+    if (r.status === 'exclude') return;
+    if (onlyVisible) { if (dFrom && r.date < dFrom) return; if (dTo && r.date > dTo) return; }
+    r.selected = val;
   });
   renderTxList();
 }
-
-function clearDateFilter(){
-  const f = document.getElementById('dateFilterFrom');
-  const t = document.getElementById('dateFilterTo');
-  if(f) f.value = '';
-  if(t) t.value = '';
-  renderTxList();
-}
-
-function setZelle(idx, type){
-  reviewRows[idx].zelleType = type;
-  reviewRows[idx].type = type === 'ignore' ? 'ignorar' : type;
-  reviewRows[idx].selected = type !== 'ignore';
-  renderTxList();
-}
-
-function setSell(idx, disp){
-  reviewRows[idx].sellDisposition = disp;
-  reviewRows[idx].selected = disp !== 'reinvest'; // reinvest = don't log as income
-  renderTxList();
-}
+function clearDateFilter() { var f = document.getElementById('dateFilterFrom'), t = document.getElementById('dateFilterTo'); if (f) f.value = ''; if (t) t.value = ''; renderTxList(); }
+function setZelle(idx, type) { reviewRows[idx].zelleType = type; reviewRows[idx].type = type === 'ignore' ? 'ignorar' : type; reviewRows[idx].selected = type !== 'ignore'; renderTxList(); }
+function setSell(idx, disp) { reviewRows[idx].sellDisposition = disp; reviewRows[idx].selected = disp !== 'reinvest'; renderTxList(); }
 
 /* ══════════════════════════════════════
-   STEP 4 — IMPORT & SUMMARY
+   PASO 4 — IMPORTAR Y RESUMEN
 ══════════════════════════════════════ */
-function renderStep4(){
-  const toImport = reviewRows.filter(r=>r.selected && r.type!=='ignorar');
-  if(!toImport.length){
-    showToast(lang==='es'?'⚠️ No hay transacciones seleccionadas':'⚠️ No transactions selected');
-    return;
-  }
+function renderStep4() {
+  var L = es();
+  var toImport = reviewRows.filter(function (r) { return r.selected && r.type !== 'ignorar'; });
+  if (!toImport.length) { FT.toast(L ? '⚠️ No hay transacciones seleccionadas' : '⚠️ No transactions selected'); return; }
 
-  const isFid = importMode === 'fidelity';
-  let imported=0, gastos=0, ingresos=0, inversiones=0, ventas=0, pendientes=0;
-  const data = loadData();
-  const investments = loadInvestments();
+  var isFid = importMode === 'fidelity';
+  var imported = 0, gastos = 0, ingresos = 0, inversiones = 0, ventas = 0, pendientes = 0;
+  var data = FT.data();
+  var investments = FT.investments('');
+  var hogarInvs = FT.investments('hogar');
 
-  toImport.forEach(r=>{
-    if(isFid){
-      if(r.type==='inversion'){
-        if(importIsHogar){
-          // Inversión del hogar → ft_hogar_inv
-          const hogarInvs = JSON.parse(localStorage.getItem('ft_hogar_inv')||'[]');
-          hogarInvs.push({ id:'fi_'+(Date.now()+Math.random()), ticker:r.symbol||'INV', name:r.desc||r.symbol, amount:Math.abs(r.amount), avgPrice:r.price||Math.abs(r.amount), curPrice:r.price||Math.abs(r.amount), shares:r.qty||1, date:r.date, platform:'Fidelity', invType:'stock', addedBy:user.name||'' });
-          localStorage.setItem('ft_hogar_inv', JSON.stringify(hogarInvs));
-        } else {
-          investments.push({ id:Date.now()+Math.random(), ticker:r.symbol, name:r.desc||r.symbol, amount:Math.abs(r.amount), price:r.price, qty:r.qty, date:r.date, platform:'Fidelity', invType:'stock', status:'active' });
-        }
+  toImport.forEach(function (r) {
+    if (isFid) {
+      if (r.type === 'inversion') {
+        if (importIsHogar) hogarInvs.push({ id: 'fi_' + (Date.now() + Math.random()), ticker: r.symbol || 'INV', name: r.desc || r.symbol, amount: Math.abs(r.amount), avgPrice: r.price || Math.abs(r.amount), curPrice: r.price || Math.abs(r.amount), shares: r.qty || 1, date: r.date, platform: 'Fidelity', invType: 'stock', addedBy: FT.userName() });
+        else investments.push({ id: Date.now() + Math.random(), ticker: r.symbol, name: r.desc || r.symbol, amount: Math.abs(r.amount), price: r.price, qty: r.qty, date: r.date, platform: 'Fidelity', invType: 'stock', status: 'active' });
         inversiones++;
-      } else if(r.type==='venta'){
-        if(r.sellDisposition === 'withdraw'){
-          data.transactions.push({ id:Date.now()+Math.random(), type:'ingreso', desc:`Venta ${r.symbol||''}`, amount:Math.abs(r.amount), date:r.date, cat:'💰 Inversión', note:'Venta Fidelity' });
-          ingresos++;
-        } else if(r.sellDisposition === 'cash'){ pendientes++; }
+      } else if (r.type === 'venta') {
+        if (r.sellDisposition === 'withdraw') { data.transactions.push({ id: Date.now() + Math.random(), type: 'ingreso', desc: 'Venta ' + (r.symbol || ''), amount: Math.abs(r.amount), date: r.date, cat: '💰 Inversión', note: 'Venta Fidelity' }); ingresos++; }
+        else if (r.sellDisposition === 'cash') { pendientes++; }
         ventas++;
-      } else if(r.type==='ingreso'){
-        data.transactions.push({ id:Date.now()+Math.random(), type:'ingreso', desc:r.desc||'Dividendo', amount:Math.abs(r.amount), date:r.date, cat:'💰 Inversión', note:'Fidelity dividend' });
-        ingresos++;
-      }
+      } else if (r.type === 'ingreso') { data.transactions.push({ id: Date.now() + Math.random(), type: 'ingreso', desc: r.desc || 'Dividendo', amount: Math.abs(r.amount), date: r.date, cat: '💰 Inversión', note: 'Fidelity dividend' }); ingresos++; }
     } else {
-      // Bank or manual
-      const type = r.type==='gasto'?'gasto':r.type==='ingreso'?'ingreso':r.type;
-      data.transactions.push({
-        id: Date.now()+Math.random(),
-        type,
-        desc: r.desc,
-        amount: Math.abs(r.amount),
-        date: r.date,
-        cat: r.ftCat,
-        note: r.account||'',
-        hogar: isHogarConnected() ? importIsHogar : undefined,
-      });
-      if(type==='gasto') gastos++;
-      else if(type==='inversion'){
-        const ticker = (r.symbol || r.desc || '').split(/[\s–-]/)[0].toUpperCase().slice(0,6);
-        if(importIsHogar){
-          // Inversión del hogar → ft_hogar_inv
-          const hogarInvs = JSON.parse(localStorage.getItem('ft_hogar_inv')||'[]');
-          hogarInvs.push({ id:'imp_'+(Date.now()+Math.random()), ticker, name:r.desc||ticker, amount:Math.abs(r.amount), avgPrice:Math.abs(r.amount), curPrice:Math.abs(r.amount), shares:1, date:r.date, platform:r.account||'Importado', invType:'stock', addedBy:user.name||'' });
-          localStorage.setItem('ft_hogar_inv', JSON.stringify(hogarInvs));
-        } else {
-          investments.push({ id:'imp_'+(Date.now()+Math.random()), ticker, name:r.desc||ticker, amount:Math.abs(r.amount), avgPrice:Math.abs(r.amount), curPrice:Math.abs(r.amount), shares:1, date:r.date, platform:r.account||'Importado', invType:'stock', fromImport:true });
-        }
+      var type = r.type === 'gasto' ? 'gasto' : r.type === 'ingreso' ? 'ingreso' : r.type;
+      data.transactions.push({ id: Date.now() + Math.random(), type: type, desc: r.desc, amount: Math.abs(r.amount), date: r.date, cat: r.ftCat, note: r.account || '', hogar: FT.hogarConnected() ? importIsHogar : undefined });
+      if (type === 'gasto') gastos++;
+      else if (type === 'inversion') {
+        var ticker = (r.symbol || r.desc || '').split(/[\s–-]/)[0].toUpperCase().slice(0, 6);
+        if (importIsHogar) hogarInvs.push({ id: 'imp_' + (Date.now() + Math.random()), ticker: ticker, name: r.desc || ticker, amount: Math.abs(r.amount), avgPrice: Math.abs(r.amount), curPrice: Math.abs(r.amount), shares: 1, date: r.date, platform: r.account || 'Importado', invType: 'stock', addedBy: FT.userName() });
+        else investments.push({ id: 'imp_' + (Date.now() + Math.random()), ticker: ticker, name: r.desc || ticker, amount: Math.abs(r.amount), avgPrice: Math.abs(r.amount), curPrice: Math.abs(r.amount), shares: 1, date: r.date, platform: r.account || 'Importado', invType: 'stock', fromImport: true });
         inversiones++;
       } else ingresos++;
     }
     imported++;
   });
 
-  saveData(data);
-  saveInvestments(investments);
+  FT.saveData(data);
+  FT.saveInvestments(investments, '');
+  FT.saveInvestments(hogarInvs, 'hogar');
   setStep(4);
 
-  const skipped = reviewRows.length - toImport.length;
-  const totalGastos = data.transactions.filter(t=>t.type==='gasto').reduce((a,t)=>a+parseFloat(t.amount),0);
+  var skipped = reviewRows.length - toImport.length;
 
-  document.getElementById('page').innerHTML = `
-  <div class="card" style="margin-top:16px;text-align:center">
-    <div style="font-size:48px;margin-bottom:12px">🎉</div>
-    <div class="card-title" style="font-size:18px;margin-bottom:6px">
-      ${lang==='es'?'¡Importación completada!':'Import complete!'}
-    </div>
-    <div class="card-sub">${lang==='es'?'Tus transacciones han sido registradas':'Your transactions have been recorded'}</div>
-  </div>
-
-  <div class="summary-grid">
-    <div class="sum-card">
-      <div class="sum-val" style="color:var(--g-main)">+${imported}</div>
-      <div class="sum-lbl">${lang==='es'?'Importadas':'Imported'}</div>
-    </div>
-    <div class="sum-card">
-      <div class="sum-val" style="color:var(--text3)">${skipped}</div>
-      <div class="sum-lbl">${lang==='es'?'Omitidas':'Skipped'}</div>
-    </div>
-    ${isFid?`
-    <div class="sum-card">
-      <div class="sum-val" style="color:var(--blue)">${inversiones}</div>
-      <div class="sum-lbl">${lang==='es'?'Inversiones':'Investments'}</div>
-    </div>
-    <div class="sum-card">
-      <div class="sum-val" style="color:var(--amber)">${pendientes}</div>
-      <div class="sum-lbl">${lang==='es'?'Ventas pendientes':'Pending sales'}</div>
-    </div>`:
-    `<div class="sum-card">
-      <div class="sum-val" style="color:var(--red)">$${Math.abs(gastos).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0})}</div>
-      <div class="sum-lbl">${lang==='es'?'En gastos':'In expenses'}</div>
-    </div>
-    <div class="sum-card">
-      <div class="sum-val" style="color:var(--g-main)">$${ingresos.toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0})}</div>
-      <div class="sum-lbl">${lang==='es'?'En ingresos':'In income'}</div>
-    </div>`}
-  </div>
-
-  ${pendientes>0?`
-  <div class="card" style="background:var(--blu-dim);border:1px solid rgba(74,108,247,.2)">
-    <div style="font-size:13px;font-weight:700;color:var(--blue);margin-bottom:4px">📋 ${pendientes} venta(s) en cash en Fidelity</div>
-    <div style="font-size:12px;color:var(--text2)">${lang==='es'?'Estas ventas quedaron como "cash en cuenta". Cuando las uses para reinvertir o retirar, regístralas manualmente en Inversiones.':'These sales are marked as cash in account. When you use them to reinvest or withdraw, record them manually in Investments.'}</div>
-  </div>`:''}
-
-  <button class="btn-primary" onclick="go('dashboard.html')">
-    ${lang==='es'?'Ir al Dashboard →':'Go to Dashboard →'}
-  </button>
-  <div style="height:8px"></div>
-  <button class="btn-secondary" onclick="renderStep1()">
-    ${lang==='es'?'Importar otro archivo':'Import another file'}
-  </button>`;
+  document.getElementById('page').innerHTML =
+  '<div class="card" style="text-align:center"><div style="font-size:48px;margin-bottom:12px">🎉</div>' +
+    '<div class="card-title" style="font-size:18px;margin-bottom:6px">' + (L ? '¡Importación completada!' : 'Import complete!') + '</div>' +
+    '<div class="card-sub">' + (L ? 'Tus transacciones han sido registradas' : 'Your transactions have been recorded') + '</div></div>' +
+  '<div class="summary-grid">' +
+    '<div class="sum-card"><div class="sum-val" style="color:var(--g-main)">+' + imported + '</div><div class="sum-lbl">' + (L ? 'Importadas' : 'Imported') + '</div></div>' +
+    '<div class="sum-card"><div class="sum-val" style="color:var(--text3)">' + skipped + '</div><div class="sum-lbl">' + (L ? 'Omitidas' : 'Skipped') + '</div></div>' +
+    (isFid ? '<div class="sum-card"><div class="sum-val" style="color:var(--blue)">' + inversiones + '</div><div class="sum-lbl">' + (L ? 'Inversiones' : 'Investments') + '</div></div>' +
+      '<div class="sum-card"><div class="sum-val" style="color:var(--amber)">' + pendientes + '</div><div class="sum-lbl">' + (L ? 'Ventas pendientes' : 'Pending sales') + '</div></div>'
+      : '<div class="sum-card"><div class="sum-val" style="color:var(--red)">' + FT.money(gastos) + '</div><div class="sum-lbl">' + (L ? 'En gastos' : 'In expenses') + '</div></div>' +
+      '<div class="sum-card"><div class="sum-val" style="color:var(--g-main)">' + FT.money(ingresos) + '</div><div class="sum-lbl">' + (L ? 'En ingresos' : 'In income') + '</div></div>') +
+  '</div>' +
+  (pendientes > 0 ? '<div class="card" style="background:var(--blu-dim);border:1px solid rgba(67,97,224,.2)"><div style="font-size:13px;font-weight:700;color:var(--blue);margin-bottom:4px">📋 ' + pendientes + ' ' + (L ? 'venta(s) en cash en Fidelity' : 'sale(s) as cash in Fidelity') + '</div><div style="font-size:12px;color:var(--text2)">' + (L ? 'Estas ventas quedaron como "cash en cuenta". Cuando las uses para reinvertir o retirar, regístralas manualmente en Inversiones.' : 'These sales are marked as cash in account. When you use them to reinvest or withdraw, record them manually in Investments.') + '</div></div>' : '') +
+  '<button class="ft-btn ft-btn-primary tap" onclick="go(\'dashboard.html\')">' + (L ? 'Ir al Dashboard →' : 'Go to Dashboard →') + '</button>' +
+  '<div style="height:8px"></div>' +
+  '<button class="ft-btn ft-btn-ghost tap" onclick="renderStep1()">' + (L ? 'Importar otro archivo' : 'Import another file') + '</button>';
 }
 
 /* ══════════════════════════════════════
-   AI FILE PROCESSOR (Premium)
+   PROCESADOR DE ARCHIVO CON IA (Premium)
 ══════════════════════════════════════ */
-async function processAIFile(file, forcedMediaType, csvText){
-  if(creditsLeft() <= 0){
-    showToast(lang==='es'?'❌ Sin análisis IA disponibles este mes':'❌ No AI analyses left this month');
-    renderStep2();
-    return;
-  }
+async function processAIFile(file, forcedMediaType, csvText) {
+  var L = es();
+  if (FT.creditsLeft() <= 0) { FT.toast(L ? '❌ Sin análisis IA disponibles este mes' : '❌ No AI analyses left this month'); renderStep2(); return; }
 
-  const zone = document.getElementById('dropZone');
-  zone.innerHTML = `<div class="uz-ico">🤖</div><div class="uz-title">${lang==='es'?'Analizando con IA...':'Analyzing with AI...'}</div><div class="uz-sub">${lang==='es'?'Esto puede tomar unos segundos':'This may take a few seconds'}</div>`;
+  var zone = document.getElementById('dropZone');
+  zone.innerHTML = '<div class="uz-ico">🤖</div><div class="uz-title">' + (L ? 'Analizando con IA...' : 'Analyzing with AI...') + '</div><div class="uz-sub">' + (L ? 'Esto puede tomar unos segundos' : 'This may take a few seconds') + '</div>';
 
   try {
-    const isCSVText = forcedMediaType === 'text/csv' && csvText;
-    const isImage = !isCSVText && file.type.startsWith('image/');
-    const isPDF = !isCSVText && file.type === 'application/pdf';
+    var isCSVText = forcedMediaType === 'text/csv' && csvText;
+    var isImage = !isCSVText && file.type.startsWith('image/');
+    var userInstructions = buildAiInstructionsFromQuestions();
 
-    const userInstructions = buildAiInstructionsFromQuestions();
+    var basePrompt = 'Extract ALL transactions from this financial document.\n' +
+      (userInstructions ? '\nIMPORTANT — the user described how they manage their money, use this to correctly classify transactions, detect internal transfers, and avoid duplicating money that just moved between their own accounts (mark those "is_transfer": true instead of a real expense/income):\n"""\n' + userInstructions + '\n"""\n' : '') +
+      'Respond ONLY with a raw JSON array, no markdown, no explanation:\n' +
+      '[\n  {\n    "date": "YYYY-MM-DD",\n    "description": "merchant or description",\n    "amount": -10.50,\n    "category": "one of: Restaurantes, Supermercado, Gasolina, Salud, Entretenimiento, Ropa, Servicios, Inversión, Ingreso, Otros",\n    "type": "gasto or ingreso or inversion or venta",\n    "is_transfer": false,\n    "ticker": ""\n  }\n]\n' +
+      'Rules:\n- Negative amounts = expenses/purchases\n- Positive amounts = income/deposits\n- Mark transfers between own accounts with "is_transfer": true\n- For investments: fill "ticker" with the stock symbol (NVDA, AAPL, etc.)\n- Ignore "Electronic Funds Transfer" lines (internal deposits to brokerage)\n- Today is ' + FT.todayISO();
 
-    const basePrompt = `Extract ALL transactions from this financial document.
-${userInstructions ? `\nIMPORTANT — the user described how they manage their money, use this to correctly classify transactions, detect internal transfers, and avoid duplicating money that just moved between their own accounts (mark those "is_transfer": true instead of a real expense/income):\n"""\n${userInstructions}\n"""\n` : ''}
-Respond ONLY with a raw JSON array, no markdown, no explanation:
-[
-  {
-    "date": "YYYY-MM-DD",
-    "description": "merchant or description",
-    "amount": -10.50,
-    "category": "one of: Restaurantes, Supermercado, Gasolina, Salud, Entretenimiento, Ropa, Servicios, Inversión, Ingreso, Otros",
-    "type": "gasto or ingreso or inversion or venta",
-    "is_transfer": false,
-    "ticker": ""
-  }
-]
-Rules:
-- Negative amounts = expenses/purchases
-- Positive amounts = income/deposits
-- Mark transfers between own accounts with "is_transfer": true
-- For investments: fill "ticker" with the stock symbol (NVDA, AAPL, etc.)
-- Ignore "Electronic Funds Transfer" lines (internal deposits to brokerage)
-- Today is ${new Date().toISOString().split('T')[0]}`;
-
-    let requestBody;
-
-    if(isCSVText){
-      // CSV as plain text — send as text message (no image)
-      const truncated = csvText.slice(0, 8000); // Claude context limit safety
-      requestBody = {
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 4000,
-        messages: [{
-          role: 'user',
-          content: `${basePrompt}\n\nHere is the CSV content:\n\`\`\`\n${truncated}\n\`\`\``
-        }]
-      };
-    } else {
-      // Image or PDF
-      let b64, mediaType;
-      if(isImage){
-        b64 = await compressAndEncode(file);
-        mediaType = 'image/jpeg';
-      } else {
-        // PDF
-        const buf = await file.arrayBuffer();
-        const bytes = new Uint8Array(buf);
-        let bin = '';
-        for(let i=0;i<bytes.length;i++) bin += String.fromCharCode(bytes[i]);
-        b64 = btoa(bin);
-        mediaType = 'application/pdf';
-      }
-
-      requestBody = {
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 4000,
-        messages: [{
-          role: 'user',
-          content: [
-            { type: isImage ? 'image' : 'document', source: { type: 'base64', media_type: mediaType, data: b64 } },
-            { type: 'text', text: basePrompt }
-          ]
-        }]
-      };
+    var reqImage = null, reqMediaType = null, reqPrompt = basePrompt, reqCsv = null;
+    if (isCSVText) {
+      reqCsv = csvText.slice(0, 8000);
+    } else if (isImage) {
+      reqImage = await compressAndEncode(file);
+      reqMediaType = 'image/jpeg';
+    } else { // PDF
+      var buf = await file.arrayBuffer();
+      var bytes = new Uint8Array(buf), bin = '';
+      for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+      reqImage = btoa(bin);
+      reqMediaType = 'application/pdf';
     }
 
-    // Call API via Vercel Function
-    const res = await fetch('/api/scan', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        image: requestBody.messages[0].content?.[0]?.source?.data || null,
-        mediaType: requestBody.messages[0].content?.[0]?.source?.media_type || null,
-        prompt: isCSVText ? `${basePrompt}\n\nHere is the CSV content:\n\`\`\`\n${csvText.slice(0,8000)}\n\`\`\`` : basePrompt,
-        isTextOnly: isCSVText,
-        csvContent: isCSVText ? csvText.slice(0, 8000) : null,
-      })
+    var res = await fetch('/api/scan', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image: reqImage, mediaType: reqMediaType, prompt: isCSVText ? basePrompt + '\n\nHere is the CSV content:\n```\n' + reqCsv + '\n```' : basePrompt, isTextOnly: isCSVText, csvContent: reqCsv })
     });
+    var data = await res.json();
+    FT.useCredit();
 
-    const data = await res.json();
-    useCredit();
-
-    let rows;
-    let retried = false;
-
-    // First attempt to parse
+    var rows, retried = false;
     try {
-      const raw = (data.raw||'').replace(/```json|```/g,'').trim();
-      const parsed = data.result || JSON.parse(raw);
+      var raw = (data.raw || '').replace(/```json|```/g, '').trim();
+      var parsed = data.result || JSON.parse(raw);
       rows = Array.isArray(parsed) ? parsed : [parsed];
-    } catch(e){
-      // Auto-retry with simpler prompt if first attempt fails
-      if(!retried){
+    } catch (e) {
+      if (!retried) {
         retried = true;
-        zone.innerHTML = `<div class="uz-ico">🤖</div><div class="uz-title">${lang==='es'?'Reintentando con formato simplificado...':'Retrying with simplified format...'}</div>`;
-
-        const simplePrompt = isCSVText
-          ? `List all transactions from this CSV. For each row, respond with just: DATE|DESCRIPTION|AMOUNT\nOne per line. Use negative amounts for expenses.\n\nCSV:\n${csvText.slice(0,4000)}`
-          : `List all transactions visible in this image. For each one: DATE|DESCRIPTION|AMOUNT\nOne per line. Negative = expense.`;
-
+        zone.innerHTML = '<div class="uz-ico">🤖</div><div class="uz-title">' + (L ? 'Reintentando con formato simplificado...' : 'Retrying with simplified format...') + '</div>';
+        var simplePrompt = isCSVText
+          ? 'List all transactions from this CSV. For each row, respond with just: DATE|DESCRIPTION|AMOUNT\nOne per line. Use negative amounts for expenses.\n\nCSV:\n' + csvText.slice(0, 4000)
+          : 'List all transactions visible in this image. For each one: DATE|DESCRIPTION|AMOUNT\nOne per line. Negative = expense.';
         try {
-          const res2 = await fetch('/api/scan', {
-            method:'POST',
-            headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({
-              image: isCSVText ? null : requestBody?.messages?.[0]?.content?.[0]?.source?.data,
-              mediaType: isCSVText ? null : (requestBody?.messages?.[0]?.content?.[0]?.source?.media_type || 'image/jpeg'),
-              prompt: simplePrompt,
-              isTextOnly: isCSVText,
-              csvContent: isCSVText ? csvText.slice(0,4000) : null,
-            })
-          });
-          const data2 = await res2.json();
-          const raw2 = (data2.raw||data2.result||'').toString();
-
-          // Parse pipe-separated format
-          rows = raw2.split('\n').filter(l=>l.includes('|')).map(l=>{
-            const parts = l.split('|');
-            return {
-              date: parseDate(parts[0]?.trim()||''),
-              description: parts[1]?.trim()||'',
-              amount: parseAmount(parts[2]?.trim()||'0'),
-              category: 'Otros',
-              type: parseAmount(parts[2]?.trim()||'0') < 0 ? 'gasto' : 'ingreso',
-              is_transfer: false,
-            };
-          }).filter(r=>r.description && r.amount !== 0);
-
-        } catch(e2){
-          throw new Error(lang==='es'?'La IA no pudo extraer transacciones tras 2 intentos':'AI could not extract transactions after 2 attempts');
-        }
+          var res2 = await fetch('/api/scan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image: isCSVText ? null : reqImage, mediaType: isCSVText ? null : (reqMediaType || 'image/jpeg'), prompt: simplePrompt, isTextOnly: isCSVText, csvContent: isCSVText ? csvText.slice(0, 4000) : null }) });
+          var data2 = await res2.json();
+          var raw2 = (data2.raw || data2.result || '').toString();
+          rows = raw2.split('\n').filter(function (l) { return l.indexOf('|') > -1; }).map(function (l) {
+            var parts = l.split('|');
+            return { date: parseDate((parts[0] || '').trim()), description: (parts[1] || '').trim(), amount: parseAmount((parts[2] || '').trim()), category: 'Otros', type: parseAmount((parts[2] || '').trim()) < 0 ? 'gasto' : 'ingreso', is_transfer: false };
+          }).filter(function (r) { return r.description && r.amount !== 0; });
+        } catch (e2) { throw new Error(L ? 'La IA no pudo extraer transacciones tras 2 intentos' : 'AI could not extract transactions after 2 attempts'); }
       }
     }
 
-    if(!rows || !rows.length) throw new Error(lang==='es'?'No se encontraron transacciones en el documento':'No transactions found in document');
+    if (!rows || !rows.length) throw new Error(L ? 'No se encontraron transacciones en el documento' : 'No transactions found in document');
 
-    parsedRows = rows.map(r=>({
-      date: parseDate(r.date||''),
-      desc: r.description||'',
-      cat: r.category||'Otros',
-      amount: parseFloat(r.amount)||0,
-      isTransfer: r.is_transfer||false,
-      ticker: r.ticker||'',
-      type: r.type||'gasto',
-    }));
-
-    reviewRows = parsedRows.map(r=>({
-      ...r,
-      status: r.isTransfer ? 'exclude' : 'include',
-      type: r.type||( r.amount<0?'gasto':'ingreso'),
-      ftCat: r.cat,
-      zelleType: null,
-      isDuplicate: checkDuplicate(r.date, Math.abs(r.amount), r.desc),
-      selected: !r.isTransfer,
-    }));
-
+    parsedRows = rows.map(function (r) { return { date: parseDate(r.date || ''), desc: r.description || '', cat: r.category || 'Otros', amount: parseFloat(r.amount) || 0, isTransfer: r.is_transfer || false, ticker: r.ticker || '', type: r.type || 'gasto' }; });
+    reviewRows = parsedRows.map(function (r) { return Object.assign({}, r, { status: r.isTransfer ? 'exclude' : 'include', type: r.type || (r.amount < 0 ? 'gasto' : 'ingreso'), ftCat: r.cat, zelleType: null, isDuplicate: checkDuplicate(r.date, Math.abs(r.amount), r.desc), selected: !r.isTransfer }); });
     renderStep3();
-
-  } catch(err){
-    const zone2 = document.getElementById('dropZone');
-    const es = lang === 'es';
-
-    // Diagnose specific error type
-    let errTitle = es ? 'Error al analizar' : 'Error analyzing';
-    let errMsg = err.message;
-    let errTip = '';
-
-    if(err.message.includes('API key')){
-      errTitle = es ? '⚙️ Error de configuración' : '⚙️ Configuration error';
-      errMsg = es ? 'La API key no está configurada correctamente.' : 'API key is not configured correctly.';
-      errTip = es ? 'Contacta al soporte de FinTrack Pro.' : 'Contact FinTrack Pro support.';
-    } else if(err.message.includes('413') || err.message.includes('too large') || err.message.includes('grande')){
-      errTitle = es ? '📏 Archivo demasiado grande' : '📏 File too large';
-      errMsg = es ? 'El archivo es muy pesado. Intenta con una imagen más pequeña o menos páginas.' : 'File is too large. Try a smaller image or fewer pages.';
-    } else if(err.message.includes('429') || err.message.includes('rate')){
-      errTitle = es ? '⏳ Demasiadas solicitudes' : '⏳ Too many requests';
-      errMsg = es ? 'Espera unos segundos e intenta de nuevo.' : 'Wait a few seconds and try again.';
-    } else if(err.message.includes('No transactions') || err.message.includes('No se encontraron')){
-      errTitle = es ? '🔍 Sin transacciones detectadas' : '🔍 No transactions detected';
-      errMsg = es ? '¿Es un estado de cuenta o recibo válido? Asegúrate de que la imagen sea clara.' : 'Is this a valid statement or receipt? Make sure the image is clear.';
-    } else if(err.message.includes('tras 2 intentos') || err.message.includes('after 2 attempts')){
-      errTitle = es ? '🤖 La IA no pudo procesar este formato' : '🤖 AI could not process this format';
-      errMsg = es ? 'Prueba con el importador CSV manual o toma una foto más clara.' : 'Try the manual CSV importer or take a clearer photo.';
-    }
-
-    if(zone2) zone2.innerHTML = `
-      <div class="uz-ico">❌</div>
-      <div class="uz-title" style="margin-bottom:6px">${errTitle}</div>
-      <div class="uz-sub" style="margin-bottom:${errTip?'4px':'12px'}">${errMsg}</div>
-      ${errTip?`<div class="uz-sub" style="margin-bottom:12px;font-style:italic">${errTip}</div>`:''}
-      <button class="btn-secondary" style="max-width:200px;margin:0 auto;display:block" onclick="renderStep2()">
-        ${es?'← Intentar de nuevo':'← Try again'}
-      </button>`;
+  } catch (err) {
+    var zone2 = document.getElementById('dropZone');
+    var errTitle = L ? 'Error al analizar' : 'Error analyzing', errMsg = err.message, errTip = '';
+    if (err.message.indexOf('API key') > -1) { errTitle = L ? '⚙️ Error de configuración' : '⚙️ Configuration error'; errMsg = L ? 'La API key no está configurada correctamente.' : 'API key is not configured correctly.'; errTip = L ? 'Contacta al soporte de FinTrack Pro.' : 'Contact FinTrack Pro support.'; }
+    else if (err.message.indexOf('413') > -1 || err.message.indexOf('too large') > -1 || err.message.indexOf('grande') > -1) { errTitle = L ? '📏 Archivo demasiado grande' : '📏 File too large'; errMsg = L ? 'El archivo es muy pesado. Intenta con una imagen más pequeña o menos páginas.' : 'File is too large. Try a smaller image or fewer pages.'; }
+    else if (err.message.indexOf('429') > -1 || err.message.indexOf('rate') > -1) { errTitle = L ? '⏳ Demasiadas solicitudes' : '⏳ Too many requests'; errMsg = L ? 'Espera unos segundos e intenta de nuevo.' : 'Wait a few seconds and try again.'; }
+    else if (err.message.indexOf('No transactions') > -1 || err.message.indexOf('No se encontraron') > -1) { errTitle = L ? '🔍 Sin transacciones detectadas' : '🔍 No transactions detected'; errMsg = L ? '¿Es un estado de cuenta o recibo válido? Asegúrate de que la imagen sea clara.' : 'Is this a valid statement or receipt? Make sure the image is clear.'; }
+    else if (err.message.indexOf('tras 2 intentos') > -1 || err.message.indexOf('after 2 attempts') > -1) { errTitle = L ? '🤖 La IA no pudo procesar este formato' : '🤖 AI could not process this format'; errMsg = L ? 'Prueba con el importador CSV manual o toma una foto más clara.' : 'Try the manual CSV importer or take a clearer photo.'; }
+    if (zone2) zone2.innerHTML = '<div class="uz-ico">❌</div><div class="uz-title" style="margin-bottom:6px">' + errTitle + '</div><div class="uz-sub" style="margin-bottom:' + (errTip ? '4px' : '12px') + '">' + errMsg + '</div>' + (errTip ? '<div class="uz-sub" style="margin-bottom:12px;font-style:italic">' + errTip + '</div>' : '') + '<button class="ft-btn ft-btn-ghost tap" style="max-width:200px;margin:0 auto;display:block" onclick="renderStep2()">' + (L ? '← Intentar de nuevo' : '← Try again') + '</button>';
   }
 }
 
-async function compressAndEncode(file){
-  return new Promise(resolve=>{
-    const reader = new FileReader();
-    reader.onload = e=>{
-      const img = new Image();
-      img.onload = ()=>{
-        const canvas = document.createElement('canvas');
-        let w=img.width, h=img.height;
-        if(w>1200){ h=Math.round(h*1200/w); w=1200; }
-        canvas.width=w; canvas.height=h;
-        canvas.getContext('2d').drawImage(img,0,0,w,h);
-        resolve(canvas.toDataURL('image/jpeg',0.8).split(',')[1]);
+async function compressAndEncode(file) {
+  return new Promise(function (resolve) {
+    var reader = new FileReader();
+    reader.onload = function (e) {
+      var img = new Image();
+      img.onload = function () {
+        var canvas = document.createElement('canvas'), w = img.width, h = img.height;
+        if (w > 1200) { h = Math.round(h * 1200 / w); w = 1200; }
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', 0.8).split(',')[1]);
       };
-      img.src=e.target.result;
+      img.src = e.target.result;
     };
     reader.readAsDataURL(file);
   });
@@ -2145,39 +975,35 @@ async function compressAndEncode(file){
 /* ══════════════════════════════════════
    INIT
 ══════════════════════════════════════ */
-loadSession();
-renderStep1();
+document.addEventListener('ft:ready', function () {
+  var t = function () { return FT.lang === 'es' ? 'Importar transacciones' : 'Import transactions'; };
+  var sh = FT.shell({ active: '', title: t() });
+  document.addEventListener('ft:langchange', function () {
+    sh.setTitle(t());
+    FT.applyLang(document);
+    ({ 1: renderStep1, 2: renderStep2, 3: renderStep3, 4: function () {} })[step]();
+  });
 
-// Conectar botones del panel de créditos estático
-document.getElementById('btnActivarCode').addEventListener('click', activarCodigoCreditos);
-document.getElementById('btnCerrarCredits').addEventListener('click', function(){
-  document.getElementById('creditsPanel').style.display='none';
-});
-document.getElementById('btnComprarEtsy').addEventListener('click', function(){
-  window.open('https://www.etsy.com/shop/finanzone','_blank');
-});
-document.getElementById('creditsPanel').addEventListener('click', function(e){
-  if(e.target===this) this.style.display='none';
-});
+  document.getElementById('btnActivarCode').addEventListener('click', activarCodigoCreditos);
+  document.getElementById('btnCerrarCredits').addEventListener('click', function () { document.getElementById('creditsPanel').style.display = 'none'; });
+  document.getElementById('btnComprarEtsy').addEventListener('click', function () { window.open('https://www.etsy.com/shop/finanzone', '_blank'); });
+  document.getElementById('creditsPanel').addEventListener('click', function (e) { if (e.target === this) this.style.display = 'none'; });
 
-// Sincronizar créditos extra del GAS en segundo plano
-(async function syncCreditsFromGAS(){
-  try {
-    if(!user||!user.email) return;
-    const GAS_URL_CREDITS = 'https://script.google.com/macros/s/AKfycbwITyU4qld-IOEVKyLU9XHI46T8g_LjJaNp3nlQgler8-nMeIlztMmG_lZMVMm9cBkP/exec';
-    const url = GAS_URL_CREDITS + '?action=checkAccess&email=' + encodeURIComponent(user.email);
-    const res = await fetch(url);
-    const data = await res.json();
-    if(data && data.creditsExtra && data.creditsExtra > 0){
-      const ai = JSON.parse(localStorage.getItem('ft_ai_credits')||'{"used":0,"extra":0}');
-      if(data.creditsExtra > (ai.extra||0)){
-        ai.extra = data.creditsExtra;
-        localStorage.setItem('ft_ai_credits', JSON.stringify(ai));
-        renderStep1(); // refrescar badge
+  renderStep1();
+
+  // Sincroniza créditos extra del GAS en segundo plano
+  (async function syncCreditsFromGAS() {
+    try {
+      var u = FT.user();
+      if (!u || !u.email) return;
+      var data = await FT.checkAccess(u.email);
+      if (data && data.creditsExtra && data.creditsExtra > 0) {
+        var c = FT.getCredits();
+        if (data.creditsExtra > (c.extra || 0)) { c.extra = data.creditsExtra; FT.set(FT.K.aiCredits, c); if (step === 1) renderStep1(); }
       }
-    }
-  } catch(e){}
-})();
+    } catch (e) {}
+  })();
+});
 </script>
 </body>
 </html>

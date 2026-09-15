@@ -4,482 +4,154 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>FinTrack Pro · Recurrentes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
 <script src="premium.js"></script>
-<style>
-:root{--g-dark:#0F5132;--g-main:#1A7A4A;--g-light:#E8F7EF;--white:#fff;--off:#F7F8FC;--border:#E4E6F0;--text:#1A1D2E;--text2:#4A4E69;--text3:#9395A5;--red:#E63946;--red-dim:rgba(230,57,70,.1);--amber:#F4A261;--amb-dim:rgba(244,162,97,.12);--blue:#4A6CF7;--blu-dim:rgba(74,108,247,.1);--shadow:0 2px 12px rgba(0,0,0,.06);--round-font:'Nunito',-apple-system,'SF Pro Rounded',sans-serif;--glass-bg:rgba(255,255,255,.55);--glass-border:rgba(255,255,255,.6);--glass-shadow:0 8px 32px -12px rgba(20,20,30,.10);--bg-gradient:linear-gradient(160deg,#FDEEE3 0%,#E9F3FC 45%,#EAF8EF 100%);--tag-bg:#EFEFF1;}
-*{margin:0;padding:0;box-sizing:border-box;}
-html,body{overflow-x:hidden;max-width:100vw;}
-body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg-gradient);background-attachment:fixed;color:var(--text);min-height:100vh;padding-bottom:90px;}
-.glass{background:var(--glass-bg);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid var(--glass-border);box-shadow:var(--glass-shadow);}
-.round-num{font-family:var(--round-font);font-weight:800;}
-.topbar{background:var(--glass-bg);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-bottom:1px solid var(--glass-border);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
-.topbar-title{font-size:17px;font-weight:800;}
-.page{padding:16px;overflow-x:hidden;}
-.page [style*="grid-template-columns"] > *{min-width:0;}
-.card{background:var(--glass-bg);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid var(--glass-border);border-radius:16px;padding:14px;margin-bottom:12px;box-shadow:var(--glass-shadow);}
-.lang-toggle{display:flex;background:var(--off);border:1px solid var(--border);border-radius:20px;overflow:hidden;font-size:11px;font-weight:700;}
-.kebab-btn{cursor:pointer;width:36px;height:36px;border-radius:99px;background:var(--off);display:grid;place-items:center;font-size:18px;flex-shrink:0;color:var(--text2);border:none;font-family:inherit;line-height:1;}
-.kebab-menu{position:absolute;top:56px;right:16px;background:white;border:1px solid var(--border);border-radius:14px;box-shadow:0 12px 28px -8px rgba(20,20,30,.18);padding:6px;z-index:60;display:none;min-width:180px;}
-.kebab-menu.on{display:block;}
-.kebab-menu button{width:100%;text-align:left;background:none;border:none;padding:10px 12px;font-size:13px;font-weight:700;color:var(--text);cursor:pointer;font-family:inherit;border-radius:8px;display:flex;align-items:center;gap:8px;}
-.kebab-menu button:hover{background:var(--off);}
-
-.lt-opt{padding:5px 12px;cursor:pointer;color:var(--text3);}
-.lt-opt.on{background:var(--g-main);color:white;}
-.btn{border:none;border-radius:12px;padding:11px 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;}
-.btn-primary{background:var(--blue);color:white;}
-.filter-row{display:flex;gap:6px;margin-bottom:14px;}
-.filter-btn{flex-shrink:0;background:var(--off);border:1.5px solid var(--border);border-radius:20px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;color:var(--text3);font-family:inherit;}
-.filter-btn.on{background:var(--blue);border-color:var(--blue);color:white;}
-.sub-item{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--off);}
-.sub-item:last-child{border-bottom:none;}
-.sub-ico{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;font-size:20px;background:var(--blu-dim);}
-.sub-info{flex:1;}
-.sub-name{font-size:13px;font-weight:700;}
-.sub-meta{font-size:11px;color:var(--text3);}
-.sub-amount{font-size:14px;font-weight:800;color:var(--blue);}
-.overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;place-items:center;z-index:150;}
-.overlay.open{display:grid;}
-.modal{background:var(--white);border-radius:20px;width:min(480px,calc(100vw - 24px));max-height:88vh;overflow-y:auto;padding:20px;}
-.field{margin-bottom:14px;}
-.field label{display:block;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;}
-.field input,.field select{width:100%;background:var(--off);border:1.5px solid var(--border);border-radius:10px;padding:11px 13px;font-size:14px;font-family:inherit;outline:none;}
-.field input:focus,.field select:focus{border-color:var(--blue);}
-.app{display:flex;min-height:100vh;}
-.sidebar{width:var(--sidebar,240px);background:var(--white);border-right:1px solid var(--border);position:fixed;top:0;left:0;bottom:0;display:flex;flex-direction:column;z-index:50;overflow-y:auto;transition:width .18s ease;}
-.sidebar.collapsed{width:64px;}
-.sidebar.collapsed .sb-name,.sidebar.collapsed .sb-tag,.sidebar.collapsed .sb-section,.sidebar.collapsed .sb-link span:last-child{display:none;}
-.sidebar.collapsed .sb-link{justify-content:center;padding:10px 0;}
-.sidebar.collapsed .sb-logo{justify-content:center;padding:0 8px;}
-.sidebar.collapsed .sb-logo>div:last-child{display:none;}
-.sb-collapse-btn{position:absolute;top:14px;right:-13px;width:26px;height:26px;border-radius:50%;background:var(--white);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;z-index:51;box-shadow:0 2px 6px rgba(0,0,0,.08);}
-.sidebar.collapsed ~ .main{margin-left:64px;}
-.sb-logo{display:flex;align-items:center;gap:10px;padding:22px 18px 18px;border-bottom:1px solid var(--border);}
-.sb-mark{width:36px;height:36px;background:linear-gradient(135deg,var(--g-dark),var(--g-main));border-radius:11px;display:grid;place-items:center;color:white;font-size:17px;}
-.sb-name{font-size:15px;font-weight:800;}.sb-tag{font-size:10px;color:var(--text3);}
-.sb-nav{padding:14px 10px;flex:1;}
-.sb-section{font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);padding:10px 8px 5px;}
-.sb-link{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:10px;font-size:13px;font-weight:600;color:var(--text2);cursor:pointer;margin-bottom:2px;transition:all .15s;}
-.sb-link:hover{background:var(--off);}
-.sb-link.on{background:var(--g-light);color:var(--g-main);}
-.sb-ico{font-size:15px;width:20px;text-align:center;flex-shrink:0;}
-.sb-footer{border-top:1px solid var(--border);padding:12px 10px;}
-.sb-user{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:10px;cursor:pointer;}
-.sb-user:hover{background:var(--off);}
-.sb-avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--g-dark),var(--g-main));display:grid;place-items:center;color:white;font-size:13px;font-weight:700;}
-.sb-uname{font-size:13px;font-weight:700;}.sb-umail{font-size:10px;color:var(--text3);}
-.main{margin-left:var(--sidebar,240px);flex:1;display:flex;flex-direction:column;}
-.mob-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--white);border-top:1px solid var(--border);padding:8px 0 calc(8px + env(safe-area-inset-bottom));z-index:100;gap:0;}
-.mob-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:9px;font-weight:700;color:var(--text3);cursor:pointer;padding:4px 0;}
-.mob-item.on{color:var(--g-main);}
-.mob-ico{font-size:22px;line-height:1.2;}
-.mob-plus{width:52px;height:52px;border-radius:50%;background:var(--g-main);display:flex;align-items:center;justify-content:center;font-size:26px;color:white;margin-top:-18px;box-shadow:0 4px 14px rgba(26,122,74,.4);}
-.more-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;align-items:flex-end;z-index:200;}
-.more-overlay.open{display:flex;}
-.more-panel{background:var(--white);width:100%;border-radius:24px 24px 0 0;padding:12px 20px calc(28px + env(safe-area-inset-bottom));}
-.more-handle{width:36px;height:4px;background:var(--border);border-radius:100px;margin:0 auto 16px;}
-.more-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
-.more-item{display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;}
-.more-ico{width:52px;height:52px;border-radius:16px;display:grid;place-items:center;font-size:24px;}
-.more-item span{font-size:11px;font-weight:600;color:var(--text2);text-align:center;}
-#toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#1A1D2E;color:white;padding:12px 20px;border-radius:20px;font-size:13px;font-weight:600;display:none;z-index:300;}
-
-input, select, textarea { font-size: 16px !important; }
-@media(max-width:860px){.sidebar{display:none;}.main{margin-left:0;max-width:100vw;overflow-x:hidden;min-width:0;}.mob-nav{display:flex!important;}}
-</style>
 </head>
 <body>
-<div class="app">
-<aside class="sidebar" id="sidebar">
-  <div class="sb-collapse-btn" id="sbCollapseBtn" onclick="toggleSidebar()">◀</div>
-  <div class="sb-logo"><div class="sb-mark">💎</div><div><div class="sb-name">FinTrack Pro</div><div class="sb-tag">Panel financiero</div></div></div>
-  <nav class="sb-nav">
-    <div class="sb-section">Principal</div>
-    <div class="sb-link" onclick="go('dashboard.html')"><span class="sb-ico">📊</span><span>Dashboard</span></div>
-    <div class="sb-link" onclick="go('dashboard.html')"><span class="sb-ico">➕</span><span data-es="Nuevo registro" data-en="New entry">Nuevo registro</span></div>
-    <div class="sb-link" onclick="go('suscripciones.html')"><span class="sb-ico">🔄</span><span data-es="Suscripciones" data-en="Subscriptions">Suscripciones</span></div>
-    <div class="sb-link" onclick="go('servicios.html')"><span class="sb-ico">🏠</span><span data-es="Servicios de la casa" data-en="Household services">Servicios de la casa</span></div>
-    <div class="sb-link on"><span class="sb-ico">🔄</span><span data-es="Recurrentes" data-en="Recurring">Recurrentes</span></div>
-    <div class="sb-link" onclick="go('metas.html')"><span class="sb-ico">🎯</span><span data-es="Metas" data-en="Goals">Metas</span></div>
-    <div class="sb-link" onclick="go('deudas.html')"><span class="sb-ico">💳</span><span data-es="Deudas" data-en="Debts">Deudas</span></div>
-    <div class="sb-section">Análisis</div>
-    <div class="sb-link" onclick="go('analisis.html')"><span class="sb-ico">📈</span><span data-es="Por categoría" data-en="By category">Por categoría</span></div>
-    <div class="sb-link" onclick="go('historial.html')"><span class="sb-ico">📅</span><span data-es="Historial" data-en="History">Historial</span></div>
-    <div class="sb-link" onclick="go('inversiones.html')"><span class="sb-ico">🏦</span><span data-es="Inversiones" data-en="Investments">Inversiones</span></div>
-    <div class="sb-link" onclick="go('reporte.html')"><span class="sb-ico">📄</span><span data-es="Reporte mensual" data-en="Monthly report">Reporte mensual</span></div>
-    <div class="sb-section">Herramientas</div>
-    <div class="sb-link" onclick="go('scanner.html')"><span class="sb-ico">📷</span><span data-es="Escanear recibo" data-en="Scan receipt">Escanear recibo</span></div>
-    <div class="sb-link" onclick="go('importar.html')"><span class="sb-ico">📥</span><span data-es="Importar CSV" data-en="Import CSV">Importar CSV</span></div>
-    <div class="sb-link" onclick="go('emergencia.html')"><span class="sb-ico">🛡️</span><span data-es="Fondo emergencia" data-en="Emergency fund">Fondo emergencia</span></div>
-    <div class="sb-link" onclick="go('ahorro.html')"><span class="sb-ico">💵</span><span data-es="Ahorro libre" data-en="Free savings">Ahorro libre</span></div>
-    <div class="sb-link" onclick="go('hogar.html')"><span class="sb-ico">🏠</span><span data-es="Hogar" data-en="Household">Hogar</span></div>
-    <div class="sb-section">Cuenta</div>
-    <div class="sb-link" onclick="go('perfil.html')"><span class="sb-ico">👤</span><span data-es="Mi perfil" data-en="My profile">Mi perfil</span></div>
-    <div class="sb-link" onclick="go('config.html')"><span class="sb-ico">⚙️</span><span data-es="Configuración" data-en="Settings">Configuración</span></div>
-    <div class="sb-link" onclick="logout()"><span class="sb-ico">🚪</span><span data-es="Cerrar sesión" data-en="Log out">Cerrar sesión</span></div>
-  </nav>
-  <div class="sb-footer"><div class="sb-user" onclick="go('perfil.html')"><div class="sb-avatar" id="sbAvatar">R</div><div><div class="sb-uname" id="sbName">—</div><div class="sb-umail" id="sbEmail">—</div></div></div></div>
-</aside>
-<div class="main">
-
-<div class="topbar" style="position:relative;">
-  <div class="topbar-title">🔄 <span data-es="Recurrentes" data-en="Recurring">Recurrentes</span></div>
-  <button class="kebab-btn" onclick="document.getElementById('kebabMenu').classList.toggle('on')">⋯</button>
-  <div id="kebabMenu" class="kebab-menu" onclick="document.getElementById('kebabMenu').classList.remove('on')">
-    <button onclick="showHelpModal()">❓ <span data-es="Ayuda" data-en="Help">Ayuda</span></button>
-    <button onclick="setLang(lang==='es'?'en':'es')">🌐 <span data-es="English" data-en="Español">English</span></button>
-  </div>
-</div>
-<div class="lang-toggle" style="display:none">
-  <div class="lt-opt on" id="ltES" onclick="setLang('es')">ES</div>
-  <div class="lt-opt" id="ltEN" onclick="setLang('en')">EN</div>
-</div>
-
-<div class="page">
-  <div id="summaryCard" class="card"></div>
-  <div class="filter-row" style="flex-wrap:wrap">
-    <button class="filter-btn on" onclick="setFilter('all',this)" data-es="Todos" data-en="All">Todos</button>
-    <button class="filter-btn" onclick="setFilter('debt',this)" data-es="💳 Deudas" data-en="💳 Debts">💳 Deudas</button>
-    <button class="filter-btn" onclick="setFilter('meta',this)" data-es="🎯 Metas" data-en="🎯 Goals">🎯 Metas</button>
-    <button class="filter-btn" onclick="setFilter('ahorro',this)" data-es="💵 Ahorro" data-en="💵 Savings">💵 Ahorro</button>
-    <button class="filter-btn" onclick="setFilter('inversion',this)" data-es="📈 Inversión" data-en="📈 Investment">📈 Inversión</button>
-    <button class="filter-btn" onclick="setFilter('sub',this)" data-es="🎬 Suscripciones" data-en="🎬 Subscriptions">🎬 Suscripciones</button>
-    <button class="filter-btn" onclick="setFilter('serv',this)" data-es="🏠 Servicios" data-en="🏠 Services">🏠 Servicios</button>
-  </div>
-  <div class="card" id="subList"></div>
-</div>
-
-<!-- DETAIL MODAL -->
-<div class="overlay" id="detailOverlay" onclick="if(event.target===this)closeDetail()">
-  <div class="modal" id="detailBox"></div>
-</div>
-
-<!-- MODAL -->
-<div class="overlay" id="overlay" onclick="if(event.target===this)closeModal()">
-  <div class="modal">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-      <div style="font-size:16px;font-weight:800" id="modalTitle">Nuevo servicio</div>
-      <div onclick="closeModal()" style="cursor:pointer;font-size:20px;color:var(--text3)">✕</div>
-    </div>
-    <div class="field"><label>Nombre</label><input type="text" id="fName" placeholder="Luz, Agua, Internet..."></div>
-    <div class="field"><label>Monto ($)</label><input type="number" id="fAmount" placeholder="0.00" step="0.01" min="0"></div>
-    <div class="field">
-      <label data-es="Frecuencia" data-en="Frequency">Frecuencia</label>
-      <select id="fFreq">
-        <option value="monthly" data-es="Mensual" data-en="Monthly">Mensual</option>
-        <option value="annual" data-es="Anual" data-en="Annual">Anual</option>
-        <option value="weekly" data-es="Semanal" data-en="Weekly">Semanal</option>
-      </select>
-    </div>
-    <div class="field">
-      <label data-es="Fecha de cobro" data-en="Billing date">Fecha de cobro</label>
-      <input type="date" id="fDate">
-    </div>
-    <div class="field"><label>Categoría</label>
-      <select id="fCat">
-        <option>💡 Luz</option><option>💧 Agua</option><option>🔥 Gas</option>
-        <option>📶 Internet</option><option>🧹 Mantenimiento</option><option>Otro</option>
-      </select>
-    </div>
-    <button class="btn btn-primary" onclick="saveSub()" style="width:100%;margin-bottom:8px">Guardar</button>
-    <button class="btn" style="width:100%;background:var(--off);border:1.5px solid var(--border)" onclick="closeModal()">Cancelar</button>
-  </div>
-</div>
-
-<div id="toast"></div>
-
-<div class="more-overlay" id="moreOverlay" onclick="if(event.target===this)closeMoreMenu()">
-  <div class="more-panel">
-    <div class="more-handle"></div>
-    <div class="more-grid">
-      <div class="more-item" onclick="go('analisis.html')"><div class="more-ico" style="background:var(--g-light)">📈</div><span data-es="Análisis" data-en="Analysis">Análisis</span></div>
-      <div class="more-item" onclick="go('metas.html')"><div class="more-ico" style="background:var(--amb-dim)">🎯</div><span data-es="Metas" data-en="Goals">Metas</span></div>
-      <div class="more-item" onclick="go('deudas.html')"><div class="more-ico" style="background:var(--red-dim)">💳</div><span data-es="Deudas" data-en="Debts">Deudas</span></div>
-      <div class="more-item" onclick="go('ahorro.html')"><div class="more-ico" style="background:var(--pur-dim,rgba(123,94,167,.1))">💵</div><span data-es="Ahorro libre" data-en="Free savings">Ahorro libre</span></div>
-      <div class="more-item" onclick="go('inversiones.html')"><div class="more-ico" style="background:var(--blu-dim)">🏦</div><span data-es="Inversiones" data-en="Investments">Inversiones</span></div>
-      <div class="more-item" onclick="go('scanner.html')"><div class="more-ico" style="background:rgba(123,94,167,.1)">📷</div><span data-es="Escanear" data-en="Scan">Escanear</span></div>
-      <div class="more-item" onclick="go('importar.html')"><div class="more-ico" style="background:var(--blu-dim)">📥</div><span data-es="Importar CSV" data-en="Import CSV">Importar CSV</span></div>
-      <div class="more-item" onclick="go('emergencia.html')"><div class="more-ico" style="background:var(--amb-dim)">🛡️</div><span data-es="Emergencia" data-en="Emergency">Emergencia</span></div>
-      <div class="more-item" onclick="go('suscripciones.html')"><div class="more-ico" style="background:rgba(123,94,167,.1)">🔄</div><span data-es="Suscripciones" data-en="Subscriptions">Suscripciones</span></div>
-      <div class="more-item" onclick="go('servicios.html')"><div class="more-ico" style="background:var(--blu-dim)">🏠</div><span data-es="Servicios casa" data-en="Household services">Servicios casa</span></div>
-      <div class="more-item" onclick="go('config.html')"><div class="more-ico" style="background:var(--off)">⚙️</div><span data-es="Config" data-en="Settings">Config</span></div>
-      <div class="more-item" onclick="go('perfil.html')"><div class="more-ico" style="background:var(--blu-dim)">👤</div><span data-es="Perfil" data-en="Profile">Perfil</span></div>
-    </div>
-  </div>
-</div>
-
-</div><!-- /main -->
-</div><!-- /app -->
-
-<nav class="mob-nav">
-  <div class="mob-item" onclick="go('dashboard.html')"><div class="mob-ico">📊</div><span data-es="Inicio" data-en="Home">Inicio</span></div>
-  <div class="mob-item" onclick="go('historial.html')"><div class="mob-ico">📅</div><span data-es="Historial" data-en="History">Historial</span></div>
-  <div class="mob-item" onclick="go('dashboard.html')"><div class="mob-plus">＋</div></div>
-  <div class="mob-item" onclick="go('hogar.html')"><div class="mob-ico">🏠</div><span data-es="Hogar" data-en="Household">Hogar</span></div>
-  <div class="mob-item" onclick="openMoreMenu()"><div class="mob-ico">☰</div><span data-es="Más" data-en="More">Más</span></div>
-</nav>
-
+<div class="ft-app"><div class="ft-page" id="root"></div></div>
 <script>
-let user={},lang='es',filterMode='all';
-let editingId=null;
-let detailId=null;
-const KEY='ft_servicios';
+var filterMode = 'all';
+var FILTERS = [
+  ['all', '🔁', 'Todos', 'All'],
+  ['debt', '💳', 'Deudas', 'Debts'],
+  ['ahorro', '💵', 'Ahorro libre', 'Free savings'],
+  ['emerg', '🛡️', 'Emergencia', 'Emergency'],
+  ['inversion', '📈', 'Inversión', 'Investment'],
+  ['metapersonal', '🎯', 'Mis metas', 'My goals'],
+  ['hogar', '🏠', 'Aportes hogar', 'Household deposits'],
+  ['sub', '🔄', 'Suscripciones', 'Subscriptions'],
+  ['serv', '🏠', 'Servicios', 'Services']
+];
+var PASTEL = { debt: 'coral', ahorro: 'mint', emerg: 'sky', inversion: 'peach', hogar: 'pink', metapersonal: 'peach', sub: 'pink', serv: 'coral' };
+var PASTEL_TX = { debt: 'var(--coral-tx)', ahorro: 'var(--mint-tx)', emerg: 'var(--sky-tx)', inversion: 'var(--peach-tx)', hogar: 'var(--pink-tx)', metapersonal: 'var(--peach-tx)', sub: 'var(--pink-tx)', serv: 'var(--coral-tx)' };
+var PAGE_LABEL = { debt: ['Deudas', 'Debts'], ahorro: ['Ahorro libre', 'Free savings'], emerg: ['Emergencia', 'Emergency'], inversion: ['Inversiones', 'Investments'], hogar: ['Hogar', 'Household'], metapersonal: ['Metas', 'Goals'], sub: ['Suscripciones', 'Subscriptions'], serv: ['Servicios', 'Services'] };
 
-function loadSubs(){ try{return JSON.parse(localStorage.getItem(KEY))||[];}catch(e){return[];} }
-function saveSubs(d){ localStorage.setItem(KEY,JSON.stringify(d)); }
-function fmt(n){ return '$'+Math.abs(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
-function go(url){ window.location.href=url; }
+function es() { return FT.lang === 'es'; }
+function toMonthly(i) { if (i.freq === 'annual') return i.amount / 12; if (i.freq === 'weekly') return i.amount * 4.33; if (i.freq === 'biweekly') return i.amount * 2.17; return i.amount; }
+function freqLbl(f) { var L = es(); return { weekly: L ? 'Semanal' : 'Weekly', biweekly: L ? 'Quincenal' : 'Biweekly', monthly: L ? 'Mensual' : 'Monthly', annual: L ? 'Anual' : 'Annual' }[f] || f; }
 
-/* ── SIDEBAR COLLAPSE (desktop only) ── */
-function toggleSidebar(){
-  const sb = document.getElementById('sidebar');
-  const btn = document.getElementById('sbCollapseBtn');
-  if(!sb) return;
-  const collapsed = sb.classList.toggle('collapsed');
-  if(btn) btn.textContent = collapsed ? '▶' : '◀';
-  localStorage.setItem('ft_sidebar_collapsed', collapsed ? '1' : '0');
-}
-(function initSidebarState(){
-  if(window.innerWidth <= 860) return;
-  const sb = document.getElementById('sidebar');
-  const btn = document.getElementById('sbCollapseBtn');
-  if(!sb) return;
-  if(localStorage.getItem('ft_sidebar_collapsed') === '1'){
-    sb.classList.add('collapsed');
-    if(btn) btn.textContent = '▶';
+function render() {
+  var L = es(), root = document.getElementById('root');
+  var all = FT.recurAllList();
+  var active = all.filter(function (i) { return !i.paused; });
+  var total = active.reduce(function (a, i) { return a + toMonthly(i); }, 0);
+  var items = filterMode === 'all' ? all : all.filter(function (i) { return i.pk === filterMode; });
+
+  var h = '<div class="ft-card">' +
+    '<div style="font-size:11px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">' + (L ? 'Total recurrente activo' : 'Total active recurring') + '</div>' +
+    '<div class="ft-num" style="font-size:30px">' + FT.money(total) + '<span style="font-size:13px;color:var(--text3);font-weight:600">/' + (L ? 'mes' : 'mo') + '</span></div>' +
+    '<div style="font-size:11px;color:var(--text3);margin-top:4px">' + all.length + ' ' + (L ? 'recurrente(s) en total · ' : 'recurring item(s) total · ') + active.length + ' ' + (L ? 'activo(s)' : 'active') + '</div></div>';
+
+  h += '<div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;margin-bottom:14px">' +
+    FILTERS.map(function (f) {
+      var on = filterMode === f[0];
+      return '<button class="tap" data-f="' + f[0] + '" style="flex-shrink:0;background:' + (on ? 'var(--ink)' : 'var(--sunk)') + ';border:1.5px solid ' + (on ? 'var(--ink)' : 'var(--hair)') + ';color:' + (on ? '#fff' : 'var(--text2)') + ';border-radius:99px;padding:6px 13px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;white-space:nowrap">' + f[1] + ' ' + (L ? f[2] : f[3]) + '</button>';
+    }).join('') + '</div>';
+
+  if (!items.length) {
+    h += '<div class="ft-empty">' + (L ? 'Nada por aquí en este filtro.' : 'Nothing here for this filter.') + '</div>';
+  } else {
+    h += '<div class="ft-card" style="padding:2px 16px">' + items.map(function (i) {
+      var days = i.nextDate ? Math.ceil((new Date(i.nextDate + 'T00:00:00') - new Date(new Date().toDateString())) / 86400000) : null;
+      return '<div class="tap" data-manage="' + i.uid + '" style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--hair);cursor:pointer">' +
+        '<div class="ft-tx-ico ' + PASTEL[i.pk] + '" style="width:42px;height:42px;font-size:19px;display:grid;place-items:center;border-radius:13px;flex-shrink:0">' + i.icon + '</div>' +
+        '<div style="flex:1;min-width:0">' +
+          '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">' +
+            '<div style="font-size:13.5px;font-weight:800">' + i.name + '</div>' +
+            (i.paused ? '<span style="font-size:9px;font-weight:800;padding:2px 7px;border-radius:20px;background:var(--chip);color:var(--text3)">' + (L ? 'PAUSADO' : 'PAUSED') + '</span>' : '<span style="font-size:9px;font-weight:800;padding:2px 7px;border-radius:20px;background:var(--g-light);color:var(--g-dark)">🔁 ' + (L ? 'Activo' : 'Active') + '</span>') +
+          '</div>' +
+          '<div style="font-size:10.5px;color:var(--text3)">' + i.typeLabel + ' · ' + freqLbl(i.freq) + '</div>' +
+          '<div style="font-size:10.5px;color:var(--text3);margin-top:1px">' + (L ? 'próximo' : 'next') + ' <b style="color:var(--text2)">' + (i.nextDate ? FT.date(i.nextDate) : '—') + '</b>' +
+            (!i.paused && days != null && days >= 0 && days <= 3 ? ' · ' + (days === 0 ? (L ? 'hoy' : 'today') : days + 'd') : '') +
+            (i.lastApplied ? ' · ' + (L ? 'último' : 'last') + ' <b style="color:var(--text2)">' + FT.date(i.lastApplied) + '</b>' : '') + '</div>' +
+        '</div>' +
+        '<div style="text-align:right;flex-shrink:0">' +
+          '<div style="font-size:14px;font-weight:800;color:' + PASTEL_TX[i.pk] + '">' + FT.money(i.amount) + '</div>' +
+          '<div style="font-size:9.5px;color:var(--blue);font-weight:700">' + (L ? 'Gestionar →' : 'Manage →') + '</div>' +
+        '</div>' +
+      '</div>';
+    }).join('') + '</div>';
   }
-})();
-function logout(){sessionStorage.clear();['ft_user','ft_user_setup','ft_premium','ft_lang'].forEach(k=>localStorage.removeItem(k));window.location.replace('login.html');}
-function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.style.display='block';setTimeout(()=>t.style.display='none',3000);}
-function openMoreMenu(){document.getElementById('moreOverlay').classList.add('open');}
-function closeMoreMenu(){document.getElementById('moreOverlay').classList.remove('open');}
 
-function setLang(l){
-  lang=l;localStorage.setItem('ft_lang',l);
-  document.getElementById('ltES').classList.toggle('on',l==='es');
-  document.getElementById('ltEN').classList.toggle('on',l==='en');
-  document.querySelectorAll('[data-es]').forEach(el=>{const v=el.getAttribute('data-'+l);if(v)el.textContent=v;});
+  root.innerHTML = h;
+  root.querySelectorAll('[data-f]').forEach(function (b) { b.onclick = function () { filterMode = b.getAttribute('data-f'); render(); }; });
+  root.querySelectorAll('[data-manage]').forEach(function (b) { b.onclick = function () { openManage(b.getAttribute('data-manage')); }; });
+}
+
+function openManage(uid) {
+  var L = es(), items = FT.recurAllList(), i = items.find(function (x) { return x.uid === uid; });
+  if (!i) return;
+  var deleteWarn = i.kind === 'debt'
+    ? (L ? 'Se cancela el abono automático. La deuda sigue existiendo, solo dejas de pagarla sola.' : 'This cancels the automatic payment. The debt itself is not deleted.')
+    : i.kind === 'metapersonal'
+    ? (L ? 'Se cancela el aporte automático. La meta sigue existiendo, solo dejas de abonarle sola.' : 'This cancels the automatic deposit. The goal itself is not deleted.')
+    : (i.uid.indexOf('recurring:') === 0)
+    ? (L ? 'Se elimina este recurrente. Podrás crear otro cuando quieras.' : 'This recurring item is removed. You can create another anytime.')
+    : (L ? 'Se elimina por completo — no queda registrado en ' + (PAGE_LABEL[i.pk] ? PAGE_LABEL[i.pk][0] : '') + '.' : 'It is deleted entirely — no longer listed in ' + (PAGE_LABEL[i.pk] ? PAGE_LABEL[i.pk][1] : '') + '.');
+  var pageLabel = PAGE_LABEL[i.pk] ? (L ? PAGE_LABEL[i.pk][0] : PAGE_LABEL[i.pk][1]) : '';
+
+  FT.modal({
+    title: L ? 'Gestionar' : 'Manage',
+    html:
+      '<div style="text-align:center;margin:2px 0 16px">' +
+        '<div class="ft-tx-ico ' + PASTEL[i.pk] + '" style="width:56px;height:56px;font-size:26px;display:grid;place-items:center;border-radius:16px;margin:0 auto 10px">' + i.icon + '</div>' +
+        '<div style="font-size:15px;font-weight:800">' + i.name + '</div>' +
+        '<div style="font-size:11.5px;color:var(--text3);margin-top:2px">' + i.typeLabel + '</div></div>' +
+      '<div class="ft-field"><label>' + (L ? 'Monto' : 'Amount') + ' ($)</label><input id="mgAmount" type="number" step="0.01" min="0" value="' + i.amount + '"></div>' +
+      '<div class="ft-field"><label>' + (L ? 'Frecuencia' : 'Frequency') + '</label><select id="mgFreq">' +
+        ['weekly', 'biweekly', 'monthly', 'annual'].map(function (f) { return '<option value="' + f + '" ' + (f === i.freq ? 'selected' : '') + '>' + freqLbl(f) + '</option>'; }).join('') + '</select></div>' +
+      '<div class="ft-field"><label>' + (L ? 'Próxima fecha' : 'Next date') + '</label><input id="mgDate" type="date" value="' + (i.nextDate || FT.todayISO()) + '"></div>' +
+      '<div id="mgSwRow" style="display:flex;align-items:center;justify-content:space-between;background:var(--sunk);border:1.5px solid var(--hair);border-radius:13px;padding:12px 14px;margin-bottom:6px">' +
+        '<div style="font-size:12.5px;font-weight:700" id="mgSwTxt">' + (i.paused ? (L ? 'Pausado' : 'Paused') : (L ? 'Activo' : 'Active')) + '<small style="display:block;font-weight:500;color:var(--text3);font-size:10.5px;margin-top:1px" id="mgSwSub">' + (i.paused ? (L ? 'No se aplicará hasta reanudar' : "Won't apply until resumed") : (L ? 'Se aplica automáticamente cada periodo' : 'Applies automatically every period')) + '</small></div>' +
+        '<div class="tap" id="mgSw" style="width:42px;height:24px;border-radius:99px;position:relative;cursor:pointer;flex-shrink:0;background:' + (i.paused ? 'var(--hair)' : 'var(--g-main)') + '"><i style="position:absolute;top:3px;left:' + (i.paused ? '3px' : '21px') + ';width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2)"></i></div>' +
+      '</div>' +
+      '<div class="tap" id="mgGo" style="font-size:12px;font-weight:700;color:var(--blue);text-align:center;padding:10px 0 4px">' + (L ? 'Ver detalle completo en ' + pageLabel : 'See full detail in ' + pageLabel) + ' →</div>' +
+      '<div class="tap" id="mgDel" style="font-size:12.5px;font-weight:700;color:var(--red);text-align:center;padding:10px 0 4px;border-top:1px solid var(--hair);margin-top:6px">🗑️ ' + (L ? 'Eliminar recurrente' : 'Delete recurring item') + '</div>',
+    saveLabel: L ? 'Guardar cambios' : 'Save changes',
+    onOpen: function (body) {
+      var paused = i.paused;
+      var sw = body.querySelector('#mgSw'), txt = body.querySelector('#mgSwTxt'), sub = body.querySelector('#mgSwSub');
+      sw.onclick = function () {
+        paused = !paused;
+        sw.dataset.paused = paused ? '1' : '0';
+        sw.style.background = paused ? 'var(--hair)' : 'var(--g-main)';
+        sw.querySelector('i').style.left = paused ? '3px' : '21px';
+        txt.textContent = paused ? (L ? 'Pausado' : 'Paused') : (L ? 'Activo' : 'Active');
+        sub.textContent = paused ? (L ? 'No se aplicará hasta reanudar' : "Won't apply until resumed") : (L ? 'Se aplica automáticamente cada periodo' : 'Applies automatically every period');
+      };
+      sw.dataset.paused = paused ? '1' : '0';
+      body.querySelector('#mgGo').onclick = function () { FT.closeTop(); FT.go(i.page); };
+      body.querySelector('#mgDel').onclick = function () {
+        FT.confirm(deleteWarn + ' ' + (L ? '¿Eliminar?' : 'Delete?')).then(function (ok) {
+          if (!ok) return;
+          FT.recurAllDelete(uid);
+          FT.closeTop();
+          FT.toast(L ? '🗑️ Eliminado' : '🗑️ Deleted');
+          render();
+        });
+      };
+    },
+    onSave: function (body) {
+      var amount = parseFloat(body.querySelector('#mgAmount').value) || i.amount;
+      var freq = body.querySelector('#mgFreq').value;
+      var nextDate = body.querySelector('#mgDate').value;
+      var paused = body.querySelector('#mgSw').dataset.paused === '1';
+      FT.recurAllUpdate(uid, { amount: amount, freq: freq, nextDate: nextDate });
+      FT.recurAllPause(uid, paused);
+      FT.toast(L ? '✅ Recurrente actualizado' : '✅ Recurring updated');
+      render();
+    }
+  });
+}
+
+document.addEventListener('ft:ready', function () {
+  var t = function () { return FT.lang === 'es' ? 'Recurrentes' : 'Recurring'; };
+  var sh = FT.shell({ active: '', title: t() });
+  document.addEventListener('ft:langchange', function () { sh.setTitle(t()); render(); });
+  document.addEventListener('ft:datachanged', render);
   render();
-}
-
-function setFilter(f,btn){
-  filterMode=f;
-  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('on'));
-  btn.classList.add('on');
-  render();
-}
-
-function toMonthly(s){ if(s.freq==='annual') return (parseFloat(s.amount)||0)/12; if(s.freq==='weekly') return (parseFloat(s.amount)||0)*4.33; return parseFloat(s.amount)||0; }
-
-function toMonthlyRec(amount, freq){
-  if(freq==='annual') return (parseFloat(amount)||0)/12;
-  if(freq==='biweekly') return (parseFloat(amount)||0)*2.17;
-  if(freq==='weekly') return (parseFloat(amount)||0)*4.33;
-  return parseFloat(amount)||0;
-}
-
-function loadHogar(){ try{return JSON.parse(localStorage.getItem('ft_hogar'))||{connected:false};}catch(e){return{connected:false};} }
-function loadPartnerProfile(){
-  try {
-    const hogar = loadHogar();
-    if(!hogar.partnerEmail) return null;
-    const key = 'profile_'+hogar.partnerEmail.replace(/[^a-z0-9]/gi,'_');
-    const byKey = localStorage.getItem(key);
-    const bySlot = localStorage.getItem('ft_profile_B');
-    const fromKey = byKey ? JSON.parse(byKey) : null;
-    const fromSlot = bySlot ? JSON.parse(bySlot) : null;
-    if(fromKey && (fromKey.income||0) > 0) return fromKey;
-    if(fromSlot && (fromSlot.income||0) > 0) return fromSlot;
-    return fromKey || fromSlot;
-  } catch(e){ return null; }
-}
-
-function lastAppliedFor(r){
-  try{
-    if(r.kind==='debt'){
-      const debts = JSON.parse(localStorage.getItem('ft_debts')||'[]');
-      const d = debts.find(x=>String(x.id)===String(r.debtId));
-      const matches = (d && d.abonos || []).filter(a=>a.recId===r.id);
-      return matches.length ? matches.reduce((mx,a)=>a.fecha>mx?a.fecha:mx,'') : null;
-    }
-    if(r.kind==='meta'){
-      const f = JSON.parse(localStorage.getItem('ft_hogar_fondos')||'null') || {emerg:{hist:[]},metas:[]};
-      const hist = r.metaTipo==='emerg' ? (f.emerg.hist||[]) : ((r.metaId!=null ? f.metas.find(m=>m.id===r.metaId) : f.metas[r.metaIdx])||{}).hist||[];
-      const matches = hist.filter(h=>h.recId===r.id);
-      return matches.length ? matches.reduce((mx,h)=>h.fecha>mx?h.fecha:mx,'') : null;
-    }
-    if(r.kind==='ahorro'){
-      const hist = JSON.parse(localStorage.getItem('ft_savings_hist')||'[]');
-      const matches = hist.filter(h=>h.recId===r.id);
-      return matches.length ? matches.reduce((mx,h)=>h.fecha>mx?h.fecha:mx,'') : null;
-    }
-    if(r.kind==='inversion'){
-      const invs = JSON.parse(localStorage.getItem('ft_investments')||'[]');
-      const matches = invs.filter(i=>i.recId===r.id);
-      return matches.length ? matches.reduce((mx,i)=>i.date>mx?i.date:mx,'') : null;
-    }
-  }catch(e){}
-  return null;
-}
-
-// Junta TODO lo recurrente de la app en un solo lugar: ft_recurring (deudas,
-// metas/emergencia, ahorro, inversión) + ft_subs (suscripciones) + ft_servicios
-// (servicios de la casa) — antes cada uno vivía escondido en su propia pantalla.
-function loadAllRecurring(){
-  const items = [];
-  let recurring=[]; try{ recurring = JSON.parse(localStorage.getItem('ft_recurring')||'[]'); }catch(e){}
-
-  // Traer también los recurrentes de deuda compartida que subió la pareja
-  // (sharedRecurring), por si el merge de fondo en Dashboard/Deudas aún no corrió
-  // en este dispositivo — así "Recurrentes" siempre muestra la imagen completa:
-  // lo tuyo Y lo de tu pareja sobre la misma deuda/hogar, no solo tu mitad.
-  const partnerProfile = loadPartnerProfile();
-  const partnerShared = (partnerProfile && partnerProfile.data && partnerProfile.data.sharedRecurring) || [];
-  const seenIds = new Set(recurring.map(r=>String(r.id)));
-  partnerShared.forEach(r=>{
-    if(!seenIds.has(String(r.id))){ recurring.push(r); seenIds.add(String(r.id)); }
-  });
-
-  let myDebts=[]; try{ myDebts = JSON.parse(localStorage.getItem('ft_debts')||'[]'); }catch(e){}
-  const partnerDebts = (partnerProfile && partnerProfile.data && partnerProfile.data.sharedDebts) || [];
-  function debtNameFor(debtId){
-    const d = myDebts.find(x=>String(x.id)===String(debtId)) || partnerDebts.find(x=>String(x.id)===String(debtId));
-    return d ? d.name : null;
-  }
-
-  recurring.filter(r=>r.active).forEach(r=>{
-    const kindMeta = {
-      debt:      {icon:'💳', label:{es:'Abono a deuda',en:'Debt payment'}, page:'deudas.html', filterKey:'debt'},
-      meta:      {icon:'🎯', label:{es:'Aporte a meta',en:'Goal deposit'}, page:'hogar.html', filterKey:'meta'},
-      ahorro:    {icon:'💵', label:{es:'Ahorro',en:'Savings'}, page:'ahorro.html', filterKey:'ahorro'},
-      inversion: {icon:'📈', label:{es:'Inversión',en:'Investment'}, page:'inversiones.html', filterKey:'inversion'},
-    }[r.kind] || {icon:'🔄', label:{es:'Recurrente',en:'Recurring'}, page:'dashboard.html', filterKey:'other'};
-    const resolvedName = r.kind==='debt' ? (debtNameFor(r.debtId) || kindMeta.label[lang]) : (r.desc || kindMeta.label[lang]);
-    items.push({
-      name: resolvedName,
-      amount: r.amount, freq: r.freq, nextDate: r.nextDate,
-      icon: kindMeta.icon, typeLabel: kindMeta.label[lang], page: kindMeta.page,
-      filterKey: kindMeta.filterKey, who: r.payerLabel || '', lastApplied: lastAppliedFor(r)
-    });
-  });
-  let subs=[]; try{ subs = JSON.parse(localStorage.getItem('ft_subs')||'[]'); }catch(e){}
-  subs.filter(s=>!s.paused).forEach(s=>{
-    items.push({ name:s.name, amount:s.amount, freq:s.freq, nextDate:s.date, icon:'🎬', typeLabel:lang==='es'?'Suscripción':'Subscription', page:'suscripciones.html', filterKey:'sub', who:'', lastApplied:null });
-  });
-  let servicios=[]; try{ servicios = JSON.parse(localStorage.getItem('ft_servicios')||'[]'); }catch(e){}
-  servicios.filter(s=>!s.paused).forEach(s=>{
-    items.push({ name:s.name, amount:s.amount, freq:s.freq, nextDate:s.date, icon:'🏠', typeLabel:lang==='es'?'Servicio de casa':'Household service', page:'servicios.html', filterKey:'serv', who:'', lastApplied:null });
-  });
-  return items.sort((a,b)=>(a.nextDate||'').localeCompare(b.nextDate||''));
-}
-
-function render(){
-  const es = lang==='es';
-  const all = loadAllRecurring();
-  const items = filterMode==='all' ? all : all.filter(i=>i.filterKey===filterMode);
-
-  const totalMensual = all.reduce((a,i)=>a+toMonthlyRec(i.amount,i.freq),0);
-  document.getElementById('summaryCard').innerHTML = `
-    <div style="font-size:11px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">${es?'Total recurrente estimado':'Estimated recurring total'}</div>
-    <div style="font-size:30px;font-weight:800">${fmt(totalMensual)}<span style="font-size:14px;color:var(--text3);font-weight:600">/${es?'mes':'mo'}</span></div>
-    <div style="font-size:11px;color:var(--text3);margin-top:4px">${all.length} ${es?'recurrente(s) activo(s) en total':'active recurring item(s) total'}</div>`;
-
-  const freqLbl = f => ({weekly:es?'Semanal':'Weekly',biweekly:es?'Quincenal':'Biweekly',monthly:es?'Mensual':'Monthly',annual:es?'Anual':'Annual'}[f]||f);
-
-  const list = document.getElementById('subList');
-  if(!items.length){
-    list.innerHTML = `<div style="text-align:center;padding:30px 10px;color:var(--text3);font-size:13px">${es?'Nada por aquí — cuando crees un recurrente (deuda, meta, ahorro, inversión, suscripción o servicio) aparece junto a los demás.':'Nothing here yet — once you create a recurring item (debt, goal, savings, investment, subscription, or service) it shows up together with the rest.'}</div>`;
-    return;
-  }
-  list.innerHTML = items.map(i => `
-    <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--off);cursor:pointer" onclick="go('${i.page}')">
-      <div style="width:40px;height:40px;border-radius:12px;background:var(--off);display:grid;place-items:center;font-size:18px;flex-shrink:0">${i.icon}</div>
-      <div style="flex:1;min-width:0">
-        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-          <div style="font-size:13.5px;font-weight:700">${i.name}</div>
-          <span style="font-size:9px;font-weight:700;color:var(--g-main);background:var(--g-light);padding:2px 7px;border-radius:20px;flex-shrink:0">🔁 ${es?'Recurrente':'Recurring'}</span>
-        </div>
-        <div style="font-size:10.5px;color:var(--text3)">${i.typeLabel}${i.who?' · '+i.who:''} · ${freqLbl(i.freq)}</div>
-        <div style="font-size:10.5px;color:var(--text3);margin-top:1px">${es?'próximo':'next'} <b style="color:var(--text2)">${i.nextDate||'—'}</b>${i.lastApplied?` · ${es?'último':'last'} <b style="color:var(--text2)">${i.lastApplied}</b>`:''}</div>
-      </div>
-      <div style="text-align:right;flex-shrink:0">
-        <div style="font-size:14px;font-weight:800">${fmt(i.amount)}</div>
-        <div style="font-size:9.5px;color:var(--blue);font-weight:700">${es?'Gestionar →':'Manage →'}</div>
-      </div>
-    </div>`).join('');
-}
-
-
-(function init(){
-  let s=localStorage.getItem('ft_user')||sessionStorage.getItem('ft_user');
-  if(!s){ window.location.replace('login.html'); return; }
-  try{ user=JSON.parse(s); }catch(e){ window.location.replace('login.html'); return; }
-  
-  {const nameEl=document.getElementById('sbName'), emailEl=document.getElementById('sbEmail'), avEl=document.getElementById('sbAvatar'); if(nameEl) nameEl.textContent=user.name||'—'; if(emailEl) emailEl.textContent=user.email||'—'; if(avEl) avEl.textContent=(user.name||'?').charAt(0).toUpperCase();}lang=localStorage.getItem('ft_lang')||user.lang||'es';
-  if(!sessionStorage.getItem('ft_user')) sessionStorage.setItem('ft_user',s);
-  setLang(lang);
-})();
-
-
-
-
-/* ══════════════════════════════════════════
-   SYNC EN SEGUNDO PLANO — mantiene fresco el perfil de tu pareja
-   sin importar en qué pantalla estés. COMBINA con lo que ya había
-   en caché en vez de reemplazar, para que un pull incompleto/viejo
-   de Sheets no borre transacciones que ya tenías vistas.
-══════════════════════════════════════════ */
-(function backgroundSyncPartner(){
-  try {
-    const _bgHogar = JSON.parse(localStorage.getItem('ft_hogar')||'{}');
-    if(!_bgHogar.connected || !_bgHogar.partnerEmail || _bgHogar.manuallyLeft) return;
-    const _bgGasUrl = 'https://script.google.com/macros/s/AKfycbwITyU4qld-IOEVKyLU9XHI46T8g_LjJaNp3nlQgler8-nMeIlztMmG_lZMVMm9cBkP/exec';
-    const _bgKey = 'profile_'+_bgHogar.partnerEmail.replace(/[^a-z0-9]/gi,'_');
-
-    function _bgMergeById(oldArr, newArr){
-      oldArr = oldArr||[]; newArr = newArr||[];
-      const byId = {};
-      oldArr.forEach(x=>{ if(x && x.id!=null) byId[x.id]=x; });
-      newArr.forEach(x=>{ if(x && x.id!=null) byId[x.id]=x; }); // lo nuevo pisa lo viejo si coincide el id
-      return Object.values(byId);
-    }
-
-    fetch(`${_bgGasUrl}?action=getProfile&email=${encodeURIComponent(_bgHogar.partnerEmail)}`)
-      .then(r=>r.json())
-      .then(data=>{
-        if(!data || !data.success) return;
-        let _bgNewData = {transactions:[],emergency:0,subscriptions:[],sharedDebts:[],hogarInv:[],servicios:[]};
-        try{ _bgNewData = JSON.parse(data.dataJson||'{}'); }catch(e){}
-
-        let _bgOld = null;
-        try{ _bgOld = JSON.parse(localStorage.getItem(_bgKey)||'null'); }catch(e){}
-        const _bgOldData = (_bgOld && _bgOld.data) || {};
-
-        const _bgMergedData = {
-          transactions: _bgMergeById(_bgOldData.transactions, _bgNewData.transactions),
-          emergency: (_bgNewData.emergency!=null ? _bgNewData.emergency : _bgOldData.emergency) || 0,
-          subscriptions: _bgMergeById(_bgOldData.subscriptions, _bgNewData.subscriptions),
-          sharedDebts: _bgMergeById(_bgOldData.sharedDebts, _bgNewData.sharedDebts),
-          hogarInv: _bgMergeById(_bgOldData.hogarInv, _bgNewData.hogarInv)
-        };
-
-        const _bgPp = { name:data.name||(_bgOld&&_bgOld.name)||'', email:data.email||_bgHogar.partnerEmail, income:parseFloat(data.income)||0, needs:parseFloat(data.needs)||0, wants:parseFloat(data.wants)||0, savings:parseFloat(data.savings)||0, data:_bgMergedData };
-        localStorage.setItem(_bgKey, JSON.stringify(_bgPp));
-        localStorage.setItem('ft_profile_B', JSON.stringify(_bgPp));
-
-        if(_bgNewData.servicios && _bgNewData.servicios.length){
-          try{
-            let _bgMyServicios = JSON.parse(localStorage.getItem('ft_servicios')||'[]');
-            const _bgSvById = {}; _bgMyServicios.forEach(s=>{_bgSvById[s.id]=s;}); _bgNewData.servicios.forEach(s=>{_bgSvById[s.id]=s;});
-            localStorage.setItem('ft_servicios', JSON.stringify(Object.values(_bgSvById)));
-            render();
-          }catch(e){}
-        }
-      }).catch(()=>{});
-  } catch(e){}
-})();
-
+});
 </script>
 </body>
 </html>
