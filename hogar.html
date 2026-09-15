@@ -73,17 +73,8 @@ function partnerSharedTxs() {
       })
     : [];
 }
-function partnerProfile() {
-  var h = FT.hogar();
-  if (!h.partnerEmail) return null;
-  var byKey = FT.get('profile_' + h.partnerEmail.replace(/[^a-z0-9]/gi, '_'), null);
-  var bySlot = FT.get(FT.K.profileB, null);
-  if (byKey && (byKey.income || 0) > 0) return byKey;
-  if (bySlot && (bySlot.income || 0) > 0) return bySlot;
-  return byKey || bySlot;
-}
 function calcHogar() {
-  var pp = partnerProfile();
+  var pp = FT.partnerProfile();
   var myIncome = FT.user().income || 0, partnerIncome = pp ? (pp.income || 0) : 0;
   var total = myIncome + partnerIncome, mode = FT.hogar().mode;
   var myPct, partnerPct;
@@ -99,7 +90,7 @@ function incomeReceivedThisMonth() {
   var mesKey = FT.todayISO().slice(0, 7);
   var mine = (FT.data().transactions || []).filter(function (t) { return t.type === 'ingreso' && t.incomeKind !== 'extra' && String(t.date || '').startsWith(mesKey); })
     .reduce(function (a, t) { return a + (parseFloat(t.amount) || 0); }, 0);
-  var pp = partnerProfile();
+  var pp = FT.partnerProfile();
   var partner = pp && pp.data && pp.data.transactions
     ? (pp.data.transactions || []).filter(function (t) { return t.type === 'ingreso' && t.incomeKind !== 'extra' && String(t.date || '').startsWith(mesKey); }).reduce(function (a, t) { return a + (parseFloat(t.amount) || 0); }, 0)
     : 0;
@@ -225,7 +216,7 @@ function startPartnerPolling() {
 
 /* ── SELECTOR DE MODO ── */
 function renderModeSelector() {
-  var L = es(), pp = partnerProfile();
+  var L = es(), pp = FT.partnerProfile();
   var myIncome = FT.user().income || 0, partnerIncome = pp ? (pp.income || 0) : 0, total = myIncome + partnerIncome;
   var myPct = total > 0 ? Math.round(myIncome / total * 100) : 50, partnerPct = 100 - myPct;
   var partnerName = FT.hogar().partnerName || (L ? 'Tu pareja' : 'Your partner');
@@ -618,7 +609,7 @@ function registrarEnPresupuesto(monto, desc) {
 
 /* ── TAB DEPÓSITOS ── */
 function tabDepositos() {
-  var L = es(), hogar = FT.hogar(), pp = partnerProfile();
+  var L = es(), hogar = FT.hogar(), pp = FT.partnerProfile();
   var hogarPctChk = (parseFloat(hogar.payPctHogar) || 50) + (parseFloat(hogar.saveHogarPct) || 10);
   var mesKey = FT.todayISO().slice(0, 7);
   var myTxs = (FT.data().transactions || []).filter(function (t) { return t.type === 'ingreso' && t.incomeKind !== 'extra' && String(t.date || '').startsWith(mesKey); })
@@ -797,7 +788,7 @@ var DEBT_TYPE_STYLE = {
 function tabDeudas() {
   var L = es(), hogar = FT.hogar(), partnerName = hogar.partnerName || (L ? 'Tu pareja' : 'Your partner');
   var debts = FT.debts(), sharedDebts = debts.filter(function (d) { return d.owner === 'both'; }), myDebts = debts.filter(function (d) { return !d.owner || d.owner === 'me'; });
-  var pp = partnerProfile();
+  var pp = FT.partnerProfile();
   var partnerSharedDebts = (pp && pp.data && pp.data.sharedDebts) || [];
   var partnerSharedTotal = partnerSharedDebts.reduce(function (a, d) { return a + (parseFloat(d.balance) || 0); }, 0);
 
@@ -866,7 +857,7 @@ function makeDebtPersonal(id) {
 /* ── TAB INVERSIONES (hogar) ── */
 function tabInversiones() {
   var L = es(), invs = FT.investments('hogar');
-  var pp = partnerProfile();
+  var pp = FT.partnerProfile();
   var partnerInvs = (pp && pp.data && pp.data.hogarInv) || [];
   var all = invs.concat(partnerInvs);
   var totalCost = 0, totalValue = 0;

@@ -520,36 +520,10 @@ document.addEventListener('ft:ready', function () {
   // Tocar una fila de movimiento → hoja de detalle (§6: ninguna fila muerta)
   document.getElementById('dashRoot').addEventListener('click', function (e) {
     var row = e.target.closest('.ft-tx[data-txid]');
-    if (row) openTxDetail(row.getAttribute('data-txid'));
+    if (row) FT.openTxDetail(row.getAttribute('data-txid'));
   });
   render();
 });
-
-function openTxDetail(id) {
-  var es = FT.lang === 'es';
-  var x = FT.txs().find(function (t) { return String(t.id) === String(id); });
-  if (!x) return;
-  var typeName = { gasto: es ? 'Gasto' : 'Expense', ingreso: es ? 'Ingreso' : 'Income', ahorro: es ? 'Ahorro' : 'Savings', inversion: es ? 'Inversión' : 'Investment', suscripcion: es ? 'Suscripción' : 'Subscription', hipoteca: es ? 'Renta/Hipoteca' : 'Rent/Mortgage' }[x.type] || x.type;
-  var rows = [
-    [es ? 'Tipo' : 'Type', typeName],
-    [es ? 'Categoría' : 'Category', x.cat || '—'],
-    [es ? 'Fecha' : 'Date', FT.date(x.date)],
-    [es ? 'Monto' : 'Amount', FT.money(x.amount, { cents: true })]
-  ];
-  if (x.hogar) rows.push([es ? 'Marcado' : 'Tagged', es ? 'Del hogar' : 'Household']);
-  if (x.auto) rows.push([es ? 'Origen' : 'Source', es ? 'Automático' : 'Automatic']);
-  FT.sheet({
-    title: x.desc,
-    html: rows.map(function (r) { return '<div class="ft-row"><span class="k">' + r[0] + '</span><span class="v">' + r[1] + '</span></div>'; }).join(''),
-    actions: [
-      { label: '🗑️ ' + (es ? 'Eliminar' : 'Delete'), onClick: function () {
-          FT.confirm(es ? '¿Eliminar este movimiento? Se revierten los saldos vinculados.' : 'Delete this entry? Linked balances will be reverted.').then(function (ok) {
-            if (ok) { FT.deleteTx(x.id); FT.toast(es ? 'Eliminado' : 'Deleted'); render(); }
-          });
-        } }
-    ]
-  });
-}
 document.addEventListener('ft:datachanged', render);
 document.addEventListener('ft:langchange', render);
 if (window.FT && FT._user) { /* boot ya corrió */ }

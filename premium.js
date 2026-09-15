@@ -162,6 +162,17 @@ FT.userName = function () { var u = FT._user || FT.loadUser() || {}; return u.na
 FT.hogar = function () { return FT.get(K.hogar, {}) || {}; };
 FT.saveHogar = function (h) { FT.set(K.hogar, h); FT._changed(); };
 FT.hogarConnected = function () { var h = FT.hogar(); return h.connected === true && !h.manuallyLeft; };
+/** Perfil cacheado de la pareja (income/needs/wants/savings + su `data`) —
+ *  preferido por email-key; cae a la ranura genérica `ft_profile_B` si hace falta. */
+FT.partnerProfile = function () {
+  var h = FT.hogar();
+  if (!h.partnerEmail) return null;
+  var byKey = FT.get('profile_' + h.partnerEmail.replace(/[^a-z0-9]/gi, '_'), null);
+  var bySlot = FT.get(K.profileB, null);
+  if (byKey && (byKey.income || 0) > 0) return byKey;
+  if (bySlot && (bySlot.income || 0) > 0) return bySlot;
+  return byKey || bySlot;
+};
 /** % del cheque que es personal (§ contrato) */
 FT.personalPct = function () {
   if (!FT.hogarConnected()) return 100;
@@ -1597,6 +1608,73 @@ FT.txRow = function (t, idx) {
       '<div class="ft-tx-amt ' + (isIn ? 'in' : 'out') + '">' + amt + '</div>' +
     '</div></div>';
 };
+
+/** Hoja de detalle de una transacción — compartida por dashboard.html (solo mis
+ *  movimientos) e historial.html (los míos + los de mi pareja marcados hogar).
+ *  `tx` puede ser un id (busca en FT.txs()) o el objeto ya resuelto por el
+ *  caller (necesario para movimientos de la pareja, que no viven en mi ft_data).
+ *  `opts.readOnly` oculta editar/eliminar (para movimientos de solo lectura). */
+FT.openTxDetail = function (tx, opts) {
+  opts = opts || {};
+  var es = FT.lang === 'es';
+  if (typeof tx !== 'object' || tx === null) tx = FT.txs().find(function (t) { return String(t.id) === String(tx); });
+  if (!tx) return;
+  var typeName = { gasto: es ? 'Gasto' : 'Expense', ingreso: es ? 'Ingreso' : 'Income', ahorro: es ? 'Ahorro' : 'Savings', inversion: es ? 'Inversión' : 'Investment', suscripcion: es ? 'Suscripción' : 'Subscription', hipoteca: es ? 'Renta/Hipoteca' : 'Rent/Mortgage' }[tx.type] || tx.type;
+  var esHogar = tx.hogar === true || tx.isHogar === true;
+  var createdMs = parseInt(tx.id, 10);
+  var created = new Date(createdMs);
+  var hora = isNaN(created.getTime()) ? '—' : created.toLocaleTimeString(es ? 'es-MX' : 'en-US', { hour: '2-digit', minute: '2-digit' });
+  var rows = [
+    [es ? 'Tipo' : 'Type', typeName],
+    [es ? 'Categoría' : 'Category', tx.cat || '—'],
+    [es ? 'Fecha' : 'Date', FT.date(tx.date)],
+    [es ? 'Hora de registro' : 'Time recorded', hora]
+  ];
+  if (tx.createdBy) rows.push([es ? 'Registrado por' : 'Recorded by', tx.createdBy]);
+  if (tx.auto) rows.push([es ? 'Origen' : 'Source', es ? 'Automático' : 'Automatic']);
+  var html = '<div style="text-align:center;margin-bottom:16px">' +
+      '<div class="ft-num" style="font-size:28px;color:' + (tx.type === 'ingreso' ? 'var(--g-main)' : 'var(--ink)') + '">' + (tx.type === 'ingreso' ? '+' : '−') + FT.money(tx.amount, { cents: true }) + '</div>' +
+      (esHogar ? '<span style="background:var(--g-light);color:var(--g-dark);font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;display:inline-block;margin-top:4px">🏠 ' + (es ? 'Del hogar' : 'Household') + '</span>' : '') +
+    '</div>' +
+    rows.map(function (r) { return '<div class="ft-row"><span class="k">' + r[0] + '</span><span class="v">' + r[1] + '</span></div>'; }).join('') +
+    (tx.note ? '<div style="margin-top:10px"><div style="font-size:11px;color:var(--text3);margin-bottom:4px">' + (es ? 'Nota' : 'Note') + '</div><div style="background:var(--sunk);border-radius:10px;padding:10px;font-size:13px">' + tx.note + '</div></div>' : '');
+  var actions = opts.readOnly ? [] : [
+    { label: '✏️ ' + (es ? 'Editar' : 'Edit'), onClick: function () { _editTxDetail(tx); } },
+    { label: '🗑️ ' + (es ? 'Eliminar' : 'Delete'), onClick: function () {
+        FT.confirm(es ? '¿Eliminar este movimiento? Se revierten los saldos vinculados.' : 'Delete this entry? Linked balances will be reverted.').then(function (ok) {
+          if (ok) { FT.deleteTx(tx.id); FT.toast(es ? '🗑️ Eliminado' : '🗑️ Deleted'); }
+        });
+      } }
+  ];
+  FT.sheet({ title: tx.desc || typeName, html: html, actions: actions });
+};
+function _editTxDetail(tx) {
+  var es = FT.lang === 'es';
+  FT.modal({
+    title: es ? 'Editar registro' : 'Edit entry',
+    html: '<div class="ft-field"><label>' + (es ? 'Descripción' : 'Description') + '</label><input id="etDesc" value="' + (tx.desc || '').replace(/"/g, '&quot;') + '"></div>' +
+      '<div class="ft-field"><label>' + (es ? 'Monto' : 'Amount') + '</label><input id="etAmount" type="number" step="0.01" value="' + tx.amount + '"></div>' +
+      '<div class="ft-field"><label>' + (es ? 'Fecha' : 'Date') + '</label><input id="etDate" type="date" value="' + tx.date + '"></div>' +
+      '<div class="ft-field"><label>' + (es ? 'Nota' : 'Note') + '</label><input id="etNote" value="' + (tx.note || '').replace(/"/g, '&quot;') + '"></div>',
+    onSave: function (body) {
+      var d = FT.data();
+      var i = d.transactions.findIndex(function (t) { return String(t.id) === String(tx.id); });
+      if (i >= 0) {
+        d.transactions[i] = Object.assign({}, d.transactions[i], {
+          desc: body.querySelector('#etDesc').value.trim(),
+          amount: parseFloat(body.querySelector('#etAmount').value) || 0,
+          date: body.querySelector('#etDate').value,
+          note: body.querySelector('#etNote').value.trim()
+        });
+        FT.saveData(d);
+        FT.toast(es ? '✅ Registro actualizado' : '✅ Entry updated');
+      }
+      FT.closeTop(); // cierra el modal de edición
+      FT.closeTop(); // cierra también la hoja de detalle (los datos ya cambiaron)
+      return true;   // evita que el wrapper intente cerrar una tercera vez
+    }
+  });
+}
 
 /* ─────────────────────────────────────────────────────────────────────────
    13 · NAVEGACIÓN — pila para "atrás" real
