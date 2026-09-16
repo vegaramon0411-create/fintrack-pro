@@ -121,7 +121,11 @@ FT.set = function (key, val) {
 };
 FT.getRaw = function (key, fallback) { try { var v = localStorage.getItem(key); return v == null ? (fallback || '') : v; } catch (e) { return fallback || ''; } };
 FT.setRaw = function (key, val) { try { localStorage.setItem(key, val); } catch (e) {} };
-FT.del = function (key) { try { localStorage.removeItem(key); } catch (e) {} };
+// FT.saveUser espeja ft_user también en sessionStorage (para sobrevivir un
+// localStorage bloqueado) y FT.boot() lo vuelve a copiar ahí en cada arranque
+// -- si FT.del solo tocara localStorage, "Borrar todo" podía dejar ese espejo
+// vivo y FT.loadUser() lo recuperaría de sessionStorage en la misma pestaña.
+FT.del = function (key) { try { localStorage.removeItem(key); } catch (e) {} try { sessionStorage.removeItem(key); } catch (e) {} };
 
 /* ── ft_data ── */
 FT.data = function () {
@@ -564,8 +568,21 @@ FT.applyBackup = function (backup) {
 };
 /** Borra todos los datos financieros (no la cuenta/sesión ni preferencias de
  *  idioma) — todo lo que cubre el respaldo, más hogar/premium/créditos. */
+/** "Borrar todo" — recorre TODAS las claves conocidas en `K` (no una lista a
+ *  mano) precisamente porque una lista a mano ya se quedó corta dos veces:
+ *  primero con ft_hogar (el hogar se reconectaba solo, ver abajo) y luego con
+ *  ft_user/ft_cheques — al no borrarse, `FT.getMissingPaydays()` seguía
+ *  viendo `payAuto` activo y, como "no hay cheques registrados", su regla de
+ *  arranque en frío rellenaba solita los últimos 60 días de cheques + ahorro
+ *  automático en la SIGUIENTE carga de cualquier pantalla (ft:ready →
+ *  FT.runAutomations()) — el dato fantasma que Ramón siguió viendo incluso
+ *  habiendo limpiado Safari por completo, porque no era un problema de
+ *  caché del navegador: la propia app lo estaba regenerando de la nada.
+ *  Único sobreviviente a propósito: K.lang (preferencia de idioma del
+ *  dispositivo, no un dato financiero). K.hogar se trata aparte abajo. */
 FT.clearAllData = function () {
-  RESPALDO_KEYS.concat([K.hogarFondos, K.premium, K.aiCredits, K.usedCodes, K.distPcts, K.emergHistLegacy, K.cheques, K.profileB, K.partnerChecking, K.chatHist]).forEach(FT.del);
+  var skip = { lang: 1, hogar: 1 };
+  Object.keys(K).forEach(function (k) { if (!skip[k]) FT.del(K[k]); });
   // Cachés del perfil de la pareja, una por cada email con el que se haya
   // conectado alguna vez — "Borrar todo" no debe dejar NINGÚN rastro.
   try {
