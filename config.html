@@ -88,7 +88,13 @@ function importData(e) {
 }
 function clearData() {
   var L = es();
-  if (!confirm(L ? '¿Borrar TODOS tus datos? Esto no se puede deshacer.' : 'Delete ALL your data? This cannot be undone.')) return;
+  var h = FT.hogar();
+  var warnHogar = (h && h.connected) ? (L
+    ? '\n\n⚠️ También saldrás de tu hogar compartido — tu pareja no verá tus datos borrados, pero para volver a compartir necesitarán invitarse de nuevo.'
+    : '\n\n⚠️ You will also leave your shared household — your partner won\'t see your deleted data, but you\'ll need to invite each other again to reconnect.') : '';
+  if (!confirm((L
+    ? '¿Borrar TODOS tus datos? Esto no se puede deshacer.'
+    : 'Delete ALL your data? This cannot be undone.') + warnHogar)) return;
   FT.clearAllData();
   FT.toast(L ? '🗑️ Datos eliminados' : '🗑️ Data cleared');
   setTimeout(function () { go('dashboard.html'); }, 1500);

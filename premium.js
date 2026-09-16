@@ -565,7 +565,26 @@ FT.applyBackup = function (backup) {
 /** Borra todos los datos financieros (no la cuenta/sesión ni preferencias de
  *  idioma) — todo lo que cubre el respaldo, más hogar/premium/créditos. */
 FT.clearAllData = function () {
-  RESPALDO_KEYS.concat([K.hogar, K.hogarFondos, K.premium, K.aiCredits, K.usedCodes, K.distPcts, K.emergHistLegacy, K.cheques]).forEach(FT.del);
+  RESPALDO_KEYS.concat([K.hogarFondos, K.premium, K.aiCredits, K.usedCodes, K.distPcts, K.emergHistLegacy, K.cheques, K.profileB, K.partnerChecking]).forEach(FT.del);
+  // Cachés del perfil de la pareja, una por cada email con el que se haya
+  // conectado alguna vez — "Borrar todo" no debe dejar NINGÚN rastro.
+  try {
+    var toRemove = [];
+    for (var i = 0; i < localStorage.length; i++) {
+      var k = localStorage.key(i);
+      if (k && k.indexOf('profile_') === 0) toRemove.push(k);
+    }
+    toRemove.forEach(function (k) { try { localStorage.removeItem(k); } catch (e) {} });
+  } catch (e) {}
+  // CAUSA RAÍZ del "dato fantasma" (ej. abono viejo a una deuda compartida que
+  // reaparece al visitar Hogar): el backend en GAS/Sheets sigue recordando la
+  // conexión de hogar aunque aquí se borre todo — Hogar pregunta a GAS "¿sigo
+  // conectado?" en cada visita SIN importar el estado local, y si GAS dice que
+  // sí, reconecta solo y vuelve a traer el perfil (viejo) de la pareja. Marcar
+  // manuallyLeft:true aquí evita ese auto-reconecte silencioso; para volver a
+  // compartir hogar después de "Borrar todo" hay que invitar/aceptar de nuevo,
+  // lo cual sí trae datos frescos en vez de la instantánea vieja cacheada.
+  FT.set(K.hogar, { connected: false, pendingInvite: false, manuallyLeft: true });
 };
 
 /* ─────────────────────────────────────────────────────────────────────────
@@ -1432,11 +1451,11 @@ button{font-family:var(--ui-font);}
 .ft-overlay.bottom{align-items:flex-end;justify-content:center;}
 @media(min-width:560px){.ft-overlay.center{align-items:center;padding:20px;}}
 
-.ft-modal-box{background:var(--white);width:100%;max-width:var(--ft-appw);max-height:92vh;display:flex;flex-direction:column;overflow:hidden;border-radius:22px 22px 0 0;transform:translateY(16px);transition:transform .2s ease;}
+.ft-modal-box{background:var(--white);width:100%;max-width:var(--ft-appw);max-height:92vh;max-height:92dvh;display:flex;flex-direction:column;overflow:hidden;border-radius:22px 22px 0 0;transform:translateY(16px);transition:transform .2s ease;}
 .ft-overlay.on .ft-modal-box{transform:translateY(0);}
 @media(min-width:560px){.ft-modal-box{width:min(420px,calc(100vw - 32px));border-radius:18px;transform:scale(.96);}.ft-overlay.on .ft-modal-box{transform:scale(1);}}
 
-.ft-sheet-box{background:var(--white);width:100%;max-width:var(--ft-appw);max-height:90vh;display:flex;flex-direction:column;overflow:hidden;border-radius:24px 24px 0 0;transform:translateY(16px);transition:transform .2s ease;}
+.ft-sheet-box{background:var(--white);width:100%;max-width:var(--ft-appw);max-height:90vh;max-height:90dvh;display:flex;flex-direction:column;overflow:hidden;border-radius:24px 24px 0 0;transform:translateY(16px);transition:transform .2s ease;}
 .ft-overlay.on .ft-sheet-box{transform:translateY(0);}
 
 .ft-sheet-grab{width:38px;height:4px;background:var(--hair);border-radius:99px;margin:10px auto 4px;flex-shrink:0;}
@@ -1526,12 +1545,39 @@ FT.toast = function (msg, opts) {
   el._t = setTimeout(function () { el.classList.remove('on'); }, opts.ms || 3000);
 };
 
+// Bloqueo real de scroll del body mientras haya algún overlay abierto (sheet/modal).
+// Antes solo se confiaba en que el overlay fixed tapara la pantalla -- eso basta para
+// que el dedo no arrastre el fondo en iOS/Android, pero NO evita que la rueda del mouse
+// o las flechas del teclado en escritorio sigan haciendo scroll del body por detrás
+// (doble scroll). Con position:fixed + top:-scrollY se fija el body en su lugar exacto
+// y se restaura sin salto al cerrar el último overlay de la pila.
+var _scrollLockY = 0, _scrollLockCount = 0;
+function _lockBodyScroll() {
+  if (_scrollLockCount++ > 0) return; // ya bloqueado por otro overlay en la pila
+  _scrollLockY = window.scrollY || document.documentElement.scrollTop || 0;
+  document.body.style.position = 'fixed';
+  document.body.style.top = (-_scrollLockY) + 'px';
+  document.body.style.left = '0';
+  document.body.style.right = '0';
+  document.body.style.width = '100%';
+}
+function _unlockBodyScroll() {
+  if (_scrollLockCount <= 0) return;
+  if (--_scrollLockCount > 0) return; // todavía queda otro overlay abierto en la pila
+  document.body.style.position = '';
+  document.body.style.top = '';
+  document.body.style.left = '';
+  document.body.style.right = '';
+  document.body.style.width = '';
+  window.scrollTo(0, _scrollLockY); // posición exacta, sin salto
+}
 function _overlay(kind, innerHTML) {
   var ov = document.createElement('div');
   ov.className = 'ft-overlay ' + kind;
   ov.innerHTML = innerHTML;
   ov.addEventListener('click', function (e) { if (e.target === ov) FT.closeTop(); });
   document.body.appendChild(ov);
+  _lockBodyScroll();
   requestAnimationFrame(function () { ov.classList.add('on'); });
   return ov;
 }
@@ -1540,6 +1586,7 @@ FT.closeTop = function () {
   var ov = FT._stack.pop() || document.querySelector('.ft-overlay:last-of-type');
   if (!ov) return;
   ov.classList.remove('on');
+  _unlockBodyScroll();
   setTimeout(function () { ov.remove(); }, 200);
 };
 
