@@ -173,8 +173,9 @@ async function sendMessage(text) {
     });
     var data = await res.json();
     if (!res.ok || !data.success) throw new Error((data && data.error) || 'API error');
+    if (!data.reply) throw new Error('empty reply'); // no gastar credito por una respuesta vacia
 
-    FT.chatAppend('assistant', data.reply || (es() ? 'No pude generar una respuesta, intenta de nuevo.' : "I couldn't generate a reply, try again."));
+    FT.chatAppend('assistant', data.reply);
     FT.useCredit();
   } catch (e) {
     window._aChatErr = es()

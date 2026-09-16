@@ -79,10 +79,16 @@ export default async function handler(req, res) {
     }
 
     const data = await r.json();
-    const reply = ((data && data.content && data.content[0] && data.content[0].text) || '').trim();
+    // OJO: Sonnet 5 puede anteponer un bloque type:'thinking' SIN que se le haya
+    // pedido -- content[0] entonces no es el texto. Hay que juntar todos los
+    // bloques type:'text' (nunca asumir que el texto está en la posición 0).
+    const reply = ((data && data.content) || [])
+      .filter(function (b) { return b && b.type === 'text'; })
+      .map(function (b) { return b.text; })
+      .join('\n').trim();
 
     if (!reply) console.error('Empty reply from Anthropic. stop_reason=' + (data && data.stop_reason) + ' content=' + JSON.stringify(data && data.content));
-    return res.status(200).json({ success: true, reply: reply, _debug: reply ? undefined : { stopReason: data && data.stop_reason, content: data && data.content } });
+    return res.status(200).json({ success: true, reply: reply });
   } catch (err) {
     console.error('Function error:', err);
     return res.status(500).json({ error: 'Internal error', message: err.message });

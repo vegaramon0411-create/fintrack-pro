@@ -87,7 +87,12 @@ export default async function handler(req, res) {
     }
 
     const data = await r.json();
-    const rawText = ((data && data.content && data.content[0] && data.content[0].text) || '').trim();
+    // Mismo cuidado que en api/chat.js: si el modelo antepone un bloque
+    // type:'thinking' sin haberlo pedido, content[0] deja de ser el texto.
+    const rawText = ((data && data.content) || [])
+      .filter(function (b) { return b && b.type === 'text'; })
+      .map(function (b) { return b.text; })
+      .join('\n').trim();
 
     return res.status(200).json({ success: true, result: extractJSON(rawText, !!isTextOnly), raw: rawText });
   } catch (err) {
