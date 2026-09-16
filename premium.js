@@ -744,7 +744,17 @@ FT.getMissingPaydays = function () {
   if (cheques.length) {
     var lastMs = Math.max.apply(null, cheques.map(function (c) { return new Date(c.fecha + 'T00:00:00').getTime(); }));
     start = new Date(lastMs); start.setDate(start.getDate() + 1);
-  } else { start = new Date(today); start.setDate(start.getDate() - 60); }
+  } else {
+    // Sin ningún cheque registrado (cuenta nueva, o recién se activó "Registro
+    // automático", o se acaba de usar "Borrar todo"): antes esto rellenaba
+    // ciegamente los últimos 60 días como si el usuario llevara 2 meses
+    // usando la app — inventaba cheques + ahorro automático de fechas en las
+    // que la cuenta ni existía. Ahora el arranque en frío nunca cruza hacia
+    // atrás de `u.createdAt` (la cuenta es de HOY si se acaba de registrar).
+    start = new Date(today); start.setDate(start.getDate() - 60);
+    var created = u.createdAt ? new Date(u.createdAt) : null;
+    if (created && !isNaN(created) && created > start) { start = created; start.setHours(0, 0, 0, 0); }
+  }
   var missing = [], cursor = new Date(start), guard = 0;
   while (cursor <= today && guard < 400) {
     var ds = FT.date(cursor, 'ISO'), matches;
