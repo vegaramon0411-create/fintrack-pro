@@ -81,7 +81,8 @@ export default async function handler(req, res) {
     const data = await r.json();
     const reply = ((data && data.content && data.content[0] && data.content[0].text) || '').trim();
 
-    return res.status(200).json({ success: true, reply: reply });
+    if (!reply) console.error('Empty reply from Anthropic. stop_reason=' + (data && data.stop_reason) + ' content=' + JSON.stringify(data && data.content));
+    return res.status(200).json({ success: true, reply: reply, _debug: reply ? undefined : { stopReason: data && data.stop_reason, content: data && data.content } });
   } catch (err) {
     console.error('Function error:', err);
     return res.status(500).json({ error: 'Internal error', message: err.message });
