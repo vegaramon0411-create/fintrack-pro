@@ -36,7 +36,7 @@ var K = {
   onbSaldos:'ft_onboarding_saldos_done', openAbonar:'ft_open_abonar',
   shortcuts:'ft_shortcuts', googleUser:'ft_google_user',
   investSuggest:'ft_invest_suggest', importAnswers:'ft_import_answers',
-  navStack:'ft_nav_stack', profileB:'ft_profile_B'
+  navStack:'ft_nav_stack', profileB:'ft_profile_B', chatHist:'ft_chat_hist'
 };
 FT.K = K;
 
@@ -565,7 +565,7 @@ FT.applyBackup = function (backup) {
 /** Borra todos los datos financieros (no la cuenta/sesión ni preferencias de
  *  idioma) — todo lo que cubre el respaldo, más hogar/premium/créditos. */
 FT.clearAllData = function () {
-  RESPALDO_KEYS.concat([K.hogarFondos, K.premium, K.aiCredits, K.usedCodes, K.distPcts, K.emergHistLegacy, K.cheques, K.profileB, K.partnerChecking]).forEach(FT.del);
+  RESPALDO_KEYS.concat([K.hogarFondos, K.premium, K.aiCredits, K.usedCodes, K.distPcts, K.emergHistLegacy, K.cheques, K.profileB, K.partnerChecking, K.chatHist]).forEach(FT.del);
   // Cachés del perfil de la pareja, una por cada email con el que se haya
   // conectado alguna vez — "Borrar todo" no debe dejar NINGÚN rastro.
   try {
@@ -1295,6 +1295,7 @@ var I18N = {
     l_ahorro: 'Ahorro libre', l_emergencia: 'Fondo de emergencia', l_inversiones: 'Inversiones', l_metas: 'Metas',
     l_deudas: 'Deudas', l_suscripciones: 'Suscripciones', l_servicios: 'Servicios', l_recurrentes: 'Recurrentes',
     l_scanner: 'Escanear recibo', l_importar: 'Importar', l_analisis: 'Análisis', l_reporte: 'Reporte mensual',
+    l_asistente: 'Asistente IA',
     l_perfil: 'Mi perfil', l_config: 'Configuración', l_saldos: 'Saldos iniciales',
     notif_title: 'Notificaciones', notif_empty: 'Nada pendiente por ahora'
   },
@@ -1308,6 +1309,7 @@ var I18N = {
     l_ahorro: 'Free savings', l_emergencia: 'Emergency fund', l_inversiones: 'Investments', l_metas: 'Goals',
     l_deudas: 'Debts', l_suscripciones: 'Subscriptions', l_servicios: 'Services', l_recurrentes: 'Recurring',
     l_scanner: 'Scan receipt', l_importar: 'Import', l_analisis: 'Analysis', l_reporte: 'Monthly report',
+    l_asistente: 'AI Assistant',
     l_perfil: 'My profile', l_config: 'Settings', l_saldos: 'Starting balances',
     notif_title: 'Notifications', notif_empty: 'Nothing pending for now'
   }
@@ -1439,6 +1441,9 @@ button{font-family:var(--ui-font);}
 
 /* MENÚ INFERIOR (§4.9) */
 .ft-nav{position:fixed;left:0;right:0;bottom:0;max-width:var(--ft-appw);margin:0 auto;display:flex;align-items:center;justify-content:space-around;padding:9px 14px calc(9px + env(safe-area-inset-bottom));background:var(--white);border-top:1px solid var(--hair);z-index:80;}
+.ft-fab{position:fixed;right:calc(50% - var(--ft-appw)/2 + 18px);bottom:calc(88px + env(safe-area-inset-bottom));width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,var(--g-dark),var(--g-main));display:grid;place-items:center;font-size:23px;box-shadow:0 8px 20px rgba(15,81,50,.35);cursor:pointer;border:none;z-index:60;color:#fff;padding:0;}
+@media(max-width:479px){.ft-fab{right:18px;}}
+.ft-fab-badge{position:absolute;top:-3px;right:-3px;background:var(--red);color:#fff;font-size:9px;font-weight:800;width:17px;height:17px;border-radius:50%;display:grid;place-items:center;border:2px solid var(--white);}
 .ft-nav-item{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:9.5px;font-weight:800;color:var(--text3);cursor:pointer;background:none;border:none;text-decoration:none;}
 .ft-nav-item.on{color:var(--g-main);}
 .ft-nav-item .i{font-size:19px;line-height:1;}
@@ -1825,7 +1830,7 @@ var MORE_GROUPS = [
   { key: 'money_group_your', items: [['l_ahorro', 'ahorro.html', '💵'], ['l_emergencia', 'emergencia.html', '🛡️'], ['l_inversiones', 'inversiones.html', '🏦'], ['l_metas', 'metas.html', '🎯']] },
   { key: 'money_group_debts', items: [['l_deudas', 'deudas.html', '💳'], ['l_suscripciones', 'suscripciones.html', '🔄'], ['l_servicios', 'servicios.html', '🏠'], ['l_recurrentes', 'recurrentes.html', '♻️']] },
   { key: 'money_group_input', items: [['l_scanner', 'scanner.html', '📷'], ['l_importar', 'importar.html', '📥']] },
-  { key: 'money_group_analysis', items: [['l_analisis', 'analisis.html', '📈'], ['l_reporte', 'reporte.html', '📄']] },
+  { key: 'money_group_analysis', items: [['l_analisis', 'analisis.html', '📈'], ['l_reporte', 'reporte.html', '📄'], ['l_asistente', 'asistente.html', '💬']] },
   { key: 'money_group_account', items: [['l_perfil', 'perfil.html', '👤'], ['l_config', 'config.html', '⚙️'], ['l_saldos', 'onboarding.html', '🧮']] }
 ];
 
@@ -1930,6 +1935,18 @@ FT.shell = function (opts) {
     if (opts.onPlus) opts.onPlus();
     else FT.go('dashboard.html');
   });
+
+  // FAB del Asistente IA — visible en todas las pantallas con shell, salvo el
+  // propio asistente (ahí no tiene sentido un atajo hacia sí mismo).
+  if (opts.active !== 'asistente') {
+    var fab = document.createElement('button');
+    fab.className = 'ft-fab tap';
+    fab.setAttribute('aria-label', FT.t('l_asistente'));
+    var credLeft = FT.creditsLeft();
+    fab.innerHTML = '💬' + (FT.isPremium() && credLeft > 0 ? '<span class="ft-fab-badge">' + credLeft + '</span>' : '');
+    fab.addEventListener('click', function () { FT.go('asistente.html'); });
+    document.body.appendChild(fab);
+  }
 
   FT.applyLang(hdr); FT.applyLang(nav);
   return {
@@ -2446,6 +2463,103 @@ FT.recurringItemsScreen = function (opts) {
   document.addEventListener('ft:langchange', render);
   render();
   return { render: render, openForm: openForm };
+};
+
+/* ─────────────────────────────────────────────────────────────────────────
+   16d · ASISTENTE IA — contexto financiero + historial de chat (asistente.html)
+   ───────────────────────────────────────────────────────────────────────── */
+/** Historial de mensajes guardado en este dispositivo (tope 40 — ida y vuelta
+ *  se manda solo una ventana reciente a la API, ver asistente.html). */
+FT.chatHistory = function () { return FT.get(K.chatHist, []) || []; };
+FT.chatAppend = function (role, text) {
+  var h = FT.chatHistory();
+  h.push({ role: role, text: text, ts: Date.now() });
+  if (h.length > 40) h = h.slice(-40);
+  FT.set(K.chatHist, h);
+  return h;
+};
+FT.chatClear = function () { FT.del(K.chatHist); };
+
+/** Arma el resumen de finanzas del usuario que se manda como `system` a Claude
+ *  en cada pregunta — números reales, acotado (top de categorías/próximos
+ *  recurrentes) para no disparar el consumo de tokens sin importar cuántos
+ *  años de historial tenga la cuenta. */
+FT.buildFinanceContext = function () {
+  var es = FT.lang === 'es';
+  var u = FT.user() || {};
+  var now = new Date(), y = now.getFullYear(), m = now.getMonth();
+  function inMonth(t) {
+    if (!t.date) return false;
+    var p = String(t.date).split(/[-T]/);
+    return parseInt(p[0], 10) === y && (parseInt(p[1], 10) - 1) === m;
+  }
+  var txs = FT.txs().filter(inMonth);
+  var income = parseFloat(u.income) || 0;
+  var hogarOn = FT.hogarConnected();
+  var pct = FT.personalPct();
+  var personalBase = hogarOn ? income * pct / 100 : income;
+  var needs = Math.round(personalBase * .5), wants = Math.round(personalBase * .3), savTarget = Math.round(personalBase * .2);
+
+  var gastoPersonal = 0, byCat = {};
+  txs.forEach(function (t) {
+    if (t.type !== 'gasto' || t.hogar === true) return;
+    var amt = parseFloat(t.amount) || 0;
+    gastoPersonal += amt;
+    var cat = String(t.cat || (es ? 'Otros' : 'Other')).replace(/^\S+\s*/, '');
+    byCat[cat] = (byCat[cat] || 0) + amt;
+  });
+  var topCats = Object.keys(byCat).map(function (c) { return { cat: c, amt: byCat[c] }; })
+    .sort(function (a, b) { return b.amt - a.amt; }).slice(0, 6);
+
+  var debts = FT.debts().slice(0, 8);
+  var goals = FT.goals().slice(0, 8);
+  var invPersonal = FT.investments('');
+  var invHogar = hogarOn ? FT.investments('hogar') : [];
+  var invTotal = invPersonal.concat(invHogar).reduce(function (a, i) { return a + FT.investmentValue(i); }, 0);
+  var subsTotal = FT.subs().filter(function (s) { return !s.paused; }).reduce(function (a, s) { return a + (parseFloat(s.amount) || 0); }, 0);
+  var servTotal = FT.servicios().filter(function (s) { return !s.paused; }).reduce(function (a, s) { return a + (parseFloat(s.amount) || 0); }, 0);
+  var upcoming = FT.recurAllList().filter(function (r) { return !r.paused; }).slice(0, 6);
+
+  var monthLabel = now.toLocaleDateString(es ? 'es-MX' : 'en-US', { month: 'long', year: 'numeric' });
+  var L = [];
+  L.push((es ? 'Eres el Asistente financiero dentro de la app FinTrack Pro, hablando con ' : 'You are the financial Assistant inside the FinTrack Pro app, talking to ') + (u.name || (es ? 'el usuario' : 'the user')) + '.');
+  L.push(es
+    ? 'Responde SIEMPRE en español, directo y sin rodeos, con cifras concretas de los datos de abajo. Nunca inventes números que no estén aquí — si falta un dato para responder bien, dilo claro en vez de adivinar. No repitas avisos genéricos de "consulta a un asesor financiero" salvo que de verdad aplique. Si el usuario adjunta una foto de un producto, evalúa el precio contra su disponible del mes y sus metas antes de responder si "sí se lo puede comprar". Tu respuesta se muestra como texto plano en una burbuja de chat — NUNCA uses markdown (nada de **, #, backticks); para listas usa líneas con "•" o un guion.'
+    : "Always answer in English, direct and to the point, with concrete figures from the data below. Never invent numbers that aren't here — if something is missing to answer well, say so instead of guessing. Don't repeat generic \"consult a financial advisor\" disclaimers unless it truly applies. If the user attaches a photo of a product, weigh its price against their available budget and goals before answering whether they can afford it. Your reply is shown as plain text in a chat bubble — NEVER use markdown (no **, #, backticks); for lists use lines starting with \"•\" or a dash.");
+  L.push('');
+  L.push('=== ' + (es ? 'DATOS DE ' + monthLabel : 'DATA FOR ' + monthLabel).toUpperCase() + ' ===');
+  L.push((es ? 'Ingreso mensual' : 'Monthly income') + ': ' + FT.money(income) + (hogarOn ? (es ? ' (de eso, ' + pct + '% es personal — el resto va a hogar/ahorro compartido)' : ' (of that, ' + pct + '% is personal — the rest goes to household/shared savings)') : ''));
+  L.push((es ? 'Presupuesto personal del mes (50/30/20)' : "This month's personal budget (50/30/20)") + ': ' + (es ? 'necesidades ' : 'needs ') + FT.money(needs) + ', ' + (es ? 'gustos ' : 'wants ') + FT.money(wants) + ', ' + (es ? 'ahorro meta ' : 'savings target ') + FT.money(savTarget) + '.');
+  L.push((es ? 'Gasto personal registrado este mes' : 'Personal spending recorded this month') + ': ' + FT.money(gastoPersonal) + '.');
+  if (topCats.length) {
+    L.push((es ? 'Categorías con más gasto este mes' : 'Top spending categories this month') + ': ' + topCats.map(function (c) { return c.cat + ' ' + FT.money(c.amt); }).join(', ') + '.');
+  }
+  L.push((es ? 'Ahorro libre disponible' : 'Free savings available') + ': ' + FT.money(FT.savingsBalance()) + ' · ' + (es ? 'Fondo de emergencia' : 'Emergency fund') + ': ' + FT.money(FT.emergencyBalance()) + '.');
+  if (debts.length) {
+    L.push((es ? 'Deudas activas' : 'Active debts') + ': ' + debts.map(function (d) {
+      return (d.name || d.type) + ' — ' + (es ? 'saldo ' : 'balance ') + FT.money(d.balance) + (d.payment ? (es ? ', pago ' : ', payment ') + FT.money(d.payment) + (es ? '/mes' : '/mo') : '') + (d.apr ? ', ' + d.apr + '% APR' : '');
+    }).join(' | ') + '.');
+  } else {
+    L.push(es ? 'Sin deudas activas registradas.' : 'No active debts on record.');
+  }
+  if (goals.length) {
+    L.push((es ? 'Metas de ahorro' : 'Savings goals') + ': ' + goals.map(function (g) {
+      return g.name + ' — ' + FT.money(g.saved) + ' ' + (es ? 'de' : 'of') + ' ' + FT.money(g.target);
+    }).join(' | ') + '.');
+  }
+  L.push((es ? 'Inversiones' : 'Investments') + ' (' + (es ? 'valor total' : 'total value') + (hogarOn ? (es ? ', incluye hogar' : ', includes household') : '') + ')' + ': ' + FT.money(invTotal) + '.');
+  if (subsTotal || servTotal) {
+    L.push((es ? 'Suscripciones activas' : 'Active subscriptions') + ': ' + FT.money(subsTotal) + (es ? '/mes' : '/mo') + ' · ' + (es ? 'Servicios del hogar' : 'Household services') + ': ' + FT.money(servTotal) + (es ? '/mes' : '/mo') + '.');
+  }
+  if (upcoming.length) {
+    L.push((es ? 'Próximos pagos/aportes automáticos' : 'Upcoming automatic payments/contributions') + ': ' + upcoming.map(function (r) {
+      return r.name + ' ' + FT.money(r.amount) + ' (' + FT.date(r.nextDate) + ')';
+    }).join(' | ') + '.');
+  }
+  L.push(hogarOn
+    ? (es ? 'Hogar compartido: conectado.' : 'Shared household: connected.')
+    : (es ? 'Hogar compartido: no conectado — todos los datos de arriba son solo de este usuario.' : 'Shared household: not connected — all data above is this user only.'));
+  return L.join('\n');
 };
 
 /* ─────────────────────────────────────────────────────────────────────────
