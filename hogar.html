@@ -937,37 +937,12 @@ function leaveHousehold() {
   });
 }
 
-/* ── SUBIR MI PERFIL A GAS (para que mi pareja lo lea) ── */
-function pushMyProfileToGAS() {
-  try {
-    var u = FT.user(), hogar = FT.hogar();
-    if (!hogar.connected || !u.email || hogar.manuallyLeft) return;
-    var data = FT.data();
-    var myDebts = FT.debts();
-    var sharedDebts = myDebts.filter(function (d) { return d.owner === 'both' || d.type === 'hipoteca' || d.type === 'hogar'; })
-      .map(function (d) { return { id: d.id, name: d.name, balance: d.balance, original: d.original, type: d.type, payment: d.payment, payDay: d.payDay, owner: d.owner, abonos: (d.abonos || []).slice(-30), updatedAt: d.updatedAt }; });
-    var sharedDebtIds = {}; sharedDebts.forEach(function (d) { sharedDebtIds[String(d.id)] = true; });
-    var sharedRecurring = FT.recurring().filter(function (r) { return r.kind === 'debt' && sharedDebtIds[String(r.debtId)]; });
-    var hogarInv = FT.investments('hogar');
-    var thisMonth = FT.todayISO().slice(0, 7);
-    var personalSpentThisMonth = (data.transactions || []).filter(function (t) { return String(t.date || '').startsWith(thisMonth) && t.hogar !== true && (t.type === 'gasto' || t.type === 'suscripcion' || t.type === 'hipoteca'); })
-      .reduce(function (a, t) { return a + (parseFloat(t.amount) || 0); }, 0);
-    var limited = {
-      transactions: (data.transactions || []).filter(function (t) { return String(t.date || '').startsWith(thisMonth) && (t.hogar === true || t.type === 'ingreso'); }),
-      emergency: data.emergency || 0,
-      subscriptions: (data.subscriptions || []).slice(-10),
-      sharedDebts: sharedDebts.slice(-20),
-      hogarInv: hogarInv.slice(-20),
-      fondos: FT.hogarFondos(),
-      personalSpentThisMonth: personalSpentThisMonth,
-      sharedRecurring: sharedRecurring,
-      servicios: FT.servicios().slice(-20),
-      checking: FT.checking()
-    };
-    var params = new URLSearchParams({ action: 'saveProfile', email: u.email, name: u.name || '', income: u.income || 0, needs: u.needs || 0, wants: u.wants || 0, savings: u.savings || 0, dataJson: JSON.stringify(limited) });
-    fetch(FT.GAS_URL + '?' + params.toString()).catch(function () {});
-  } catch (e) {}
-}
+/* ── SUBIR MI PERFIL A GAS (para que mi pareja lo lea) ──
+   Movido a FT.pushProfileToGAS() en premium.js -- ahora corre solo desde
+   ahí (debounced en cada ft:datachanged + al arrancar la app), no solo al
+   abrir esta pantalla. Se deja esta función como alias por compatibilidad
+   con el onclick de abajo. */
+function pushMyProfileToGAS() { FT.pushProfileToGAS(); }
 
 /* ── INIT ── */
 document.addEventListener('ft:ready', function () {
