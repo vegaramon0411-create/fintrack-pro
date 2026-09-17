@@ -193,7 +193,8 @@ function openTypePicker() {
   ov.querySelectorAll('[data-t]').forEach(function (el) { el.onclick = function () { FT.closeTop(); openForm(el.getAttribute('data-t'), null); }; });
 }
 function openForm(type, debt) {
-  formSt = { type: type, editing: debt, mortgageMode: debt ? (debt.mortgageMode || 'detallado') : 'detallado', hasInterest: debt ? (+debt.apr || 0) > 0 : cfg(type).hasInterest, kind: debt ? (debt.kind || cfg(type).kind) : cfg(type).kind };
+  formSt = { type: type, editing: debt, mortgageMode: debt ? (debt.mortgageMode || 'detallado') : 'detallado', hasInterest: debt ? (+debt.apr || 0) > 0 : cfg(type).hasInterest, kind: debt ? (debt.kind || cfg(type).kind) : cfg(type).kind,
+    owner: debt ? (debt.owner || 'me') : (type === 'hipoteca' ? 'both' : 'me') };
   if (type === 'hipoteca' && formSt.mortgageMode === 'simple') formSt.hasInterest = false;
   var L = es();
   FT.modal({
@@ -256,8 +257,16 @@ function formHTML() {
 
   html += '<div class="ft-field"><label>' + (L ? '¿Cómo cuenta en tu 50/30/20?' : 'How does it count in your 50/30/20?') + '</label><div class="dt-seg" id="dtKindSeg">' +
     '<button type="button" data-k="needs" class="' + (s.kind === 'needs' ? 'on' : '') + '">🏠 ' + (L ? 'Necesidad' : 'Need') + '</button>' +
-    '<button type="button" data-k="wants" class="' + (s.kind === 'wants' ? 'on' : '') + '">🎬 ' + (L ? 'Gusto' : 'Want') + '</button></div></div>' +
-    '<div id="amortPreview"></div>';
+    '<button type="button" data-k="wants" class="' + (s.kind === 'wants' ? 'on' : '') + '">🎬 ' + (L ? 'Gusto' : 'Want') + '</button></div></div>';
+
+  if (FT.hogarConnected()) {
+    html += '<div class="ft-field"><label>' + (L ? '¿Es una deuda de hogar o personal?' : 'Is this a household or personal debt?') + '</label><div class="dt-seg" id="dtOwnerSeg">' +
+      '<button type="button" data-o="both" class="' + (s.owner === 'both' ? 'on' : '') + '">🏠 ' + (L ? 'Hogar (compartida)' : 'Household (shared)') + '</button>' +
+      '<button type="button" data-o="me" class="' + (s.owner === 'both' ? '' : 'on') + '">👤 ' + (L ? 'Personal' : 'Personal') + '</button></div>' +
+      '<div class="dt-hint">' + (L ? 'Hogar: la ve y puede abonarle tu pareja también. Personal: solo tú.' : "Household: your partner sees and can pay it too. Personal: just you.") + '</div></div>';
+  }
+
+  html += '<div id="amortPreview"></div>';
 
   return html;
 }
@@ -273,6 +282,8 @@ function wireForm(body) {
   if (is) is.querySelectorAll('button').forEach(function (b) { b.onclick = function () { formSt.hasInterest = b.getAttribute('data-i') === '1'; redrawForm(body); }; });
   var ks = body.querySelector('#dtKindSeg');
   if (ks) ks.querySelectorAll('button').forEach(function (b) { b.onclick = function () { formSt.kind = b.getAttribute('data-k'); ks.querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', x === b); }); }; });
+  var os = body.querySelector('#dtOwnerSeg');
+  if (os) os.querySelectorAll('button').forEach(function (b) { b.onclick = function () { formSt.owner = b.getAttribute('data-o'); os.querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', x === b); }); }; });
   body.querySelectorAll('input').forEach(function (el) { el.oninput = function () { updatePreview(body); }; });
   wireInfoIcons(body);
   updatePreview(body);
@@ -353,6 +364,16 @@ function saveDebtForm(body) {
     kind: s.kind, abonos: (s.editing && s.editing.abonos) || [], paidMonths: (s.editing && s.editing.paidMonths) || {},
     createdAt: (s.editing && s.editing.createdAt) || new Date().toISOString(), updatedAt: new Date().toISOString()
   };
+  if (FT.hogarConnected()) {
+    debt.owner = s.owner === 'both' ? 'both' : 'me';
+    if (debt.owner === 'both') {
+      debt.splitMe = (s.editing && s.editing.splitMe) || 50;
+      debt.splitPartner = (s.editing && s.editing.splitPartner) || 50;
+      debt.splitMode = (s.editing && s.editing.splitMode) || 'equal';
+    }
+  } else if (s.editing && s.editing.owner) {
+    debt.owner = s.editing.owner; // sin hogar conectado no se toca lo que ya tenía
+  }
   if (s.type === 'hipoteca') {
     debt.mortgageMode = s.mortgageMode;
     debt.housePrice = parseFloat(g('fHousePrice')) || 0;
