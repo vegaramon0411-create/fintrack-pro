@@ -1241,11 +1241,11 @@ function _mergeFondosInto(myFondos, partnerFondos) {
  *  (abonos por id, balance recalculado desde original − Σabonos) — para que
  *  aparezcan completas en Deudas y pueda abonar/crear recurrentes, no solo verlas. */
 function _mergeSharedDebtsIntoMine(partnerSharedDebts) {
-  if (!partnerSharedDebts || !partnerSharedDebts.length) return;
+  partnerSharedDebts = partnerSharedDebts || [];
   var myDebts = FT.debts();
   partnerSharedDebts.forEach(function (pd) {
     var idx = myDebts.findIndex(function (d) { return String(d.id) === String(pd.id); });
-    if (idx < 0) { myDebts.push(Object.assign({}, pd, { owner: 'both' })); return; }
+    if (idx < 0) { myDebts.push(Object.assign({}, pd, { owner: 'both', _fromPartner: true })); return; }
     var mine = myDebts[idx], byId = {};
     (mine.abonos || []).forEach(function (a) { if (a && a.id != null) byId[a.id] = a; });
     (pd.abonos || []).forEach(function (a) { if (a && a.id != null) byId[a.id] = a; });
@@ -1253,20 +1253,35 @@ function _mergeSharedDebtsIntoMine(partnerSharedDebts) {
     var original = mine.original || pd.original || mine.balance;
     myDebts[idx] = Object.assign({}, mine, { owner: 'both', abonos: abonos, original: original, balance: Math.max(0, original - abonos.reduce(function (a, x) { return a + (parseFloat(x.monto) || 0); }, 0)) });
   });
+  // Reconciliar borrados: si una deuda que YO solo conozco porque mi pareja
+  // la compartió (_fromPartner) ya no viene en su snapshot mas reciente, es
+  // porque ella la borro o la volvio personal -- hay que quitarla tambien de
+  // mi lado. Nunca se borra una deuda que YO cree (sin _fromPartner), aunque
+  // hoy no venga en su lista -- esa siempre es mia y punto.
+  var partnerIds = {}; partnerSharedDebts.forEach(function (pd) { partnerIds[String(pd.id)] = true; });
+  myDebts = myDebts.filter(function (d) { return !(d._fromPartner && d.owner === 'both' && !partnerIds[String(d.id)]); });
   FT.saveDebts(myDebts);
 }
 /** Fusiona recurrentes de deuda compartida — sin pisar mi copia si ya avanzó más
  *  su nextDate (evita duplicar un pago que aquí ya se aplicó). */
 function _mergeSharedRecurringIntoMine(partnerSharedRecurring) {
-  if (!partnerSharedRecurring || !partnerSharedRecurring.length) return;
+  partnerSharedRecurring = partnerSharedRecurring || [];
   var mine = FT.recurring(), byId = {};
   mine.forEach(function (r) { byId[r.id] = r; });
+  var partnerIds = {};
   partnerSharedRecurring.forEach(function (r) {
+    partnerIds[String(r.id)] = true;
     var m = byId[r.id];
-    if (m && m.nextDate && r.nextDate && m.nextDate > r.nextDate) return;
-    byId[r.id] = r;
+    if (m && m.nextDate && r.nextDate && m.nextDate > r.nextDate) { byId[r.id] = Object.assign({}, m, { _fromPartner: true }); return; }
+    byId[r.id] = Object.assign({}, r, { _fromPartner: true });
   });
-  FT.set(K.recurring, Object.keys(byId).map(function (k) { return byId[k]; }));
+  // Mismo criterio que las deudas: un recurrente de deuda compartida que solo
+  // conozco porque mi pareja lo trajo, y que ya no viene en su snapshot mas
+  // reciente (lo borro, lo pauso y elimino, o pago la deuda), se quita de mi
+  // lado tambien -- nunca se toca un recurrente que yo mismo cree.
+  var all = Object.keys(byId).map(function (k) { return byId[k]; })
+    .filter(function (r) { return !(r._fromPartner && r.kind === 'debt' && !partnerIds[String(r.id)]); });
+  FT.set(K.recurring, all);
 }
 /** Trae el perfil de mi pareja y lo combina con el mío en todo lo compartido —
  *  no solo la caché de "profile_<email>", también mis propias claves (fondos,
@@ -1310,6 +1325,53 @@ FT.syncPartner = function () {
     }).catch(function () {});
   } catch (e) {}
 };
+
+/** Sube mi perfil (deudas/recurrentes/fondos compartidos, etc.) a GAS para que
+ *  mi pareja lo lea en su próximo FT.syncPartner(). Antes esto SOLO vivía en
+ *  hogar.html y SOLO se disparaba al abrir esa pantalla -- si yo pagaba o
+ *  borraba una deuda compartida desde Deudas y nunca volvía a abrir Hogar,
+ *  el snapshot en GAS se quedaba viejo para siempre, y mi pareja seguía
+ *  jalando esa deuda ya borrada en cada uno de sus syncs (la causa real de
+ *  que un abono/deuda "resucite" del lado de la pareja, sin importar cuántas
+ *  veces se borre localmente). Ahora es una función compartida que corre
+ *  sola cada vez que algo cambia (ver el listener de ft:datachanged en boot). */
+FT.pushProfileToGAS = function () {
+  try {
+    var u = FT.user(), hogar = FT.hogar();
+    if (!hogar.connected || !u.email || hogar.manuallyLeft) return;
+    var data = FT.data();
+    var myDebts = FT.debts();
+    var sharedDebts = myDebts.filter(function (d) { return d.owner === 'both' || d.type === 'hipoteca' || d.type === 'hogar'; })
+      .map(function (d) { return { id: d.id, name: d.name, balance: d.balance, original: d.original, type: d.type, payment: d.payment, payDay: d.payDay, owner: d.owner, abonos: (d.abonos || []).slice(-30), updatedAt: d.updatedAt }; });
+    var sharedDebtIds = {}; sharedDebts.forEach(function (d) { sharedDebtIds[String(d.id)] = true; });
+    var sharedRecurring = FT.recurring().filter(function (r) { return r.kind === 'debt' && sharedDebtIds[String(r.debtId)]; });
+    var hogarInv = FT.investments('hogar');
+    var thisMonth = FT.todayISO().slice(0, 7);
+    var personalSpentThisMonth = (data.transactions || []).filter(function (t) { return String(t.date || '').startsWith(thisMonth) && t.hogar !== true && (t.type === 'gasto' || t.type === 'suscripcion' || t.type === 'hipoteca'); })
+      .reduce(function (a, t) { return a + (parseFloat(t.amount) || 0); }, 0);
+    var limited = {
+      transactions: (data.transactions || []).filter(function (t) { return String(t.date || '').startsWith(thisMonth) && (t.hogar === true || t.type === 'ingreso'); }),
+      emergency: data.emergency || 0,
+      subscriptions: (data.subscriptions || []).slice(-10),
+      sharedDebts: sharedDebts.slice(-20),
+      hogarInv: hogarInv.slice(-20),
+      fondos: FT.hogarFondos(),
+      personalSpentThisMonth: personalSpentThisMonth,
+      sharedRecurring: sharedRecurring,
+      servicios: FT.servicios().slice(-20),
+      checking: FT.checking()
+    };
+    var params = new URLSearchParams({ action: 'saveProfile', email: u.email, name: u.name || '', income: u.income || 0, needs: u.needs || 0, wants: u.wants || 0, savings: u.savings || 0, dataJson: JSON.stringify(limited) });
+    fetch(FT.GAS_URL + '?' + params.toString()).catch(function () {});
+  } catch (e) {}
+};
+(function () {
+  var t = null;
+  document.addEventListener('ft:datachanged', function () {
+    clearTimeout(t);
+    t = setTimeout(function () { FT.pushProfileToGAS(); }, 2500); // debounce -- no un fetch por cada tecla
+  });
+})();
 
 /* ─────────────────────────────────────────────────────────────────────────
    9 · i18n
@@ -2610,6 +2672,11 @@ FT.boot = function () {
   if (!isPublic) {
     try { FT.runAutomations(); } catch (e) {}
     try { FT.syncPartner(); } catch (e) {}
+    // Refresca mi snapshot en GAS al abrir la app, no solo cuando cambia algo
+    // en esta sesión -- corrige de una vez cualquier snapshot que ya haya
+    // quedado viejo antes de este fix (deudas/recurrentes ya borrados que mi
+    // pareja seguía jalando).
+    try { FT.pushProfileToGAS(); } catch (e) {}
   }
   document.dispatchEvent(new CustomEvent('ft:ready'));
 };
