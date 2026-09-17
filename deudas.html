@@ -65,6 +65,9 @@
   .dt-chiprow button{background:#fff;border:1.5px solid var(--g-main);color:var(--g-dark);border-radius:20px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:var(--ui-font);}
   .dt-empty{text-align:center;padding:50px 20px;}
   .dt-empty .e{font-size:52px;margin-bottom:12px;}
+  .dt-info{display:inline-grid;place-items:center;width:15px;height:15px;border-radius:50%;background:var(--chip);color:var(--text3);font-size:9.5px;font-weight:900;font-style:normal;border:none;cursor:pointer;margin-left:5px;vertical-align:middle;line-height:1;padding:0;}
+  .dt-warn{background:#FBF0DD;border-radius:12px;padding:11px 13px;margin:10px 0;font-size:11.5px;color:#8A5A12;line-height:1.5;}
+  .dt-amortmore{width:100%;background:var(--sunk);border:1.5px solid var(--hair);border-radius:10px;padding:10px;font-family:var(--ui-font);font-size:12px;font-weight:800;color:var(--g-dark);cursor:pointer;margin-top:8px;}
 </style>
 </head>
 <body>
@@ -80,6 +83,43 @@ function es() { return FT.lang === 'es'; }
 function money(n, d) { return FT.money(n, { cents: !!d }); }
 function cfg(t) { return TYPE_CFG[t] || TYPE_CFG.personal; }
 function info(t) { var c = cfg(t); return c[FT.lang] || c.es; }
+
+/* ═══════════════ AYUDA (i) — qué poner en cada % ═══════════════ */
+var INFO_TEXT = {
+  apr: { t: { es: 'APR (tasa anual)', en: 'APR (annual rate)' },
+    b: { es: 'Es la tasa de interés anual de tu préstamo — la que dice tu contrato o estado de cuenta, NO la mensual. Para hipoteca suele venir entre 5–8%; para tarjeta de crédito entre 20–29%. Si no la encuentras, búscala como "APR" o "tasa de interés anual" en tu contrato.', en: "Your loan's annual interest rate — the one on your contract/statement, NOT a monthly rate. Mortgages usually run 5–8%; credit cards 20–29%. Look for \"APR\" or \"annual interest rate\" on your contract." } },
+  taxPct: { t: { es: 'Impuesto predial (% anual)', en: 'Property tax (% yearly)' },
+    b: { es: 'El impuesto predial anual como % del valor de la casa (no del saldo de la deuda). En EE.UU. suele ser 0.5–2.5% según el estado/condado — lo puedes ver en tu recibo de impuesto predial o en el desglose de tu pago (escrow) del banco. Déjalo en blanco si tu pago mensual YA es solo capital + interés (sin impuestos ni seguro incluidos).', en: 'Annual property tax as a % of the house value (not the loan balance). Usually 0.5–2.5% depending on county/state — check your tax bill or your bank\'s escrow breakdown. Leave blank if your monthly payment is ALREADY just principal + interest (no tax or insurance bundled in).' } },
+  insurancePct: { t: { es: 'Seguro de la casa (% anual)', en: 'Home insurance (% yearly)' },
+    b: { es: 'El seguro de la vivienda anual como % del valor de la casa. Suele rondar 0.3–1%. Aparece en tu póliza o en el desglose de escrow de tu banco. Igual que el predial: déjalo en blanco si tu pago mensual ya es solo capital + interés.', en: 'Annual homeowners insurance as a % of the house value. Usually around 0.3–1%. Check your policy or your bank\'s escrow breakdown. Same as property tax: leave blank if your monthly payment is already just principal + interest.' } },
+  pmiPct: { t: { es: 'PMI / seguro hipotecario (% anual)', en: 'PMI / mortgage insurance (% yearly)' },
+    b: { es: 'El PMI (seguro hipotecario privado) aplica cuando diste menos del 20% de enganche. Es un % anual sobre el SALDO de la deuda (no el valor de la casa), típicamente 0.3–1.5%. Si diste 20% o más de enganche, probablemente no tengas PMI — déjalo en 0.', en: 'PMI (private mortgage insurance) applies when your down payment was under 20%. It\'s an annual % of the loan BALANCE (not the house value), typically 0.3–1.5%. If you put 20%+ down you likely have no PMI — leave it at 0.' } }
+};
+function infoIcon(key) { return '<button type="button" class="dt-info" data-infokey="' + key + '" aria-label="' + (es() ? 'Ayuda' : 'Help') + '">i</button>'; }
+function amortTableHTML(rows) {
+  var L = es();
+  return '<table class="dt-amort"><thead><tr><th>' + (L ? 'Mes' : 'Month') + '</th><th>' + (L ? 'Capital' : 'Principal') + '</th><th>' + (L ? 'Interés' : 'Interest') + '</th><th>' + (L ? 'Saldo' : 'Balance') + '</th></tr></thead><tbody>' +
+    rows.map(function (r) { return '<tr><td style="font-weight:700">' + r.month + '</td><td style="color:var(--g-main)">' + money(r.principal, true) + '</td><td style="color:var(--red)">' + money(r.interest, true) + '</td><td style="font-weight:700">' + money(r.balance, true) + '</td></tr>'; }).join('') +
+    '</tbody></table>';
+}
+function openFullAmort(name, schedule) {
+  var L = es();
+  FT.sheet({
+    title: '📊 ' + (L ? 'Tabla completa · ' : 'Full table · ') + name,
+    html: '<div style="overflow-x:auto;max-height:60vh;overflow-y:auto;border:1px solid var(--hair);border-radius:10px">' + amortTableHTML(schedule) + '</div>' +
+      '<div style="font-size:10.5px;color:var(--text3);text-align:center;margin-top:8px">' + (L ? schedule.length + ' meses en total' : schedule.length + ' months total') + '</div>'
+  });
+}
+function wireInfoIcons(body) {
+  body.querySelectorAll('[data-infokey]').forEach(function (b) {
+    b.onclick = function (e) {
+      e.preventDefault(); e.stopPropagation();
+      var it = INFO_TEXT[b.getAttribute('data-infokey')]; if (!it) return;
+      var L = es();
+      FT.sheet({ title: it.t[L ? 'es' : 'en'], html: '<p style="font-size:13px;color:var(--text2);line-height:1.6;margin:2px 0">' + it.b[L ? 'es' : 'en'] + '</p>' });
+    };
+  });
+}
 
 /* ═══════════════ LISTA ═══════════════ */
 function render() {
@@ -192,17 +232,20 @@ function formHTML() {
       '<button type="button" data-i="1" class="' + (s.hasInterest ? 'on' : '') + '">' + (L ? 'Sí' : 'Yes') + '</button>' +
       '<button type="button" data-i="0" class="' + (!s.hasInterest ? 'on' : '') + '">' + (L ? 'No (0%)' : 'No (0%)') + '</button></div></div>';
   }
-  if (s.hasInterest) html += '<div class="ft-field" id="dtAprWrap"><label>APR (%)</label><input id="fAPR" type="number" min="0" step="0.01" placeholder="' + c.defaultAPR + '" value="' + v(d && d.apr) + '"><div class="dt-hint">' + (s.type === 'tarjeta' ? (L ? 'Típico: 20–29% · revisa tu estado de cuenta' : 'Typical: 20–29%') : (L ? 'Está en tu contrato o estado de cuenta' : "It's on your contract or statement")) + '</div></div>';
+  if (s.hasInterest) html += '<div class="ft-field" id="dtAprWrap"><label>APR (%)' + infoIcon('apr') + '</label><input id="fAPR" type="number" min="0" step="0.01" placeholder="' + c.defaultAPR + '" value="' + v(d && d.apr) + '"><div class="dt-hint">' + (s.type === 'tarjeta' ? (L ? 'Típico: 20–29% · revisa tu estado de cuenta' : 'Typical: 20–29%') : (L ? 'Está en tu contrato o estado de cuenta' : "It's on your contract or statement")) + '</div></div>';
 
   if (s.type === 'hipoteca' && s.mortgageMode !== 'simple') {
-    html += '<div class="ft-field"><label>' + (L ? 'Impuesto predial / Seguro / PMI (% anual) · HOA ($/mes)' : 'Property tax / Insurance / PMI (% yearly) · HOA ($/mo)') + '</label>' +
-      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><input id="fTaxPct" type="number" step="0.01" placeholder="' + (L ? 'Predial %' : 'Tax %') + '" value="' + v(d && d.taxPct) + '">' +
-      '<input id="fInsurancePct" type="number" step="0.01" placeholder="' + (L ? 'Seguro %' : 'Insurance %') + '" value="' + v(d && d.insurancePct) + '">' +
-      '<input id="fPmiPct" type="number" step="0.01" placeholder="PMI %" value="' + v(d && d.pmiPct) + '">' +
-      '<input id="fHoa" type="number" step="0.01" placeholder="HOA $" value="' + v(d && d.hoa) + '"></div><div class="dt-hint">' + (L ? 'Opcional — se suman al pago sugerido (PITI)' : 'Optional — added to the suggested payment (PITI)') + '</div></div>';
+    html += '<div class="ft-field"><label>' + (L ? 'Impuesto, seguro y PMI (opcional)' : 'Tax, insurance & PMI (optional)') + '</label>' +
+      '<div class="dt-hint" style="margin:0 0 8px">' + (L ? 'Llena esto SOLO si tu pago mensual de arriba ya incluye impuesto/seguro/PMI (pago "bundled" con tu banco) — si tu pago es solo capital + interés, deja todo esto en blanco.' : 'Fill this in ONLY if your payment above already bundles tax/insurance/PMI with your bank — if your payment is just principal + interest, leave all of this blank.') + '</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 10px">' +
+      '<div><label style="display:block;font-size:9.5px;font-weight:800;color:var(--text3);margin-bottom:4px">' + (L ? 'Predial %' : 'Tax %') + infoIcon('taxPct') + '</label><input id="fTaxPct" type="number" step="0.01" placeholder="0" value="' + v(d && d.taxPct) + '"></div>' +
+      '<div><label style="display:block;font-size:9.5px;font-weight:800;color:var(--text3);margin-bottom:4px">' + (L ? 'Seguro %' : 'Insurance %') + infoIcon('insurancePct') + '</label><input id="fInsurancePct" type="number" step="0.01" placeholder="0" value="' + v(d && d.insurancePct) + '"></div>' +
+      '<div><label style="display:block;font-size:9.5px;font-weight:800;color:var(--text3);margin-bottom:4px">PMI %' + infoIcon('pmiPct') + '</label><input id="fPmiPct" type="number" step="0.01" placeholder="0" value="' + v(d && d.pmiPct) + '"></div>' +
+      '<div><label style="display:block;font-size:9.5px;font-weight:800;color:var(--text3);margin-bottom:4px">HOA $/mes</label><input id="fHoa" type="number" step="0.01" placeholder="0" value="' + v(d && d.hoa) + '"></div>' +
+      '</div></div>';
   }
 
-  if (c.fixedTerm) html += '<div class="ft-field"><label>' + (L ? 'Plazo restante (meses)' : 'Remaining term (months)') + '</label><input id="fTerm" type="number" min="1" step="1" placeholder="' + (c.exampleTerm || '') + '" value="' + v(d && d.term) + '"></div>';
+  if (c.fixedTerm) html += '<div class="ft-field"><label>' + (L ? 'Plazo original del préstamo (meses)' : "Loan's original term (months)") + '</label><input id="fTerm" type="number" min="1" step="1" placeholder="' + (c.exampleTerm || '') + '" value="' + v(d && d.term) + '"><div class="dt-hint">' + (L ? 'Ej. una hipoteca a 30 años = 360. Si ya conoces tu pago mensual, esto solo se usa para comparar — los meses que realmente restan se calculan solos con tu saldo, pago y tasa.' : "E.g. a 30-year mortgage = 360. If you already know your monthly payment, this is only used to compare — the months actually left are calculated from your balance, payment and rate.") + '</div></div>';
   else html += '<input id="fTerm" type="hidden" value="">';
 
   html += '<div class="ft-field"><label>' + (L ? 'Pago mensual actual ($)' : 'Current monthly payment ($)') + '</label><input id="fPayment" type="number" min="0" step="0.01" value="' + v(d && d.payment) + '">' +
@@ -231,6 +274,7 @@ function wireForm(body) {
   var ks = body.querySelector('#dtKindSeg');
   if (ks) ks.querySelectorAll('button').forEach(function (b) { b.onclick = function () { formSt.kind = b.getAttribute('data-k'); ks.querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', x === b); }); }; });
   body.querySelectorAll('input').forEach(function (el) { el.oninput = function () { updatePreview(body); }; });
+  wireInfoIcons(body);
   updatePreview(body);
 }
 function updatePreview(body) {
@@ -269,12 +313,31 @@ function updatePreview(body) {
   var savedExtra = extra.payoffPossible ? am.totalInterest - extra.totalInterest : 0;
   var monthsSaved = extra.payoffPossible ? am.months - extra.months : 0;
 
+  // Aviso de coherencia: si declaraste un plazo original (ej. 360 = 30 años)
+  // pero el saldo/pago/tasa que diste terminan de pagarse MUCHO antes de eso
+  // sin haber separado impuesto/seguro/PMI, casi siempre es porque tu "pago
+  // mensual" en realidad trae esos extras mezclados -- avisar en vez de dejar
+  // un número que no cuadra sin explicación (lo que reportó Ramón: 175 en vez
+  // de 360).
+  // Solo tiene sentido comparar contra el plazo ORIGINAL cuando el préstamo
+  // sigue casi intacto (recién capturado) -- en un préstamo con años de
+  // avance real es normal y correcto que los meses restantes sean bastante
+  // menos que el plazo original, eso no es ningún error que avisar.
+  var origAmtForm = g('fOriginal') || balance;
+  var paidPctForm = origAmtForm > 0 ? Math.max(0, (origAmtForm - balance) / origAmtForm * 100) : 0;
+  var warnBundled = (s.type === 'hipoteca' && term > 0 && pitiExtra === 0 && paidPctForm < 15 && am.months < term * 0.85)
+    ? '<div class="dt-warn">⚠️ ' + (L
+        ? 'Dijiste que tu préstamo es a ' + term + ' meses, pero con el saldo/pago/tasa que diste se pagaría en ' + am.months + '. Lo más probable: tu pago mensual YA incluye impuesto predial, seguro o PMI. Llena esos campos arriba (o toca la i de cada uno) para que el cálculo separe eso del capital + interés real.'
+        : "You said this loan is " + term + " months, but with the balance/payment/rate you gave it would pay off in " + am.months + ". Most likely: your monthly payment already bundles property tax, insurance or PMI. Fill in those fields above (or tap the i on each) so the math separates that from the real principal + interest.") + '</div>'
+    : '';
+
   box.innerHTML = '<div class="dt-preview"><div class="t">📊 ' + (L ? 'Análisis de tu deuda' : 'Debt analysis') + '</div>' +
-    '<div class="r"><span class="k">' + (L ? 'Meses restantes' : 'Months left') + '</span><span>' + am.months + '</span></div>' +
+    '<div class="r"><span class="k">' + (L ? 'Meses restantes (calculado)' : 'Months left (calculated)') + '</span><span>' + am.months + '</span></div>' +
     '<div class="r"><span class="k">' + (L ? 'Total de intereses' : 'Total interest') + '</span><span>' + money(am.totalInterest, true) + '</span></div>' +
     (pitiExtra > 0 ? '<div class="r"><span class="k">' + (L ? 'Pago mensual (PITI)' : 'Monthly payment (PITI)') + '</span><span>' + money(effectivePayment + pitiExtra, true) + '</span></div>' : '') +
     (apr > 0 ? '<div class="r"><span class="k">' + (L ? 'Capital / interés (mes 1)' : 'Principal / interest (mo 1)') + '</span><span>' + money(firstPrin) + ' / ' + money(firstInt) + '</span></div>' : '') +
-    (savedExtra > 0 ? '<div class="tip">💡 ' + (L ? 'Si pagas $100 extra/mes: terminas ' + monthsSaved + ' meses antes y ahorras ' + money(savedExtra) + ' en intereses.' : 'Pay $100 extra/month: finish ' + monthsSaved + ' months earlier and save ' + money(savedExtra) + '.') + '</div>' : '') + '</div>';
+    (savedExtra > 0 ? '<div class="tip">💡 ' + (L ? 'Si pagas $100 extra/mes: terminas ' + monthsSaved + ' meses antes y ahorras ' + money(savedExtra) + ' en intereses.' : 'Pay $100 extra/month: finish ' + monthsSaved + ' months earlier and save ' + money(savedExtra) + '.') + '</div>' : '') + '</div>' +
+    warnBundled;
 }
 function saveDebtForm(body) {
   var L = es(), s = formSt;
@@ -331,6 +394,12 @@ function openDetail(id) {
   var interesTotalVida = d.type === 'hipoteca' ? interesYaPagado + (am.payoffPossible ? am.totalInterest : 0) : null;
   var monthlyR = (d.apr || 0) / 100 / 12, firstInt = d.balance * monthlyR, firstPrin = Math.max(0, d.payment - firstInt);
   var util = d.limit ? Math.round(d.balance / d.limit * 100) : 0;
+  var pitiExtraSaved = (+d.taxPct || 0) + (+d.insurancePct || 0) + (+d.pmiPct || 0) + (+d.hoa || 0);
+  var warnBundledDet = (d.type === 'hipoteca' && !isSimpleM && d.term > 0 && pitiExtraSaved === 0 && paidPct < 15 && am.payoffPossible && am.months < d.term * 0.85)
+    ? '<div class="dt-warn">⚠️ ' + (L
+        ? 'Guardaste esta hipoteca a ' + d.term + ' meses, pero con el saldo/pago/tasa que tiene se pagaría en ' + am.months + '. Lo más probable: tu pago mensual ya incluye impuesto predial, seguro o PMI. Edita la deuda y llena esos campos para que el cálculo sea real.'
+        : "You saved this mortgage as " + d.term + " months, but with its balance/payment/rate it would pay off in " + am.months + ". Most likely: your monthly payment already bundles property tax, insurance or PMI. Edit the debt and fill in those fields for the real math.") + '</div>'
+    : '';
 
   var html = '<div style="text-align:center;padding:6px 0 16px;border-bottom:1px solid var(--hair);margin-bottom:14px">' +
     '<div style="font-size:11px;color:var(--text3)">' + (L ? 'Saldo actual' : 'Current balance') + '</div>' +
@@ -342,6 +411,7 @@ function openDetail(id) {
     '<div class="dt-stats3" style="margin:12px 0"><div class="s"><div class="v">' + money(d.payment) + '</div><div class="k">' + (L ? 'pago/mes' : 'payment/mo') + '</div></div>' +
     '<div class="s"><div class="v" style="color:var(--red)">' + (am.payoffPossible ? money(am.totalInterest) : '∞') + '</div><div class="k">' + (L ? 'intereses' : 'interest') + '</div></div>' +
     '<div class="s"><div class="v">' + (am.payoffPossible && am.months < 600 ? am.months + 'm' : '—') + '</div><div class="k">' + (L ? 'restantes' : 'left') + '</div></div></div>' +
+    warnBundledDet +
     (isSimpleM ? '<div style="background:var(--sunk);border-radius:10px;padding:10px 12px;font-size:11px;color:var(--text3);margin-bottom:14px">🧮 ' + (L ? 'Modo simple: cálculo aproximado, sin desglose mensual.' : 'Simple mode: approximate, no monthly breakdown.') + '</div>' : '') +
     (d.apr && !isSimpleM ? '<div style="background:var(--sunk);border-radius:12px;padding:13px;margin-bottom:14px"><div style="font-size:11px;font-weight:800;margin-bottom:9px">💸 ' + (L ? 'Desglose de tu pago mensual' : 'Monthly payment breakdown') + '</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:9px"><div style="background:#fff;border-radius:10px;padding:10px;text-align:center"><div style="font-weight:900;color:var(--g-main)">' + money(firstPrin, true) + '</div><div style="font-size:9.5px;color:var(--text3)">' + (L ? 'va al capital' : 'to principal') + '</div></div><div style="background:#fff;border-radius:10px;padding:10px;text-align:center"><div style="font-weight:900;color:var(--red)">' + money(firstInt, true) + '</div><div style="font-size:9.5px;color:var(--text3)">' + (L ? 'va al interés' : 'to interest') + '</div></div></div></div>' : '') +
     (d.abonos && d.abonos.length ? '<div class="ft-section-head" style="margin-top:0"><h3>🧾 ' + (L ? 'Historial de abonos' : 'Payment history') + '</h3></div>' + d.abonos.slice().reverse().map(function (a) {
@@ -352,7 +422,8 @@ function openDetail(id) {
     (costoTotalReal != null ? '<div class="dt-costbox"><div class="lab">' + (L ? 'Lo que realmente terminas pagando' : 'What you actually end up paying') + '</div><div class="big">' + money(costoTotalReal, true) + '</div>' +
       '<div style="font-size:11px;color:var(--text2)">' + (L ? 'Casa de ' : 'House of ') + money(orig) + ' + ' + money(interesTotalVida) + ' ' + (L ? 'en intereses a lo largo de todo el préstamo' : 'in interest over the life of the loan') + '</div>' +
       '<div style="display:flex;gap:16px;margin-top:9px;padding-top:9px;border-top:1px dashed rgba(225,75,79,.25)"><div><div style="font-size:9.5px;color:var(--text3)">' + (L ? 'Ya pagado' : 'Paid so far') + '</div><div style="font-weight:800">' + money(interesYaPagado) + '</div></div><div><div style="font-size:9.5px;color:var(--text3)">' + (L ? 'Falta' : 'Remaining') + '</div><div style="font-weight:800">' + money(am.payoffPossible ? am.totalInterest : 0) + '</div></div></div></div>' : '') +
-    (am.schedule && am.schedule.length ? '<div class="ft-section-head" style="margin-top:0"><h3>📊 ' + (L ? 'Tabla de amortización' : 'Amortization table') + '</h3></div><div style="overflow-x:auto;border:1px solid var(--hair);border-radius:10px"><table class="dt-amort"><thead><tr><th>' + (L ? 'Mes' : 'Month') + '</th><th>' + (L ? 'Capital' : 'Principal') + '</th><th>' + (L ? 'Interés' : 'Interest') + '</th><th>' + (L ? 'Saldo' : 'Balance') + '</th></tr></thead><tbody>' + am.schedule.slice(0, 12).map(function (r) { return '<tr><td style="font-weight:700">' + r.month + '</td><td style="color:var(--g-main)">' + money(r.principal, true) + '</td><td style="color:var(--red)">' + money(r.interest, true) + '</td><td style="font-weight:700">' + money(r.balance, true) + '</td></tr>'; }).join('') + '</tbody></table></div>' : '');
+    (am.schedule && am.schedule.length ? '<div class="ft-section-head" style="margin-top:0"><h3>📊 ' + (L ? 'Tabla de amortización' : 'Amortization table') + '</h3></div><div style="overflow-x:auto;border:1px solid var(--hair);border-radius:10px">' + amortTableHTML(am.schedule.slice(0, 12)) + '</div>' +
+      (am.schedule.length > 12 ? '<button type="button" class="dt-amortmore" id="dtAmortFull">📊 ' + (L ? 'Ver tabla completa (' + am.schedule.length + ' meses)' : 'See full table (' + am.schedule.length + ' months)') + '</button>' : '') : '');
 
   document.getElementById('root').innerHTML =
     '<div class="ft-section-head"><button class="link" id="dtBack">← ' + (L ? 'Deudas' : 'Debts') + '</button><button class="link" id="dtEdit">✏️ ' + (L ? 'Editar' : 'Edit') + '</button></div>' +
@@ -363,6 +434,8 @@ function openDetail(id) {
   document.getElementById('dtEdit').onclick = function () { openForm(d.type, d); };
   document.getElementById('dtDel').onclick = function () { deleteDebt(d.id); };
   document.querySelectorAll('[data-abdet]').forEach(function (el) { el.onclick = function () { openAbonoDetail(d.id, el.getAttribute('data-abdet')); }; });
+  var fullBtn = document.getElementById('dtAmortFull');
+  if (fullBtn) fullBtn.onclick = function () { openFullAmort(d.name, am.schedule); };
 }
 
 /* ═══════════════ ABONAR ═══════════════ */

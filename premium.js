@@ -426,7 +426,11 @@ FT.calcAmort = function (balance, payment, aprPct, termMonths) {
   while (bal > 0.01 && months < 600) {
     var interest = bal * r, principal = Math.min(payment - interest, bal);
     bal -= principal; totalInterest += interest; months++;
-    if (months <= 24 || months % 12 === 0) schedule.push({ month: months, principal: +principal.toFixed(2), interest: +interest.toFixed(2), balance: +Math.max(0, bal).toFixed(2) });
+    // Tabla completa mes a mes (hasta 600) -- antes se guardaba solo una
+    // muestra (24 primeros + cada 12) y no había forma de ver el resto.
+    // El costo es el mismo bucle de todas formas; guardar cada fila no le
+    // cuesta nada extra y deja que la pantalla decida cuánto mostrar.
+    schedule.push({ month: months, principal: +principal.toFixed(2), interest: +interest.toFixed(2), balance: +Math.max(0, bal).toFixed(2) });
   }
   return { months: months, totalInterest: +totalInterest.toFixed(2), totalPaid: +(balance + totalInterest).toFixed(2), payoffPossible: true, schedule: schedule, monthlyPayment: +payment.toFixed(2) };
 };
