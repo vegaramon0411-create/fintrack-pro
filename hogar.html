@@ -963,12 +963,28 @@ document.addEventListener('ft:ready', function () {
       if (!gasData || !gasData.connected) return;
       var h2 = FT.hogar();
       if (h2.manuallyLeft) return;
-      if (gasData.partnerEmail && gasData.partnerEmail !== h2.partnerEmail) {
-        h2.connected = true; h2.pendingInvite = false; h2.partnerEmail = gasData.partnerEmail;
-        h2.partnerName = gasData.partnerName || h2.partnerName || (FT.lang === 'es' ? 'Tu pareja' : 'Your partner');
-        FT.saveHogar(h2);
+      if (h2.connected) { if (gasData.partnerEmail) FT.syncPartner(); return; } // ya conectado -- solo trae lo nuevo
+      // Estaba DESCONECTADO localmente pero GAS todavía recuerda un hogar para
+      // este correo (ej. otro dispositivo, o esta cuenta se registró de nuevo
+      // desde cero) -- antes esto reconectaba solo y volvía a traer deudas y
+      // recurrentes viejos sin que nadie lo pidiera. Ahora se pregunta primero;
+      // si dice que no, se marca manuallyLeft para no volver a preguntar cada
+      // vez que abra Hogar.
+      if (gasData.partnerEmail) {
+        var pname = gasData.partnerName || gasData.partnerEmail;
+        FT.confirm(es()
+          ? 'Detectamos que ya tenías un hogar conectado con ' + pname + '. ¿Reconectar y traer sus deudas/recurrentes compartidos?'
+          : 'We found you already had a household connected with ' + pname + '. Reconnect and bring in their shared debts/recurring items?'
+        ).then(function (ok) {
+          var h3 = FT.hogar();
+          if (!ok) { h3.manuallyLeft = true; FT.saveHogar(h3); return; }
+          h3.connected = true; h3.pendingInvite = false; h3.manuallyLeft = false; h3.partnerEmail = gasData.partnerEmail;
+          h3.partnerName = pname; h3.connectedAt = new Date().toISOString();
+          FT.saveHogar(h3);
+          FT.syncPartner();
+          render();
+        });
       }
-      if (gasData.partnerEmail) FT.syncPartner();
     }).catch(function () {});
   }
 });
