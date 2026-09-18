@@ -642,6 +642,14 @@ FT.deleteTx = function (id) {
   // cobertura y devolver el dinero al pozo (ahorro / emergencia).
   if (t.cobId) FT._unwindCobertura(t.cobId);
 
+  // Si este gasto/suscripción había descontado una cuenta de cheques
+  // conjunta al crearse, hay que devolverle el saldo al borrarlo.
+  if (t.checkingAccountId) {
+    var accts2 = FT.checking();
+    var a2 = accts2.findIndex(function (a) { return String(a.id) === String(t.checkingAccountId); });
+    if (a2 >= 0) { accts2[a2].amount = Math.round(((parseFloat(accts2[a2].amount) || 0) + (parseFloat(t.amount) || 0)) * 100) / 100; FT.saveChecking(accts2); }
+  }
+
   // Fuente vinculada
   if (t.type === 'ahorro' && (t.dest === 'libre' || t.cat === '💰 Ahorro')) {
     FT.reverseSavings(t.id);
@@ -1053,6 +1061,21 @@ FT.addEntry = function (o) {
       FT.set(K.data, d0);
       var cobEntry = { id: 'cobm_' + id, amount: take, date: o.date, tipo: 'retiro', note: (es ? 'Cobertura: ' : 'Coverage: ') + o.desc, cobId: cobId, cobFor: o.desc };
       if (src === 'emergencia') FT.addEmergency(cobEntry); else FT.addSavings(cobEntry);
+    }
+  }
+
+  // Descuento automático de la cuenta de cheques conjunta cuando el gasto/
+  // suscripción es del hogar y se eligió de qué cuenta sale -- así el saldo
+  // que se ve en Hogar refleja la realidad sin que alguien tenga que ir a
+  // actualizarlo a mano cada vez que se paga algo con la cuenta conjunta.
+  if ((o.type === 'gasto' || o.type === 'suscripcion') && hogar && o.checkingAccountId) {
+    var accts = FT.checking();
+    var aIdx = accts.findIndex(function (a) { return String(a.id) === String(o.checkingAccountId); });
+    if (aIdx >= 0) {
+      accts[aIdx].amount = Math.round(((parseFloat(accts[aIdx].amount) || 0) - amount) * 100) / 100;
+      accts[aIdx].updatedAt = o.date;
+      FT.saveChecking(accts);
+      entry.checkingAccountId = o.checkingAccountId; // para poder devolver el saldo si se borra este movimiento
     }
   }
 

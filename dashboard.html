@@ -374,8 +374,18 @@ function openEntry(type) {
   var CATS = ['🛒 Supermercado', '🍔 Restaurantes', '💊 Salud', '⛽ Gasolina', '🏠 Renta / Hipoteca', '📱 Teléfono/Internet', '🎬 Entretenimiento', '👕 Ropa', '✈️ Viajes', '🔧 Mantenimiento', '📦 Otros'];
   var extra = '';
   if (realType === 'gasto' || realType === 'hipoteca') extra += '<div class="ft-field"><label>' + (es ? 'Categoría' : 'Category') + '</label><select id="eCat">' + CATS.map(function (c) { return '<option>' + c + '</option>'; }).join('') + '</select></div>';
-  if (FT.hogarConnected() && (realType === 'gasto' || realType === 'inversion' || (realType === 'suscripcion' && !isServ)))
+  var hogarAccts = FT.checking().filter(function (a) { return a.hogar; });
+  var canDeductAcct = (realType === 'gasto' || (realType === 'suscripcion' && !isServ)) && hogarAccts.length > 0;
+  if (FT.hogarConnected() && (realType === 'gasto' || realType === 'inversion' || (realType === 'suscripcion' && !isServ))) {
     extra += '<div class="ft-field"><label>' + (es ? 'Es para' : 'For') + '</label><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><button type="button" id="ePers" class="tap" style="padding:9px;border-radius:10px;border:1.5px solid var(--g-main);background:var(--g-light);color:var(--g-dark);font-weight:800;font-family:var(--ui-font)">👤 ' + (es ? 'Personal' : 'Personal') + '</button><button type="button" id="eHog" class="tap" style="padding:9px;border-radius:10px;border:1px solid var(--hair);background:var(--sunk);color:var(--text2);font-weight:800;font-family:var(--ui-font)">🏠 ' + (es ? 'Hogar' : 'Household') + '</button></div></div>';
+    if (canDeductAcct) {
+      extra += '<div class="ft-field" id="eAcctWrap" style="display:none">' +
+        (hogarAccts.length > 1
+          ? '<label>' + (es ? '¿De qué cuenta se paga?' : 'Paid from which account?') + '</label><select id="eAcct">' + hogarAccts.map(function (a) { return '<option value="' + a.id + '">' + a.name + ' (' + FT.money(a.amount) + ')</option>'; }).join('') + '</select>'
+          : '<div class="dt-hint" style="margin:0">💳 ' + (es ? 'Se descontará de "' + hogarAccts[0].name + '" (' + FT.money(hogarAccts[0].amount) + ')' : 'Will be deducted from "' + hogarAccts[0].name + '" (' + FT.money(hogarAccts[0].amount) + ')') + '</div>') +
+        '</div>';
+    }
+  }
   if (realType === 'ahorro')
     extra += '<div class="ft-field"><label>' + (es ? 'Destino' : 'Destination') + '</label><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><button type="button" id="eLib" class="tap" style="padding:9px;border-radius:10px;border:1.5px solid var(--g-main);background:var(--g-light);color:var(--g-dark);font-weight:800;font-family:var(--ui-font)">💵 ' + (es ? 'Ahorro libre' : 'Free savings') + '</button><button type="button" id="eEmg" class="tap" style="padding:9px;border-radius:10px;border:1px solid var(--hair);background:var(--sunk);color:var(--text2);font-weight:800;font-family:var(--ui-font)">🛡️ ' + (es ? 'Emergencia' : 'Emergency') + '</button></div></div>';
   if (realType === 'ingreso')
@@ -393,8 +403,11 @@ function openEntry(type) {
       extra,
     saveLabel: es ? 'Guardar registro' : 'Save entry',
     onOpen: function (body) {
-      var h = body.querySelector('#eHog'), p = body.querySelector('#ePers');
-      if (h) { h.onclick = function () { state.hogar = true; sel(h, p); }; p.onclick = function () { state.hogar = false; sel(p, h); }; }
+      var h = body.querySelector('#eHog'), p = body.querySelector('#ePers'), acctWrap = body.querySelector('#eAcctWrap');
+      if (h) {
+        h.onclick = function () { state.hogar = true; sel(h, p); if (acctWrap) acctWrap.style.display = ''; };
+        p.onclick = function () { state.hogar = false; sel(p, h); if (acctWrap) acctWrap.style.display = 'none'; };
+      }
       var lib = body.querySelector('#eLib'), emg = body.querySelector('#eEmg');
       if (lib) { emg.onclick = function () { state.dest = 'emergencia'; sel(emg, lib); }; lib.onclick = function () { state.dest = 'libre'; sel(lib, emg); }; }
       function sel(on, off) {
@@ -412,7 +425,8 @@ function openEntry(type) {
         hogar: state.hogar, dest: state.dest,
         incomeKind: realType === 'ingreso' ? 'extra' : undefined,
         autoDist: body.querySelector('#eDist') ? body.querySelector('#eDist').checked : false,
-        esServicioHogar: isServ
+        esServicioHogar: isServ,
+        checkingAccountId: (state.hogar && canDeductAcct) ? (body.querySelector('#eAcct') ? body.querySelector('#eAcct').value : hogarAccts[0].id) : undefined
       };
       if (!o.desc || !parseFloat(o.amount) || !o.date) { FT.toast(FT.lang === 'es' ? 'Completa descripción, monto y fecha' : 'Fill description, amount and date'); return true; }
 
