@@ -1296,13 +1296,29 @@ FT.syncPartner = function () {
       if (!data || !data.success) return;
       var nd = {}; try { nd = JSON.parse(data.dataJson || '{}'); } catch (e) {}
       var old = FT.get(pkey, null); var od = (old && old.data) || {};
+      // OJO: sharedDebts/hogarInv representan el estado ACTUAL de mi pareja (su
+      // push manda su lista completa cada vez, no un delta) -- unirlas con la
+      // caché vieja vía _mergeById (que nunca quita nada) hacía que una deuda
+      // ya borrada del lado de mi pareja se quedara para siempre en esta
+      // caché, aunque _mergeSharedDebtsIntoMine ya la hubiera podado de
+      // ft_debts -- resultado: la sección "de solo lectura" en Hogar seguía
+      // mostrando deudas fantasma que ya no existían en ningún lado real.
+      // Aquí SÍ se reemplaza en vez de acumular.
+      // transactions es distinto: pushMyProfileToGAS SOLO manda el mes en
+      // curso (limited.transactions), no el historial completo -- reemplazar
+      // todo con nd.transactions borraría meses anteriores en cuanto cambie
+      // el mes. Se reemplaza SOLO la ventana del mes en curso (ahí sí se
+      // respeta un borrado del lado de la pareja) y se conserva intacto el
+      // resto de meses ya cacheados.
+      var thisMonthKey = FT.todayISO().slice(0, 7);
+      var oldOtherMonths = (od.transactions || []).filter(function (t) { return String(t.date || '').slice(0, 7) !== thisMonthKey; });
       var merged = {
-        transactions: _mergeById(od.transactions, nd.transactions),
+        transactions: oldOtherMonths.concat(nd.transactions || []),
         emergency: (nd.emergency != null ? nd.emergency : od.emergency) || 0,
         personalSpentThisMonth: (nd.personalSpentThisMonth != null ? nd.personalSpentThisMonth : od.personalSpentThisMonth) || 0,
         subscriptions: _mergeById(od.subscriptions, nd.subscriptions),
-        sharedDebts: _mergeById(od.sharedDebts, nd.sharedDebts),
-        hogarInv: _mergeById(od.hogarInv, nd.hogarInv)
+        sharedDebts: nd.sharedDebts != null ? nd.sharedDebts : (od.sharedDebts || []),
+        hogarInv: nd.hogarInv != null ? nd.hogarInv : (od.hogarInv || [])
       };
       var pp = { name: data.name || (old && old.name) || '', email: data.email || h.partnerEmail, income: parseFloat(data.income) || 0, needs: parseFloat(data.needs) || 0, wants: parseFloat(data.wants) || 0, savings: parseFloat(data.savings) || 0, data: merged };
       FT.set(pkey, pp);
@@ -1311,12 +1327,18 @@ FT.syncPartner = function () {
       if (nd.fondos) { try { FT.saveHogarFondos(_mergeFondosInto(FT.hogarFondos(), nd.fondos)); } catch (e) {} }
       if (nd.sharedDebts) { try { _mergeSharedDebtsIntoMine(nd.sharedDebts); } catch (e) {} }
       if (nd.sharedRecurring) { try { _mergeSharedRecurringIntoMine(nd.sharedRecurring); } catch (e) {} }
-      if (nd.servicios && nd.servicios.length) {
+      if (nd.servicios) {
+        // Por id, NUNCA concat crudo: pushProfileToGAS manda TODO mi
+        // ft_servicios sin filtrar (incluye lo que ya traigo _fromPartner),
+        // así que un concat sin dedup iba a duplicarse solo -- yo le mando a
+        // mi pareja su propio servicio de vuelta, ella lo vuelve a agregar
+        // como si fuera nuevo, y crece con cada sync. Por id evita eso pase
+        // lo que pase del otro lado.
         try {
-          var myServicios = FT.servicios(), byId = {};
-          myServicios.forEach(function (s) { byId[s.id] = s; });
-          nd.servicios.forEach(function (s) { byId[s.id] = s; });
-          FT.saveServicios(Object.keys(byId).map(function (k) { return byId[k]; }));
+          var byIdServ = {};
+          FT.servicios().filter(function (s) { return !s._fromPartner; }).forEach(function (s) { byIdServ[s.id] = s; });
+          nd.servicios.forEach(function (s) { if (!byIdServ[s.id]) byIdServ[s.id] = Object.assign({}, s, { _fromPartner: true }); });
+          FT.saveServicios(Object.keys(byIdServ).map(function (k) { return byIdServ[k]; }));
         } catch (e) {}
       }
       if (nd.checking) { try { FT.set(K.partnerChecking, nd.checking); } catch (e) {} }
@@ -1358,7 +1380,7 @@ FT.pushProfileToGAS = function () {
       fondos: FT.hogarFondos(),
       personalSpentThisMonth: personalSpentThisMonth,
       sharedRecurring: sharedRecurring,
-      servicios: FT.servicios().slice(-20),
+      servicios: FT.servicios().filter(function (s) { return !s._fromPartner; }).slice(-20), // nunca le hago eco a mi pareja de sus propios servicios
       checking: FT.checking()
     };
     var params = new URLSearchParams({ action: 'saveProfile', email: u.email, name: u.name || '', income: u.income || 0, needs: u.needs || 0, wants: u.wants || 0, savings: u.savings || 0, dataJson: JSON.stringify(limited) });

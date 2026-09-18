@@ -789,7 +789,14 @@ function tabDeudas() {
   var L = es(), hogar = FT.hogar(), partnerName = hogar.partnerName || (L ? 'Tu pareja' : 'Your partner');
   var debts = FT.debts(), sharedDebts = debts.filter(function (d) { return d.owner === 'both'; }), myDebts = debts.filter(function (d) { return !d.owner || d.owner === 'me'; });
   var pp = FT.partnerProfile();
-  var partnerSharedDebts = (pp && pp.data && pp.data.sharedDebts) || [];
+  // Todo lo que trae pp.data.sharedDebts YA se fusionó a mi propio ft_debts
+  // (ver FT.syncPartner -> _mergeSharedDebtsIntoMine, que corre con esta
+  // misma lista) -- mostrarlo otra vez aquí sin filtrar duplicaba cada deuda
+  // compartida: una vez en "Deudas compartidas" (la mía, editable) y otra en
+  // esta sección de solo lectura. Solo tiene sentido mostrar aquí lo que por
+  // algún motivo (aún no corrió el sync, error de red) no se haya fusionado.
+  var mySharedIds = {}; sharedDebts.forEach(function (d) { mySharedIds[String(d.id)] = true; });
+  var partnerSharedDebts = ((pp && pp.data && pp.data.sharedDebts) || []).filter(function (d) { return !mySharedIds[String(d.id)]; });
   var partnerSharedTotal = partnerSharedDebts.reduce(function (a, d) { return a + (parseFloat(d.balance) || 0); }, 0);
 
   function debtCard(d, shared) {
