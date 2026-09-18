@@ -1746,7 +1746,16 @@ FT.modal = function (o) {
   ov.querySelector('.x').addEventListener('click', FT.closeTop);
   var body = ov.querySelector('.ft-modal-body');
   var sb = ov.querySelector('[data-save]');
-  if (sb) sb.addEventListener('click', function () { var keep = o.onSave(body); if (!keep) FT.closeTop(); });
+  // Blindaje: si onSave truena (error de programación en cualquier pantalla),
+  // antes no pasaba NADA visible -- ni error, ni toast, el modal se quedaba
+  // ahí sin ninguna pista de qué falló. Ahora al menos se avisa en vez de
+  // fallar en silencio total.
+  if (sb) sb.addEventListener('click', function () {
+    var keep;
+    try { keep = o.onSave(body); }
+    catch (e) { console.error('onSave error:', e); FT.toast(FT.lang === 'es' ? '⚠️ Algo salió mal, intenta de nuevo' : '⚠️ Something went wrong, try again'); return; }
+    if (!keep) FT.closeTop();
+  });
   var cb = ov.querySelector('[data-cancel]');
   if (cb) cb.addEventListener('click', FT.closeTop);
   o.onOpen && o.onOpen(body);

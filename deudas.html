@@ -83,6 +83,40 @@ function es() { return FT.lang === 'es'; }
 function money(n, d) { return FT.money(n, { cents: !!d }); }
 function cfg(t) { return TYPE_CFG[t] || TYPE_CFG.personal; }
 function info(t) { var c = cfg(t); return c[FT.lang] || c.es; }
+/** Campos de dinero (saldo, valor de casa...) ya NO son <input type="number">
+ *  -- ese tipo de campo bloquea a nivel de navegador cualquier caracter que
+ *  no sea digito/un-solo-punto-decimal, así que un usuario tecleando el
+ *  separador de miles al estilo LatAm ("300.000" para trescientos mil, o
+ *  incluso "300,000") o bien no puede escribirlo, o termina guardando un
+ *  numero muy distinto al que creyo teclear (ej. 300.000 -> se lee como
+ *  300) SIN NINGÚN aviso -- probablemente la causa real detrás de "toco
+ *  Guardar y no pasa nada" en montos grandes como una hipoteca. Con
+ *  type="text" inputmode="decimal" el usuario puede teclear como quiera, y
+ *  esta función interpreta el separador de miles (puntos) y decimal (coma)
+ *  a la usanza LatAm que ya usa FT.money() en toda la app. */
+function numMoney(v) {
+  v = String(v == null ? '' : v).trim();
+  if (!v) return 0;
+  v = v.replace(/[^\d.,-]/g, ''); // quita $, espacios, etc.
+  var hasComma = v.indexOf(',') > -1, hasDot = v.indexOf('.') > -1;
+  if (hasComma && hasDot) {
+    // Los dos aparecen -- el que esté más a la derecha es el decimal real,
+    // el otro es agrupador de miles ("300.000,50" o "300,000.50").
+    if (v.lastIndexOf(',') > v.lastIndexOf('.')) v = v.replace(/\./g, '').replace(',', '.');
+    else v = v.replace(/,/g, '');
+  } else if (hasComma || hasDot) {
+    // Solo aparece un tipo de separador: si CADA grupo que separa tiene 3
+    // dígitos (y el primero 1-3), es agrupador de miles ("300.000" ->
+    // 300000, "300,000" -> 300000, "1.234.567" -> 1234567) -- si el último
+    // grupo no tiene 3 dígitos ("300.5", "300,50"), es el decimal real.
+    var sep = hasComma ? ',' : '.';
+    var parts = v.split(sep);
+    var looksGrouped = parts.length > 1 && parts.slice(1).every(function (p) { return p.length === 3; }) && parts[0].length <= 3;
+    v = looksGrouped ? parts.join('') : parts.join('.');
+  }
+  var n = parseFloat(v);
+  return isNaN(n) ? 0 : n;
+}
 
 /* ═══════════════ AYUDA (i) — qué poner en cada % ═══════════════ */
 var INFO_TEXT = {
@@ -214,14 +248,14 @@ function formHTML() {
 
   var html = typeHdr +
     '<div class="ft-field"><label>' + (L ? 'Nombre / Descripción' : 'Name / Description') + '</label><input id="fName" value="' + v(d && d.name) + '" placeholder="' + (L ? 'ej. Hipoteca Chase' : 'e.g. Chase Mortgage') + '"></div>' +
-    '<div class="ft-field"><label>' + (L ? 'Saldo actual ($)' : 'Current balance ($)') + '</label><input id="fBalance" type="number" min="0" step="0.01" value="' + v(d && d.balance) + '"></div>';
+    '<div class="ft-field"><label>' + (L ? 'Saldo actual ($)' : 'Current balance ($)') + '</label><input id="fBalance" type="text" inputmode="decimal" value="' + v(d && d.balance) + '"><div class="dt-hint">' + (L ? 'Puedes escribir los puntos de miles, ej. 300.000' : "You can type thousands separators, e.g. 300,000") + '</div></div>';
 
-  if (c.hasOriginal) html += '<div class="ft-field"><label>' + (L ? 'Monto original del préstamo ($)' : 'Original loan amount ($)') + '</label><input id="fOriginal" type="number" min="0" step="0.01" value="' + v(d && d.original) + '"><div class="dt-hint">' + (L ? 'Para calcular cuánto has pagado' : 'To calculate how much you have paid') + '</div></div>';
-  if (c.hasLimit) html += '<div class="ft-field"><label>' + (L ? 'Límite de crédito ($)' : 'Credit limit ($)') + '</label><input id="fLimit" type="number" min="0" value="' + v(d && d.limit) + '"></div>';
+  if (c.hasOriginal) html += '<div class="ft-field"><label>' + (L ? 'Monto original del préstamo ($)' : 'Original loan amount ($)') + '</label><input id="fOriginal" type="text" inputmode="decimal" value="' + v(d && d.original) + '"><div class="dt-hint">' + (L ? 'Para calcular cuánto has pagado' : 'To calculate how much you have paid') + '</div></div>';
+  if (c.hasLimit) html += '<div class="ft-field"><label>' + (L ? 'Límite de crédito ($)' : 'Credit limit ($)') + '</label><input id="fLimit" type="text" inputmode="decimal" value="' + v(d && d.limit) + '"></div>';
 
   if (s.type === 'hipoteca') {
-    html += '<div class="ft-field"><label>' + (L ? 'Valor de la casa ($)' : 'House price ($)') + '</label><input id="fHousePrice" type="number" min="0" step="0.01" value="' + v(d && d.housePrice) + '"></div>' +
-      '<div class="ft-field"><label>' + (L ? 'Enganche pagado ($, opcional)' : 'Down payment ($, optional)') + '</label><input id="fDownPayment" type="number" min="0" step="0.01" value="' + v(d && d.downPayment) + '"></div>' +
+    html += '<div class="ft-field"><label>' + (L ? 'Valor de la casa ($)' : 'House price ($)') + '</label><input id="fHousePrice" type="text" inputmode="decimal" value="' + v(d && d.housePrice) + '"></div>' +
+      '<div class="ft-field"><label>' + (L ? 'Enganche pagado ($, opcional)' : 'Down payment ($, optional)') + '</label><input id="fDownPayment" type="text" inputmode="decimal" value="' + v(d && d.downPayment) + '"></div>' +
       '<div class="ft-field"><label>' + (L ? '¿Cómo quieres calcularlo?' : 'How to calculate it?') + '</label><div class="dt-seg" id="dtModeSeg">' +
         '<button type="button" data-m="simple" class="' + (s.mortgageMode === 'simple' ? 'on' : '') + '">🧮 ' + (L ? 'Simple' : 'Simple') + '</button>' +
         '<button type="button" data-m="detallado" class="' + (s.mortgageMode === 'detallado' ? 'on' : '') + '">🔍 ' + (L ? 'Detallado' : 'Detailed') + '</button></div>' +
@@ -242,17 +276,17 @@ function formHTML() {
       '<div><label style="display:block;font-size:9.5px;font-weight:800;color:var(--text3);margin-bottom:4px">' + (L ? 'Predial %' : 'Tax %') + infoIcon('taxPct') + '</label><input id="fTaxPct" type="number" step="0.01" placeholder="0" value="' + v(d && d.taxPct) + '"></div>' +
       '<div><label style="display:block;font-size:9.5px;font-weight:800;color:var(--text3);margin-bottom:4px">' + (L ? 'Seguro %' : 'Insurance %') + infoIcon('insurancePct') + '</label><input id="fInsurancePct" type="number" step="0.01" placeholder="0" value="' + v(d && d.insurancePct) + '"></div>' +
       '<div><label style="display:block;font-size:9.5px;font-weight:800;color:var(--text3);margin-bottom:4px">PMI %' + infoIcon('pmiPct') + '</label><input id="fPmiPct" type="number" step="0.01" placeholder="0" value="' + v(d && d.pmiPct) + '"></div>' +
-      '<div><label style="display:block;font-size:9.5px;font-weight:800;color:var(--text3);margin-bottom:4px">HOA $/mes</label><input id="fHoa" type="number" step="0.01" placeholder="0" value="' + v(d && d.hoa) + '"></div>' +
+      '<div><label style="display:block;font-size:9.5px;font-weight:800;color:var(--text3);margin-bottom:4px">HOA $/mes</label><input id="fHoa" type="text" inputmode="decimal" placeholder="0" value="' + v(d && d.hoa) + '"></div>' +
       '</div></div>';
   }
 
   if (c.fixedTerm) html += '<div class="ft-field"><label>' + (L ? 'Plazo original del préstamo (meses)' : "Loan's original term (months)") + '</label><input id="fTerm" type="number" min="1" step="1" placeholder="' + (c.exampleTerm || '') + '" value="' + v(d && d.term) + '"><div class="dt-hint">' + (L ? 'Ej. una hipoteca a 30 años = 360. Si ya conoces tu pago mensual, esto solo se usa para comparar — los meses que realmente restan se calculan solos con tu saldo, pago y tasa.' : "E.g. a 30-year mortgage = 360. If you already know your monthly payment, this is only used to compare — the months actually left are calculated from your balance, payment and rate.") + '</div></div>';
   else html += '<input id="fTerm" type="hidden" value="">';
 
-  html += '<div class="ft-field"><label>' + (L ? 'Pago mensual actual ($)' : 'Current monthly payment ($)') + '</label><input id="fPayment" type="number" min="0" step="0.01" value="' + v(d && d.payment) + '">' +
+  html += '<div class="ft-field"><label>' + (L ? 'Pago mensual actual ($)' : 'Current monthly payment ($)') + '</label><input id="fPayment" type="text" inputmode="decimal" value="' + v(d && d.payment) + '">' +
     (s.type === 'tarjeta' ? '<div class="dt-hint">' + (L ? 'Pon cuánto pagas actualmente, no el mínimo' : "Enter what you actually pay, not the minimum") + '</div>' : '') + '</div>';
 
-  if (s.type === 'tarjeta') html += '<div class="ft-field"><label>' + (L ? 'Pago mínimo ($)' : 'Minimum payment ($)') + '</label><input id="fMinPayment" type="number" min="0" step="0.01" value="' + v(d && d.minPayment) + '"></div>';
+  if (s.type === 'tarjeta') html += '<div class="ft-field"><label>' + (L ? 'Pago mínimo ($)' : 'Minimum payment ($)') + '</label><input id="fMinPayment" type="text" inputmode="decimal" value="' + v(d && d.minPayment) + '"></div>';
   else html += '<input id="fMinPayment" type="hidden" value="">';
 
   html += '<div class="ft-field"><label>' + (L ? '¿Cómo cuenta en tu 50/30/20?' : 'How does it count in your 50/30/20?') + '</label><div class="dt-seg" id="dtKindSeg">' +
@@ -277,7 +311,15 @@ function wireForm(body) {
   var ct = body.querySelector('#dtChangeType');
   if (ct) ct.onclick = function () { FT.closeTop(); openTypePicker(); };
   var ms = body.querySelector('#dtModeSeg');
-  if (ms) ms.querySelectorAll('button').forEach(function (b) { b.onclick = function () { formSt.mortgageMode = b.getAttribute('data-m'); if (formSt.mortgageMode === 'simple') formSt.hasInterest = false; redrawForm(body); }; });
+  if (ms) ms.querySelectorAll('button').forEach(function (b) { b.onclick = function () {
+    formSt.mortgageMode = b.getAttribute('data-m');
+    // Simple no pregunta interés (se apaga). Al volver a Detallado hay que
+    // restaurarlo -- si no, quedaba atorado en "No" y el campo de APR
+    // desaparecía sin que el usuario hiciera nada raro.
+    if (formSt.mortgageMode === 'simple') formSt.hasInterest = false;
+    else formSt.hasInterest = formSt.editing ? (+formSt.editing.apr || 0) > 0 : cfg(formSt.type).hasInterest;
+    redrawForm(body);
+  }; });
   var is = body.querySelector('#dtIntSeg');
   if (is) is.querySelectorAll('button').forEach(function (b) { b.onclick = function () { formSt.hasInterest = b.getAttribute('data-i') === '1'; redrawForm(body); }; });
   var ks = body.querySelector('#dtKindSeg');
@@ -291,7 +333,7 @@ function wireForm(body) {
 function updatePreview(body) {
   var box = body.querySelector('#amortPreview'); if (!box) return;
   var L = es(), s = formSt, c = cfg(s.type);
-  var g = function (id) { var e = body.querySelector('#' + id); return e ? parseFloat(e.value) || 0 : 0; };
+  var g = function (id) { var e = body.querySelector('#' + id); return e ? numMoney(e.value) : 0; };
   var balance = g('fBalance'), payment = g('fPayment'), term = parseInt(body.querySelector('#fTerm') ? body.querySelector('#fTerm').value : 0) || 0;
 
   if (s.type === 'hipoteca' && s.mortgageMode === 'simple') {
@@ -353,14 +395,14 @@ function updatePreview(body) {
 function saveDebtForm(body) {
   var L = es(), s = formSt;
   var g = function (id) { var e = body.querySelector('#' + id); return e ? e.value : ''; };
-  var name = (g('fName') || '').trim(), balance = parseFloat(g('fBalance')) || 0;
+  var name = (g('fName') || '').trim(), balance = numMoney(g('fBalance'));
   if (!balance) { FT.toast(L ? 'Ingresa el saldo actual' : 'Enter the current balance'); return true; }
   if (!name) { FT.toast(L ? 'Ingresa un nombre' : 'Enter a name'); return true; }
-  var payment = parseFloat(g('fPayment')) || 0, apr = s.hasInterest ? (parseFloat(g('fAPR')) || 0) : 0, term = parseInt(g('fTerm')) || 0;
+  var payment = numMoney(g('fPayment')), apr = s.hasInterest ? (parseFloat(g('fAPR')) || 0) : 0, term = parseInt(g('fTerm')) || 0;
   var debt = {
     id: s.editing ? s.editing.id : (Date.now() + Math.floor(Math.random() * 1000)),
     type: s.type, name: name, balance: balance, payment: payment, apr: apr, term: term,
-    original: parseFloat(g('fOriginal')) || balance, limit: parseFloat(g('fLimit')) || 0, minPayment: parseFloat(g('fMinPayment')) || 0,
+    original: numMoney(g('fOriginal')) || balance, limit: numMoney(g('fLimit')), minPayment: numMoney(g('fMinPayment')),
     kind: s.kind, abonos: (s.editing && s.editing.abonos) || [], paidMonths: (s.editing && s.editing.paidMonths) || {},
     createdAt: (s.editing && s.editing.createdAt) || new Date().toISOString(), updatedAt: new Date().toISOString()
   };
@@ -376,13 +418,13 @@ function saveDebtForm(body) {
   }
   if (s.type === 'hipoteca') {
     debt.mortgageMode = s.mortgageMode;
-    debt.housePrice = parseFloat(g('fHousePrice')) || 0;
-    debt.downPayment = parseFloat(g('fDownPayment')) || 0;
+    debt.housePrice = numMoney(g('fHousePrice'));
+    debt.downPayment = numMoney(g('fDownPayment'));
     if (s.mortgageMode === 'simple') {
       debt.simpleTotalPaid = payment * term;
       debt.simpleTotalInterest = debt.housePrice > 0 ? Math.max(0, debt.simpleTotalPaid - Math.max(0, debt.housePrice - debt.downPayment)) : null;
     } else {
-      debt.taxPct = parseFloat(g('fTaxPct')) || 0; debt.insurancePct = parseFloat(g('fInsurancePct')) || 0; debt.pmiPct = parseFloat(g('fPmiPct')) || 0; debt.hoa = parseFloat(g('fHoa')) || 0;
+      debt.taxPct = parseFloat(g('fTaxPct')) || 0; debt.insurancePct = parseFloat(g('fInsurancePct')) || 0; debt.pmiPct = parseFloat(g('fPmiPct')) || 0; debt.hoa = numMoney(g('fHoa'));
     }
   }
   var debts = FT.debts();
