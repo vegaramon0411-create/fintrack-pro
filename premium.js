@@ -585,6 +585,28 @@ FT.applyBackup = function (backup) {
  *  Único sobreviviente a propósito: K.lang (preferencia de idioma del
  *  dispositivo, no un dato financiero). K.hogar se trata aparte abajo. */
 FT.clearAllData = function () {
+  // CAUSA RAÍZ #6, la más profunda de todas: hasta ahora "Borrar todo" solo
+  // limpiaba ESTE dispositivo -- pero FT.pushProfileToGAS() (que corre solo
+  // en cada cambio) ya había subido deudas/metas/fondos a Sheets, keyed por
+  // tu correo, en algún momento ANTES de este borrado. Ese snapshot en el
+  // servidor nunca se tocaba. Resultado real que reportó Ramón: los DOS
+  // lados de la pareja borran TODO localmente, arrancan de cero... y en
+  // cuanto vuelven a formar un hogar, sus deudas y metas viejas resucitan
+  // solas desde Sheets, sin que nadie las haya vuelto a teclear -- porque
+  // ninguno de los dos wipes locales le avisó jamás al backend.
+  // Aquí se sube un perfil vacío (mismo formato que pushProfileToGAS, para
+  // que el otro lado lo lea igual) ANTES de borrar el correo localmente --
+  // `keepalive` para que el request sobreviva aunque la página navegue a
+  // login.html un instante después.
+  try {
+    var uEmail = (FT.user() || {}).email;
+    if (uEmail) {
+      var emptyProfile = { transactions: [], emergency: 0, subscriptions: [], sharedDebts: [], hogarInv: [], fondos: { emerg: { meta: 0, fecha: '', hist: [] }, metas: [] }, personalSpentThisMonth: 0, sharedRecurring: [], servicios: [], checking: [] };
+      var emptyParams = new URLSearchParams({ action: 'saveProfile', email: uEmail, name: '', income: 0, needs: 0, wants: 0, savings: 0, dataJson: JSON.stringify(emptyProfile) });
+      fetch(FT.GAS_URL + '?' + emptyParams.toString(), { keepalive: true }).catch(function () {});
+    }
+  } catch (e) {}
+
   var skip = { lang: 1, hogar: 1 };
   Object.keys(K).forEach(function (k) { if (!skip[k]) FT.del(K[k]); });
   // Cachés del perfil de la pareja, una por cada email con el que se haya
@@ -1228,14 +1250,29 @@ function _mergeFondosInto(myFondos, partnerFondos) {
   };
   var metasById = {};
   (myFondos.metas || []).forEach(function (m) { if (m && m.id != null) metasById[m.id] = Object.assign({}, m); });
+  var partnerMetaIds = {};
   (partnerFondos.metas || []).forEach(function (m) {
     if (!m || m.id == null) return;
+    partnerMetaIds[String(m.id)] = true;
     if (metasById[m.id]) {
+      // Ya la tenía (mía, o ya fusionada antes) -- se conserva la etiqueta
+      // _fromPartner que YA tenía en vez de forzarla a true. Si no, una meta
+      // que yo mismo creé y que mi pareja simplemente recibe de vuelta por
+      // sync quedaba marcada como ajena, y la poda de abajo podía borrarla
+      // (encontrado por revisión independiente).
       var mine = metasById[m.id], hist = _mergeHistByKey(mine.hist, m.hist);
-      metasById[m.id] = Object.assign({}, mine, m, { nombre: mine.nombre || m.nombre, hist: hist, actual: hist.reduce(function (a, h) { return a + (h.monto || 0); }, 0) });
-    } else metasById[m.id] = Object.assign({}, m);
+      metasById[m.id] = Object.assign({}, mine, m, { nombre: mine.nombre || m.nombre, hist: hist, actual: hist.reduce(function (a, h) { return a + (h.monto || 0); }, 0), _fromPartner: mine._fromPartner });
+    } else metasById[m.id] = Object.assign({}, m, { _fromPartner: true });
   });
-  return { emerg: emerg, metas: Object.keys(metasById).map(function (k) { return metasById[k]; }) };
+  // Igual que deudas/recurrentes/servicios: si `partnerFondos` trae `metas`
+  // (aunque sea vacío -- es la lista completa y actual de mi pareja, no un
+  // delta), una meta que solo tengo por _fromPartner y que ya no está ahí
+  // se quita también de mi lado. Nunca se toca una meta que YO creé.
+  var metasOut = Object.keys(metasById).map(function (k) { return metasById[k]; });
+  if (Array.isArray(partnerFondos.metas)) {
+    metasOut = metasOut.filter(function (m) { return !(m._fromPartner && !partnerMetaIds[String(m.id)]); });
+  }
+  return { emerg: emerg, metas: metasOut };
 }
 /** Fusiona las deudas que mi pareja marcó como compartidas dentro de MI ft_debts
  *  (abonos por id, balance recalculado desde original − Σabonos) — para que
@@ -1272,8 +1309,13 @@ function _mergeSharedRecurringIntoMine(partnerSharedRecurring) {
   partnerSharedRecurring.forEach(function (r) {
     partnerIds[String(r.id)] = true;
     var m = byId[r.id];
-    if (m && m.nextDate && r.nextDate && m.nextDate > r.nextDate) { byId[r.id] = Object.assign({}, m, { _fromPartner: true }); return; }
-    byId[r.id] = Object.assign({}, r, { _fromPartner: true });
+    // Solo se etiqueta _fromPartner en la rama "nunca lo tenía" -- si ya
+    // existía localmente (mío o ya fusionado antes), se conserva la
+    // etiqueta que ya tenía en vez de forzarla, para que un recurrente que
+    // YO creé nunca pueda terminar marcado como ajeno y quedar elegible
+    // para podarse después (encontrado por revisión independiente).
+    if (!m) { byId[r.id] = Object.assign({}, r, { _fromPartner: true }); return; }
+    if (m.nextDate && r.nextDate && r.nextDate > m.nextDate) { byId[r.id] = Object.assign({}, r, { _fromPartner: m._fromPartner }); }
   });
   // Mismo criterio que las deudas: un recurrente de deuda compartida que solo
   // conozco porque mi pareja lo trajo, y que ya no viene en su snapshot mas
