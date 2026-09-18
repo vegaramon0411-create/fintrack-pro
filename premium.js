@@ -448,6 +448,28 @@ FT.checking = function () {
   return [];
 };
 FT.saveChecking = function (list) { FT.set(K.checking, list); FT._changed(); };
+/** Descuenta `amount` del saldo de una cuenta de cheques (por id) -- para que
+ *  un gasto/abono pagado con una cuenta conjunta se refleje solo ahí, sin
+ *  que alguien tenga que ir a actualizar el saldo a mano. No-op si el id no
+ *  existe (cuenta borrada mientras tanto). */
+FT.deductChecking = function (accountId, amount, dateISO) {
+  if (!accountId) return;
+  var accts = FT.checking();
+  var idx = accts.findIndex(function (a) { return String(a.id) === String(accountId); });
+  if (idx < 0) return;
+  accts[idx].amount = Math.round(((parseFloat(accts[idx].amount) || 0) - (parseFloat(amount) || 0)) * 100) / 100;
+  if (dateISO) accts[idx].updatedAt = dateISO;
+  FT.saveChecking(accts);
+};
+/** Inverso de FT.deductChecking -- para revertir al borrar o editar un movimiento. */
+FT.creditChecking = function (accountId, amount) {
+  if (!accountId) return;
+  var accts = FT.checking();
+  var idx = accts.findIndex(function (a) { return String(a.id) === String(accountId); });
+  if (idx < 0) return;
+  accts[idx].amount = Math.round(((parseFloat(accts[idx].amount) || 0) + (parseFloat(amount) || 0)) * 100) / 100;
+  FT.saveChecking(accts);
+};
 
 /* ── Inversiones ── */
 FT.investments = function (scope) { return FT.get(scope === 'hogar' ? K.hogarInv : K.investments, []) || []; };
@@ -644,11 +666,7 @@ FT.deleteTx = function (id) {
 
   // Si este gasto/suscripción había descontado una cuenta de cheques
   // conjunta al crearse, hay que devolverle el saldo al borrarlo.
-  if (t.checkingAccountId) {
-    var accts2 = FT.checking();
-    var a2 = accts2.findIndex(function (a) { return String(a.id) === String(t.checkingAccountId); });
-    if (a2 >= 0) { accts2[a2].amount = Math.round(((parseFloat(accts2[a2].amount) || 0) + (parseFloat(t.amount) || 0)) * 100) / 100; FT.saveChecking(accts2); }
-  }
+  if (t.checkingAccountId) FT.creditChecking(t.checkingAccountId, t.amount);
 
   // Fuente vinculada
   if (t.type === 'ahorro' && (t.dest === 'libre' || t.cat === '💰 Ahorro')) {
@@ -897,7 +915,12 @@ function _applyRecDebt(rec, hoy) {
     var capital = +Math.max(0, rec.amount - interes).toFixed(2);
     var abonoId = Date.now(), txId = abonoId + 1;
     var dt = FT.data();
-    dt.transactions.push({ id: txId, type: 'gasto', desc: (FT.lang === 'es' ? 'Abono a ' : 'Payment to ') + d.name, amount: rec.amount, date: hoy, cat: '💳 Deudas', hogar: rec.hogar, createdBy: FT.userName(), auto: true, recId: rec.id });
+    var autoTx = { id: txId, type: 'gasto', desc: (FT.lang === 'es' ? 'Abono a ' : 'Payment to ') + d.name, amount: rec.amount, date: hoy, cat: '💳 Deudas', hogar: rec.hogar, createdBy: FT.userName(), auto: true, recId: rec.id };
+    // Si este abono automático se configuró para salir de una cuenta de
+    // cheques conjunta, descontarla igual que un abono manual -- si no, el
+    // saldo de la cuenta se queda sin actualizar cada vez que corre solo.
+    if (rec.checkingAccountId) { FT.deductChecking(rec.checkingAccountId, rec.amount, hoy); autoTx.checkingAccountId = rec.checkingAccountId; }
+    dt.transactions.push(autoTx);
     FT.set(K.data, dt);
     d.abonos.push({ id: abonoId, monto: rec.amount, fecha: hoy, nota: '', saldoAntes: old, saldoDespues: nu, tipo: 'nuevo', createdBy: FT.userName(), txId: txId, interesPagado: interes, capitalPagado: capital, auto: true, recId: rec.id });
     FT.set(K.debts, debts);
@@ -1069,14 +1092,8 @@ FT.addEntry = function (o) {
   // que se ve en Hogar refleja la realidad sin que alguien tenga que ir a
   // actualizarlo a mano cada vez que se paga algo con la cuenta conjunta.
   if ((o.type === 'gasto' || o.type === 'suscripcion') && hogar && o.checkingAccountId) {
-    var accts = FT.checking();
-    var aIdx = accts.findIndex(function (a) { return String(a.id) === String(o.checkingAccountId); });
-    if (aIdx >= 0) {
-      accts[aIdx].amount = Math.round(((parseFloat(accts[aIdx].amount) || 0) - amount) * 100) / 100;
-      accts[aIdx].updatedAt = o.date;
-      FT.saveChecking(accts);
-      entry.checkingAccountId = o.checkingAccountId; // para poder devolver el saldo si se borra este movimiento
-    }
+    FT.deductChecking(o.checkingAccountId, amount, o.date);
+    entry.checkingAccountId = o.checkingAccountId; // para poder devolver el saldo si se borra este movimiento
   }
 
   var d = FT.data();
@@ -1975,9 +1992,19 @@ function _editTxDetail(tx) {
       var d = FT.data();
       var i = d.transactions.findIndex(function (t) { return String(t.id) === String(tx.id); });
       if (i >= 0) {
-        d.transactions[i] = Object.assign({}, d.transactions[i], {
+        var newAmount = parseFloat(body.querySelector('#etAmount').value) || 0;
+        // Si este movimiento había descontado una cuenta de cheques conjunta,
+        // editar el monto tiene que ajustar esa cuenta por la diferencia --
+        // si no, el saldo de la cuenta se queda desfasado del monto real que
+        // termina mostrando el movimiento (encontrado por revisión
+        // independiente al construir la función de descuento automático).
+        var oldTx = d.transactions[i];
+        if (oldTx.checkingAccountId && newAmount !== oldTx.amount) {
+          FT.creditChecking(oldTx.checkingAccountId, (parseFloat(oldTx.amount) || 0) - newAmount); // delta: viejo − nuevo
+        }
+        d.transactions[i] = Object.assign({}, oldTx, {
           desc: body.querySelector('#etDesc').value.trim(),
-          amount: parseFloat(body.querySelector('#etAmount').value) || 0,
+          amount: newAmount,
           date: body.querySelector('#etDate').value,
           note: body.querySelector('#etNote').value.trim()
         });
