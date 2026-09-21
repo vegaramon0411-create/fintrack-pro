@@ -265,7 +265,23 @@ function renderDashboard(hogar) {
   var metasTotal = (fondos.metas || []).reduce(function (a, m) { return a + (parseFloat(m.actual) || 0); }, 0);
   var patrimonioHogar = invTotal + checkTotal + metasTotal;
 
+  // % real que se destina al hogar: "pago de casa" + "ahorro" -- Ramón lo
+  // confirmó explícito (60% en su caso: 50+10). El hero de arriba antes
+  // mostraba el INGRESO COMBINADO completo (100%) como si fuera "el
+  // presupuesto" -- de ahí que siguiera pareciendo que dan el cheque
+  // entero. Ahora el número grande es el presupuesto REAL (ese %), y cada
+  // integrante muestra lo que aporta él con ese mismo %, no su sueldo
+  // completo.
+  var payPctHero = parseFloat(hogar.payPctHogar) || 50, savePctHero = parseFloat(hogar.saveHogarPct) || 10;
+  var hogarPctTotal = payPctHero + savePctHero;
+  var hogarBudgetHero = calc.total * hogarPctTotal / 100;
+  var myBudgetHero = calc.myIncome * hogarPctTotal / 100, partnerBudgetHero = calc.partnerIncome * hogarPctTotal / 100;
+
   var totalIncomeReceived = incomeReceivedThisMonth();
+  // El % se cancela entre recibido-al-hogar y presupuesto-del-hogar (los dos
+  // se escalan por el mismo hogarPctTotal), así que es el mismo % que
+  // recibido/ingreso combinado total -- se deja explícito así para que no
+  // haga falta volver a derivarlo si algo de arriba cambia.
   var incomeReceivedPct = calc.total > 0 ? Math.min(100, Math.round(totalIncomeReceived / calc.total * 100)) : 0;
   // "Bote real" = lo que de verdad debería haber en la cuenta de cheques
   // compartida -- NO el cheque completo, solo el % de "pago de casa" (el
@@ -274,8 +290,7 @@ function renderDashboard(hogar) {
   // restaba el gasto del hogar directo del ingreso COMPLETO, como si todo
   // el cheque se hubiera ido a la cuenta conjunta -- de ahí el reporte de
   // Ramón ("como si diéramos todo el cheque").
-  var hogarPctChkHero = parseFloat(hogar.payPctHogar) || 50;
-  var incomeToHogar = totalIncomeReceived * hogarPctChkHero / 100;
+  var incomeToHogar = totalIncomeReceived * payPctHero / 100;
   var botesReal = Math.max(0, incomeToHogar - calc.sharedTotal);
 
   var servicios = FT.servicios().filter(function (s) { return !s.paused; });
@@ -285,15 +300,16 @@ function renderDashboard(hogar) {
 
   var h =
     '<div class="hg-hero">' +
-      '<div class="lbl">' + (L ? 'Ingreso combinado del hogar' : 'Combined household income') + '</div>' +
-      '<div class="amt">' + FT.money(calc.total) + '<span style="font-size:14px;color:var(--text3);font-weight:700">/mes</span></div>' +
+      '<div class="lbl">' + (L ? 'Presupuesto del hogar (' + hogarPctTotal + '% de cada cheque)' : 'Household budget (' + hogarPctTotal + '% of each paycheck)') + '</div>' +
+      '<div class="amt">' + FT.money(hogarBudgetHero) + '<span style="font-size:14px;color:var(--text3);font-weight:700">/mes</span></div>' +
       '<div class="members">' +
-        '<div class="mem"><div class="n">' + (FT.userName() || (L ? 'Tú' : 'You')) + '</div><div class="a">' + FT.money(calc.myIncome) + '</div><div class="p">' + calc.myPct + '% ' + (L ? 'del total' : 'of total') + '</div></div>' +
-        '<div class="mem"><div class="n">' + partnerName + '</div><div class="a">' + FT.money(calc.partnerIncome) + '</div><div class="p">' + calc.partnerPct + '% ' + (L ? 'del total' : 'of total') + '</div></div>' +
+        '<div class="mem"><div class="n">' + (FT.userName() || (L ? 'Tú' : 'You')) + '</div><div class="a">' + FT.money(myBudgetHero) + '</div><div class="p">' + hogarPctTotal + '% ' + (L ? 'de ' + FT.money(calc.myIncome) : 'of ' + FT.money(calc.myIncome)) + '</div></div>' +
+        '<div class="mem"><div class="n">' + partnerName + '</div><div class="a">' + FT.money(partnerBudgetHero) + '</div><div class="p">' + hogarPctTotal + '% ' + (L ? 'de ' + FT.money(calc.partnerIncome) : 'of ' + FT.money(calc.partnerIncome)) + '</div></div>' +
       '</div>' +
-      '<div class="box"><div class="r"><span>💵 ' + (L ? 'Recibido este mes' : 'Received this month') + '</span><span>' + FT.money(totalIncomeReceived) + ' / ' + FT.money(calc.total) + '</span></div>' +
+      '<div style="font-size:10px;color:var(--text3);margin:2px 0 10px">' + (L ? 'Ingreso combinado total (100%, antes de separar): ' : 'Total combined income (100%, before splitting): ') + '<b style="color:var(--text2)">' + FT.money(calc.total) + '/mes</b></div>' +
+      '<div class="box"><div class="r"><span>💵 ' + (L ? 'Recibido este mes' : 'Received this month') + '</span><span>' + FT.money(totalIncomeReceived * hogarPctTotal / 100) + ' / ' + FT.money(hogarBudgetHero) + '</span></div>' +
       '<div class="ft-track" style="height:6px"><div class="ft-fill" data-pct="' + incomeReceivedPct + '" style="width:0;background:var(--g-main)"></div></div>' +
-      '<div style="font-size:10px;color:var(--text3);margin-top:6px">' + (L ? 'Bote real del hogar (' + hogarPctChkHero + '% de lo recibido − gastado hogar)' : hogarPctChkHero + '% of received − household spent') + ': <b style="color:var(--text2)">' + FT.money(botesReal) + '</b></div></div>' +
+      '<div style="font-size:10px;color:var(--text3);margin-top:6px">' + (L ? 'Bote real del hogar (' + payPctHero + '% de lo recibido − gastado hogar)' : payPctHero + '% of received − household spent') + ': <b style="color:var(--text2)">' + FT.money(botesReal) + '</b></div></div>' +
       (checkTotal > 0 ? '<div class="box" style="margin-top:10px"><div class="r" style="margin-bottom:0"><span>🏦 ' + (L ? 'Cuentas de cheques conjuntas' : 'Joint checking accounts') + '</span><span style="font-weight:800;color:var(--ink)">' + FT.money(checkTotal) + '</span></div></div>' : '') +
     '</div>' +
 
