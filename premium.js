@@ -1005,12 +1005,65 @@ function _applyDueList(key, defCat) {
 FT.applyDueSubscriptions = function () { return _applyDueList(K.subs, '🔄 Suscripción'); };
 FT.applyDueServicios = function () { return _applyDueList(K.servicios, '🏠 Servicio'); };
 
+/** Abonos a deuda con fecha futura (ver deudas.html:guardarAbono) -- se
+ *  guardan como `pending:true` SIN tocar el saldo, para que la barra de
+ *  progreso no se adelante a un pago que todavía no sucede. En cuanto la
+ *  fecha programada llega (o ya pasó), esto los aplica de verdad: descuenta
+ *  el saldo, crea la transacción y la cuenta conjunta si aplicaba. */
+FT.applyPendingDebtAbonos = function () {
+  var n = 0, today = FT.todayISO(), es = FT.lang === 'es';
+  var debts = FT.debts();
+  debts.forEach(function (d) {
+    if (!d || !Array.isArray(d.abonos)) return;
+    d.abonos.forEach(function (a) {
+      if (!a || !a.pending || a.fecha > today) return;
+      // try/catch por CADA abono (no uno solo para todo el lote): si algo
+      // truena en un abono, el resto de deudas/abonos de este mismo run
+      // igual se procesan, en vez de que un solo dato corrupto tire todo el
+      // lote y nada se guarde.
+      try {
+        var oldBalance = parseFloat(d.balance) || 0;
+        var newBalance = Math.max(0, oldBalance - (parseFloat(a.monto) || 0));
+        d.balance = newBalance; d.updatedAt = new Date().toISOString();
+        d.paidMonths = d.paidMonths || {}; d.paidMonths[String(a.fecha).slice(0, 7)] = true;
+        var apr = parseFloat(d.apr) || 0;
+        a.interesPagado = apr > 0 ? +(oldBalance * (apr / 100 / 12)).toFixed(2) : 0;
+        a.capitalPagado = +Math.max(0, (parseFloat(a.monto) || 0) - a.interesPagado).toFixed(2);
+        a.saldoAntes = oldBalance; a.saldoDespues = newBalance;
+        a.pending = false;
+        // Se guarda YA, antes de crear la transacción ligada -- si algo
+        // truena después (ej. al escribir ft_data), este abono en concreto
+        // ya quedó marcado como aplicado y nunca se reintenta en el
+        // siguiente arranque. Prefiere fallar una vez en silencio a
+        // duplicar la transacción o descontar la cuenta dos veces
+        // (encontrado por revisión independiente: antes todo el lote se
+        // guardaba junto hasta el final, así que un solo error a medias
+        // dejaba abonos ya "aplicados" en memoria pero marcados pending
+        // para siempre en el disco -- se reaplicaban cada arranque).
+        FT.saveDebts(debts);
+        if (a.tipo === 'nuevo') {
+          var txId = a.id + 1;
+          var dt = FT.data();
+          var linkedTx = { id: txId, type: 'gasto', desc: (es ? 'Abono a ' : 'Payment to ') + d.name, amount: parseFloat(a.monto) || 0, date: a.fecha, cat: '💳 Deudas', note: a.nota, hogar: a.hogarAbono, createdBy: a.createdBy, auto: true };
+          if (a.checkingAccountId) { FT.deductChecking(a.checkingAccountId, a.monto, a.fecha); linkedTx.checkingAccountId = a.checkingAccountId; }
+          dt.transactions.push(linkedTx);
+          FT.set(K.data, dt);
+          a.txId = txId;
+          FT.saveDebts(debts);
+        }
+        n++;
+      } catch (e) {}
+    });
+  });
+  return n;
+};
 FT.runAutomations = function () {
   var n = 0;
   try { n += FT.catchUpCheques(); } catch (e) {}
   try { n += FT.applyDueRecurring(); } catch (e) {}
   try { n += FT.applyDueSubscriptions(); } catch (e) {}
   try { n += FT.applyDueServicios(); } catch (e) {}
+  try { n += FT.applyPendingDebtAbonos(); } catch (e) {}
   if (n > 0 && FT.toast) FT.toast(FT.t('automations_done'), { icon: '🔄' });
 };
 
