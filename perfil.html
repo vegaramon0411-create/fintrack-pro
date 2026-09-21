@@ -270,8 +270,24 @@ function saveHogarPct() {
 }
 
 /* ── FRECUENCIA DE PAGO ── */
-function setPayFreq(freq) { var u = FT.user(); u.payFreq = freq; FT.saveUser(u); render(); }
+function setPayFreq(freq) {
+  var u = FT.user();
+  var oldFreq = u.payFreq || 'weekly';
+  u.payFreq = freq;
+  // Si el día guardado no tiene sentido para la frecuencia nueva (ej. venías
+  // de "Mensual" con payDay="15" y te pasas a "Quincenal", que ahora usa día
+  // de la semana), hay que resetearlo -- si no, el selector se ve como que
+  // ya elegiste un día (el navegador muestra el primero de la lista sin
+  // ninguna marca real) pero u.payDay sigue siendo el valor viejo, y el
+  // cálculo de quincena termina usando la rama equivocada en silencio.
+  var wasWeekday = ['weekly', 'biweekly'].indexOf(oldFreq) > -1, isWeekday = ['weekly', 'biweekly'].indexOf(freq) > -1;
+  if (wasWeekday !== isWeekday) u.payDay = isWeekday ? 'thursday' : '15';
+  if (freq !== 'biweekly') u.payAnchor = '';
+  FT.saveUser(u);
+  render();
+}
 function savePayDay(day) { var u = FT.user(); u.payDay = day; FT.saveUser(u); }
+function savePayAnchor(dateISO) { var u = FT.user(); u.payAnchor = dateISO; FT.saveUser(u); FT.toast(es() ? '✅ Fecha guardada' : '✅ Date saved'); }
 function savePayAuto(val) { var u = FT.user(); u.payAuto = val; FT.saveUser(u); FT.toast(val ? (es() ? '✅ Registro automático activado' : '✅ Auto-register on') : (es() ? 'Registro automático desactivado' : 'Auto-register off')); }
 
 /* ── AVATAR ── */
@@ -314,9 +330,13 @@ function render() {
   var checks = freq === 'weekly' ? 4 : freq === 'biweekly' ? 2 : 1;
   var perCheck = inc * totHogarPct / 100 / checks, personal = inc * persPct / 100 / checks;
   var freqLabel = L ? { weekly: 'Semanal', biweekly: 'Quincenal', monthly: 'Mensual' }[freq] : { weekly: 'Weekly', biweekly: 'Bi-weekly', monthly: 'Monthly' }[freq];
-  var dayOpts = freq === 'weekly'
+  // Quincenal usa el MISMO selector de día de la semana que semanal -- un
+  // sueldo "cada 2 semanas" se paga un día fijo de la semana (ej. cada
+  // martes de por medio), no un día fijo del MES (eso sería "los días 1 y
+  // 15", que ni siquiera caen siempre en quincena real). La diferencia
+  // real (cada 14 días, no cada 7) la da payAnchor más abajo.
+  var dayOpts = (freq === 'weekly' || freq === 'biweekly')
     ? [{ v: 'monday', l: L ? 'Lunes' : 'Monday' }, { v: 'tuesday', l: L ? 'Martes' : 'Tuesday' }, { v: 'wednesday', l: L ? 'Miércoles' : 'Wednesday' }, { v: 'thursday', l: L ? 'Jueves' : 'Thursday' }, { v: 'friday', l: L ? 'Viernes' : 'Friday' }, { v: 'saturday', l: L ? 'Sábado' : 'Saturday' }]
-    : freq === 'biweekly' ? [{ v: '1', l: '1' }, { v: '8', l: '8' }, { v: '15', l: '15' }, { v: '16', l: '16' }]
     : Array.from({ length: 28 }, function (_, i) { return { v: String(i + 1), l: String(i + 1) }; });
 
   var freqHtml = '<div style="background:var(--g-light);border-radius:12px;padding:14px">' +
@@ -325,8 +345,13 @@ function render() {
       '<div style="text-align:center;background:white;border-radius:8px;padding:10px"><div style="font-size:17px;font-weight:800;color:var(--red)">' + FT.money(perCheck) + '</div><div style="font-size:10px;color:var(--text3)">' + (L ? '→ Al hogar' : '→ To household') + ' (' + totHogarPct + '%)</div></div>' +
       '<div style="text-align:center;background:white;border-radius:8px;padding:10px"><div style="font-size:17px;font-weight:800;color:var(--blue)">' + FT.money(personal) + '</div><div style="font-size:10px;color:var(--text3)">' + (L ? '→ Personal' : '→ Personal') + ' (' + persPct + '%)</div></div>' +
     '</div>' +
-    '<div style="margin-bottom:10px"><label style="font-size:11px;font-weight:700;color:var(--g-dark);display:block;margin-bottom:6px">' + (L ? 'Día de pago' : 'Pay day') + '</label>' +
+    '<div style="margin-bottom:10px"><label style="font-size:11px;font-weight:700;color:var(--g-dark);display:block;margin-bottom:6px">' + (freq === 'monthly' ? (L ? 'Día del mes' : 'Day of month') : (L ? 'Día de la semana' : 'Day of week')) + '</label>' +
     '<select id="payDaySel" onchange="savePayDay(this.value)" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;background:white">' + dayOpts.map(function (d) { return '<option value="' + d.v + '" ' + (String(payDay) === d.v ? 'selected' : '') + '>' + d.l + '</option>'; }).join('') + '</select></div>' +
+    (freq === 'biweekly' ? '<div style="margin-bottom:10px"><label style="font-size:11px;font-weight:700;color:var(--g-dark);display:block;margin-bottom:6px">' + (L ? 'Un pago reciente que sí recibiste' : 'A recent payday you actually got paid') + '</label>' +
+      '<input type="date" id="payAnchorSel" value="' + (u.payAnchor || '') + '" onchange="savePayAnchor(this.value)" style="width:100%;padding:10px;border:1.5px solid ' + (payAuto && !u.payAnchor ? 'var(--red,#E14B4F)' : 'var(--border)') + ';border-radius:8px;font-family:inherit;background:white">' +
+      (payAuto && !u.payAnchor
+        ? '<div style="font-size:10.5px;color:var(--red,#E14B4F);margin-top:4px">⚠️ ' + (L ? 'Falta esta fecha — sin ella, el registro automático no va a detectar tus pagos quincenales.' : "This date is missing — without it, auto-register won't detect your biweekly paydays.") + '</div>'
+        : '<div style="font-size:10.5px;color:var(--text3);margin-top:4px">' + (L ? 'Quincenal es cada 14 días exactos, no cada semana en ese día — con esta fecha sabemos cuál semana sí te toca.' : "Biweekly is exactly every 14 days, not every week — this date tells us which week is actually yours.") + '</div>') + '</div>' : '') +
     '<label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px;background:white;border-radius:8px"><input type="checkbox" id="payAutoCheck" ' + (payAuto ? 'checked' : '') + ' onchange="savePayAuto(this.checked)" style="width:18px;height:18px;cursor:pointer">' +
     '<div><div style="font-size:12px;font-weight:700;color:var(--g-dark)">' + (L ? 'Registro automático' : 'Auto-register') + '</div><div style="font-size:10px;color:var(--text3)">' + (L ? 'El app registra tu cheque en el día configurado' : 'App registers your paycheck on the configured day') + '</div></div></label></div>';
 

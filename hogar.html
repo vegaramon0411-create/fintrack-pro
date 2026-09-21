@@ -267,7 +267,16 @@ function renderDashboard(hogar) {
 
   var totalIncomeReceived = incomeReceivedThisMonth();
   var incomeReceivedPct = calc.total > 0 ? Math.min(100, Math.round(totalIncomeReceived / calc.total * 100)) : 0;
-  var botesReal = Math.max(0, totalIncomeReceived - calc.sharedTotal);
+  // "Bote real" = lo que de verdad debería haber en la cuenta de cheques
+  // compartida -- NO el cheque completo, solo el % de "pago de casa" (el
+  // % de "ahorro" va aparte, a metas/fondos del hogar, no a esta cuenta --
+  // mismo criterio que ya usa tabDistribucion() para hogarBudget). Antes
+  // restaba el gasto del hogar directo del ingreso COMPLETO, como si todo
+  // el cheque se hubiera ido a la cuenta conjunta -- de ahí el reporte de
+  // Ramón ("como si diéramos todo el cheque").
+  var hogarPctChkHero = parseFloat(hogar.payPctHogar) || 50;
+  var incomeToHogar = totalIncomeReceived * hogarPctChkHero / 100;
+  var botesReal = Math.max(0, incomeToHogar - calc.sharedTotal);
 
   var servicios = FT.servicios().filter(function (s) { return !s.paused; });
   var servTotal = servicios.reduce(function (a, s) { return a + (parseFloat(s.amount) || 0); }, 0);
@@ -284,7 +293,7 @@ function renderDashboard(hogar) {
       '</div>' +
       '<div class="box"><div class="r"><span>💵 ' + (L ? 'Recibido este mes' : 'Received this month') + '</span><span>' + FT.money(totalIncomeReceived) + ' / ' + FT.money(calc.total) + '</span></div>' +
       '<div class="ft-track" style="height:6px"><div class="ft-fill" data-pct="' + incomeReceivedPct + '" style="width:0;background:var(--g-main)"></div></div>' +
-      '<div style="font-size:10px;color:var(--text3);margin-top:6px">' + (L ? 'Bote real en cuenta (recibido − gastado hogar)' : 'Real balance (received − household spent)') + ': <b style="color:var(--text2)">' + FT.money(botesReal) + '</b></div></div>' +
+      '<div style="font-size:10px;color:var(--text3);margin-top:6px">' + (L ? 'Bote real del hogar (' + hogarPctChkHero + '% de lo recibido − gastado hogar)' : hogarPctChkHero + '% of received − household spent') + ': <b style="color:var(--text2)">' + FT.money(botesReal) + '</b></div></div>' +
       (checkTotal > 0 ? '<div class="box" style="margin-top:10px"><div class="r" style="margin-bottom:0"><span>🏦 ' + (L ? 'Cuentas de cheques conjuntas' : 'Joint checking accounts') + '</span><span style="font-weight:800;color:var(--ink)">' + FT.money(checkTotal) + '</span></div></div>' : '') +
     '</div>' +
 
