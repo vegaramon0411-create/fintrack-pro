@@ -192,7 +192,10 @@ function debtCardHTML(d) {
   var paidAmt = Math.max(0, orig - (+d.balance || 0));
   var paidPct = orig > 0 ? Math.min(100, Math.round(paidAmt / orig * 100)) : 0;
   var mk = FT.todayISO().slice(0, 7);
-  var paidThisMonth = (d.abonos || []).filter(function (a) { return String(a.fecha || '').slice(0, 7) === mk; }).reduce(function (s, a) { return s + (+a.monto || 0); }, 0);
+  // Excluye abonos "pending" (fecha futura, todavía no se aplicó de verdad)
+  // -- si no, la barra/badge "✅ Cubierto" de este mes se adelantaba a un
+  // pago que en la realidad aún no sucede.
+  var paidThisMonth = (d.abonos || []).filter(function (a) { return !a.pending && String(a.fecha || '').slice(0, 7) === mk; }).reduce(function (s, a) { return s + (+a.monto || 0); }, 0);
   var mPct = d.payment > 0 ? Math.min(100, Math.round(paidThisMonth / d.payment * 100)) : 0;
   var mDone = d.payment > 0 && paidThisMonth >= d.payment;
   var isSimpleM = d.type === 'hipoteca' && d.mortgageMode === 'simple';
@@ -478,9 +481,9 @@ function openDetail(id) {
     (isSimpleM ? '<div style="background:var(--sunk);border-radius:10px;padding:10px 12px;font-size:11px;color:var(--text3);margin-bottom:14px">🧮 ' + (L ? 'Modo simple: cálculo aproximado, sin desglose mensual.' : 'Simple mode: approximate, no monthly breakdown.') + '</div>' : '') +
     (d.apr && !isSimpleM ? '<div style="background:var(--sunk);border-radius:12px;padding:13px;margin-bottom:14px"><div style="font-size:11px;font-weight:800;margin-bottom:9px">💸 ' + (L ? 'Desglose de tu pago mensual' : 'Monthly payment breakdown') + '</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:9px"><div style="background:#fff;border-radius:10px;padding:10px;text-align:center"><div style="font-weight:900;color:var(--g-main)">' + money(firstPrin, true) + '</div><div style="font-size:9.5px;color:var(--text3)">' + (L ? 'va al capital' : 'to principal') + '</div></div><div style="background:#fff;border-radius:10px;padding:10px;text-align:center"><div style="font-weight:900;color:var(--red)">' + money(firstInt, true) + '</div><div style="font-size:9.5px;color:var(--text3)">' + (L ? 'va al interés' : 'to interest') + '</div></div></div></div>' : '') +
     (d.abonos && d.abonos.length ? '<div class="ft-section-head" style="margin-top:0"><h3>🧾 ' + (L ? 'Historial de abonos' : 'Payment history') + '</h3></div>' + d.abonos.slice().reverse().map(function (a) {
-      return '<div class="dt-abrow" data-abdet="' + a.id + '"><div style="width:32px;height:32px;border-radius:9px;background:var(--g-light);display:grid;place-items:center;flex-shrink:0">💳</div>' +
-        '<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:700">' + (a.nota || (L ? 'Abono' : 'Payment')) + '</div><div style="font-size:10px;color:var(--text3)">' + FT.date(a.fecha) + (a.tipo === 'existente' ? ' · ' + (L ? 'Ya lo tenía' : 'Already had it') : '') + '</div></div>' +
-        '<div style="font-weight:800;color:var(--g-main)">-' + money(a.monto, true) + '</div></div>';
+      return '<div class="dt-abrow" data-abdet="' + a.id + '"><div style="width:32px;height:32px;border-radius:9px;background:' + (a.pending ? 'var(--sunk)' : 'var(--g-light)') + ';display:grid;place-items:center;flex-shrink:0">' + (a.pending ? '📅' : '💳') + '</div>' +
+        '<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:700">' + (a.nota || (L ? 'Abono' : 'Payment')) + (a.pending ? ' <span style="font-size:9px;background:var(--chip);color:var(--text3);padding:2px 7px;border-radius:20px;font-weight:800">' + (L ? 'PROGRAMADO' : 'SCHEDULED') + '</span>' : '') + '</div><div style="font-size:10px;color:var(--text3)">' + FT.date(a.fecha) + (a.tipo === 'existente' ? ' · ' + (L ? 'Ya lo tenía' : 'Already had it') : '') + '</div></div>' +
+        '<div style="font-weight:800;color:' + (a.pending ? 'var(--text3)' : 'var(--g-main)') + '">-' + money(a.monto, true) + '</div></div>';
     }).join('') : '') +
     (costoTotalReal != null ? '<div class="dt-costbox"><div class="lab">' + (L ? 'Lo que realmente terminas pagando' : 'What you actually end up paying') + '</div><div class="big">' + money(costoTotalReal, true) + '</div>' +
       '<div style="font-size:11px;color:var(--text2)">' + (L ? 'Casa de ' : 'House of ') + money(orig) + ' + ' + money(interesTotalVida) + ' ' + (L ? 'en intereses a lo largo de todo el préstamo' : 'in interest over the life of the loan') + '</div>' +
@@ -557,26 +560,41 @@ function guardarAbono(debtId, o) {
   var debts = FT.debts(); var idx = debts.findIndex(function (x) { return String(x.id) === String(debtId); });
   if (idx < 0) return;
   var d = debts[idx];
-  var oldBalance = parseFloat(d.balance) || 0;
-  var newBalance = Math.max(0, oldBalance - o.monto);
-  d.balance = newBalance; d.updatedAt = new Date().toISOString();
-  d.paidMonths = d.paidMonths || {}; d.paidMonths[o.fecha.slice(0, 7)] = true;
-
   var abonoId = Date.now(), linkedTxId = null;
-  if (o.tipo === 'nuevo') {
-    var data = FT.data();
-    linkedTxId = abonoId + 1;
-    var linkedTx = { id: linkedTxId, type: 'gasto', desc: (L ? 'Abono a ' : 'Payment to ') + d.name, amount: o.monto, date: o.fecha, cat: '💳 Deudas', note: o.nota, hogar: d.type === 'hipoteca', createdBy: FT.userName() };
-    if (o.checkingAccountId) { FT.deductChecking(o.checkingAccountId, o.monto, o.fecha); linkedTx.checkingAccountId = o.checkingAccountId; }
-    data.transactions.push(linkedTx);
-    FT.saveData(data);
+  // Fecha futura ("lo voy a pagar el jueves" pero hoy no es jueves): NO se
+  // toca el saldo ni se crea la transacción todavía -- si no, la barra de
+  // progreso se adelanta a un pago que en la vida real aún no sucede.
+  // FT.applyPendingDebtAbonos() (parte de FT.runAutomations, en cada
+  // arranque) lo aplica de verdad en cuanto esa fecha realmente llegue.
+  var isPending = o.fecha > FT.todayISO();
+
+  if (isPending) {
+    d.abonos = d.abonos || [];
+    d.abonos.push({ id: abonoId, monto: o.monto, fecha: o.fecha, nota: o.nota, tipo: o.tipo, createdBy: FT.userName(), txId: null, pending: true, checkingAccountId: o.checkingAccountId, hogarAbono: d.type === 'hipoteca' });
+    FT.saveDebts(debts);
+    FT.toast((L ? '📅 Programado para el ' + FT.date(o.fecha) + ' — no se descuenta todavía' : '📅 Scheduled for ' + FT.date(o.fecha) + ' — not deducted yet') + (o.rec ? (L ? ' · 🔄 recurrente activado' : ' · 🔄 recurring on') : ''), { ms: 4500 });
+  } else {
+    var oldBalance = parseFloat(d.balance) || 0;
+    var newBalance = Math.max(0, oldBalance - o.monto);
+    d.balance = newBalance; d.updatedAt = new Date().toISOString();
+    d.paidMonths = d.paidMonths || {}; d.paidMonths[o.fecha.slice(0, 7)] = true;
+
+    if (o.tipo === 'nuevo') {
+      var data = FT.data();
+      linkedTxId = abonoId + 1;
+      var linkedTx = { id: linkedTxId, type: 'gasto', desc: (L ? 'Abono a ' : 'Payment to ') + d.name, amount: o.monto, date: o.fecha, cat: '💳 Deudas', note: o.nota, hogar: d.type === 'hipoteca', createdBy: FT.userName() };
+      if (o.checkingAccountId) { FT.deductChecking(o.checkingAccountId, o.monto, o.fecha); linkedTx.checkingAccountId = o.checkingAccountId; }
+      data.transactions.push(linkedTx);
+      FT.saveData(data);
+    }
+    var apr = parseFloat(d.apr) || 0;
+    var interesEste = apr > 0 ? +(oldBalance * (apr / 100 / 12)).toFixed(2) : 0;
+    var capitalEste = +Math.max(0, o.monto - interesEste).toFixed(2);
+    d.abonos = d.abonos || [];
+    d.abonos.push({ id: abonoId, monto: o.monto, fecha: o.fecha, nota: o.nota, saldoAntes: oldBalance, saldoDespues: newBalance, tipo: o.tipo, createdBy: FT.userName(), txId: linkedTxId, interesPagado: interesEste, capitalPagado: capitalEste });
+    FT.saveDebts(debts);
+    FT.toast((L ? '✅ Abono de ' + money(o.monto) + ' registrado · Nuevo saldo: ' + money(newBalance) : '✅ Payment of ' + money(o.monto) + ' registered · New balance: ' + money(newBalance)) + (o.rec ? (L ? ' · 🔄 recurrente activado' : ' · 🔄 recurring on') : ''), { ms: 4000 });
   }
-  var apr = parseFloat(d.apr) || 0;
-  var interesEste = apr > 0 ? +(oldBalance * (apr / 100 / 12)).toFixed(2) : 0;
-  var capitalEste = +Math.max(0, o.monto - interesEste).toFixed(2);
-  d.abonos = d.abonos || [];
-  d.abonos.push({ id: abonoId, monto: o.monto, fecha: o.fecha, nota: o.nota, saldoAntes: oldBalance, saldoDespues: newBalance, tipo: o.tipo, createdBy: FT.userName(), txId: linkedTxId, interesPagado: interesEste, capitalPagado: capitalEste });
-  FT.saveDebts(debts);
 
   // Si ya había un recurrente activo y este abono manual cae en/después de su próxima fecha, se avanza para no duplicar
   if (o.existente && o.tipo === 'nuevo' && o.existente.nextDate && o.fecha >= o.existente.nextDate) {
@@ -589,7 +607,6 @@ function guardarAbono(debtId, o) {
     rec.push({ id: 'rec_' + Date.now(), kind: 'debt', debtId: d.id, desc: (L ? 'Abono a ' : 'Payment to ') + d.name, amount: o.monto, freq: o.freq, hogar: d.type === 'hipoteca', nextDate: FT._advanceRecDate(o.freq, o.fecha), active: true, createdBy: FT.userName(), payerLabel: payerLabel, payerRole: o.who, checkingAccountId: o.checkingAccountId });
     FT.set(FT.K.recurring, rec);
   }
-  FT.toast((L ? '✅ Abono de ' + money(o.monto) + ' registrado · Nuevo saldo: ' + money(newBalance) : '✅ Payment of ' + money(o.monto) + ' registered · New balance: ' + money(newBalance)) + (o.rec ? (L ? ' · 🔄 recurrente activado' : ' · 🔄 recurring on') : ''), { ms: 4000 });
   if (document.getElementById('dtEdit')) openDetail(debtId); else render();
 }
 
@@ -601,18 +618,20 @@ function openAbonoDetail(debtId, abonoId) {
   var L = es();
   FT.sheet({
     title: L ? 'Detalle del abono' : 'Payment detail',
-    html: '<div style="text-align:center;margin-bottom:14px"><div style="font-family:var(--round-font);font-weight:900;font-size:24px;color:var(--g-main)">-' + money(a.monto, true) + '</div>' +
+    html: '<div style="text-align:center;margin-bottom:14px"><div style="font-family:var(--round-font);font-weight:900;font-size:24px;color:' + (a.pending ? 'var(--text3)' : 'var(--g-main)') + '">-' + money(a.monto, true) + '</div>' +
+      (a.pending ? '<span class="ft-pill" style="margin-top:6px;display:inline-block">📅 ' + (L ? 'Programado — aún no se descuenta' : "Scheduled — not deducted yet") + '</span>' : '') +
       (a.tipo === 'existente' ? '<span class="ft-pill" style="margin-top:6px;display:inline-block">📦 ' + (L ? 'Ya lo tenía' : 'Already had it') + '</span>' : '') + '</div>' +
       '<div class="ft-row"><span class="k">' + (L ? 'Fecha' : 'Date') + '</span><span class="v">' + FT.date(a.fecha) + '</span></div>' +
       '<div class="ft-row"><span class="k">' + (L ? 'Registrado por' : 'Recorded by') + '</span><span class="v">' + (a.createdBy || '—') + '</span></div>' +
-      '<div class="ft-row"><span class="k">' + (L ? 'Saldo antes' : 'Balance before') + '</span><span class="v">' + money(a.saldoAntes, true) + '</span></div>' +
-      '<div class="ft-row"><span class="k">' + (L ? 'Saldo después' : 'Balance after') + '</span><span class="v">' + money(a.saldoDespues, true) + '</span></div>' +
-      '<div class="ft-row"><span class="k">' + (L ? 'De ese pago, capital' : 'Of that, principal') + '</span><span class="v" style="color:var(--g-main)">' + money(a.capitalPagado, true) + '</span></div>' +
-      '<div class="ft-row"><span class="k">' + (L ? 'De ese pago, interés' : 'Of that, interest') + '</span><span class="v" style="color:var(--red)">' + money(a.interesPagado, true) + '</span></div>' +
+      (a.pending ? '<p style="font-size:11.5px;color:var(--text3);margin:10px 0">' + (L ? 'El saldo de la deuda se actualizará solo el día que llegue esta fecha.' : "The debt's balance will update on its own once this date arrives.") + '</p>' :
+        '<div class="ft-row"><span class="k">' + (L ? 'Saldo antes' : 'Balance before') + '</span><span class="v">' + money(a.saldoAntes, true) + '</span></div>' +
+        '<div class="ft-row"><span class="k">' + (L ? 'Saldo después' : 'Balance after') + '</span><span class="v">' + money(a.saldoDespues, true) + '</span></div>' +
+        '<div class="ft-row"><span class="k">' + (L ? 'De ese pago, capital' : 'Of that, principal') + '</span><span class="v" style="color:var(--g-main)">' + money(a.capitalPagado, true) + '</span></div>' +
+        '<div class="ft-row"><span class="k">' + (L ? 'De ese pago, interés' : 'Of that, interest') + '</span><span class="v" style="color:var(--red)">' + money(a.interesPagado, true) + '</span></div>') +
       (a.nota ? '<div class="ft-row"><span class="k">' + (L ? 'Nota' : 'Note') + '</span><span class="v">' + a.nota + '</span></div>' : ''),
     actions: [
-      { label: '🗑️ ' + (L ? 'Eliminar' : 'Delete'), onClick: function () {
-          FT.confirm(L ? '¿Eliminar este abono? El saldo se revierte.' : "Delete this payment? The balance will be reverted.").then(function (ok) {
+      { label: '🗑️ ' + (L ? (a.pending ? 'Cancelar' : 'Eliminar') : (a.pending ? 'Cancel' : 'Delete')), onClick: function () {
+          FT.confirm(a.pending ? (L ? '¿Cancelar este pago programado?' : 'Cancel this scheduled payment?') : (L ? '¿Eliminar este abono? El saldo se revierte.' : "Delete this payment? The balance will be reverted.")).then(function (ok) {
             if (!ok) return;
             deleteAbono(debtId, abonoId);
           });
@@ -628,8 +647,12 @@ function deleteAbono(debtId, abonoId) {
   if (aIdx < 0) return;
   var a = d.abonos[aIdx];
   d.abonos.splice(aIdx, 1);
-  var original = d.original != null ? d.original : ((parseFloat(d.balance) || 0) + (parseFloat(a.monto) || 0));
-  d.balance = Math.max(0, original - d.abonos.reduce(function (s, x) { return s + (parseFloat(x.monto) || 0); }, 0));
+  // Los abonos "pending" (fecha futura) nunca tocaron el saldo al crearse --
+  // hay que excluirlos aquí también, si no, al borrar CUALQUIER abono se
+  // recalculaba el saldo restando de más (incluía pagos programados que en
+  // realidad todavía no habían pasado).
+  var original = d.original != null ? d.original : ((parseFloat(d.balance) || 0) + (a.pending ? 0 : (parseFloat(a.monto) || 0)));
+  d.balance = Math.max(0, original - d.abonos.filter(function (x) { return !x.pending; }).reduce(function (s, x) { return s + (parseFloat(x.monto) || 0); }, 0));
   FT.saveDebts(debts);
   // FT.deleteTx (no un filter a mano) para que, si este abono había
   // descontado una cuenta de cheques conjunta, también se le devuelva el
