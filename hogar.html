@@ -344,8 +344,10 @@ function renderDashboard(hogar) {
     '</div>' +
     '<div id="tabContent"></div>' +
 
-    '<div style="margin-top:16px"><button class="ft-btn ft-btn-ghost tap" onclick="go(\'servicios.html\')">🏠 ' + (L ? 'Servicios de la casa (luz, agua, internet...)' : 'Household services (electricity, water, internet...)') + '</button></div>' +
-    '<div style="margin-top:8px"><button class="ft-btn ft-btn-ghost tap" style="color:var(--red)" onclick="leaveHousehold()">' + (L ? 'Salir del hogar' : 'Leave household') + '</button></div>';
+    // El acceso a Servicios ya está arriba en "Accesos rápidos del hogar"
+    // (qItem 🏠 Servicios) -- este botón de aquí abajo era el mismo destino
+    // repetido dos veces en la misma pantalla.
+    '<div style="margin-top:16px"><button class="ft-btn ft-btn-ghost tap" style="color:var(--red)" onclick="leaveHousehold()">' + (L ? 'Salir del hogar' : 'Leave household') + '</button></div>';
 
   document.getElementById('root').innerHTML = h;
   requestAnimationFrame(function () { document.querySelectorAll('.ft-fill[data-pct]').forEach(function (f) { f.style.width = f.getAttribute('data-pct') + '%'; }); });
