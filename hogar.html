@@ -368,20 +368,32 @@ function renderTab(calc, partnerName) {
 /* ── TAB RESUMEN ── */
 function tabResumen(calc) {
   var L = es();
-  var byCat = {};
-  calc.shared.concat(calc.pShared).forEach(function (t) { var cat = t.cat || '📦 Otros'; byCat[cat] = (byCat[cat] || 0) + (t.amount || 0); });
-  var catRows = Object.keys(byCat).sort(function (a, b) { return byCat[b] - byCat[a]; }).map(function (cat) {
-    var amt = byCat[cat], pct = calc.total > 0 ? Math.round(amt / calc.total * 100) : 0;
-    var parts = cat.split(' ');
+  // Agrupar por LABEL normalizado (FT.catMeta, el mismo parser de emoji que
+  // usa toda la app), no por el string crudo de t.cat -- algunas
+  // transacciones traían la categoría sin su emoji al frente (ej. "Otros"
+  // a secas contra "📦 Otros"), y como objeto-clave eran dos strings
+  // distintos -> dos filas duplicadas, la segunda sin emoji real (se veía
+  // el texto "Otros" también en la columna del ícono).
+  var byCat = {}; // label -> { amt, emoji }
+  calc.shared.concat(calc.pShared).forEach(function (t) {
+    var meta = FT.catMeta(t.cat || (L ? '📦 Otros' : '📦 Other'));
+    var label = meta.label || (L ? 'Otros' : 'Other');
+    if (!byCat[label]) byCat[label] = { amt: 0, emoji: meta.emoji || '📦' };
+    byCat[label].amt += (t.amount || 0);
+    if (!byCat[label].emoji && meta.emoji) byCat[label].emoji = meta.emoji; // por si la primera vez vino sin emoji
+  });
+  var catKeys = Object.keys(byCat).sort(function (a, b) { return byCat[b].amt - byCat[a].amt; });
+  var catRows = catKeys.map(function (label) {
+    var amt = byCat[label].amt, pct = calc.total > 0 ? Math.round(amt / calc.total * 100) : 0;
     return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">' +
-      '<div style="font-size:14px;width:20px;text-align:center;flex-shrink:0">' + parts[0] + '</div>' +
-      '<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;margin-bottom:2px">' + (parts.slice(1).join(' ') || cat) + '</div>' +
+      '<div style="font-size:14px;width:20px;text-align:center;flex-shrink:0">' + byCat[label].emoji + '</div>' +
+      '<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;margin-bottom:2px">' + label + '</div>' +
       '<div class="ft-track" style="height:5px"><div class="ft-fill" data-pct="' + Math.min(pct * 3, 100) + '" style="width:0;background:var(--red)"></div></div></div>' +
       '<div style="font-size:10px;color:var(--text3);flex-shrink:0;width:30px;text-align:right">' + pct + '%</div>' +
       '<div style="font-size:12px;font-weight:800;flex-shrink:0">' + FT.money(amt) + '</div></div>';
   }).join('');
-  var biggest = Object.keys(byCat).sort(function (a, b) { return byCat[b] - byCat[a]; })[0];
-  var tip = biggest && calc.total > 0 ? '💡 ' + (biggest.split(' ').slice(1).join(' ') || biggest) + ' ' + (L ? 'representa el' : 'represents') + ' ' + Math.round(byCat[biggest] / calc.total * 100) + '% ' + (L ? 'del ingreso combinado.' : 'of combined income.') : '';
+  var biggest = catKeys[0];
+  var tip = biggest && calc.total > 0 ? '💡 ' + biggest + ' ' + (L ? 'representa el' : 'represents') + ' ' + Math.round(byCat[biggest].amt / calc.total * 100) + '% ' + (L ? 'del ingreso combinado.' : 'of combined income.') : '';
   var sobrante = calc.mySharedPart + calc.partnerSharedPart - calc.sharedTotal;
   var sharedPct = calc.total > 0 ? Math.round(calc.sharedTotal / calc.total * 100) : 0;
 
