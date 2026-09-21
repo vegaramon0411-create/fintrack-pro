@@ -810,8 +810,21 @@ FT.getMissingPaydays = function () {
   var missing = [], cursor = new Date(start), guard = 0;
   while (cursor <= today && guard < 400) {
     var ds = FT.date(cursor, 'ISO'), matches;
-    if (freq === 'weekly') matches = cursor.getDay() === (days[payDay] !== undefined ? days[payDay] : 4);
-    else matches = String(cursor.getDate()) === String(payDay);
+    if (freq === 'weekly') {
+      matches = cursor.getDay() === (days[payDay] !== undefined ? days[payDay] : 4);
+    } else if (freq === 'biweekly' && days[payDay] !== undefined && u.payAnchor) {
+      // Quincenal de verdad: mismo día de la semana que weekly, PERO solo
+      // cada 14 días contados desde una fecha ancla real (un pago que sí
+      // recibió) -- si solo se comparara el día de la semana, "cada martes"
+      // dispararía cada semana, el doble de seguido de lo que en realidad
+      // pagan (una semana sí, la otra no).
+      var anchor = new Date(u.payAnchor + 'T00:00:00');
+      var diffDays = Math.round((cursor - anchor) / 86400000);
+      matches = cursor.getDay() === days[payDay] && (diffDays % 14 === 0);
+    } else {
+      // Quincenal a la antigua (día de mes fijo, sin ancla configurada) o mensual real.
+      matches = String(cursor.getDate()) === String(payDay);
+    }
     if (matches && !recorded[ds]) missing.push(ds);
     cursor.setDate(cursor.getDate() + 1); guard++;
   }

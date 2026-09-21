@@ -195,13 +195,18 @@
         <div class="fld"><label id="wDayLabel" data-es="Día del mes" data-en="Day of month">Día del mes</label>
           <select id="wDay"></select>
         </div>
+        <div class="fld" id="wAnchorWrap" style="display:none">
+          <label data-es="Un pago reciente que sí recibiste" data-en="A recent payday you actually got paid">Un pago reciente que sí recibiste</label>
+          <input type="date" id="wAnchor" onchange="W.payAnchor=this.value; document.getElementById('wAnchorWrap').style.outline='';">
+          <div style="font-size:11px;color:var(--text3);margin-top:4px" data-es="Quincenal es cada 14 días exactos, no cada semana en ese día -- con esta fecha sabemos cuál semana sí te toca." data-en="Biweekly is exactly every 14 days, not every week on that day -- this date tells us which week is actually yours.">Quincenal es cada 14 días exactos, no cada semana en ese día -- con esta fecha sabemos cuál semana sí te toca.</div>
+        </div>
         <div class="tgl on" id="wAuto" onclick="toggle('wAuto','payAuto')">
           <div class="bx">✓</div>
           <div class="tx"><b data-es="Registrar mi cheque automáticamente" data-en="Log my paycheck automatically">Registrar mi cheque automáticamente</b><br>
             <span data-es="Cada día de pago se registra solo, con reparto hogar/personal y «págate primero». Si faltó algún periodo, se ponen al corriente todos." data-en="Every payday it logs itself, with household/personal split and «pay yourself first». If any period was missed, all get caught up.">Cada día de pago se registra solo, con reparto hogar/personal y «págate primero». Si faltó algún periodo, se ponen al corriente todos.</span>
           </div>
         </div>
-        <button class="lg-btn primary" onclick="wzGo(3)"><span data-es="Continuar" data-en="Continue">Continuar</span> →</button>
+        <button class="lg-btn primary" onclick="goStep3()"><span data-es="Continuar" data-en="Continue">Continuar</span> →</button>
         <button class="lg-btn ghost" onclick="wzGo(1)" data-es="← Volver" data-en="← Back">← Volver</button>
       </div>
 
@@ -375,8 +380,23 @@ function showDenied(reason, email) {
 }
 
 /* ─── WIZARD ─── */
+function goStep3() {
+  // Sin esto, un usuario en quincenal (que es el default del wizard) podía
+  // avanzar sin fijarse en el campo de fecha -- se guardaba payAnchor vacío
+  // y el registro automático de cheques nunca volvía a funcionar para él,
+  // en silencio, para siempre (hasta que alguien lo notara en Perfil).
+  if (W.freq === 'biweekly' && !W.payAnchor) {
+    var wrap = document.getElementById('wAnchorWrap');
+    wrap.style.outline = '2px solid var(--red, #E14B4F)'; wrap.style.borderRadius = '10px';
+    document.getElementById('wAnchor').focus();
+    FT.toast(W.lang === 'es' ? '⚠️ Elige la fecha de un pago que sí recibiste' : '⚠️ Pick the date of a payday you actually got paid');
+    return;
+  }
+  wzGo(3);
+}
 function startWizard() {
   document.getElementById('wName').value = W.name || googleUser.name || '';
+  document.getElementById('wAnchorWrap').style.display = W.freq === 'biweekly' ? '' : 'none'; // freq por default ya es 'biweekly'
   renderDayOptions(); renderMethods(); renderDetail(); onIncome();
   wzGo(1);
   lgShow('vWizard');
@@ -399,15 +419,21 @@ function onIncome() {
 function setFreq(f) {
   W.freq = f;
   document.querySelectorAll('#wFreq button').forEach(function (b) { b.classList.toggle('on', b.dataset.f === f); });
-  document.getElementById('wDayLabel').setAttribute('data-es', f === 'weekly' ? 'Día de la semana' : 'Día del mes');
-  document.getElementById('wDayLabel').setAttribute('data-en', f === 'weekly' ? 'Day of week' : 'Day of month');
+  var dayLbl = f === 'monthly' ? 'Día del mes' : 'Día de la semana', dayLblEn = f === 'monthly' ? 'Day of month' : 'Day of week';
+  document.getElementById('wDayLabel').setAttribute('data-es', dayLbl);
+  document.getElementById('wDayLabel').setAttribute('data-en', dayLblEn);
+  document.getElementById('wAnchorWrap').style.display = f === 'biweekly' ? '' : 'none';
   renderDayOptions();
   FT.applyLang(document.getElementById('wp2'));
 }
 function renderDayOptions() {
   var sel = document.getElementById('wDay'); if (!sel) return;
   var es = W.lang === 'es';
-  if (W.freq === 'weekly') {
+  if (W.freq === 'weekly' || W.freq === 'biweekly') {
+    // Quincenal usa el MISMO selector de día de la semana que semanal -- la
+    // diferencia real (cada 14 días, no cada 7) la da el campo de fecha
+    // ancla de abajo, no un "día del mes" que no tiene sentido para un
+    // sueldo que se paga cada dos semanas en un día fijo.
     var d = es ? ['Lunes','Martes','Miércoles','Jueves','Viernes'] : ['Monday','Tuesday','Wednesday','Thursday','Friday'];
     var v = ['monday','tuesday','wednesday','thursday','friday'];
     sel.innerHTML = d.map(function (x, i) { return '<option value="' + v[i] + '"' + (v[i] === 'thursday' ? ' selected' : '') + '>' + x + '</option>'; }).join('');
@@ -493,7 +519,7 @@ function finishSetup() {
   var user = {
     name: name, email: W.email || googleUser.email || '', photo: W.avatar || '',
     income: W.income, currency: W.currency, lang: W.lang, report: W.report,
-    payFreq: W.freq, payDay: W.payDay, payAuto: W.payAuto,
+    payFreq: W.freq, payDay: W.payDay, payAuto: W.payAuto, payAnchor: W.freq === 'biweekly' ? (W.payAnchor || '') : '',
     method: W.method, savingsPct: 20,
     needs: Math.round(W.income * needsPct / 100),
     wants: Math.round(W.income * wantsPct / 100),
