@@ -547,11 +547,31 @@ function openAbonar(debtId) {
       var nota = body.querySelector('#abNota').value.trim();
       if (!monto || monto <= 0) { FT.toast(L ? 'Ingresa un monto válido' : 'Enter a valid amount'); return true; }
       if (!fecha) { FT.toast(L ? 'Selecciona una fecha' : 'Select a date'); return true; }
-      if (window._savingAbono) return true; // evita doble-submit (doble-tap duplicaba el abono)
-      window._savingAbono = true;
-      var checkingAccountId = abHogarAccts.length ? (body.querySelector('#abAcct') ? body.querySelector('#abAcct').value : abHogarAccts[0].id) : undefined;
-      guardarAbono(d.id, { monto: monto, fecha: fecha, nota: nota, tipo: st.tipo, rec: st.rec, freq: st.freq, who: st.who, isShared: isShared, existente: recActivos[0], checkingAccountId: checkingAccountId });
-      setTimeout(function () { window._savingAbono = false; }, 800);
+
+      function doSave() {
+        if (window._savingAbono) return; // evita doble-submit (doble-tap duplicaba el abono)
+        window._savingAbono = true;
+        var checkingAccountId = abHogarAccts.length ? (body.querySelector('#abAcct') ? body.querySelector('#abAcct').value : abHogarAccts[0].id) : undefined;
+        guardarAbono(d.id, { monto: monto, fecha: fecha, nota: nota, tipo: st.tipo, rec: st.rec, freq: st.freq, who: st.who, isShared: isShared, existente: recActivos[0], checkingAccountId: checkingAccountId });
+        setTimeout(function () { window._savingAbono = false; }, 800);
+        FT.closeTop(); // por si se llamó desde el flujo con confirmación (ese onSave ya dijo "keep" al wrapper)
+      }
+
+      // El aviso de arriba ("ya tienes un recurrente activo") era solo
+      // informativo -- no impedía crear un segundo. Esto es justo lo que le
+      // pasó a Ramón con "SOFI CREDIT CARD": el y su esposa cada quien
+      // configuró su propio abono automático para la misma deuda
+      // compartida, sin darse cuenta de que el otro ya lo había hecho.
+      // Ahora, si vas a activar "recurrente" habiendo ya uno o más activos,
+      // se confirma antes de dejarte crear otro.
+      if (st.rec && recActivos.length) {
+        FT.confirm(L
+          ? 'Ya hay ' + recActivos.length + ' abono(s) recurrente(s) activo(s) a esta deuda. Si tu pareja ya configuró uno, crear otro los va a duplicar cada periodo. ¿Aun así quieres activar este también?'
+          : 'There' + (recActivos.length > 1 ? ' are ' + recActivos.length + ' active recurring payments' : "'s already 1 active recurring payment") + ' on this debt. If your partner already set one up, adding another will duplicate it every period. Turn this one on anyway?'
+        ).then(function (ok) { if (ok) doSave(); });
+        return true;
+      }
+      doSave();
     }
   });
 }
