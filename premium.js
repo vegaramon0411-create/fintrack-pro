@@ -24,7 +24,7 @@ var K = {
   user:'ft_user', setup:'ft_user_setup', lang:'ft_lang',
   data:'ft_data', cheques:'ft_cheques',
   emergHist:'ft_emerg_hist', emergHistLegacy:'ft_emergency_history',
-  savings:'ft_available_savings', savingsHist:'ft_savings_hist',
+  savings:'ft_available_savings', savingsHist:'ft_savings_hist', savingsFunds:'ft_savings_funds',
   investments:'ft_investments', hogarInv:'ft_hogar_inv',
   debts:'ft_debts', goals:'ft_goals', subs:'ft_subs', servicios:'ft_servicios',
   subsHist:'ft_subs_history', serviciosHist:'ft_servicios_history',
@@ -349,29 +349,75 @@ FT.recurAllDelete = function (uid) {
   FT._changed();
 };
 
-/* ── Ahorro libre ── */
-FT.savingsBalance = function () { return parseFloat(FT.getRaw(K.savings, '0')) || 0; };
-FT.savingsHist = function () { return FT.get(K.savingsHist, []) || []; };
+/* ── Ahorro libre: lista de fondos con nombre (2026-09-23) ──────────────────
+   Antes era un solo monto plano (K.savings) + un solo historial (K.savingsHist).
+   Ramón pidió poder tener varios "vaults" con nombre propio (ej. Renta,
+   Vacaciones, Casa) para saber de qué es cada cosa, en vez de un solo bote
+   sin categorías -- mismo patrón que ya usa FT.hogarFondos (lista de metas
+   con historial propio), solo que sin el meta/sync de hogar y con `meta`
+   opcional (un fondo puede no tener meta, solo ser una categoría).
+   Migración: la primera vez que se lee FT.savingsFunds() y no existe la
+   clave nueva, el saldo/historial planos de siempre se vuelven un único
+   fondo "General" -- no se pierde nada. Después de esa migración K.savings/
+   K.savingsHist quedan congelados (nadie los vuelve a escribir); la fuente
+   real es K.savingsFunds.
+   Los accessors viejos (FT.savingsBalance/savingsHist/addSavings/
+   reverseSavings) se vuelven fachadas sobre la lista de fondos -- así las
+   ~20 pantallas/funciones que ya los usaban (dashboard, hogar, onboarding,
+   cobertura de gasto, "págate primero", recurrentes de ahorro...) siguen
+   funcionando sin tocarlas: un depósito sin `fundId` cae en el fondo
+   "General" por default, y el saldo/historial totales se siguen viendo
+   igual que antes, ahora sumados/concatenados entre todos los fondos. */
+FT.savingsFunds = function () {
+  var f = FT.get(K.savingsFunds, null);
+  if (Array.isArray(f) && f.length) return f;
+  var legacyHist = (FT.get(K.savingsHist, []) || []).slice();
+  var general = { id: 'fund_general', name: FT.lang === 'es' ? 'General' : 'General', emoji: '💵', meta: 0, rule: null, hist: legacyHist };
+  general.actual = Math.max(0, legacyHist.reduce(function (a, h) { var m = parseFloat(h.monto) || 0; return a + (h.tipo === 'retiro' ? -m : m); }, 0));
+  var list = [general];
+  FT.set(K.savingsFunds, list);
+  return list;
+};
+FT.saveSavingsFunds = function (list) { FT.set(K.savingsFunds, list); FT._changed(); };
+/** Fondo destino cuando nadie especifica uno (todo el código viejo que
+ *  llama FT.addSavings sin fundId) -- siempre "General" si existe, si no el
+ *  primero de la lista. */
+FT.defaultSavingsFund = function () {
+  var list = FT.savingsFunds();
+  return list.find(function (f) { return f.id === 'fund_general'; }) || list[0];
+};
+FT.savingsBalance = function () { return FT.savingsFunds().reduce(function (a, f) { return a + (parseFloat(f.actual) || 0); }, 0); };
+/** Historial combinado de todos los fondos (para el total que ya usaban
+ *  dashboard/hogar/etc.) -- cada fila trae fundId/fundName de más, aditivo,
+ *  no rompe a quien solo lee los campos de siempre. */
+FT.savingsHist = function () {
+  var out = [];
+  FT.savingsFunds().forEach(function (f) { (f.hist || []).forEach(function (h) { out.push(Object.assign({}, h, { fundId: f.id, fundName: f.name })); }); });
+  return out;
+};
 FT.addSavings = function (entry) {
-  var cur = FT.savingsBalance();
+  var funds = FT.savingsFunds();
+  var f = (entry.fundId && funds.find(function (x) { return x.id === entry.fundId; })) || FT.defaultSavingsFund();
   var amt = parseFloat(entry.amount) || 0;
   var tipo = entry.tipo || 'deposito';
-  FT.setRaw(K.savings, Math.max(0, cur + (tipo === 'retiro' ? -amt : amt)).toFixed(2));
-  var hist = FT.savingsHist();
-  hist.push({ id: 'tx_' + entry.id, tipo: tipo, monto: amt, fecha: entry.date, nota: entry.note || '', cat: entry.cat || '', recId: entry.recId || null, cobId: entry.cobId || null, cobFor: entry.cobFor || null, monthTx: entry.monthTx || null });
-  FT.set(K.savingsHist, hist);
-  FT._changed();
+  f.hist = f.hist || [];
+  f.hist.push({ id: 'tx_' + entry.id, tipo: tipo, monto: amt, fecha: entry.date, nota: entry.note || '', cat: entry.cat || '', recId: entry.recId || null, cobId: entry.cobId || null, cobFor: entry.cobFor || null, monthTx: entry.monthTx || null });
+  f.actual = Math.max(0, f.hist.reduce(function (a, h) { var m = parseFloat(h.monto) || 0; return a + (h.tipo === 'retiro' ? -m : m); }, 0));
+  FT.saveSavingsFunds(funds);
 };
 FT.reverseSavings = function (txId) {
-  var hist = FT.savingsHist();
-  var i = hist.findIndex(function (h) { return h.id === 'tx_' + txId || h.id === txId; });
-  if (i < 0) return;
-  var cur = FT.savingsBalance();
-  var sign = hist[i].tipo === 'retiro' ? 1 : -1;
-  FT.setRaw(K.savings, Math.max(0, cur + sign * (parseFloat(hist[i].monto) || 0)).toFixed(2));
-  hist.splice(i, 1);
-  FT.set(K.savingsHist, hist);
-  FT._changed();
+  var funds = FT.savingsFunds();
+  for (var i = 0; i < funds.length; i++) {
+    var f = funds[i], hist = f.hist || [];
+    var j = hist.findIndex(function (h) { return h.id === 'tx_' + txId || h.id === txId; });
+    if (j >= 0) {
+      hist.splice(j, 1);
+      f.hist = hist;
+      f.actual = Math.max(0, hist.reduce(function (a, h) { var m = parseFloat(h.monto) || 0; return a + (h.tipo === 'retiro' ? -m : m); }, 0));
+      FT.saveSavingsFunds(funds);
+      return;
+    }
+  }
 };
 
 /* ── Fondo de emergencia (saldo en ft_data.emergency; historial en 2 claves) ── */
@@ -551,7 +597,7 @@ FT._changed = function () { try { document.dispatchEvent(new CustomEvent('ft:dat
    toda la app — historial.html y config.html comparten este, para no tener dos
    formatos de respaldo incompatibles entre sí (el viejo de config.html le
    faltaba la mitad de las claves y no validaba nada antes de sobreescribir). */
-var RESPALDO_KEYS = [K.data, K.debts, K.hogarFondos, K.investments, K.hogarInv, K.subs, K.servicios, K.recurring, K.savings, K.savingsHist, K.checking, K.goals];
+var RESPALDO_KEYS = [K.data, K.debts, K.hogarFondos, K.investments, K.hogarInv, K.subs, K.servicios, K.recurring, K.savings, K.savingsHist, K.savingsFunds, K.checking, K.goals];
 FT.exportBackup = function () {
   var backup = { _meta: { app: 'FinTrack Pro', version: 1, exportedAt: new Date().toISOString(), user: FT.userName() || '' }, data: {} };
   RESPALDO_KEYS.forEach(function (k) { var v = FT.getRaw(k, null); if (v != null && v !== '') backup.data[k] = v; });
@@ -880,7 +926,7 @@ function _applyRecAhorro(rec, hoy) {
     } else {
       var hist = FT.savingsHist();
       if (hist.some(function (h) { return h.fecha === hoy && (h.recId === rec.id || !h.recId); })) return 'already';
-      FT.addSavings({ id: id, amount: rec.amount, date: hoy, note: rec.desc, recId: rec.id, monthTx: true });
+      FT.addSavings({ id: id, amount: rec.amount, date: hoy, note: rec.desc, recId: rec.id, monthTx: true, fundId: rec.fundId });
     }
     // Un recurrente de ahorro es un aporte planeado desde el ingreso → cuenta como ahorro del mes.
     var d = FT.data();
@@ -1174,7 +1220,15 @@ FT.addEntry = function (o) {
   var cobId = null;
   if (o.type === 'gasto' && o.cobertura && parseFloat(o.cobertura.monto) > 0) {
     var src = o.cobertura.source;
-    var poolBal = src === 'emergencia' ? FT.emergencyBalance() : FT.savingsBalance();
+    // OJO: la cobertura siempre sale del fondo DEFAULT de Ahorro libre
+    // (FT.addSavings sin fundId cae ahí) -- el tope tiene que ser el saldo
+    // de ESE fondo específico, no el agregado de todos los fondos. Si se
+    // topara contra el agregado, un usuario con dinero repartido en varios
+    // fondos podría "cubrir" más de lo que el fondo default realmente tiene
+    // -- FT.addSavings tope su saldo en 0 sin avisar, y la app fabricaría
+    // dinero de la nada (el ingreso de cobertura se acredita completo pero
+    // el ahorro total baja menos de lo que dice el movimiento).
+    var poolBal = src === 'emergencia' ? FT.emergencyBalance() : (parseFloat(FT.defaultSavingsFund().actual) || 0);
     var take = Math.min(parseFloat(o.cobertura.monto), poolBal);   // no cubrir más de lo que hay en el pozo
     if (take > 0) {
       cobId = 'cob_' + id;
@@ -1216,9 +1270,15 @@ FT.applyDist = function (leftover, opts) {
   var e = Math.round(leftover * (dist.emergencia || 0) / 100);
   var inv = Math.round(leftover * (dist.inversion || 0) / 100);
   if (a > 0) {
-    FT.addSavings({ id: Date.now(), amount: a, date: FT.todayISO(), tipo: 'deposito', note: note });
+    // Mismo id para el movimiento de ahorro y su transacción vinculada (como
+    // en todo el resto del código) -- con dos Date.now() por separado,
+    // FT.reverseSavings(t.id) nunca encontraba el movimiento al borrar la
+    // transacción (buscaba 'tx_'+idB pero el movimiento se guardó como
+    // 'tx_'+idA) y el depósito quedaba huérfano en Ahorro para siempre.
+    var distId = Date.now();
+    FT.addSavings({ id: distId, amount: a, date: FT.todayISO(), tipo: 'deposito', note: note });
     var d0 = FT.data();
-    d0.transactions.push({ id: Date.now() + 1, type: 'ahorro', desc: (es ? 'Ahorro libre — ' : 'Free savings — ') + note, amount: a, date: FT.todayISO(), cat: '💵 Ahorro', dest: 'libre', createdBy: FT.userName() });
+    d0.transactions.push({ id: distId, type: 'ahorro', desc: (es ? 'Ahorro libre — ' : 'Free savings — ') + note, amount: a, date: FT.todayISO(), cat: '💵 Ahorro', dest: 'libre', createdBy: FT.userName() });
     FT.set(K.data, d0);
   }
   if (e > 0) FT.addEmergency({ id: Date.now() + 2, amount: e, date: FT.todayISO(), tipo: 'deposito', note: note });
@@ -2373,8 +2433,18 @@ FT.balanceScreen = function (opts) {
   var mount = document.querySelector(opts.mount || '#root');
   if (!mount) return;
 
-  function bal() { return E ? FT.emergencyBalance() : FT.savingsBalance(); }
-  function hist() { return E ? FT.emergencyHist() : FT.savingsHist(); }
+  // Ahorro libre (no emergencia) puede tener varios fondos con nombre --
+  // bal()/hist() operan sobre el fondo ACTIVO, no sobre el total, para que
+  // la pantalla se sienta como "estoy viendo este fondo en particular".
+  var funds = [], activeFundId = null;
+  function refreshFunds() {
+    if (E) { funds = []; return; }
+    funds = FT.savingsFunds();
+    if (!activeFundId || !funds.some(function (f) { return f.id === activeFundId; })) activeFundId = funds[0] && funds[0].id;
+  }
+  function activeFund() { return funds.find(function (f) { return f.id === activeFundId; }); }
+  function bal() { if (E) return FT.emergencyBalance(); var f = activeFund(); return f ? (parseFloat(f.actual) || 0) : 0; }
+  function hist() { if (E) return FT.emergencyHist(); var f = activeFund(); return (f && f.hist) || []; }
   function hAmt(h) { return E ? (parseFloat(h.amount) || 0) : (parseFloat(h.monto) || 0); }
   function hTipo(h) { return h.tipo || (hAmt(h) < 0 ? 'retiro' : 'deposito'); }
   function hNota(h) { return h.nota || h.note || ''; }
@@ -2384,17 +2454,34 @@ FT.balanceScreen = function (opts) {
   function es() { return FT.lang === 'es'; }
 
   function render() {
-    var L = es(), b = bal();
+    refreshFunds();
+    var L = es(), b = bal(), af = activeFund();
     var rows = hist().slice().sort(function (a, c) { return String(hFecha(c)).localeCompare(String(hFecha(a))); });
+
+    // Selector de fondos (solo Ahorro libre, no Emergencia) -- chips en fila
+    // horizontal, el activo resaltado, + uno al final para crear otro.
+    var fundRow = '';
+    if (!E) {
+      fundRow = '<div style="display:flex;gap:7px;overflow-x:auto;padding:2px 2px 12px;-webkit-overflow-scrolling:touch">' +
+        funds.map(function (f) {
+          var on = f.id === activeFundId;
+          return '<button type="button" class="tap" data-fund="' + f.id + '" style="flex:0 0 auto;padding:8px 13px;border-radius:20px;border:1.5px solid ' + (on ? 'var(--g-main)' : 'var(--hair)') + ';background:' + (on ? 'var(--g-light)' : '#fff') + ';color:' + (on ? 'var(--g-dark)' : 'var(--text2)') + ';font-family:var(--ui-font);font-weight:800;font-size:12px;white-space:nowrap;cursor:pointer">' + f.emoji + ' ' + f.name + '</button>';
+        }).join('') +
+        '<button type="button" class="tap" data-fund-new="1" style="flex:0 0 auto;padding:8px 13px;border-radius:20px;border:1.5px dashed var(--hair);background:#fff;color:var(--text3);font-family:var(--ui-font);font-weight:800;font-size:12px;white-space:nowrap;cursor:pointer">＋ ' + (L ? 'Nuevo fondo' : 'New fund') + '</button></div>';
+    }
 
     var hero = '<div class="ft-bs-hero' + (E ? ' emerg' : '') + '">' +
       '<button class="cap" data-x="bal">' + (L ? 'Saldo' : 'Balance') + ' <span class="ft-info">i</span></button>' +
+      (!E ? ' <button type="button" data-fund-edit="1" style="border:none;background:none;font-size:11px;color:var(--text3);cursor:pointer;vertical-align:middle">✏️</button>' : '') +
       '<div class="amt">' + FT.money(b) + '</div>';
     if (E) {
       var g = goal(), pct = g > 0 ? Math.min(100, Math.round(b / g * 100)) : 0;
       hero += '<button class="cap" data-x="goal" style="margin-top:4px">' + (L ? 'Meta: ' : 'Goal: ') + FT.money(g) + ' (' + (L ? '3 meses de ingreso' : '3 months income') + ') <span class="ft-info">i</span></button>' +
         '<div class="ft-bs-gtrack"><div class="ft-bs-gfill" id="ftbsGf" style="width:0"></div></div>' +
         '<div class="ft-bs-grow"><span>' + pct + '% ' + (L ? 'completado' : 'complete') + '</span><span>' + (L ? 'Faltan ' : 'Missing ') + FT.money(Math.max(0, g - b)) + '</span></div>';
+    } else if (af && af.meta > 0) {
+      var pctF = Math.min(100, Math.round(b / af.meta * 100));
+      hero += '<div class="sub">' + (L ? 'Meta de este fondo: ' : 'This fund\'s goal: ') + FT.money(af.meta) + ' · ' + pctF + '% ' + (L ? 'completado' : 'complete') + '</div>';
     } else {
       hero += '<div class="sub">' + (L ? 'Sin restricciones — úsalo para lo que quieras' : 'No restrictions — use it for anything') + '</div>';
     }
@@ -2408,7 +2495,7 @@ FT.balanceScreen = function (opts) {
     var info = E ? '<div class="ft-bs-info"><b>⚠️ ' + (L ? '¿Cuándo puedo retirar de aquí?' : 'When can I withdraw?') + '</b><p>' +
       (L ? 'Solo para emergencias reales (perder el trabajo, un gasto médico grande). Para gastos normales del mes usa el Ahorro libre.' : 'Only for real emergencies (job loss, a big medical bill). For regular monthly spending use Free savings.') + '</p></div>' : '';
 
-    var recs = FT.recurList(function (r) { return r.kind === 'ahorro' && (E ? r.dest === 'emergencia' : r.dest !== 'emergencia'); });
+    var recs = FT.recurList(function (r) { return r.kind === 'ahorro' && (E ? r.dest === 'emergencia' : (r.dest !== 'emergencia' && (r.fundId || 'fund_general') === activeFundId)); });
     var recSec = recs.length ? '<div class="ft-section-head" style="margin-top:22px"><h3>🔄 ' + (L ? 'Recurrentes' : 'Recurring') + '</h3><button class="link" data-go="recurrentes.html">' + (L ? 'Ver todos' : 'See all') + '</button></div>' +
       recs.map(function (r) { var RL = FT.recurLabel(r); return '<div class="ft-mv tap" data-rec="' + r.id + '"><div class="ic rec">🔄</div><div class="m"><div class="n">' + RL.name + '</div><div class="d">' + RL.sub + '</div></div><div class="amt in">' + FT.money(r.amount) + '</div></div>'; }).join('') : '';
 
@@ -2421,7 +2508,7 @@ FT.balanceScreen = function (opts) {
           '<div class="amt ' + (out ? 'out' : 'in') + '">' + (out ? '−' : '+') + FT.money(Math.abs(hAmt(h)), { cents: true }) + '</div></div>';
       }).join('') : '<div class="ft-empty">' + (L ? 'Sin movimientos aún' : 'No movements yet') + '</div>');
 
-    mount.innerHTML = hero + acts + info + recSec + histSec;
+    mount.innerHTML = fundRow + hero + acts + info + recSec + histSec;
 
     if (E) requestAnimationFrame(function () { var gf = document.getElementById('ftbsGf'); if (gf) { var g = goal(); gf.style.width = (g > 0 ? Math.min(100, b / g * 100) : 0) + '%'; } });
 
@@ -2430,6 +2517,9 @@ FT.balanceScreen = function (opts) {
     mount.querySelectorAll('[data-mv]').forEach(function (el) { el.onclick = function () { openDetail(el.getAttribute('data-mv')); }; });
     mount.querySelectorAll('[data-rec]').forEach(function (el) { el.onclick = function () { openRecDetail(el.getAttribute('data-rec')); }; });
     mount.querySelectorAll('[data-go]').forEach(function (el) { el.onclick = function () { FT.go(el.getAttribute('data-go')); }; });
+    mount.querySelectorAll('[data-fund]').forEach(function (el) { el.onclick = function () { activeFundId = el.getAttribute('data-fund'); render(); }; });
+    mount.querySelectorAll('[data-fund-new]').forEach(function (el) { el.onclick = function () { openFundForm(null); }; });
+    mount.querySelectorAll('[data-fund-edit]').forEach(function (el) { el.onclick = function () { var f = activeFund(); if (f) openFundMenu(f); }; });
   }
 
   function explainBal() {
@@ -2437,7 +2527,8 @@ FT.balanceScreen = function (opts) {
     var rows = hist().slice().sort(function (a, c) { return String(hFecha(c)).localeCompare(String(hFecha(a))); }).slice(0, 6)
       .map(function (h) { return [(hNota(h) || (L ? 'Movimiento' : 'Movement')) + ' · ' + FT.date(hFecha(h)), (hTipo(h) === 'retiro' ? '−' : '+') + FT.money(Math.abs(hAmt(h)))]; });
     rows.push([L ? '= Saldo actual' : '= Current balance', FT.money(bal())]);
-    FT.sheet({ title: (L ? '¿Cómo se calcula?' : 'How is it calculated?') + ' · ' + (E ? (L ? 'Fondo de emergencia' : 'Emergency fund') : (L ? 'Ahorro libre' : 'Free savings')),
+    var af1 = !E && activeFund();
+    FT.sheet({ title: (L ? '¿Cómo se calcula?' : 'How is it calculated?') + ' · ' + (E ? (L ? 'Fondo de emergencia' : 'Emergency fund') : (af1 ? af1.emoji + ' ' + af1.name : (L ? 'Ahorro libre' : 'Free savings'))),
       html: rows.map(function (r) { return '<div class="ft-row"><span class="k">' + r[0] + '</span><span class="v">' + r[1] + '</span></div>'; }).join('') });
   }
   function explainGoal() {
@@ -2487,7 +2578,7 @@ FT.balanceScreen = function (opts) {
         if (isW && amt > bal()) { FT.toast(L ? 'No tienes suficiente' : 'Not enough'); return true; }
         var id = Date.now();
         var counts = !isW && origen === 'mes';
-        var payload = { id: id, amount: amt, date: body.querySelector('#mDate').value || FT.todayISO(), tipo: mode, note: body.querySelector('#mNote').value.trim() || (isW ? (L ? 'Retiro' : 'Withdrawal') : ''), monthTx: counts || null };
+        var payload = { id: id, amount: amt, date: body.querySelector('#mDate').value || FT.todayISO(), tipo: mode, note: body.querySelector('#mNote').value.trim() || (isW ? (L ? 'Retiro' : 'Withdrawal') : ''), monthTx: counts || null, fundId: E ? undefined : activeFundId };
         if (E) FT.addEmergency(payload); else FT.addSavings(payload);
         if (counts) {
           var d = FT.data();
@@ -2523,13 +2614,105 @@ FT.balanceScreen = function (opts) {
         var amt = parseFloat(body.querySelector('#rAmt').value) || 0;
         if (!amt || amt <= 0) { FT.toast(es() ? 'Ingresa un monto' : 'Enter an amount'); return true; }
         var rec = FT.recurring();
-        rec.push({ id: 'rec_' + Date.now(), kind: 'ahorro', dest: E ? 'emergencia' : 'libre',
-          desc: E ? (es() ? 'Aporte a Emergencia' : 'To Emergency') : (es() ? 'Aporte a Ahorro libre' : 'To Free savings'),
+        var af0 = !E && activeFund();
+        rec.push({ id: 'rec_' + Date.now(), kind: 'ahorro', dest: E ? 'emergencia' : 'libre', fundId: E ? undefined : activeFundId,
+          desc: E ? (es() ? 'Aporte a Emergencia' : 'To Emergency') : (es() ? 'Aporte a ' + (af0 ? af0.name : 'Ahorro libre') : 'To ' + (af0 ? af0.name : 'Free savings')),
           amount: amt, freq: st.freq, hogar: false, nextDate: body.querySelector('#rDate').value || FT.todayISO(), active: true, createdBy: FT.userName() });
         FT.set(K.recurring, rec);
         FT.toast(es() ? '🔄 Recurrente activado' : '🔄 Recurring activated');
         render();
       }
+    });
+  }
+  /** Crear (fund=null) o editar un fondo de Ahorro libre — nombre, emoji,
+   *  meta opcional y una regla de reparto opcional (monto fijo o % del
+   *  cheque) que luego usará el modal de "repartir cheque" como sugerencia
+   *  -- nunca aplica sola, el usuario siempre decide/ajusta al repartir. */
+  function openFundForm(fund) {
+    var L = es(), editing = !!fund;
+    var emojiOpts = ['💵', '🏠', '✈️', '🎓', '🚗', '🎁', '💊', '📱', '🛠️', '🐷', '🛒', '🎉'];
+    var chosenEmoji = (fund && fund.emoji) || '💵';
+    var chosenRule = (fund && fund.rule && fund.rule.type) || 'none';
+    FT.modal({
+      title: editing ? (L ? 'Editar fondo' : 'Edit fund') : (L ? 'Nuevo fondo' : 'New fund'),
+      html:
+        '<div class="ft-field"><label>' + (L ? 'Nombre' : 'Name') + '</label><input id="fdName" value="' + (fund ? String(fund.name).replace(/"/g, '&quot;') : '') + '" placeholder="' + (L ? 'Ej. Vacaciones' : 'E.g. Vacation') + '"></div>' +
+        '<div class="ft-field"><label>' + (L ? 'Emoji' : 'Emoji') + '</label><div id="fdEmoji" style="display:flex;gap:6px;flex-wrap:wrap">' +
+          emojiOpts.map(function (e) { var on = e === chosenEmoji; return '<button type="button" data-e="' + e + '" style="width:34px;height:34px;border-radius:10px;border:1.5px solid ' + (on ? 'var(--g-main)' : 'var(--hair)') + ';background:' + (on ? 'var(--g-light)' : '#fff') + ';font-size:16px;cursor:pointer">' + e + '</button>'; }).join('') + '</div></div>' +
+        '<div class="ft-field"><label>' + (L ? 'Meta (opcional)' : 'Goal (optional)') + '</label><input id="fdMeta" inputmode="decimal" placeholder="$0" value="' + (fund && fund.meta ? fund.meta : '') + '"></div>' +
+        '<div class="ft-field"><label>' + (L ? 'Regla de reparto automático (opcional)' : 'Automatic deposit rule (optional)') + '</label>' +
+          '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px" id="fdRuleSeg">' +
+            ['none:' + (L ? 'Ninguna' : 'None'), 'fixed:' + (L ? 'Monto fijo' : 'Fixed $'), 'pct:' + (L ? '% del cheque' : '% of check')].map(function (o) { var v = o.split(':')[0], on = v === chosenRule; return '<button type="button" data-r="' + v + '" style="padding:8px 4px;border-radius:9px;border:1.5px solid ' + (on ? 'var(--g-main)' : 'var(--hair)') + ';background:' + (on ? 'var(--g-light)' : 'var(--sunk)') + ';font-family:var(--ui-font);font-size:10px;font-weight:800;color:' + (on ? 'var(--g-dark)' : 'var(--text2)') + ';cursor:pointer">' + o.split(':')[1] + '</button>'; }).join('') + '</div>' +
+          '<input id="fdRuleVal" inputmode="decimal" style="margin-top:8px;display:' + (chosenRule === 'none' ? 'none' : 'block') + '" placeholder="' + (chosenRule === 'pct' ? (L ? '% del cheque' : '% of check') : '$') + '" value="' + (fund && fund.rule ? fund.rule.value : '') + '">' +
+        '</div>' +
+        '<div style="background:var(--sky-bg);color:#2A4CC0;border-radius:10px;padding:9px 11px;font-size:11px;font-weight:600">' + (L ? 'La regla es una sugerencia: cuando llegue un cheque tú decides si aplicarla, ajustarla o dejar el dinero sin repartir.' : 'The rule is only a suggestion: when a paycheck arrives you decide whether to apply it, adjust it, or leave the money unassigned.') + '</div>',
+      saveLabel: editing ? (L ? 'Guardar cambios' : 'Save changes') : (L ? 'Crear fondo' : 'Create fund'),
+      onOpen: function (body) {
+        body.querySelectorAll('#fdEmoji button').forEach(function (b) {
+          b.onclick = function () { chosenEmoji = b.getAttribute('data-e'); body.querySelectorAll('#fdEmoji button').forEach(function (x) { var on = x === b; x.style.borderColor = on ? 'var(--g-main)' : 'var(--hair)'; x.style.background = on ? 'var(--g-light)' : '#fff'; }); };
+        });
+        var ruleValInput = body.querySelector('#fdRuleVal');
+        body.querySelectorAll('#fdRuleSeg button').forEach(function (b) {
+          b.onclick = function () {
+            chosenRule = b.getAttribute('data-r');
+            body.querySelectorAll('#fdRuleSeg button').forEach(function (x) { var on = x === b; x.style.borderColor = on ? 'var(--g-main)' : 'var(--hair)'; x.style.background = on ? 'var(--g-light)' : 'var(--sunk)'; x.style.color = on ? 'var(--g-dark)' : 'var(--text2)'; });
+            ruleValInput.style.display = chosenRule === 'none' ? 'none' : 'block';
+            ruleValInput.placeholder = chosenRule === 'pct' ? (L ? '% del cheque' : '% of check') : '$';
+          };
+        });
+      },
+      onSave: function (body) {
+        var name = (body.querySelector('#fdName').value || '').trim();
+        if (!name) { FT.toast(L ? 'Ingresa un nombre' : 'Enter a name'); return true; }
+        var metaVal = parseFloat((body.querySelector('#fdMeta').value || '').replace(/,/g, '')) || 0;
+        var ruleVal = parseFloat((body.querySelector('#fdRuleVal').value || '').replace(/,/g, '')) || 0;
+        var rule = (chosenRule !== 'none' && ruleVal > 0) ? { type: chosenRule, value: ruleVal } : null;
+        var funds2 = FT.savingsFunds();
+        if (editing) {
+          var f = funds2.find(function (x) { return x.id === fund.id; });
+          if (f) { f.name = name; f.emoji = chosenEmoji; f.meta = metaVal; f.rule = rule; }
+        } else {
+          var newId = 'fund_' + Date.now();
+          funds2.push({ id: newId, name: name, emoji: chosenEmoji, meta: metaVal, rule: rule, hist: [], actual: 0 });
+          activeFundId = newId;
+        }
+        FT.saveSavingsFunds(funds2);
+        FT.toast(L ? '✅ Guardado' : '✅ Saved');
+        render();
+      }
+    });
+  }
+  function openFundMenu(fund) {
+    var L = es();
+    var canDelete = fund.id !== 'fund_general' && Math.abs(parseFloat(fund.actual) || 0) < 0.005;
+    var actions = [{ label: '✏️ ' + (L ? 'Editar fondo' : 'Edit fund'), onClick: function () { openFundForm(fund); } }];
+    if (canDelete) actions.push({ label: '🗑️ ' + (L ? 'Eliminar fondo' : 'Delete fund'), onClick: function () {
+      FT.confirm(L ? '¿Eliminar «' + fund.name + '»?' : 'Delete "' + fund.name + '"?').then(function (ok) {
+        if (!ok) return;
+        // Re-chequea el saldo AQUÍ, no el que tenía cuando se abrió este menú
+        // -- pudo haber entrado un depósito (uno automático, por ejemplo)
+        // mientras el usuario tenía el confirm abierto, y no queremos borrar
+        // un fondo que ya dejó de estar en $0.
+        var fresh = FT.savingsFunds().find(function (x) { return x.id === fund.id; });
+        if (!fresh || fresh.id === 'fund_general' || Math.abs(parseFloat(fresh.actual) || 0) >= 0.005) {
+          FT.toast(L ? 'Este fondo ya no está vacío — no se eliminó' : 'This fund is no longer empty — not deleted');
+          render();
+          return;
+        }
+        var f2 = FT.savingsFunds().filter(function (x) { return x.id !== fund.id; });
+        FT.saveSavingsFunds(f2);
+        if (activeFundId === fund.id) activeFundId = f2[0] && f2[0].id;
+        FT.toast(L ? 'Eliminado' : 'Deleted'); render();
+      });
+    } });
+    FT.sheet({
+      title: fund.emoji + ' ' + fund.name,
+      html: '<div class="ft-row"><span class="k">' + (L ? 'Saldo' : 'Balance') + '</span><span class="v">' + FT.money(fund.actual || 0) + '</span></div>' +
+        (fund.meta > 0 ? '<div class="ft-row"><span class="k">' + (L ? 'Meta' : 'Goal') + '</span><span class="v">' + FT.money(fund.meta) + '</span></div>' : '') +
+        (fund.rule ? '<div class="ft-row"><span class="k">' + (L ? 'Regla de reparto' : 'Deposit rule') + '</span><span class="v">' + (fund.rule.type === 'pct' ? fund.rule.value + '%' : FT.money(fund.rule.value)) + '</span></div>' : '') +
+        (!canDelete && fund.id !== 'fund_general' ? '<p style="font-size:10.5px;color:var(--text3);margin-top:6px">' + (L ? 'Vacía este fondo (retira todo) para poder eliminarlo.' : 'Empty this fund (withdraw everything) to delete it.') + '</p>' : '') +
+        (fund.id === 'fund_general' ? '<p style="font-size:10.5px;color:var(--text3);margin-top:6px">' + (L ? 'El fondo General no se puede eliminar.' : 'The General fund can\'t be deleted.') + '</p>' : ''),
+      actions: actions
     });
   }
   function openRecDetail(id) {
