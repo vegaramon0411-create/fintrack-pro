@@ -186,6 +186,26 @@ function render() {
   document.querySelectorAll('[data-delq]').forEach(function (el) { el.onclick = function (e) { e.stopPropagation(); deleteDebt(el.getAttribute('data-delq')); }; });
 }
 
+/** El "pago mensual" que guarda una hipoteca puede traer impuesto predial,
+ *  seguro y/o PMI mezclados (pago "bundled", típico en EEUU) -- si no se
+ *  separa eso antes de calcular la amortización, calcAmort trata TODO el
+ *  pago como capital+interés puro y calcula que la deuda se paga mucho más
+ *  rápido de lo real (el bug que reportó Ramón: 360 meses declarados pero
+ *  172-175 calculados, pese a haber llenado predial/seguro/PMI). El
+ *  formulario ya restaba esto para la vista previa en vivo mientras se
+ *  edita -- pero una vez guardada la deuda, la tarjeta y el detalle seguían
+ *  usando el pago completo sin restar nada. Esta función centraliza el
+ *  mismo cálculo para usarlo en todas las vistas ya guardadas.
+ */
+function debtEffectivePayment(d) {
+  if (d.type !== 'hipoteca' || d.mortgageMode === 'simple') return +d.payment || 0;
+  var hp = (+d.housePrice || 0) || (+d.balance || 0);
+  var pitiExtra = ((+d.taxPct || 0) > 0 ? hp * d.taxPct / 100 / 12 : 0) +
+    ((+d.insurancePct || 0) > 0 ? hp * d.insurancePct / 100 / 12 : 0) +
+    ((+d.pmiPct || 0) > 0 ? (+d.balance || 0) * d.pmiPct / 100 / 12 : 0) +
+    (+d.hoa || 0);
+  return pitiExtra > 0 ? Math.max(0, (+d.payment || 0) - pitiExtra) : (+d.payment || 0);
+}
 function debtCardHTML(d) {
   var c = cfg(d.type), i = info(d.type), L = es();
   var orig = Math.max(+d.original || 0, +d.balance || 0);
@@ -199,7 +219,7 @@ function debtCardHTML(d) {
   var mPct = d.payment > 0 ? Math.min(100, Math.round(paidThisMonth / d.payment * 100)) : 0;
   var mDone = d.payment > 0 && paidThisMonth >= d.payment;
   var isSimpleM = d.type === 'hipoteca' && d.mortgageMode === 'simple';
-  var am = isSimpleM ? { payoffPossible: true, months: d.term || 0, totalInterest: d.simpleTotalInterest } : FT.calcAmort(d.balance, d.payment, d.apr || 0, d.term || 0);
+  var am = isSimpleM ? { payoffPossible: true, months: d.term || 0, totalInterest: d.simpleTotalInterest } : FT.calcAmort(d.balance, debtEffectivePayment(d), d.apr || 0, d.term || 0);
 
   return '<div class="dt-card" data-open="' + d.id + '">' +
     '<div class="top"><div class="ic" style="background:' + c.bg + '">' + c.ico + '</div>' +
@@ -454,11 +474,12 @@ function openDetail(id) {
   var c = cfg(d.type), i = info(d.type), L = es();
   var orig = Math.max(+d.original || 0, +d.balance || 0), paidAmt = Math.max(0, orig - d.balance), paidPct = orig > 0 ? Math.min(100, Math.round(paidAmt / orig * 100)) : 0;
   var isSimpleM = d.type === 'hipoteca' && d.mortgageMode === 'simple';
-  var am = isSimpleM ? { payoffPossible: true, months: d.term || 0, totalInterest: d.simpleTotalInterest, schedule: [] } : FT.calcAmort(d.balance, d.payment, d.apr || 0, d.term || 0);
+  var effPayment = debtEffectivePayment(d);
+  var am = isSimpleM ? { payoffPossible: true, months: d.term || 0, totalInterest: d.simpleTotalInterest, schedule: [] } : FT.calcAmort(d.balance, effPayment, d.apr || 0, d.term || 0);
   var interesYaPagado = (d.abonos || []).reduce(function (a, x) { return a + (x.interesPagado || 0); }, 0);
   var costoTotalReal = d.type === 'hipoteca' ? orig + interesYaPagado + (am.payoffPossible ? am.totalInterest : 0) : null;
   var interesTotalVida = d.type === 'hipoteca' ? interesYaPagado + (am.payoffPossible ? am.totalInterest : 0) : null;
-  var monthlyR = (d.apr || 0) / 100 / 12, firstInt = d.balance * monthlyR, firstPrin = Math.max(0, d.payment - firstInt);
+  var monthlyR = (d.apr || 0) / 100 / 12, firstInt = d.balance * monthlyR, firstPrin = Math.max(0, effPayment - firstInt);
   var util = d.limit ? Math.round(d.balance / d.limit * 100) : 0;
   var pitiExtraSaved = (+d.taxPct || 0) + (+d.insurancePct || 0) + (+d.pmiPct || 0) + (+d.hoa || 0);
   var warnBundledDet = (d.type === 'hipoteca' && !isSimpleM && d.term > 0 && pitiExtraSaved === 0 && paidPct < 15 && am.payoffPossible && am.months < d.term * 0.85)
@@ -590,7 +611,7 @@ function guardarAbono(debtId, o) {
 
   if (isPending) {
     d.abonos = d.abonos || [];
-    d.abonos.push({ id: abonoId, monto: o.monto, fecha: o.fecha, nota: o.nota, tipo: o.tipo, createdBy: FT.userName(), txId: null, pending: true, checkingAccountId: o.checkingAccountId, hogarAbono: d.type === 'hipoteca' });
+    d.abonos.push({ id: abonoId, monto: o.monto, fecha: o.fecha, nota: o.nota, tipo: o.tipo, createdBy: FT.userName(), txId: null, pending: true, checkingAccountId: o.checkingAccountId, hogarAbono: !!o.isShared });
     FT.saveDebts(debts);
     FT.toast((L ? '📅 Programado para el ' + FT.date(o.fecha) + ' — no se descuenta todavía' : '📅 Scheduled for ' + FT.date(o.fecha) + ' — not deducted yet') + (o.rec ? (L ? ' · 🔄 recurrente activado' : ' · 🔄 recurring on') : ''), { ms: 4500 });
   } else {
@@ -602,7 +623,7 @@ function guardarAbono(debtId, o) {
     if (o.tipo === 'nuevo') {
       var data = FT.data();
       linkedTxId = abonoId + 1;
-      var linkedTx = { id: linkedTxId, type: 'gasto', desc: (L ? 'Abono a ' : 'Payment to ') + d.name, amount: o.monto, date: o.fecha, cat: '💳 Deudas', note: o.nota, hogar: d.type === 'hipoteca', createdBy: FT.userName() };
+      var linkedTx = { id: linkedTxId, type: 'gasto', desc: (L ? 'Abono a ' : 'Payment to ') + d.name, amount: o.monto, date: o.fecha, cat: '💳 Deudas', note: o.nota, hogar: !!o.isShared, createdBy: FT.userName() };
       if (o.checkingAccountId) { FT.deductChecking(o.checkingAccountId, o.monto, o.fecha); linkedTx.checkingAccountId = o.checkingAccountId; }
       data.transactions.push(linkedTx);
       FT.saveData(data);
@@ -624,7 +645,7 @@ function guardarAbono(debtId, o) {
     var hogar = FT.hogar();
     var payerLabel = o.who === 'partner' ? (hogar.partnerName || (L ? 'Tu pareja' : 'Partner')) : (FT.userName() || (L ? 'Tú' : 'You'));
     var rec = FT.recurring();
-    rec.push({ id: 'rec_' + Date.now(), kind: 'debt', debtId: d.id, desc: (L ? 'Abono a ' : 'Payment to ') + d.name, amount: o.monto, freq: o.freq, hogar: d.type === 'hipoteca', nextDate: FT._advanceRecDate(o.freq, o.fecha), active: true, createdBy: FT.userName(), payerLabel: payerLabel, payerRole: o.who, checkingAccountId: o.checkingAccountId });
+    rec.push({ id: 'rec_' + Date.now(), kind: 'debt', debtId: d.id, desc: (L ? 'Abono a ' : 'Payment to ') + d.name, amount: o.monto, freq: o.freq, hogar: !!o.isShared, nextDate: FT._advanceRecDate(o.freq, o.fecha), active: true, createdBy: FT.userName(), payerLabel: payerLabel, payerRole: o.who, checkingAccountId: o.checkingAccountId });
     FT.set(FT.K.recurring, rec);
   }
   if (document.getElementById('dtEdit')) openDetail(debtId); else render();
