@@ -157,6 +157,7 @@ function render() {
   var es = FT.lang === 'es';
   var u = FT.user(), t = totals(), L = limits();
   var hogarCombined = t.hogar + partnerHogarSpent();
+  var pendingReparto = FT.pendingReparto();
 
   // HERO
   var heroCap, heroAmt, heroSign, splitHTML = '';
@@ -242,6 +243,7 @@ function render() {
       '<div class="ft-section-head" style="margin:0"><h3>' + (es ? 'Mi cheque' : 'My paycheck') + '</h3><button class="link" onclick="FT.go(\'historial.html\')">' + (es ? 'Ver historial' : 'History') + '</button></div>' +
       '<div class="sub">' + chequeSub() + '</div>' +
       '<button class="ft-btn ft-btn-primary tap" onclick="openCheque()">＋ ' + (es ? 'Recibí mi cheque' : 'I got paid') + '</button>' +
+      (pendingReparto > 0.005 ? '<button type="button" class="tap" onclick="openReparto()" style="margin-top:9px;width:100%;display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-radius:10px;border:1.5px dashed var(--g-main);background:var(--g-light);color:var(--g-dark);font-family:var(--ui-font);font-weight:800;font-size:12px;cursor:pointer"><span>💰 ' + (es ? 'Sin repartir a tus fondos' : 'Unassigned to your funds') + '</span><span>' + FT.money(pendingReparto) + ' ›</span></button>' : '') +
     '</div>' +
 
     recurCardHTML(es);
@@ -514,6 +516,76 @@ function openCheque() {
       if (!m || m <= 0) { FT.toast(es ? 'Ingresa el monto' : 'Enter the amount'); return true; }
       var r = FT.recordCheque({ monto: m, tipo: st.tipo });
       if (r) FT.toast('✅ ' + FT.money(r.monto) + (r.autoSaved > 0 ? ' · ' + FT.money(r.autoSaved) + (es ? ' a Ahorro libre' : ' to Free savings') : ''));
+      render();
+    }
+  });
+}
+
+/** Reparto de cheque a fondos de Ahorro libre (etapa 2) -- NUNCA se aplica
+ *  solo: se sugiere según las reglas guardadas de cada fondo, el usuario
+ *  ajusta montos o los deja en $0, y "Dejar todo disponible" es una salida
+ *  explícita tan válida como repartir. */
+function openReparto() {
+  var es = FT.lang === 'es';
+  var pending = FT.pendingReparto();
+  if (pending <= 0.005) return;
+  var funds = FT.savingsFunds();
+  var alloc = {}, remaining = pending;
+  funds.filter(function (f) { return f.rule && f.rule.type === 'fixed'; }).forEach(function (f) {
+    var amt = Math.min(remaining, f.rule.value);
+    if (amt > 0) { alloc[f.id] = +amt.toFixed(2); remaining -= amt; }
+  });
+  funds.filter(function (f) { return f.rule && f.rule.type === 'pct'; }).forEach(function (f) {
+    var amt = Math.min(remaining, pending * f.rule.value / 100);
+    if (amt > 0) { alloc[f.id] = +((alloc[f.id] || 0) + amt).toFixed(2); remaining -= amt; }
+  });
+
+  function rowsHTML() {
+    return funds.map(function (f) {
+      var v = alloc[f.id] || 0;
+      return '<div class="ft-field" style="margin-bottom:8px"><label>' + f.emoji + ' ' + f.name +
+        (f.rule ? ' <span style="font-weight:600;color:var(--text3)">(' + (f.rule.type === 'pct' ? f.rule.value + '%' : FT.money(f.rule.value)) + ')</span>' : '') +
+        '</label><input data-fund-amt="' + f.id + '" inputmode="decimal" value="' + (v > 0 ? v.toFixed(2) : '') + '" placeholder="$0"></div>';
+    }).join('');
+  }
+
+  FT.modal({
+    title: (es ? 'Repartir ' : 'Allocate ') + FT.money(pending),
+    html:
+      '<div style="background:var(--sky-bg);color:#2A4CC0;border-radius:10px;padding:9px 11px;font-size:11px;font-weight:600;margin-bottom:10px">' + (es ? 'Sugerido según tus reglas guardadas — ajusta los montos, o déjalos en $0 si no quieres repartir a un fondo.' : 'Suggested from your saved rules — adjust the amounts, or leave at $0 to skip a fund.') + '</div>' +
+      '<div id="repRows">' + rowsHTML() + '</div>' +
+      '<div id="repLeft" style="text-align:right;font-size:11px;font-weight:800;color:var(--text3);margin:2px 0 10px"></div>' +
+      '<button type="button" id="repSkip" class="link" style="display:block;width:100%;text-align:center">' + (es ? 'Dejar todo disponible por ahora' : 'Leave it all unassigned for now') + '</button>',
+    saveLabel: es ? 'Aplicar reparto' : 'Apply allocation',
+    onOpen: function (body) {
+      function updateLeft() {
+        var used = 0;
+        body.querySelectorAll('[data-fund-amt]').forEach(function (inp) { var v = parseFloat(inp.value) || 0; if (v > 0) used += v; });
+        var left = pending - used;
+        var lbl = body.querySelector('#repLeft');
+        lbl.textContent = (es ? 'Sin repartir: ' : 'Unassigned: ') + FT.money(Math.max(0, left));
+        lbl.style.color = left < -0.005 ? 'var(--red)' : 'var(--text3)';
+      }
+      body.querySelectorAll('[data-fund-amt]').forEach(function (inp) { inp.oninput = updateLeft; });
+      updateLeft();
+      var skip = body.querySelector('#repSkip');
+      if (skip) skip.onclick = function () {
+        FT.applyReparto([]);
+        FT.toast(es ? '👍 Sigue disponible en tu mes' : "👍 Still available in your month's balance");
+        FT.closeTop();
+        render();
+      };
+    },
+    onSave: function (body) {
+      var used = 0, allocations = [];
+      funds.forEach(function (f) {
+        var inp = body.querySelector('[data-fund-amt="' + f.id + '"]');
+        var v = inp ? (parseFloat(inp.value) || 0) : 0;
+        if (v > 0) { allocations.push({ fundId: f.id, fundName: f.name, amount: v }); used += v; }
+      });
+      if (used > pending + 0.01) { FT.toast(es ? 'Repartiste más de lo disponible' : 'You allocated more than available'); return true; }
+      FT.applyReparto(allocations);
+      FT.toast(es ? '✅ Reparto aplicado' : '✅ Allocation applied');
       render();
     }
   });

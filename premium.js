@@ -597,7 +597,7 @@ FT._changed = function () { try { document.dispatchEvent(new CustomEvent('ft:dat
    toda la app — historial.html y config.html comparten este, para no tener dos
    formatos de respaldo incompatibles entre sí (el viejo de config.html le
    faltaba la mitad de las claves y no validaba nada antes de sobreescribir). */
-var RESPALDO_KEYS = [K.data, K.debts, K.hogarFondos, K.investments, K.hogarInv, K.subs, K.servicios, K.recurring, K.savings, K.savingsHist, K.savingsFunds, K.checking, K.goals];
+var RESPALDO_KEYS = [K.data, K.debts, K.hogarFondos, K.investments, K.hogarInv, K.subs, K.servicios, K.recurring, K.savings, K.savingsHist, K.savingsFunds, K.checking, K.goals, K.cheques];
 FT.exportBackup = function () {
   var backup = { _meta: { app: 'FinTrack Pro', version: 1, exportedAt: new Date().toISOString(), user: FT.userName() || '' }, data: {} };
   RESPALDO_KEYS.forEach(function (k) { var v = FT.getRaw(k, null); if (v != null && v !== '') backup.data[k] = v; });
@@ -806,8 +806,15 @@ FT.recordCheque = function (o) {
   var es = FT.lang === 'es';
 
   var cheques = FT.cheques();
-  cheques.push({ id: Date.now() + Math.floor(Math.random() * 1000), monto: monto, hogarAmt: hogarAmt, personalAmt: personalAmt, fecha: fecha, mes: mes, tipo: tipo });
-  FT.set(K.cheques, cheques);
+  // `repartido:false` marca este cheque como candidato al reparto manual a
+  // fondos con nombre de Ahorro libre (FT.pendingReparto) -- explícito, no
+  // `!c.repartido`, para que los cheques viejos (sin este campo, de antes
+  // de que existiera el reparto) NUNCA cuenten como pendientes y no le
+  // resucite a nadie un "sin repartir" gigante de meses acumulados.
+  // "Ya lo tenía" no genera ingreso nuevo (ver abajo), así que no hay nada
+  // que repartir -- se marca repartido:true directo.
+  var chequeRow = { id: Date.now() + Math.floor(Math.random() * 1000), monto: monto, hogarAmt: hogarAmt, personalAmt: personalAmt, fecha: fecha, mes: mes, tipo: tipo, repartido: tipo !== 'nuevo', autoSaved: 0 };
+  cheques.push(chequeRow);
 
   var autoSaved = 0;
   if (tipo === 'nuevo') {
@@ -825,9 +832,64 @@ FT.recordCheque = function (o) {
       d2.transactions.push({ id: savId, type: 'ahorro', desc: es ? 'Ahorro automático del cheque' : 'Automatic paycheck savings', amount: autoSaved, date: fecha, cat: '💰 Ahorro', dest: 'libre', createdBy: FT.userName() });
       FT.set(K.data, d2);
     }
+    chequeRow.autoSaved = autoSaved;
+    // Si ya no queda nada de la parte personal sin repartir (todo se lo
+    // llevó el ahorro automático), no tiene caso mostrar el recuadro de
+    // reparto por $0 -- se marca repartido de una vez.
+    if (personalAmt - autoSaved <= 0.005) chequeRow.repartido = true;
   }
+  FT.set(K.cheques, cheques);
   FT._changed();
   return { monto: monto, hogarAmt: hogarAmt, personalAmt: personalAmt, autoSaved: autoSaved };
+};
+
+/* ── Reparto de cheque a fondos de Ahorro libre (2026-09-23, etapa 2) ──────
+   No es un reparto automático/silencioso -- Ramón fue explícito: "el
+   usuario tiene que aceptar esto". Cada cheque "nuevo" deja registrado
+   cuánto de su parte personal (ya descontado lo que se fue solo a "págate
+   primero") sigue sin asignar a ningún fondo con nombre; el dashboard
+   muestra un recuadro con ese total y, al tocarlo, un modal deja aceptar
+   la sugerencia de las reglas guardadas por fondo, ajustarla, o simplemente
+   dejarlo todo disponible -- nunca mueve un centavo sin que el usuario lo
+   confirme. */
+FT.pendingReparto = function () {
+  return FT.pendingRepartoCheques().reduce(function (a, c) { return a + Math.max(0, (parseFloat(c.personalAmt) || 0) - (parseFloat(c.autoSaved) || 0)); }, 0);
+};
+FT.pendingRepartoCheques = function () {
+  return FT.cheques().filter(function (c) { return c.tipo === 'nuevo' && c.repartido === false; });
+};
+/** Aplica el reparto que el usuario confirmó -- allocations: [{fundId, fundName, amount}].
+ *  Cada asignación es un depósito normal a ese fondo que además cuenta como
+ *  ahorro de este mes (mismo mecanismo que un depósito manual "de mi
+ *  disponible del mes"), así que reduce el disponible para gastar como
+ *  corresponde. Se puede llamar con [] (arreglo vacío) para "dejar todo
+ *  disponible por ahora" -- de cualquier forma, marca los cheques pendientes
+ *  como repartidos: es una decisión válida y consciente, no un pendiente a
+ *  medias que deba seguir apareciendo. */
+FT.applyReparto = function (allocations) {
+  var es = FT.lang === 'es';
+  var base = Date.now();
+  (allocations || []).forEach(function (al, i) {
+    var amt = parseFloat(al.amount) || 0;
+    if (amt <= 0) return;
+    // +i (no +Math.random()) para que dos asignaciones del mismo reparto
+    // NUNCA choquen de id entre sí -- con random() cabía la posibilidad de
+    // que dos fondos sacaran el mismo id en el mismo milisegundo, y borrar
+    // esa transacción después revertía solo uno de los dos fondos, dejando
+    // el otro con saldo fantasma sin transacción que lo explique.
+    var id = base + i;
+    FT.addSavings({ id: id, amount: amt, date: FT.todayISO(), tipo: 'deposito', note: (es ? 'Reparto de cheque' : 'Paycheck allocation') + (al.fundName ? ' — ' + al.fundName : ''), monthTx: true, fundId: al.fundId });
+    var d = FT.data();
+    d.transactions.push({ id: id, type: 'ahorro', desc: (es ? 'Reparto de cheque — ' : 'Paycheck allocation — ') + (al.fundName || ''), amount: amt, date: FT.todayISO(), cat: '💵 Ahorro', dest: 'libre', createdBy: FT.userName() });
+    FT.set(K.data, d);
+  });
+  FT.markRepartoDone();
+};
+FT.markRepartoDone = function () {
+  var cheques = FT.cheques();
+  cheques.forEach(function (c) { if (c.tipo === 'nuevo' && c.repartido === false) c.repartido = true; });
+  FT.set(K.cheques, cheques);
+  FT._changed();
 };
 
 FT.getMissingPaydays = function () {
