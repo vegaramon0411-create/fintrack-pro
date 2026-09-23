@@ -310,7 +310,9 @@ function renderDashboard(hogar) {
       '<div class="box"><div class="r"><span>💵 ' + (L ? 'Recibido este mes' : 'Received this month') + '</span><span>' + FT.money(totalIncomeReceived * hogarPctTotal / 100) + ' / ' + FT.money(hogarBudgetHero) + '</span></div>' +
       '<div class="ft-track" style="height:6px"><div class="ft-fill" data-pct="' + incomeReceivedPct + '" style="width:0;background:var(--g-main)"></div></div>' +
       '<div style="font-size:10px;color:var(--text3);margin-top:6px">' + (L ? 'Bote real del hogar (' + payPctHero + '% de lo recibido − gastado hogar)' : payPctHero + '% of received − household spent') + ': <b style="color:var(--text2)">' + FT.money(botesReal) + '</b></div></div>' +
-      (checkTotal > 0 ? '<div class="box" style="margin-top:10px"><div class="r" style="margin-bottom:0"><span>🏦 ' + (L ? 'Cuentas de cheques conjuntas' : 'Joint checking accounts') + '</span><span style="font-weight:800;color:var(--ink)">' + FT.money(checkTotal) + '</span></div></div>' : '') +
+      '<div class="box tap" style="margin-top:10px;cursor:pointer" onclick="abrirCuentasSheet()"><div class="r" style="margin-bottom:0"><span>🏦 ' + (L ? 'Cuentas de cheques conjuntas' : 'Joint checking accounts') + '</span><span style="font-weight:800;color:var(--ink)">' + FT.money(checkTotal) + ' ›</span></div>' +
+        (myChecking.some(function (c) { return c.autoDeposit; }) ? '<div style="font-size:9.5px;color:var(--g-dark);margin-top:4px">🔗 ' + (L ? 'Tu aporte al hogar se deposita aquí automático' : 'Your household share auto-deposits here') + '</div>' : '<div style="font-size:9.5px;color:var(--text3);margin-top:4px">' + (L ? 'Toca para agregar una cuenta o activar el depósito automático' : 'Tap to add an account or turn on auto-deposit') + '</div>') +
+      '</div>' +
     '</div>' +
 
     (patrimonioHogar > 0 ? '<div class="ft-card">' +
@@ -644,6 +646,96 @@ function registrarEnPresupuesto(monto, desc) {
   var d = FT.data();
   d.transactions.push({ id: Date.now(), type: 'ahorro', desc: desc, amount: monto, date: FT.todayISO(), cat: '🏠 Hogar', hogar: true, createdBy: FT.userName() });
   FT.saveData(d);
+}
+
+/* ── CUENTAS DE CHEQUES CONJUNTAS (etapa 3 del reparto: aporte hogar → real) ──
+   Antes "Cuentas de cheques conjuntas" solo mostraba el % presupuestado de
+   cada cheque (un cálculo, no dinero movido) -- de ahí que el aporte de la
+   pareja "no se reflejara" ahí, aunque no era ningún bug, era que nada lo
+   conectaba. Aquí se puede agregar/editar una cuenta propia marcada como
+   conjunta y activar que tu parte de hogar de cada cheque nuevo se
+   deposite ahí de verdad (FT.recordCheque ya hace el crédito real cuando
+   ve una cuenta con autoDeposit:true). Solo UNA cuenta puede tener
+   autoDeposit activo a la vez, para no repartir sin que quede claro a
+   cuál le tocó. */
+function abrirCuentasSheet() {
+  var L = es();
+  var mine = FT.checking().filter(function (c) { return c.hogar; });
+  var rows = mine.length ? mine.map(function (c) {
+    return '<div style="display:flex;align-items:center;gap:8px;padding:10px;background:var(--sunk);border-radius:12px;margin-bottom:8px">' +
+      '<div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:700">' + (c.name || (L ? 'Cuenta' : 'Account')) + '</div>' +
+      '<div style="font-size:10px;color:var(--text3)">' + FT.money(c.amount || 0) + (c.autoDeposit ? ' · 🔗 ' + (L ? 'depósito automático activo' : 'auto-deposit on') : '') + '</div></div>' +
+      '<button type="button" class="tap" data-toggle-acct="' + c.id + '" style="padding:6px 10px;border-radius:8px;border:1.5px solid ' + (c.autoDeposit ? 'var(--g-main)' : 'var(--hair)') + ';background:' + (c.autoDeposit ? 'var(--g-light)' : '#fff') + ';color:' + (c.autoDeposit ? 'var(--g-dark)' : 'var(--text2)') + ';font-family:inherit;font-size:10px;font-weight:800;cursor:pointer">' + (c.autoDeposit ? (L ? '✓ Activo' : '✓ On') : (L ? 'Activar' : 'Turn on')) + '</button>' +
+      '<button type="button" class="tap" data-del-acct="' + c.id + '" style="padding:6px 9px;border-radius:8px;border:none;background:none;color:var(--text3);font-size:13px;cursor:pointer">🗑</button>' +
+    '</div>';
+  }).join('') : '<div style="font-size:12px;color:var(--text3);padding:6px 0 10px">' + (L ? 'Aún no tienes ninguna cuenta de cheques marcada como conjunta.' : "You don't have any account marked as joint yet.") + '</div>';
+
+  FT.sheet({
+    title: '🏦 ' + (L ? 'Cuentas de cheques conjuntas' : 'Joint checking accounts'),
+    html: rows +
+      '<p style="font-size:10.5px;color:var(--text3);margin-top:6px">' + (L ? 'La cuenta con depósito automático activo recibe tu parte de hogar (el % que configuraste) cada vez que registras un cheque nuevo -- las demás quedan como referencia.' : "The account with auto-deposit on receives your household share (the % you set) every time you log a new paycheck -- the others stay as reference.") + '</p>',
+    actions: [
+      { label: '＋ ' + (L ? 'Agregar cuenta' : 'Add account'), onClick: function () { abrirCuentaForm(); } }
+    ],
+    onOpen: function (body) {
+      body.querySelectorAll('[data-toggle-acct]').forEach(function (b) {
+        b.onclick = function () {
+          var id = b.getAttribute('data-toggle-acct');
+          var accts = FT.checking();
+          var turningOn = !accts.find(function (a) { return String(a.id) === id; }).autoDeposit;
+          accts.forEach(function (a) { a.autoDeposit = turningOn && String(a.id) === id; });
+          FT.saveChecking(accts);
+          FT.toast(turningOn ? (L ? '🔗 Depósito automático activado' : '🔗 Auto-deposit turned on') : (L ? 'Depósito automático desactivado' : 'Auto-deposit turned off'));
+          FT.closeTop();
+          render();
+        };
+      });
+      body.querySelectorAll('[data-del-acct]').forEach(function (b) {
+        b.onclick = function () {
+          var id = b.getAttribute('data-del-acct');
+          var accts = FT.checking();
+          var acct = accts.find(function (a) { return String(a.id) === id; });
+          if (!acct) return;
+          // Solo se puede eliminar una cuenta en $0 -- si tiene saldo, hay
+          // que retirarlo/moverlo primero para no perder el rastro de ese
+          // dinero (mismo criterio que ya usa Ahorro libre para sus fondos).
+          if (Math.abs(parseFloat(acct.amount) || 0) >= 0.005) {
+            FT.toast(L ? 'Esta cuenta tiene saldo — ajústalo a $0 antes de eliminarla' : 'This account has a balance — set it to $0 before deleting it');
+            return;
+          }
+          FT.confirm(L ? '¿Eliminar «' + acct.name + '»?' : 'Delete "' + acct.name + '"?').then(function (ok) {
+            if (!ok) return;
+            var fresh = FT.checking().find(function (a) { return String(a.id) === id; });
+            if (!fresh || Math.abs(parseFloat(fresh.amount) || 0) >= 0.005) { FT.toast(L ? 'Esta cuenta ya no está en $0' : 'This account is no longer at $0'); FT.closeTop(); render(); return; }
+            FT.saveChecking(FT.checking().filter(function (a) { return String(a.id) !== id; }));
+            FT.toast(L ? 'Eliminada' : 'Deleted');
+            FT.closeTop();
+            render();
+          });
+        };
+      });
+    }
+  });
+}
+function abrirCuentaForm() {
+  var L = es();
+  FT.modal({
+    title: L ? 'Nueva cuenta de cheques' : 'New checking account',
+    html: '<div class="ft-field"><label>' + (L ? 'Nombre' : 'Name') + '</label><input id="ctName" placeholder="' + (L ? 'Ej. Cuenta conjunta' : 'E.g. Joint account') + '"></div>' +
+      '<div class="ft-field"><label>' + (L ? 'Saldo actual' : 'Current balance') + '</label><input id="ctAmt" inputmode="decimal" placeholder="$0"></div>',
+    saveLabel: L ? 'Agregar' : 'Add',
+    onSave: function (body) {
+      var name = (body.querySelector('#ctName').value || '').trim();
+      if (!name) { FT.toast(L ? 'Ingresa un nombre' : 'Enter a name'); return true; }
+      var amt = parseFloat((body.querySelector('#ctAmt').value || '').replace(/,/g, '')) || 0;
+      var accts = FT.checking();
+      accts.push({ id: 'chk_' + Date.now(), name: name, amount: amt, hogar: true, updatedAt: FT.todayISO() });
+      FT.saveChecking(accts);
+      FT.toast(L ? '✅ Cuenta agregada' : '✅ Account added');
+      FT.closeTop();
+      render();
+    }
+  });
 }
 
 /* ── TAB DEPÓSITOS ── */

@@ -530,15 +530,7 @@ function openReparto() {
   var pending = FT.pendingReparto();
   if (pending <= 0.005) return;
   var funds = FT.savingsFunds();
-  var alloc = {}, remaining = pending;
-  funds.filter(function (f) { return f.rule && f.rule.type === 'fixed'; }).forEach(function (f) {
-    var amt = Math.min(remaining, f.rule.value);
-    if (amt > 0) { alloc[f.id] = +amt.toFixed(2); remaining -= amt; }
-  });
-  funds.filter(function (f) { return f.rule && f.rule.type === 'pct'; }).forEach(function (f) {
-    var amt = Math.min(remaining, pending * f.rule.value / 100);
-    if (amt > 0) { alloc[f.id] = +((alloc[f.id] || 0) + amt).toFixed(2); remaining -= amt; }
-  });
+  var alloc = FT.suggestFundAllocation(pending); // mismo criterio que FT.applyDist (etapa 3) -- un solo lugar con el algoritmo
 
   function rowsHTML() {
     return funds.map(function (f) {

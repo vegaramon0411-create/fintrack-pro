@@ -837,6 +837,19 @@ FT.recordCheque = function (o) {
     // llevó el ahorro automático), no tiene caso mostrar el recuadro de
     // reparto por $0 -- se marca repartido de una vez.
     if (personalAmt - autoSaved <= 0.005) chequeRow.repartido = true;
+
+    // Etapa 3: si activaste "depósito automático" en una cuenta de cheques
+    // conjunta (hogar.html → Cuentas), tu parte de hogar de este cheque se
+    // acredita ahí de verdad -- antes "Cuentas" solo mostraba el % ya
+    // presupuestado, nunca dinero real (la razón de que el aporte de la
+    // pareja "no se reflejara" en la cuenta conjunta -- no era un bug, era
+    // que nada los conectaba). No pide confirmación cada vez porque, a
+    // diferencia del reparto a fondos personales, aquí no hay ambigüedad de
+    // A CUÁL fondo mandarlo -- solo hay una cuenta activa a la vez.
+    if (hogarAmt > 0) {
+      var autoAcct = FT.checking().find(function (a) { return a.hogar && a.autoDeposit; });
+      if (autoAcct) FT.creditChecking(autoAcct.id, hogarAmt);
+    }
   }
   FT.set(K.cheques, cheques);
   FT._changed();
@@ -1323,6 +1336,30 @@ FT.addEntry = function (o) {
 };
 
 /** Reparto del sobrante segun ft_dist_pcts (ahorro / emergencia / inversion-sugerida). */
+/** Sugiere cómo repartir `pool` entre los fondos de Ahorro libre según sus
+ *  reglas guardadas -- reglas fijas primero (en el orden de la lista),
+ *  luego reglas de % (sobre el total `pool`, no sobre lo que quede después
+ *  de las fijas) -- mismo criterio para cualquier pantalla que reparta
+ *  dinero a fondos (reparto de cheque en dashboard.html, y el reparto de
+ *  sobrante de FT.applyDist más abajo), para que las dos formas de repartir
+ *  usen exactamente la misma regla y nunca diverjan entre sí.
+ *  Devuelve {fundId: monto, ...} -- solo fondos con monto > 0. */
+FT.suggestFundAllocation = function (pool) {
+  pool = parseFloat(pool) || 0;
+  var out = {};
+  if (pool <= 0) return out;
+  var funds = FT.savingsFunds();
+  var remaining = pool;
+  funds.filter(function (f) { return f.rule && f.rule.type === 'fixed'; }).forEach(function (f) {
+    var amt = Math.min(remaining, f.rule.value);
+    if (amt > 0) { out[f.id] = +amt.toFixed(2); remaining -= amt; }
+  });
+  funds.filter(function (f) { return f.rule && f.rule.type === 'pct'; }).forEach(function (f) {
+    var amt = Math.min(remaining, pool * f.rule.value / 100);
+    if (amt > 0) { out[f.id] = +((out[f.id] || 0) + amt).toFixed(2); remaining -= amt; }
+  });
+  return out;
+};
 FT.applyDist = function (leftover, opts) {
   opts = opts || {};
   var dist = FT.distPcts();
@@ -1331,19 +1368,43 @@ FT.applyDist = function (leftover, opts) {
   var a = Math.round(leftover * (dist.ahorro || 0) / 100);
   var e = Math.round(leftover * (dist.emergencia || 0) / 100);
   var inv = Math.round(leftover * (dist.inversion || 0) / 100);
+  var seq = 0, base = Date.now();
+  function nextId() { return base + (seq++); } // +índice, nunca +random -- ver nota en FT.applyReparto sobre colisión de ids
   if (a > 0) {
-    // Mismo id para el movimiento de ahorro y su transacción vinculada (como
-    // en todo el resto del código) -- con dos Date.now() por separado,
-    // FT.reverseSavings(t.id) nunca encontraba el movimiento al borrar la
-    // transacción (buscaba 'tx_'+idB pero el movimiento se guardó como
-    // 'tx_'+idA) y el depósito quedaba huérfano en Ahorro para siempre.
-    var distId = Date.now();
-    FT.addSavings({ id: distId, amount: a, date: FT.todayISO(), tipo: 'deposito', note: note });
-    var d0 = FT.data();
-    d0.transactions.push({ id: distId, type: 'ahorro', desc: (es ? 'Ahorro libre — ' : 'Free savings — ') + note, amount: a, date: FT.todayISO(), cat: '💵 Ahorro', dest: 'libre', createdBy: FT.userName() });
-    FT.set(K.data, d0);
+    // Etapa 3: la parte de "ahorro" del sobrante ya no cae entera al fondo
+    // default -- se reparte entre los fondos con nombre según sus reglas
+    // guardadas, con el mismo criterio que ya usa el reparto de cheque
+    // (FT.suggestFundAllocation) -- un solo sistema de reglas por fondo, no
+    // dos que se puedan pisar. Este flujo YA es opt-in explícito del
+    // usuario (el checkbox "reparto automático" al registrar el ingreso
+    // extra), así que aquí sí se aplica directo, sin pedir confirmación
+    // aparte -- distinto del reparto de cheque, que siempre pide confirmar
+    // porque ahí el usuario nunca pidió nada de antemano.
+    var funds = FT.savingsFunds();
+    var allocMap = FT.suggestFundAllocation(a);
+    var allocated = 0;
+    Object.keys(allocMap).forEach(function (fundId) {
+      var amt = allocMap[fundId]; if (amt <= 0) return;
+      var f = funds.find(function (x) { return x.id === fundId; });
+      var id = nextId();
+      FT.addSavings({ id: id, amount: amt, date: FT.todayISO(), tipo: 'deposito', note: note, fundId: fundId });
+      var d0 = FT.data();
+      d0.transactions.push({ id: id, type: 'ahorro', desc: (es ? 'Ahorro libre — ' : 'Free savings — ') + note + (f ? ' · ' + f.name : ''), amount: amt, date: FT.todayISO(), cat: '💵 Ahorro', dest: 'libre', createdBy: FT.userName() });
+      FT.set(K.data, d0);
+      allocated += amt;
+    });
+    // Lo que ninguna regla cubrió (fondos sin regla, o sobrante después de
+    // aplicarlas todas) cae al fondo default -- nunca se pierde en silencio.
+    var restoA = +(a - allocated).toFixed(2);
+    if (restoA > 0.005) {
+      var id2 = nextId();
+      FT.addSavings({ id: id2, amount: restoA, date: FT.todayISO(), tipo: 'deposito', note: note });
+      var d1 = FT.data();
+      d1.transactions.push({ id: id2, type: 'ahorro', desc: (es ? 'Ahorro libre — ' : 'Free savings — ') + note, amount: restoA, date: FT.todayISO(), cat: '💵 Ahorro', dest: 'libre', createdBy: FT.userName() });
+      FT.set(K.data, d1);
+    }
   }
-  if (e > 0) FT.addEmergency({ id: Date.now() + 2, amount: e, date: FT.todayISO(), tipo: 'deposito', note: note });
+  if (e > 0) FT.addEmergency({ id: nextId(), amount: e, date: FT.todayISO(), tipo: 'deposito', note: note });
   if (inv > 0) FT.setRaw(K.investSuggest, ((parseFloat(FT.getRaw(K.investSuggest, '0')) || 0) + inv).toFixed(2));
   FT._changed();
   return { ahorro: a, emergencia: e, inversion: inv };
