@@ -919,6 +919,15 @@ function _applyRecDebt(rec, hoy) {
     if (i < 0) return 'broken';
     var d = debts[i];
     if ((d.abonos || []).some(function (a) { return a.fecha === hoy && (a.recId === rec.id || !a.recId); })) return 'already';
+    // Igual que con servicios: si esta deuda es compartida y mi pareja abrió
+    // su app primero, es posible que ya haya aplicado este mismo abono
+    // automático antes de que la sincronización me avisara -- reviso su
+    // última copia conocida (cacheada) antes de aplicarlo yo también.
+    if (rec.hogar) {
+      var pp2 = FT.partnerProfile();
+      var partnerDebt = pp2 && pp2.data && pp2.data.sharedDebts && pp2.data.sharedDebts.find(function (pd) { return String(pd.id) === String(rec.debtId); });
+      if (partnerDebt && (partnerDebt.abonos || []).some(function (a) { return a.fecha === hoy && a.recId === rec.id; })) return 'already';
+    }
     var old = parseFloat(d.balance) || 0, nu = Math.max(0, old - rec.amount);
     d.balance = nu; d.updatedAt = new Date().toISOString();
     d.paidMonths = d.paidMonths || {}; d.paidMonths[String(hoy).slice(0, 7)] = true;
@@ -982,6 +991,21 @@ function _applyDueList(key, defCat) {
     if (!list.length) return 0;
     var today = new Date(); today.setHours(0, 0, 0, 0);
     var d = FT.data(), applied = 0, name = FT.userName();
+    // Para un servicio/suscripción de HOGAR: si mi pareja abrió su app antes
+    // que yo y ya generó el cargo de este mismo periodo, su copia sincronizada
+    // ya trae ese movimiento -- lo reviso aquí para no generarlo otra vez.
+    // Esto es justo lo que describió Ramón: no hay dos servicios (solo hay
+    // uno, $382 en ambos lados), pero cada dispositivo corre su motor de
+    // "cheques automáticos" de forma independiente -- si los dos abren la
+    // app cerca de la misma fecha de cobro, antes de que la sincronización
+    // alcance a avisarle al otro que ya se aplicó, cada uno genera su
+    // propio cargo. Esto reduce esa ventana (no la elimina del todo -- eso
+    // requeriría un servidor que reparta turnos, que no es como está armado
+    // este backend), revisando la última copia sincronizada de mi pareja
+    // antes de generar el cargo yo también.
+    var pp = FT.partnerProfile();
+    var partnerTx = (pp && pp.data && pp.data.transactions) || [];
+    var listChanged = false, dataChanged = false;
     list.forEach(function (s) {
       if (s.paused || !s.date) return;
       var guard = 0;
@@ -989,16 +1013,26 @@ function _applyDueList(key, defCat) {
         var p = s.date.split('-').map(Number);
         var dd = new Date(p[0], p[1] - 1, p[2]);
         if (!(dd < today)) break;
-        d.transactions.push({ id: Date.now() + guard, type: 'suscripcion', desc: s.name, amount: parseFloat(s.amount) || 0, date: s.date, cat: s.cat || defCat, hogar: s.hogar === true, createdBy: name, auto: true });
-        applied++;
+        var alreadyByPartner = s.hogar === true && partnerTx.some(function (t) { return t.servId === s.id && t.date === s.date; });
+        if (!alreadyByPartner) {
+          d.transactions.push({ id: Date.now() + guard, type: 'suscripcion', desc: s.name, amount: parseFloat(s.amount) || 0, date: s.date, cat: s.cat || defCat, hogar: s.hogar === true, createdBy: name, auto: true, servId: s.id });
+          applied++; dataChanged = true;
+        }
         if (s.freq === 'annual') dd.setFullYear(dd.getFullYear() + 1);
         else if (s.freq === 'weekly') dd.setDate(dd.getDate() + 7);
         else dd.setMonth(dd.getMonth() + 1);
         s.date = FT.date(dd, 'ISO');
+        listChanged = true;
         guard++;
       }
     });
-    if (applied) { FT.set(K.data, d); FT.set(key, list); FT._changed(); }
+    // s.date se puede haber adelantado aunque no se haya creado ningún
+    // movimiento nuevo (el caso de "mi pareja ya lo generó") -- si no se
+    // guarda esa fecha nueva, el próximo arranque la vuelve a ver vencida y
+    // repite el mismo chequeo (inofensivo, pero se guarda de una vez).
+    if (dataChanged) FT.set(K.data, d);
+    if (listChanged) FT.set(key, list);
+    if (dataChanged || listChanged) FT._changed();
     return applied;
   } catch (e) { return 0; }
 }
@@ -1390,8 +1424,19 @@ function _mergeSharedDebtsIntoMine(partnerSharedDebts) {
     var idx = myDebts.findIndex(function (d) { return String(d.id) === String(pd.id); });
     if (idx < 0) { myDebts.push(Object.assign({}, pd, { owner: 'both', _fromPartner: true })); return; }
     var mine = myDebts[idx], byId = {};
-    (mine.abonos || []).forEach(function (a) { if (a && a.id != null) byId[a.id] = a; });
-    (pd.abonos || []).forEach(function (a) { if (a && a.id != null) byId[a.id] = a; });
+    // Un abono AUTOMÁTICO (recId presente) se identifica por fecha+recId, no
+    // por su "id" -- ese id es un Date.now() generado por cada dispositivo,
+    // así que el mismo pago recurrente aplicado por error en ambos lados
+    // (la carrera que _applyRecDebt ahora intenta evitar, pero que igual
+    // puede pasar si la red tarda más que el margen de espera en el boot)
+    // tenía dos ids distintos y por eso NUNCA se fusionaba en uno solo --
+    // se sumaban los dos al balance y la deuda quedaba con un pago de más
+    // descontado. Un abono MANUAL (sin recId) sí se identifica por su id,
+    // como antes, porque dos abonos manuales el mismo día son válidos y
+    // distintos.
+    function abKey(a) { return a.recId ? ('rec:' + a.fecha + '|' + a.recId) : ('id:' + a.id); }
+    (mine.abonos || []).forEach(function (a) { if (a && a.id != null) byId[abKey(a)] = a; });
+    (pd.abonos || []).forEach(function (a) { if (a && a.id != null) byId[abKey(a)] = a; });
     var abonos = Object.keys(byId).map(function (k) { return byId[k]; });
     var original = mine.original || pd.original || mine.balance;
     myDebts[idx] = Object.assign({}, mine, { owner: 'both', abonos: abonos, original: original, balance: Math.max(0, original - abonos.reduce(function (a, x) { return a + (parseFloat(x.monto) || 0); }, 0)) });
@@ -1435,12 +1480,16 @@ function _mergeSharedRecurringIntoMine(partnerSharedRecurring) {
  *  no solo la caché de "profile_<email>", también mis propias claves (fondos,
  *  deudas compartidas, recurrentes de esas deudas, servicios, cuenta conjunta)
  *  para que cualquier pantalla —no solo Hogar— quede al día. */
+/** Devuelve el Promise del fetch (antes no se regresaba nada -- boot() lo
+ *  necesita para poder correr FT.runAutomations() otra vez YA con la caché
+ *  de la pareja fresca, en vez de solo con lo que hubiera quedado de la
+ *  sesión anterior; ver el comentario en FT.boot). */
 FT.syncPartner = function () {
   try {
     var h = FT.hogar();
-    if (!h.connected || !h.partnerEmail || h.manuallyLeft) return;
+    if (!h.connected || !h.partnerEmail || h.manuallyLeft) return Promise.resolve();
     var pkey = 'profile_' + h.partnerEmail.replace(/[^a-z0-9]/gi, '_');
-    FT.getPartnerProfile(h.partnerEmail).then(function (data) {
+    return FT.getPartnerProfile(h.partnerEmail).then(function (data) {
       if (!data || !data.success) return;
       var nd = {}; try { nd = JSON.parse(data.dataJson || '{}'); } catch (e) {}
       var old = FT.get(pkey, null); var od = (old && old.data) || {};
@@ -2887,14 +2936,38 @@ FT.boot = function () {
   FT.lang = (u && u.lang) ? (localStorage.getItem(K.lang) || u.lang) : FT.lang;
   FT.applyLang(document);
   if (!isPublic) {
-    try { FT.runAutomations(); } catch (e) {}
-    try { FT.syncPartner(); } catch (e) {}
-    // Refresca mi snapshot en GAS al abrir la app, no solo cuando cambia algo
-    // en esta sesión -- corrige de una vez cualquier snapshot que ya haya
-    // quedado viejo antes de este fix (deudas/recurrentes ya borrados que mi
-    // pareja seguía jalando).
-    try { FT.pushProfileToGAS(); } catch (e) {}
+    var h; try { h = FT.hogar(); } catch (e) { h = null; }
+    var needsPartnerSync = h && h.connected && h.partnerEmail && !h.manuallyLeft;
+    if (needsPartnerSync) {
+      // _applyDueList/_applyRecDebt adelantan la fecha del servicio/abono en
+      // cuanto lo revisan, se haya aplicado o no -- así que un cheque
+      // automático corrido con caché VIEJA de mi pareja ya no se vuelve a
+      // revisar aunque después llegue una copia fresca (por eso una 2da
+      // pasada DESPUÉS no sirve de nada: la ventana ya se cerró mal). La
+      // única forma real de evitar el duplicado cruzado ("Home At&t"/
+      // "Seguro Mazda"/"SOFI CREDIT CARD") es esperar la sincronización
+      // ANTES de correr los cheques automáticos por primera vez. Le doy un
+      // margen corto (3s) -- si la red está lenta o caída, sigo con lo que
+      // haya en caché, igual que antes de este fix (nunca me quedo esperando
+      // para siempre).
+      var syncP; try { syncP = FT.syncPartner(); } catch (e) { syncP = Promise.resolve(); }
+      var timeoutP = new Promise(function (res) { setTimeout(res, 3000); });
+      Promise.race([syncP, timeoutP]).then(function () {
+        try { FT.runAutomations(); } catch (e) {}
+        // Refresca mi snapshot en GAS al abrir la app, no solo cuando cambia
+        // algo en esta sesión -- corrige de una vez cualquier snapshot que ya
+        // haya quedado viejo antes de este fix (deudas/recurrentes ya
+        // borrados que mi pareja seguía jalando).
+        try { FT.pushProfileToGAS(); } catch (e) {}
+      }).catch(function () {});
+    } else {
+      try { FT.runAutomations(); } catch (e) {}
+      try { FT.pushProfileToGAS(); } catch (e) {}
+    }
   }
+  // ft:ready se dispara de inmediato SIEMPRE (no espera la sincronización de
+  // arriba) -- las pantallas ya escuchan ft:datachanged para refrescarse
+  // cuando los cheques automáticos terminen unos instantes después.
   document.dispatchEvent(new CustomEvent('ft:ready'));
 };
 
