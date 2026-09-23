@@ -2702,19 +2702,47 @@ FT.recurringItemsScreen = function (opts) {
         var amount = parseFloat(body.querySelector('#siAmount').value) || 0;
         if (!name || !amount) { FT.toast(L ? '⚠️ Llena todos los campos' : '⚠️ Fill all fields'); return true; }
         var freq = body.querySelector('#siFreq').value, date = body.querySelector('#siDate').value, cat = body.querySelector('#siCat').value;
-        var l = list();
-        if (s) {
-          var i = l.findIndex(function (x) { return String(x.id) === String(id); });
-          l[i] = isSub ? Object.assign({}, l[i], { name: name, amount: amount, freq: freq, date: date, cat: cat })
-                       : Object.assign({}, l[i], { name: name, amount: amount, freq: freq, date: date, cat: cat, hogar: true });
-        } else {
-          l.push(isSub
-            ? { id: idPrefix + Date.now(), name: name, amount: amount, freq: freq, date: date, cat: cat, paused: false }
-            : { id: idPrefix + Date.now(), name: name, amount: amount, freq: freq, date: date, cat: cat, paused: false, hogar: true, createdBy: FT.userName() });
+
+        function doSave() {
+          var l = list();
+          if (s) {
+            var i = l.findIndex(function (x) { return String(x.id) === String(id); });
+            l[i] = isSub ? Object.assign({}, l[i], { name: name, amount: amount, freq: freq, date: date, cat: cat })
+                         : Object.assign({}, l[i], { name: name, amount: amount, freq: freq, date: date, cat: cat, hogar: true });
+          } else {
+            l.push(isSub
+              ? { id: idPrefix + Date.now(), name: name, amount: amount, freq: freq, date: date, cat: cat, paused: false }
+              : { id: idPrefix + Date.now(), name: name, amount: amount, freq: freq, date: date, cat: cat, paused: false, hogar: true, createdBy: FT.userName() });
+          }
+          saveList(l);
+          FT.toast(L ? '✅ Guardado' : '✅ Saved');
+          render();
+          FT.closeTop();
         }
-        saveList(l);
-        FT.toast(L ? '✅ Guardado' : '✅ Saved');
-        render();
+
+        // Aviso de posible duplicado: si tu pareja ya tiene algo con un
+        // nombre muy parecido (ella tiene "Home At&t", tú vas a crear "Home
+        // ATT"), lo más probable es que ambos hayan configurado el MISMO
+        // gasto real por separado sin darse cuenta -- eso genera un cargo
+        // doble cada mes (uno por cada quien). Solo se checa al CREAR, no
+        // al editar, y solo si el hogar está conectado.
+        if (!s && FT.hogarConnected()) {
+          var norm = function (x) { return String(x || '').toLowerCase().replace(/[^a-z0-9]/g, ''); };
+          var nNorm = norm(name);
+          var partnerList = isSub ? ((FT.partnerProfile() && FT.partnerProfile().data && FT.partnerProfile().data.subscriptions) || []) : FT.servicios().filter(function (x) { return x._fromPartner; });
+          var dup = partnerList.find(function (x) { return x && norm(x.name) === nNorm; });
+          if (dup) {
+            var partnerName = (FT.hogar().partnerName || (L ? 'tu pareja' : 'your partner'));
+            FT.confirm(L
+              ? partnerName + ' ya tiene "' + dup.name + '" (' + FT.money(parseFloat(dup.amount) || 0) + '/' + freqLbl(dup.freq).toLowerCase() + ') — si es el mismo gasto real, se van a cobrar el doble cada mes. ¿Aun así quieres agregar la tuya?'
+              : partnerName + ' already has "' + dup.name + '" (' + FT.money(parseFloat(dup.amount) || 0) + '/' + freqLbl(dup.freq).toLowerCase() + ') — if it\'s the same real expense, you\'ll both get charged for it every month. Add yours anyway?'
+            ).then(function (ok) { if (ok) doSave(); });
+            return true; // el modal se queda abierto -- se cierra dentro de doSave() si confirman
+          }
+        }
+
+        doSave();
+        return true; // doSave ya cierra el modal -- evita que el wrapper intente cerrar de más
       }
     });
   }
