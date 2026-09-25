@@ -290,7 +290,14 @@ function formHTML() {
       '<button type="button" data-i="1" class="' + (s.hasInterest ? 'on' : '') + '">' + (L ? 'Sí' : 'Yes') + '</button>' +
       '<button type="button" data-i="0" class="' + (!s.hasInterest ? 'on' : '') + '">' + (L ? 'No (0%)' : 'No (0%)') + '</button></div></div>';
   }
-  if (s.hasInterest) html += '<div class="ft-field" id="dtAprWrap"><label>APR (%)' + infoIcon('apr') + '</label><input id="fAPR" type="number" min="0" step="0.01" placeholder="' + c.defaultAPR + '" value="' + v(d && d.apr) + '"><div class="dt-hint">' + (s.type === 'tarjeta' ? (L ? 'Típico: 20–29% · revisa tu estado de cuenta' : 'Typical: 20–29%') : (L ? 'Está en tu contrato o estado de cuenta' : "It's on your contract or statement")) + '</div></div>';
+  // El placeholder ("24.99" en gris) solo es texto fantasma del navegador --
+  // nunca fue el valor real del campo. Si el usuario no lo tocaba, se
+  // guardaba APR 0% aunque la tarjeta mostrara "24.99" (bug real reportado:
+  // deuda nueva con "APR 0%" en la tarjeta, 17 meses/$0 interés en vez de
+  // ~21 meses/~$1,296). Ahora el valor real precargado es el default del
+  // tipo de deuda cuando es nueva (no d) -- al editar se muestra el APR de
+  // verdad guardado, aunque sea 0, para no mentir sobre lo que ya se tiene.
+  if (s.hasInterest) html += '<div class="ft-field" id="dtAprWrap"><label>APR (%)' + infoIcon('apr') + '</label><input id="fAPR" type="number" min="0" step="0.01" value="' + (d ? v(d.apr) : c.defaultAPR) + '"><div class="dt-hint">' + (s.type === 'tarjeta' ? (L ? 'Típico: 20–29% · revisa tu estado de cuenta' : 'Typical: 20–29%') : (L ? 'Está en tu contrato o estado de cuenta' : "It's on your contract or statement")) + '</div></div>';
 
   if (s.type === 'hipoteca' && s.mortgageMode !== 'simple') {
     html += '<div class="ft-field"><label>' + (L ? 'Impuesto, seguro y PMI (opcional)' : 'Tax, insurance & PMI (optional)') + '</label>' +
@@ -532,7 +539,12 @@ function openAbonar(debtId) {
   var recActivos = FT.recurList(function (r) { return r.kind === 'debt' && String(r.debtId) === String(d.id); });
   var isShared = d.type === 'hipoteca' || d.owner === 'both';
   var st = { tipo: 'nuevo', rec: false, freq: 'monthly', who: 'me' };
-  var chips = [[L ? 'Pago mínimo' : 'Min payment', d.payment], [L ? 'Doble pago' : 'Double', d.payment * 2], [L ? 'Saldar' : 'Pay off', d.balance]].filter(function (c) { return c[1] > 0; });
+  // Bug real de QA: el chip "Pago mínimo" mostraba d.payment (el pago
+  // mensual normal) en vez de d.minPayment (el mínimo real, que solo se
+  // captura para tarjetas) -- si la tarjeta no tiene minPayment guardado,
+  // usa el pago normal como respaldo en vez de desaparecer el chip.
+  var minPay = (parseFloat(d.minPayment) || 0) > 0 ? d.minPayment : d.payment;
+  var chips = [[L ? 'Pago mínimo' : 'Min payment', minPay], [L ? 'Doble pago' : 'Double', d.payment * 2], [L ? 'Saldar' : 'Pay off', d.balance]].filter(function (c) { return c[1] > 0; });
 
   var warn = recActivos.length ? '<div class="dt-preview" style="background:#FBF0DD"><div class="t" style="color:#8A5A12">⚠️ ' + (L ? recActivos.length + ' abono(s) recurrente(s) activo(s) — no los dupliques:' : recActivos.length + ' active recurring payment(s) — don’t duplicate:') + '</div>' +
     recActivos.map(function (r) { var RL = FT.recurLabel(r); return '<div class="r"><span class="k">' + money(r.amount) + ' · ' + RL.sub + '</span></div>'; }).join('') + '</div>' : '';
@@ -620,7 +632,16 @@ function guardarAbono(debtId, o) {
     FT.toast((L ? '📅 Programado para el ' + FT.date(o.fecha) + ' — no se descuenta todavía' : '📅 Scheduled for ' + FT.date(o.fecha) + ' — not deducted yet') + (o.rec ? (L ? ' · 🔄 recurrente activado' : ' · 🔄 recurring on') : ''), { ms: 4500 });
   } else {
     var oldBalance = parseFloat(d.balance) || 0;
-    var newBalance = Math.max(0, oldBalance - o.monto);
+    // El saldo baja por el CAPITAL del pago, no por el monto completo --
+    // primero se cubren los intereses acumulados desde el último pago
+    // (interesEste, ya se calculaba y se mostraba, pero nunca se usaba
+    // aquí) y solo el resto reduce lo que en verdad se debe. Bug real QA:
+    // $300 a una deuda de $5,000 al 20% APR dejaba el saldo en $4,700 en
+    // vez de $4,783.33 ($300 - $83.33 de interés = $216.67 de capital).
+    var apr = parseFloat(d.apr) || 0;
+    var interesEste = apr > 0 ? +(oldBalance * (apr / 100 / 12)).toFixed(2) : 0;
+    var capitalEste = +Math.max(0, o.monto - interesEste).toFixed(2);
+    var newBalance = Math.max(0, +(oldBalance - capitalEste).toFixed(2));
     d.balance = newBalance; d.updatedAt = new Date().toISOString();
     d.paidMonths = d.paidMonths || {}; d.paidMonths[o.fecha.slice(0, 7)] = true;
 
@@ -632,9 +653,6 @@ function guardarAbono(debtId, o) {
       data.transactions.push(linkedTx);
       FT.saveData(data);
     }
-    var apr = parseFloat(d.apr) || 0;
-    var interesEste = apr > 0 ? +(oldBalance * (apr / 100 / 12)).toFixed(2) : 0;
-    var capitalEste = +Math.max(0, o.monto - interesEste).toFixed(2);
     d.abonos = d.abonos || [];
     d.abonos.push({ id: abonoId, monto: o.monto, fecha: o.fecha, nota: o.nota, saldoAntes: oldBalance, saldoDespues: newBalance, tipo: o.tipo, createdBy: FT.userName(), txId: linkedTxId, interesPagado: interesEste, capitalPagado: capitalEste });
     FT.saveDebts(debts);
@@ -696,8 +714,17 @@ function deleteAbono(debtId, abonoId) {
   // hay que excluirlos aquí también, si no, al borrar CUALQUIER abono se
   // recalculaba el saldo restando de más (incluía pagos programados que en
   // realidad todavía no habían pasado).
-  var original = d.original != null ? d.original : ((parseFloat(d.balance) || 0) + (a.pending ? 0 : (parseFloat(a.monto) || 0)));
-  d.balance = Math.max(0, original - d.abonos.filter(function (x) { return !x.pending; }).reduce(function (s, x) { return s + (parseFloat(x.monto) || 0); }, 0));
+  // Desde el fix de "el saldo baja por capital, no por el pago completo",
+  // reconstruir/sumar por x.monto aquí ya quedaba desfasado -- este
+  // recálculo debe usar lo mismo que de verdad se restó del saldo al
+  // aplicar cada abono (capitalPagado), si no, borrar un abono con
+  // intereses inflaba el saldo de más (ej. $5,000 al 20% APR, abono de
+  // $300 -> saldo correcto $4,783.33; al borrarlo volvía a $5,083.33 en
+  // vez de $5,000). capitalPagado no existía en abonos viejos de antes de
+  // este fix -- ahí sí se resta el monto completo, como siempre se hizo.
+  var capOf = function (x) { return x.capitalPagado != null ? x.capitalPagado : (parseFloat(x.monto) || 0); };
+  var original = d.original != null ? d.original : ((parseFloat(d.balance) || 0) + (a.pending ? 0 : capOf(a)));
+  d.balance = Math.max(0, original - d.abonos.filter(function (x) { return !x.pending; }).reduce(function (s, x) { return s + capOf(x); }, 0));
   FT.saveDebts(debts);
   // FT.deleteTx (no un filter a mano) para que, si este abono había
   // descontado una cuenta de cheques conjunta, también se le devuelva el
