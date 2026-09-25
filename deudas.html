@@ -536,7 +536,10 @@ function openAbonar(debtId) {
 
   var warn = recActivos.length ? '<div class="dt-preview" style="background:#FBF0DD"><div class="t" style="color:#8A5A12">⚠️ ' + (L ? recActivos.length + ' abono(s) recurrente(s) activo(s) — no los dupliques:' : recActivos.length + ' active recurring payment(s) — don’t duplicate:') + '</div>' +
     recActivos.map(function (r) { var RL = FT.recurLabel(r); return '<div class="r"><span class="k">' + money(r.amount) + ' · ' + RL.sub + '</span></div>'; }).join('') + '</div>' : '';
-  var abHogarAccts = isShared ? FT.checking().filter(function (a) { return a.hogar; }) : [];
+  // Deuda compartida -> cuentas conjuntas; deuda personal -> tus cuentas
+  // personales. Antes las deudas personales no podían elegir de dónde sale
+  // el pago -- Ramón lo pidió para poder llevar el saldo real de su cuenta.
+  var abHogarAccts = FT.checking().filter(function (a) { return !!a.hogar === isShared; });
 
   var ov = FT.modal({
     title: '💳 ' + (L ? 'Abonar a ' : 'Pay ') + d.name,
@@ -547,11 +550,12 @@ function openAbonar(debtId) {
       '<div class="ft-field"><label>' + (L ? 'Monto' : 'Amount') + '</label><input id="abMonto" inputmode="decimal" placeholder="$0"></div>' +
       '<div class="ft-field"><label>' + (L ? 'Fecha' : 'Date') + '</label><input id="abFecha" type="date" value="' + FT.todayISO() + '"></div>' +
       '<div class="ft-field"><label>' + (L ? 'Nota (opcional)' : 'Note (optional)') + '</label><input id="abNota"></div>' +
-      (abHogarAccts.length ? '<div class="ft-field" id="abAcctWrap">' +
-        (abHogarAccts.length > 1
-          ? '<label>' + (L ? '¿De qué cuenta se paga?' : 'Paid from which account?') + '</label><select id="abAcct">' + abHogarAccts.map(function (a) { return '<option value="' + a.id + '">' + a.name + ' (' + money(a.amount) + ')</option>'; }).join('') + '</select>'
-          : '<div class="dt-hint" style="margin:0">💳 ' + (L ? 'Se descontará de "' + abHogarAccts[0].name + '" (' + money(abHogarAccts[0].amount) + ')' : 'Will be deducted from "' + abHogarAccts[0].name + '" (' + money(abHogarAccts[0].amount) + ')') + '</div>') +
-        '</div>' : '') +
+      // Siempre con opción "Ninguna" explícita -- antes, con una sola cuenta
+      // disponible, se forzaba el descuento sin forma de decir que no (ese
+      // pago se pagó en efectivo, por ejemplo). Ahora deudas personales
+      // también pueden elegir cuenta (antes solo las compartidas), así que
+      // forzar el descuento sin opción a saltarlo hubiera sido peor.
+      (abHogarAccts.length ? '<div class="ft-field" id="abAcctWrap"><label>' + (L ? '¿De qué cuenta se paga? (opcional)' : 'Paid from which account? (optional)') + '</label><select id="abAcct"><option value="">' + (L ? 'Ninguna -- no descuenta cuenta' : "None -- doesn't deduct an account") + '</option>' + abHogarAccts.map(function (a) { return '<option value="' + a.id + '">' + a.name + ' (' + money(a.amount) + ')</option>'; }).join('') + '</select></div>' : '') +
       '<label class="dt-preview" style="display:block;background:var(--sky-bg);cursor:pointer"><div style="display:flex;justify-content:space-between;align-items:center;font-weight:800;color:#2A4CC0"><span>🔄 ' + (L ? '¿Es recurrente?' : 'Recurring?') + '</span><input type="checkbox" id="abRecChk" style="width:18px;height:18px"></div>' +
         '<div id="abRecWrap" style="display:none;margin-top:9px"><div class="dt-seg" id="abFreqSeg"><button type="button" data-f="weekly">' + (L ? 'Semanal' : 'Weekly') + '</button><button type="button" data-f="biweekly">' + (L ? 'Quincenal' : 'Biweekly') + '</button><button type="button" data-f="monthly" class="on">' + (L ? 'Mensual' : 'Monthly') + '</button></div>' +
           (isShared ? '<div style="font-size:10.5px;color:var(--text3);font-weight:700;margin-top:9px">' + (L ? 'Esta deuda es compartida — ¿quién va a hacer este pago cada vez?' : "This debt is shared — who's going to make this payment each time?") + '</div><div class="dt-seg" id="abWhoSeg" style="margin-top:4px"><button type="button" data-w="me" class="on">' + (L ? 'Tú' : 'You') + '</button><button type="button" data-w="partner">' + (L ? 'Tu pareja' : 'Your partner') + '</button></div>' : '') + '</div></label>',
@@ -572,7 +576,7 @@ function openAbonar(debtId) {
       function doSave() {
         if (window._savingAbono) return; // evita doble-submit (doble-tap duplicaba el abono)
         window._savingAbono = true;
-        var checkingAccountId = abHogarAccts.length ? (body.querySelector('#abAcct') ? body.querySelector('#abAcct').value : abHogarAccts[0].id) : undefined;
+        var checkingAccountId = (body.querySelector('#abAcct') ? body.querySelector('#abAcct').value : '') || undefined;
         guardarAbono(d.id, { monto: monto, fecha: fecha, nota: nota, tipo: st.tipo, rec: st.rec, freq: st.freq, who: st.who, isShared: isShared, existente: recActivos[0], checkingAccountId: checkingAccountId });
         setTimeout(function () { window._savingAbono = false; }, 800);
         FT.closeTop(); // por si se llamó desde el flujo con confirmación (ese onSave ya dijo "keep" al wrapper)

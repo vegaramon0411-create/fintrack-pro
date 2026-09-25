@@ -158,6 +158,7 @@ function render() {
   var u = FT.user(), t = totals(), L = limits();
   var hogarCombined = t.hogar + partnerHogarSpent();
   var pendingReparto = FT.pendingReparto();
+  var myPersonalAccts = FT.checking().filter(function (c) { return !c.hogar; }).reduce(function (a, c) { return a + (parseFloat(c.amount) || 0); }, 0);
 
   // HERO
   var heroCap, heroAmt, heroSign, splitHTML = '';
@@ -244,6 +245,7 @@ function render() {
       '<div class="sub">' + chequeSub() + '</div>' +
       '<button class="ft-btn ft-btn-primary tap" onclick="openCheque()">＋ ' + (es ? 'Recibí mi cheque' : 'I got paid') + '</button>' +
       (pendingReparto > 0.005 ? '<button type="button" class="tap" onclick="openReparto()" style="margin-top:9px;width:100%;display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-radius:10px;border:1.5px dashed var(--g-main);background:var(--g-light);color:var(--g-dark);font-family:var(--ui-font);font-weight:800;font-size:12px;cursor:pointer"><span>💰 ' + (es ? 'Sin repartir a tus fondos' : 'Unassigned to your funds') + '</span><span>' + FT.money(pendingReparto) + ' ›</span></button>' : '') +
+      '<button type="button" class="tap" onclick="FT.checkingAccountsScreen(false)" style="margin-top:9px;width:100%;display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-radius:10px;border:1.5px solid var(--hair);background:#fff;color:var(--text2);font-family:var(--ui-font);font-weight:800;font-size:12px;cursor:pointer"><span>🏦 ' + (es ? 'Mis cuentas' : 'My accounts') + '</span><span>' + FT.money(myPersonalAccts) + ' ›</span></button>' +
     '</div>' +
 
     recurCardHTML(es);

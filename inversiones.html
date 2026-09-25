@@ -119,13 +119,15 @@ function addFormHTML() {
     ? '<div class="ft-field"><label>' + (es ? 'Es para' : 'For') + '</label><div class="iv-seg" data-g="scope">' +
       '<button data-o="personal" class="' + (s.scope === 'personal' ? 'on' : '') + '">👤 ' + (es ? 'Personal' : 'Personal') + '</button>' +
       '<button data-o="hogar" class="' + (s.scope === 'hogar' ? 'on' : '') + '">🏠 ' + (es ? 'Hogar' : 'Household') + '</button></div></div>' : '';
+  var recAccts = FT.checking().filter(function (a) { return !!a.hogar === (s.scope === 'hogar'); });
   var recPanel = s.modo === 'nueva'
     ? '<div class="iv-recpanel"><div class="top">🔄 ' + (es ? '¿Es recurrente?' : 'Recurring?') +
       '<label style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="ivRec" ' + (s.rec ? 'checked' : '') + ' style="width:17px;height:17px;accent-color:var(--g-main)"><span style="font-size:11px">' + (es ? 'Sí' : 'Yes') + '</span></label></div>' +
       (s.rec ? '<div class="iv-seg three" data-g="freq" style="margin:9px 0 0">' +
         '<button data-o="weekly" class="' + (s.freq === 'weekly' ? 'on' : '') + '">' + (es ? 'Semanal' : 'Weekly') + '</button>' +
         '<button data-o="biweekly" class="' + (s.freq === 'biweekly' ? 'on' : '') + '">' + (es ? 'Quincenal' : 'Biweekly') + '</button>' +
-        '<button data-o="monthly" class="' + (s.freq === 'monthly' ? 'on' : '') + '">' + (es ? 'Mensual' : 'Monthly') + '</button></div>' : '') + '</div>'
+        '<button data-o="monthly" class="' + (s.freq === 'monthly' ? 'on' : '') + '">' + (es ? 'Mensual' : 'Monthly') + '</button></div>' : '') +
+      (s.rec && recAccts.length ? '<div class="ft-field" style="margin:9px 0 0"><label>' + (es ? '¿De qué cuenta sale? (opcional)' : 'Which account is this from? (optional)') + '</label><select id="ivAcct">' + '<option value="">' + (es ? 'Ninguna' : 'None') + '</option>' + recAccts.map(function (a) { return '<option value="' + a.id + '">' + a.name + ' (' + FT.money(a.amount) + ')</option>'; }).join('') + '</select></div>' : '') + '</div>'
     : '';
   var typeOpts = TYPES.map(function (t) { return '<option value="' + t[0] + '">' + t[1] + '</option>'; }).join('');
   return '<div class="ft-field"><label>' + (es ? 'Tipo de registro' : 'Entry type') + '</label><div class="iv-seg" data-g="modo">' +
@@ -188,7 +190,8 @@ function saveAdd(body) {
   // NUEVA + RECURRENTE → solo el recurrente; el motor lo aplica en su fecha (aunque sea futura)
   if (s.modo === 'nueva' && s.rec) {
     var rec = FT.recurring();
-    rec.push({ id: 'rec_' + Date.now(), kind: 'inversion', hogar: isHogar, desc: ticker, amount: amount, freq: s.freq, nextDate: date, active: true, createdBy: FT.userName() });
+    var acctEl = body.querySelector('#ivAcct');
+    rec.push({ id: 'rec_' + Date.now(), kind: 'inversion', hogar: isHogar, desc: ticker, amount: amount, freq: s.freq, nextDate: date, active: true, createdBy: FT.userName(), checkingAccountId: (acctEl && acctEl.value) || undefined });
     FT.set(FT.K.recurring, rec);
     if (date <= FT.todayISO()) { try { FT.applyDueRecurring(); } catch (e) {} }
     FT.toast(es ? '🔄 Inversión recurrente activada' : '🔄 Recurring investment on');
