@@ -838,17 +838,24 @@ FT.recordCheque = function (o) {
     // reparto por $0 -- se marca repartido de una vez.
     if (personalAmt - autoSaved <= 0.005) chequeRow.repartido = true;
 
-    // Etapa 3: si activaste "depósito automático" en una cuenta de cheques
-    // conjunta (hogar.html → Cuentas), tu parte de hogar de este cheque se
-    // acredita ahí de verdad -- antes "Cuentas" solo mostraba el % ya
-    // presupuestado, nunca dinero real (la razón de que el aporte de la
-    // pareja "no se reflejara" en la cuenta conjunta -- no era un bug, era
-    // que nada los conectaba). No pide confirmación cada vez porque, a
-    // diferencia del reparto a fondos personales, aquí no hay ambigüedad de
-    // A CUÁL fondo mandarlo -- solo hay una cuenta activa a la vez.
+    // Etapa 3 (+ extensión 2026-09-25): si configuraste una regla (monto fijo
+    // o %) en una o más cuentas de cheques conjuntas (hogar.html → Cuentas),
+    // tu parte de hogar de este cheque se reparte ahí de verdad -- antes
+    // "Cuentas" solo mostraba el % ya presupuestado, nunca dinero real.
+    // Ramón necesitaba poder mandar un monto FIJO (ej. $275/semana a "Casa +
+    // Servicio") a una cuenta y no necesariamente el 100% a una sola -- ahora
+    // se puede repartir entre varias, reglas fijas primero y luego %, con el
+    // mismo motor que ya usan los fondos de Ahorro libre. Lo que ninguna
+    // regla cubra se queda sin depositar a ninguna cuenta (sigue contando
+    // igual dentro de tu presupuesto de hogar, solo no se refleja en un
+    // saldo de cuenta en particular). No pide confirmación cada vez porque
+    // esto son reglas que TÚ configuraste de antemano, igual que un banco de
+    // verdad mueve tus "vaults" solo una vez que los armaste.
     if (hogarAmt > 0) {
-      var autoAcct = FT.checking().find(function (a) { return a.hogar && a.autoDeposit; });
-      if (autoAcct) FT.creditChecking(autoAcct.id, hogarAmt);
+      var chkAlloc = FT.suggestCheckingAllocation(hogarAmt);
+      Object.keys(chkAlloc).forEach(function (acctId) {
+        if (chkAlloc[acctId] > 0) FT.creditChecking(acctId, chkAlloc[acctId]);
+      });
     }
   }
   FT.set(K.cheques, cheques);
@@ -1344,21 +1351,46 @@ FT.addEntry = function (o) {
  *  sobrante de FT.applyDist más abajo), para que las dos formas de repartir
  *  usen exactamente la misma regla y nunca diverjan entre sí.
  *  Devuelve {fundId: monto, ...} -- solo fondos con monto > 0. */
-FT.suggestFundAllocation = function (pool) {
+/** Motor compartido: reparte `pool` entre `items` ([{id, rule}]) según cada
+ *  `rule` ({type:'fixed'|'pct', value}) -- reglas fijas primero (en el
+ *  orden de la lista), luego reglas de % (sobre el total `pool`, no sobre
+ *  lo que quede después de las fijas). Devuelve {id: monto, ...}, solo
+ *  ids con monto > 0. Usado tanto por fondos de Ahorro libre como por
+ *  cuentas de cheques conjuntas -- mismo criterio en los dos lados para
+ *  que nunca diverjan entre sí. */
+function _allocateByRules(pool, items) {
   pool = parseFloat(pool) || 0;
   var out = {};
   if (pool <= 0) return out;
-  var funds = FT.savingsFunds();
   var remaining = pool;
-  funds.filter(function (f) { return f.rule && f.rule.type === 'fixed'; }).forEach(function (f) {
-    var amt = Math.min(remaining, f.rule.value);
-    if (amt > 0) { out[f.id] = +amt.toFixed(2); remaining -= amt; }
+  items.filter(function (it) { return it.rule && it.rule.type === 'fixed'; }).forEach(function (it) {
+    var amt = Math.min(remaining, it.rule.value);
+    if (amt > 0) { out[it.id] = +amt.toFixed(2); remaining -= amt; }
   });
-  funds.filter(function (f) { return f.rule && f.rule.type === 'pct'; }).forEach(function (f) {
-    var amt = Math.min(remaining, pool * f.rule.value / 100);
-    if (amt > 0) { out[f.id] = +((out[f.id] || 0) + amt).toFixed(2); remaining -= amt; }
+  items.filter(function (it) { return it.rule && it.rule.type === 'pct'; }).forEach(function (it) {
+    var amt = Math.min(remaining, pool * it.rule.value / 100);
+    if (amt > 0) { out[it.id] = +((out[it.id] || 0) + amt).toFixed(2); remaining -= amt; }
   });
   return out;
+}
+FT.suggestFundAllocation = function (pool) {
+  return _allocateByRules(pool, FT.savingsFunds());
+};
+/** Igual que FT.suggestFundAllocation pero para las cuentas de cheques
+ *  conjuntas (`FT.checking()` con `hogar:true`) -- así tu parte de hogar de
+ *  cada cheque puede repartirse entre varias cuentas con reglas distintas
+ *  (ej. $275 fijos a "Casa+Servicio" cada semana), no solo una cuenta al
+ *  100% como en la primera versión de este feature. */
+FT.suggestCheckingAllocation = function (pool) {
+  // Compatibilidad: cuentas ya activadas con el toggle viejo (autoDeposit:true,
+  // sin `rule` explícita, de la primera versión de este feature -- solo una
+  // cuenta al 100%) se tratan como si tuvieran rule:{type:'pct',value:100},
+  // para que sigan funcionando exactamente igual sin que nadie tenga que
+  // reconfigurar nada.
+  var items = FT.checking().filter(function (a) { return a.hogar; }).map(function (a) {
+    return { id: a.id, rule: a.rule || (a.autoDeposit ? { type: 'pct', value: 100 } : null) };
+  });
+  return _allocateByRules(pool, items);
 };
 FT.applyDist = function (leftover, opts) {
   opts = opts || {};
@@ -2759,6 +2791,7 @@ FT.balanceScreen = function (opts) {
     FT.modal({
       title: editing ? (L ? 'Editar fondo' : 'Edit fund') : (L ? 'Nuevo fondo' : 'New fund'),
       html:
+        (editing ? '' : '<div style="background:#FBF0DD;color:#8A5A12;border-radius:10px;padding:9px 11px;font-size:11px;font-weight:600;margin-bottom:12px">⚠️ ' + (L ? 'Esto es privado: solo tú lo ves, no se comparte con tu pareja ni cuenta en el patrimonio del hogar. Para dinero compartido (una cuenta o meta de la casa), ve a Hogar en vez de crear el fondo aquí.' : "This is private: only you see it, it isn't shared with your partner or counted in household net worth. For shared money (a household account or goal), go to Hogar instead of creating the fund here.") + '</div>') +
         '<div class="ft-field"><label>' + (L ? 'Nombre' : 'Name') + '</label><input id="fdName" value="' + (fund ? String(fund.name).replace(/"/g, '&quot;') : '') + '" placeholder="' + (L ? 'Ej. Vacaciones' : 'E.g. Vacation') + '"></div>' +
         '<div class="ft-field"><label>' + (L ? 'Emoji' : 'Emoji') + '</label><div id="fdEmoji" style="display:flex;gap:6px;flex-wrap:wrap">' +
           emojiOpts.map(function (e) { var on = e === chosenEmoji; return '<button type="button" data-e="' + e + '" style="width:34px;height:34px;border-radius:10px;border:1.5px solid ' + (on ? 'var(--g-main)' : 'var(--hair)') + ';background:' + (on ? 'var(--g-light)' : '#fff') + ';font-size:16px;cursor:pointer">' + e + '</button>'; }).join('') + '</div></div>' +
