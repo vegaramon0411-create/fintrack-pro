@@ -539,7 +539,7 @@ FT.addGoalDeposit = function (goalId, amount, opts) {
   var amt = parseFloat(amount) || 0;
   g.saved = (parseFloat(g.saved) || 0) + amt;
   g.hist = g.hist || [];
-  g.hist.push({ id: 'gd_' + Date.now(), monto: amt, fecha: opts.date || FT.todayISO(), recId: opts.recId || null, auto: !!opts.auto });
+  g.hist.push({ id: 'gd_' + (opts.id != null ? opts.id : Date.now()), monto: amt, fecha: opts.date || FT.todayISO(), recId: opts.recId || null, auto: !!opts.auto });
   FT.saveGoals(goals);
 };
 /** Activa/actualiza el aporte automático mensual de una meta personal. */
@@ -597,7 +597,7 @@ FT._changed = function () { try { document.dispatchEvent(new CustomEvent('ft:dat
    toda la app — historial.html y config.html comparten este, para no tener dos
    formatos de respaldo incompatibles entre sí (el viejo de config.html le
    faltaba la mitad de las claves y no validaba nada antes de sobreescribir). */
-var RESPALDO_KEYS = [K.data, K.debts, K.hogarFondos, K.investments, K.hogarInv, K.subs, K.servicios, K.recurring, K.savings, K.savingsHist, K.savingsFunds, K.checking, K.goals, K.cheques];
+var RESPALDO_KEYS = [K.data, K.debts, K.hogarFondos, K.investments, K.hogarInv, K.subs, K.servicios, K.recurring, K.savings, K.savingsHist, K.savingsFunds, K.checking, K.goals, K.cheques, K.emergHist, K.emergHistLegacy];
 FT.exportBackup = function () {
   var backup = { _meta: { app: 'FinTrack Pro', version: 1, exportedAt: new Date().toISOString(), user: FT.userName() || '' }, data: {} };
   RESPALDO_KEYS.forEach(function (k) { var v = FT.getRaw(k, null); if (v != null && v !== '') backup.data[k] = v; });
@@ -979,31 +979,38 @@ function _advanceRecDate(freq, fromStr) {
 }
 FT._advanceRecDate = _advanceRecDate;
 
-function _applyRecMeta(rec, hoy) {
+function _applyRecMeta(rec, hoy, nextId) {
+  nextId = nextId || Date.now;
   try {
     var f = FT.hogarFondos();
     var meta = rec.metaTipo === 'emerg' ? f.emerg : (rec.metaId != null ? f.metas.find(function (m) { return m.id === rec.metaId; }) : f.metas[rec.metaIdx]);
     if (!meta) return 'broken';
     meta.hist = meta.hist || [];
     if (meta.hist.some(function (h) { return h.fecha === hoy && (h.recId === rec.id || !h.recId); })) return 'already';
-    meta.hist.push({ id: 'd_' + Date.now() + '_' + Math.floor(Math.random() * 1000), monto: rec.amount, fecha: hoy, desdePres: rec.desdePres, auto: true, recId: rec.id });
+    meta.hist.push({ id: 'd_' + nextId(), monto: rec.amount, fecha: hoy, desdePres: rec.desdePres, auto: true, recId: rec.id });
     meta.actual = meta.hist.reduce(function (a, h) { return a + (h.monto || 0); }, 0);
     FT.set(K.hogarFondos, f);
     if (rec.desdePres) {
       var d = FT.data();
-      d.transactions.push({ id: Date.now(), type: 'ahorro', desc: rec.desc, amount: rec.amount, date: hoy, cat: '🏠 Hogar', hogar: true, createdBy: FT.userName(), auto: true, recId: rec.id });
+      d.transactions.push({ id: nextId(), type: 'ahorro', desc: rec.desc, amount: rec.amount, date: hoy, cat: '🏠 Hogar', hogar: true, createdBy: FT.userName(), auto: true, recId: rec.id });
       FT.set(K.data, d);
     }
     return 'applied';
   } catch (e) { return 'broken'; }
 }
-function _applyRecAhorro(rec, hoy) {
+function _applyRecAhorro(rec, hoy, nextId) {
+  nextId = nextId || Date.now;
   try {
     var toEmerg = rec.dest === 'emergencia';
-    var id = Date.now();
+    var id = nextId();
     if (toEmerg) {
       var eh = FT.get(K.emergHist, []) || [];
-      if (eh.some(function (h) { return h.date === hoy && h.recId === rec.id; })) return 'already';
+      // Mismo criterio que la rama de ahorro libre (`|| !h.recId`) -- un
+      // depósito manual del mismo día a emergencia también debe evitar que
+      // el recurrente lo duplique, no solo otro depósito automático con el
+      // mismo recId. Antes esta rama solo comparaba recId, así que un
+      // depósito manual el mismo día no frenaba al automático.
+      if (eh.some(function (h) { return h.date === hoy && (h.recId === rec.id || !h.recId); })) return 'already';
       FT.addEmergency({ id: id, amount: rec.amount, date: hoy, tipo: 'deposito', note: rec.desc, recId: rec.id, monthTx: true });
     } else {
       var hist = FT.savingsHist();
@@ -1017,12 +1024,13 @@ function _applyRecAhorro(rec, hoy) {
     return 'applied';
   } catch (e) { return 'broken'; }
 }
-function _applyRecInversion(rec, hoy) {
+function _applyRecInversion(rec, hoy, nextId) {
+  nextId = nextId || Date.now;
   try {
     var scope = rec.hogar ? 'hogar' : '';
     var invs = FT.investments(scope);
     if (invs.some(function (i) { return i.recId === rec.id && i.fecha === hoy; })) return 'already';
-    var id = Date.now();
+    var id = nextId();
     var tk = String(rec.desc || '').toUpperCase();
     // suma a la posición existente del mismo ticker, o crea una nueva
     var pos = invs.find(function (i) { return String(i.ticker || '').toUpperCase() === tk; });
@@ -1040,7 +1048,8 @@ function _applyRecInversion(rec, hoy) {
     return 'applied';
   } catch (e) { return 'broken'; }
 }
-function _applyRecDebt(rec, hoy) {
+function _applyRecDebt(rec, hoy, nextId) {
+  nextId = nextId || Date.now;
   try {
     var debts = FT.debts();
     var i = debts.findIndex(function (d) { return String(d.id) === String(rec.debtId); });
@@ -1063,7 +1072,7 @@ function _applyRecDebt(rec, hoy) {
     var apr = parseFloat(d.apr) || 0;
     var interes = apr > 0 ? +(old * (apr / 100 / 12)).toFixed(2) : 0;
     var capital = +Math.max(0, rec.amount - interes).toFixed(2);
-    var abonoId = Date.now(), txId = abonoId + 1;
+    var abonoId = nextId(), txId = nextId();
     var dt = FT.data();
     var autoTx = { id: txId, type: 'gasto', desc: (FT.lang === 'es' ? 'Abono a ' : 'Payment to ') + d.name, amount: rec.amount, date: hoy, cat: '💳 Deudas', hogar: rec.hogar, createdBy: FT.userName(), auto: true, recId: rec.id };
     // Si este abono automático se configuró para salir de una cuenta de
@@ -1077,14 +1086,15 @@ function _applyRecDebt(rec, hoy) {
     return 'applied';
   } catch (e) { return 'broken'; }
 }
-function _applyRecMetaPersonal(rec, hoy) {
+function _applyRecMetaPersonal(rec, hoy, nextId) {
+  nextId = nextId || Date.now;
   try {
     var goals = FT.goals();
     var g = goals.find(function (x) { return String(x.id) === String(rec.goalId); });
     if (!g) return 'broken';
     g.hist = g.hist || [];
     if (g.hist.some(function (h) { return h.fecha === hoy && h.recId === rec.id; })) return 'already';
-    FT.addGoalDeposit(g.id, rec.amount, { date: hoy, recId: rec.id, auto: true });
+    FT.addGoalDeposit(g.id, rec.amount, { date: hoy, recId: rec.id, auto: true, id: nextId() });
     return 'applied';
   } catch (e) { return 'broken'; }
 }
@@ -1092,16 +1102,26 @@ FT.applyDueRecurring = function () {
   var rec = FT.recurring();
   if (!rec.length) return 0;
   var hoy = FT.todayISO(), applied = 0;
+  // Generador de ids compartido para TODA esta pasada -- si un recurrente
+  // lleva 2+ periodos atrasados (no se abrió la app en un tiempo) el bucle
+  // de abajo corre varias veces 100% síncrono, sin ceder el hilo -- así que
+  // Date.now() podía repetirse entre una vuelta y la siguiente (o entre dos
+  // recurrentes distintos vencidos a la vez), duplicando ids de
+  // transacciones/abonos/depósitos generados en la misma corrida y
+  // rompiendo el borrado/edición por id más tarde. Con un contador
+  // monótono ningún id se repite dentro de esta pasada.
+  var idSeq = 0, idBase = Date.now();
+  function nextId() { return idBase + (idSeq++); }
   rec.forEach(function (r) {
     if (!r.active || r.paused || !r.nextDate) return;
     var guard = 0;
     while (r.nextDate && r.nextDate <= hoy && guard < 60) {
       var st = 'broken';
-      if (r.kind === 'meta') st = _applyRecMeta(r, r.nextDate);
-      else if (r.kind === 'ahorro') st = _applyRecAhorro(r, r.nextDate);
-      else if (r.kind === 'inversion') st = _applyRecInversion(r, r.nextDate);
-      else if (r.kind === 'debt') st = _applyRecDebt(r, r.nextDate);
-      else if (r.kind === 'metapersonal') st = _applyRecMetaPersonal(r, r.nextDate);
+      if (r.kind === 'meta') st = _applyRecMeta(r, r.nextDate, nextId);
+      else if (r.kind === 'ahorro') st = _applyRecAhorro(r, r.nextDate, nextId);
+      else if (r.kind === 'inversion') st = _applyRecInversion(r, r.nextDate, nextId);
+      else if (r.kind === 'debt') st = _applyRecDebt(r, r.nextDate, nextId);
+      else if (r.kind === 'metapersonal') st = _applyRecMetaPersonal(r, r.nextDate, nextId);
       if (st === 'broken') { r.active = false; break; }
       if (st === 'applied') applied++;
       r.nextDate = _advanceRecDate(r.freq, r.nextDate);
@@ -2858,7 +2878,20 @@ FT.balanceScreen = function (opts) {
         var f2 = FT.savingsFunds().filter(function (x) { return x.id !== fund.id; });
         FT.saveSavingsFunds(f2);
         if (activeFundId === fund.id) activeFundId = f2[0] && f2[0].id;
-        FT.toast(L ? 'Eliminado' : 'Deleted'); render();
+        // Si había un recurrente apuntando a este fondo, hay que borrarlo
+        // también -- si no, quedaba huérfano: seguía disparando solo
+        // (FT.addSavings no encuentra el fundId y lo manda a General sin
+        // avisar a nadie), y desaparecía de la sección "Recurrentes" de
+        // este fondo (solo quedaba visible, sin explicación, en el hub de
+        // recurrentes.html).
+        var orphanRecs = FT.recurring().filter(function (r) { return r.kind === 'ahorro' && r.fundId === fund.id; });
+        if (orphanRecs.length) {
+          FT.set(K.recurring, FT.recurring().filter(function (r) { return !(r.kind === 'ahorro' && r.fundId === fund.id); }));
+          FT.toast(L ? 'Eliminado — también se apagó ' + orphanRecs.length + ' recurrente(s) que apuntaban a este fondo' : 'Deleted — also turned off ' + orphanRecs.length + ' recurring item(s) pointing at this fund');
+        } else {
+          FT.toast(L ? 'Eliminado' : 'Deleted');
+        }
+        render();
       });
     } });
     FT.sheet({
