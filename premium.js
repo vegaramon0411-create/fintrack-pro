@@ -881,7 +881,14 @@ FT.deleteTx = function (id) {
   // Fuente vinculada
   if (t.type === 'ahorro' && (t.dest === 'libre' || t.cat === '💰 Ahorro')) {
     FT.reverseSavings(t.id);
-  } else if (t.type === 'ahorro' || t.cat === '🛡️ Emergencia') {
+  } else if (t.type === 'ahorro' && (t.dest === 'emergencia' || t.cat === '🛡️ Emergencia')) {
+    // Antes era "|| t.cat" (sin exigir type:'ahorro' emparejado con
+    // emergencia de verdad) -- cualquier transacción de ahorro que no
+    // fuera dest:'libre' caía aquí, incluidos los aportes de hogar
+    // (type:'ahorro', cat:'🏠 Hogar', sin dest) que nunca tuvieron nada
+    // que ver con el fondo de emergencia. Inofensivo hasta ahora (
+    // reverseEmergency no encontraba nada y no hacía nada), pero ya no
+    // corre en falso para esos casos.
     FT.reverseEmergency(t.id);
   } else if (t.type === 'inversion' || t.fromInvPage) {
     // Si la posición (o la transacción que la originó) tenía un aporte recurrente
@@ -903,7 +910,11 @@ FT.deleteTx = function (id) {
       var keep = deb.abonos.filter(function (a) { return String(a.txId) !== String(t.id); });
       if (keep.length !== deb.abonos.length) {
         var removed = deb.abonos.find(function (a) { return String(a.txId) === String(t.id); });
-        if (removed) deb.balance = (parseFloat(deb.balance) || 0) + (parseFloat(removed.monto) || 0);
+        // Igual que en deudas.html/deleteAbono: se le devuelve al saldo lo
+        // que de verdad se le restó (capitalPagado), no el pago completo --
+        // si no, borrar un abono con intereses desde Historial infla el
+        // saldo de más.
+        if (removed) deb.balance = (parseFloat(deb.balance) || 0) + (removed.capitalPagado != null ? removed.capitalPagado : (parseFloat(removed.monto) || 0));
         deb.abonos = keep; touched = true;
       }
     });
@@ -968,6 +979,14 @@ FT.recordCheque = function (o) {
   var mes = dObj.getFullYear() + '-' + String(dObj.getMonth() + 1).padStart(2, '0');
   var tipo = o.tipo || 'nuevo';
   var es = FT.lang === 'es';
+  // Un solo generador de ids para TODAS las transacciones que esta llamada
+  // pueda crear (ingreso, ahorro automático, aporte(s) a cuentas de hogar)
+  // -- varias venían de Date.now() por separado, con riesgo real de
+  // coincidir en el mismo milisegundo y duplicar un id dentro de
+  // ft_data.transactions (mismo patrón ya corregido hoy en
+  // FT.applyDueRecurring).
+  var idSeq = 0, idBase = Date.now();
+  function nextId() { return idBase + (idSeq++); }
 
   var cheques = FT.cheques();
   // `repartido:false` marca este cheque como candidato al reparto manual a
@@ -983,14 +1002,14 @@ FT.recordCheque = function (o) {
   var autoSaved = 0;
   if (tipo === 'nuevo') {
     var d = FT.data();
-    d.transactions.push({ id: Date.now(), type: 'ingreso', desc: es ? 'Cheque recibido' : 'Paycheck received', amount: monto, date: fecha, cat: '💰 Ingreso', incomeKind: 'cheque', createdBy: FT.userName() });
+    d.transactions.push({ id: nextId(), type: 'ingreso', desc: es ? 'Cheque recibido' : 'Paycheck received', amount: monto, date: fecha, cat: '💰 Ingreso', incomeKind: 'cheque', createdBy: FT.userName() });
     FT.set(K.data, d);
 
     var u = FT._user || FT.loadUser() || {};
     var savPct = u.savingsPct != null ? u.savingsPct : 20;
     autoSaved = Math.round(personalAmt * savPct / 100);
     if (autoSaved > 0) {
-      var savId = Date.now() + 1;
+      var savId = nextId();
       FT.addSavings({ id: savId, amount: autoSaved, date: fecha, note: es ? 'Págate primero (automático del cheque)' : 'Pay yourself first (automatic from paycheck)' });
       var d2 = FT.data();
       d2.transactions.push({ id: savId, type: 'ahorro', desc: es ? 'Ahorro automático del cheque' : 'Automatic paycheck savings', amount: autoSaved, date: fecha, cat: '💰 Ahorro', dest: 'libre', createdBy: FT.userName() });
@@ -1017,14 +1036,36 @@ FT.recordCheque = function (o) {
     // verdad mueve tus "vaults" solo una vez que los armaste.
     if (hogarAmt > 0) {
       var chkAlloc = FT.suggestCheckingAllocation(hogarAmt);
-      Object.keys(chkAlloc).forEach(function (acctId) {
-        if (chkAlloc[acctId] > 0) FT.creditChecking(acctId, chkAlloc[acctId]);
-      });
+      var acctKeys = Object.keys(chkAlloc).filter(function (k) { return chkAlloc[k] > 0; });
+      if (acctKeys.length) {
+        // Antes esto solo movía el saldo de la cuenta (FT.creditChecking)
+        // sin dejar ningún rastro en Historial -- era el único lugar de
+        // toda la app donde un saldo cambiaba sin ninguna transacción
+        // ligada (bug real de QA: no se podía saber de dónde salió ese
+        // dinero). Ahora cada cuenta que recibe su parte también genera su
+        // propia transacción, igual que ya hacen las metas/recurrentes de
+        // hogar -- mismo cat/hogar:true, así que cuenta como "aportado" en
+        // el resumen de Hogar, no como sobrante sin asignar.
+        var allAccts = FT.checking();
+        var dH = FT.data();
+        acctKeys.forEach(function (acctId) {
+          var amt = chkAlloc[acctId];
+          FT.creditChecking(acctId, amt);
+          var acct = allAccts.find(function (a) { return String(a.id) === String(acctId); });
+          dH.transactions.push({ id: nextId(), type: 'ahorro', desc: (es ? 'Aporte hogar — ' : 'Household contribution — ') + (acct ? acct.name : '?'), amount: amt, date: fecha, cat: '🏠 Hogar', hogar: true, createdBy: FT.userName(), auto: true, checkingAccountId: acctId });
+        });
+        FT.set(K.data, dH);
+      }
+      // Lo que ninguna regla cubrió -- visible ahora en el cheque guardado,
+      // en vez de solo existir implícito dentro de hogarAmt sin que se
+      // pueda ver en ningún lado cuánto fue.
+      var allocatedHogar = acctKeys.reduce(function (a, k) { return a + chkAlloc[k]; }, 0);
+      chequeRow.hogarSinAsignar = +(hogarAmt - allocatedHogar).toFixed(2);
     }
   }
   FT.set(K.cheques, cheques);
   FT._changed();
-  return { monto: monto, hogarAmt: hogarAmt, personalAmt: personalAmt, autoSaved: autoSaved };
+  return { monto: monto, hogarAmt: hogarAmt, personalAmt: personalAmt, autoSaved: autoSaved, hogarSinAsignar: chequeRow.hogarSinAsignar || 0 };
 };
 
 /* ── Reparto de cheque a fondos de Ahorro libre (2026-09-23, etapa 2) ──────
@@ -1242,13 +1283,18 @@ function _applyRecDebt(rec, hoy, nextId) {
       var partnerDebt = pp2 && pp2.data && pp2.data.sharedDebts && pp2.data.sharedDebts.find(function (pd) { return String(pd.id) === String(rec.debtId); });
       if (partnerDebt && (partnerDebt.abonos || []).some(function (a) { return a.fecha === hoy && a.recId === rec.id; })) return 'already';
     }
-    var old = parseFloat(d.balance) || 0, nu = Math.max(0, old - rec.amount);
-    d.balance = nu; d.updatedAt = new Date().toISOString();
-    d.paidMonths = d.paidMonths || {}; d.paidMonths[String(hoy).slice(0, 7)] = true;
-    d.abonos = d.abonos || [];
+    // Igual que un abono manual (deudas.html/guardarAbono): el saldo baja
+    // por el CAPITAL del pago, no por el monto completo -- primero se
+    // cubren los intereses acumulados. Mismo bug real de QA, aquí en la
+    // versión automática/recurrente del abono.
+    var old = parseFloat(d.balance) || 0;
     var apr = parseFloat(d.apr) || 0;
     var interes = apr > 0 ? +(old * (apr / 100 / 12)).toFixed(2) : 0;
     var capital = +Math.max(0, rec.amount - interes).toFixed(2);
+    var nu = Math.max(0, +(old - capital).toFixed(2));
+    d.balance = nu; d.updatedAt = new Date().toISOString();
+    d.paidMonths = d.paidMonths || {}; d.paidMonths[String(hoy).slice(0, 7)] = true;
+    d.abonos = d.abonos || [];
     var abonoId = nextId(), txId = nextId();
     var dt = FT.data();
     var autoTx = { id: txId, type: 'gasto', desc: (FT.lang === 'es' ? 'Abono a ' : 'Payment to ') + d.name, amount: rec.amount, date: hoy, cat: '💳 Deudas', hogar: rec.hogar, createdBy: FT.userName(), auto: true, recId: rec.id };
@@ -1381,13 +1427,15 @@ FT.applyPendingDebtAbonos = function () {
       // igual se procesan, en vez de que un solo dato corrupto tire todo el
       // lote y nada se guarde.
       try {
+        // Mismo bug real de QA que en el abono manual/recurrente: el saldo
+        // baja por el CAPITAL del pago, no por el monto completo.
         var oldBalance = parseFloat(d.balance) || 0;
-        var newBalance = Math.max(0, oldBalance - (parseFloat(a.monto) || 0));
-        d.balance = newBalance; d.updatedAt = new Date().toISOString();
-        d.paidMonths = d.paidMonths || {}; d.paidMonths[String(a.fecha).slice(0, 7)] = true;
         var apr = parseFloat(d.apr) || 0;
         a.interesPagado = apr > 0 ? +(oldBalance * (apr / 100 / 12)).toFixed(2) : 0;
         a.capitalPagado = +Math.max(0, (parseFloat(a.monto) || 0) - a.interesPagado).toFixed(2);
+        var newBalance = Math.max(0, +(oldBalance - a.capitalPagado).toFixed(2));
+        d.balance = newBalance; d.updatedAt = new Date().toISOString();
+        d.paidMonths = d.paidMonths || {}; d.paidMonths[String(a.fecha).slice(0, 7)] = true;
         a.saldoAntes = oldBalance; a.saldoDespues = newBalance;
         a.pending = false;
         // Se guarda YA, antes de crear la transacción ligada -- si algo
@@ -2213,7 +2261,7 @@ button{font-family:var(--ui-font);}
 .ft-more-item span{font-size:10px;font-weight:700;color:var(--text2);text-align:center;line-height:1.2;}
 
 /* TOAST */
-.ft-toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%) translateY(8px);background:var(--ink);color:#fff;padding:11px 18px;border-radius:14px;font-size:12.5px;font-weight:700;z-index:400;opacity:0;transition:opacity .2s,transform .2s;max-width:calc(100vw - 40px);text-align:center;}
+.ft-toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%) translateY(8px);background:var(--ink);color:#fff;padding:11px 18px;border-radius:14px;font-size:12.5px;font-weight:700;z-index:400;opacity:0;transition:opacity .2s,transform .2s;max-width:calc(100vw - 40px);text-align:center;pointer-events:none;}
 .ft-toast.on{opacity:1;transform:translateX(-50%) translateY(0);}
 
 /* AYUDA */
@@ -2902,16 +2950,24 @@ FT.balanceScreen = function (opts) {
         '<button type="button" data-o="previo" style="padding:9px 6px;border-radius:10px;border:1.5px solid var(--g-main);background:var(--g-light);color:var(--g-dark);font-family:var(--ui-font);font-size:11px;font-weight:800;cursor:pointer;line-height:1.35">' + (L ? 'Ya lo tenía' : 'I already had it') + '<br><span style="font-weight:600;font-size:9.5px;opacity:.8">' + (L ? 'no afecta tu mes' : "doesn't affect your month") + '</span></button>' +
         '<button type="button" data-o="mes" style="padding:9px 6px;border-radius:10px;border:1.5px solid var(--hair);background:var(--sunk);color:var(--text2);font-family:var(--ui-font);font-size:11px;font-weight:800;cursor:pointer;line-height:1.35">' + (L ? 'De mi disponible del mes' : "From this month's available") + '<br><span style="font-weight:600;font-size:9.5px;opacity:.8">' + (L ? 'cuenta como ahorro del mes' : 'counts as this-month saving') + '</span></button>' +
       '</div></div>';
+    // Cuenta de origen (opcional, solo depósitos "de mi disponible del mes"
+    // -- si "ya lo tenía", ese dinero no está saliendo de ninguna cuenta
+    // ahora mismo, así que no tiene caso descontar una). Antes solo el
+    // recurrente de este mismo fondo (openRec) podía elegir cuenta -- un
+    // depósito manual de una sola vez no tenía forma de dejar ese rastro.
+    var myAccts2 = !isW ? FT.checking().filter(function (a) { return !a.hogar; }) : [];
+    var acctField = (myAccts2.length ? '<div class="ft-field" id="mAcctWrap" style="display:none"><label>' + (L ? '¿De qué cuenta sale? (opcional)' : 'Which account is this from? (optional)') + '</label><select id="mAcct"><option value="">' + (L ? 'Ninguna' : 'None') + '</option>' + myAccts2.map(function (a) { return '<option value="' + a.id + '">' + a.name + ' (' + FT.money(a.amount) + ')</option>'; }).join('') + '</select></div>' : '');
     FT.modal({
       title: isW ? (E ? (L ? 'Retirar del fondo' : 'Withdraw from fund') : (L ? 'Retirar del ahorro' : 'Withdraw from savings')) : (L ? 'Depositar' : 'Deposit'),
       html: (isW && E ? '<div class="ft-bs-info" style="margin:0 0 12px"><p>⚠️ ' + (L ? 'Este fondo es solo para emergencias reales. ¿Esto es una emergencia, o debería salir de tu Ahorro libre?' : 'This fund is only for real emergencies. Is this an emergency, or should it come from Free savings?') + '</p></div>' : '') +
         '<div class="ft-field"><label>' + (L ? 'Monto' : 'Amount') + '</label><input id="mAmt" inputmode="decimal" placeholder="$0"></div>' +
-        origToggle +
+        origToggle + acctField +
         '<div class="ft-field"><label>' + (L ? 'Nota (opcional)' : 'Note (optional)') + '</label><input id="mNote"></div>' +
         '<div class="ft-field"><label>' + (L ? 'Fecha' : 'Date') + '</label><input id="mDate" type="date" value="' + FT.todayISO() + '"></div>',
       saveLabel: isW ? (L ? 'Confirmar retiro' : 'Confirm withdrawal') : (L ? 'Guardar depósito' : 'Save deposit'),
       onOpen: function (body) {
         var seg = body.querySelector('#mOrig');
+        var acctWrap = body.querySelector('#mAcctWrap');
         if (seg) seg.querySelectorAll('button').forEach(function (b) {
           b.onclick = function () {
             origen = b.getAttribute('data-o');
@@ -2921,6 +2977,7 @@ FT.balanceScreen = function (opts) {
               x.style.background = on ? 'var(--g-light)' : 'var(--sunk)';
               x.style.color = on ? 'var(--g-dark)' : 'var(--text2)';
             });
+            if (acctWrap) acctWrap.style.display = origen === 'mes' ? 'block' : 'none';
           };
         });
       },
@@ -2930,11 +2987,14 @@ FT.balanceScreen = function (opts) {
         if (isW && amt > bal()) { FT.toast(L ? 'No tienes suficiente' : 'Not enough'); return true; }
         var id = Date.now();
         var counts = !isW && origen === 'mes';
+        var acctEl = body.querySelector('#mAcct');
+        var checkingAccountId = (counts && acctEl && acctEl.value) || undefined;
         var payload = { id: id, amount: amt, date: body.querySelector('#mDate').value || FT.todayISO(), tipo: mode, note: body.querySelector('#mNote').value.trim() || (isW ? (L ? 'Retiro' : 'Withdrawal') : ''), monthTx: counts || null, fundId: E ? undefined : activeFundId };
         if (E) FT.addEmergency(payload); else FT.addSavings(payload);
         if (counts) {
+          if (checkingAccountId) FT.deductChecking(checkingAccountId, amt, payload.date);
           var d = FT.data();
-          d.transactions.push({ id: id, type: 'ahorro', desc: payload.note || (E ? (L ? 'Depósito a Emergencia' : 'To Emergency') : (L ? 'Depósito a Ahorro libre' : 'To Free savings')), amount: amt, date: payload.date, cat: E ? '🛡️ Emergencia' : '💵 Ahorro', dest: E ? 'emergencia' : 'libre', createdBy: FT.userName() });
+          d.transactions.push({ id: id, type: 'ahorro', desc: payload.note || (E ? (L ? 'Depósito a Emergencia' : 'To Emergency') : (L ? 'Depósito a Ahorro libre' : 'To Free savings')), amount: amt, date: payload.date, cat: E ? '🛡️ Emergencia' : '💵 Ahorro', dest: E ? 'emergencia' : 'libre', createdBy: FT.userName(), checkingAccountId: checkingAccountId });
           FT.saveData(d);
         }
         FT.toast(isW ? (L ? '✅ Retiro registrado' : '✅ Withdrawal recorded') : (L ? '✅ Depósito guardado' : '✅ Deposit saved'));
@@ -3303,9 +3363,16 @@ FT.recurringItemsScreen = function (opts) {
       title: s ? (L ? 'Editar' : 'Edit') : (isSub ? (L ? 'Nueva suscripción' : 'New subscription') : (L ? 'Nuevo servicio' : 'New service')),
       html: formFields(s),
       onSave: function (body) {
+        // Doble-tap en "Guardar" podía crear dos suscripciones/servicios
+        // idénticos -- luego cada uno acumula sus propios cargos por
+        // separado (mismo patrón ya blindado en el abono de deudas con
+        // window._savingAbono).
+        if (window._savingSubServ) return true;
+        window._savingSubServ = true;
+        setTimeout(function () { window._savingSubServ = false; }, 800);
         var name = body.querySelector('#siName').value.trim();
         var amount = parseFloat(body.querySelector('#siAmount').value) || 0;
-        if (!name || !amount) { FT.toast(L ? '⚠️ Llena todos los campos' : '⚠️ Fill all fields'); return true; }
+        if (!name || !amount) { FT.toast(L ? '⚠️ Llena todos los campos' : '⚠️ Fill all fields'); window._savingSubServ = false; return true; }
         var freq = body.querySelector('#siFreq').value, date = body.querySelector('#siDate').value, cat = body.querySelector('#siCat').value;
 
         function doSave() {

@@ -517,7 +517,18 @@ function openCheque() {
       var m = parseFloat(body.querySelector('#cMonto').value);
       if (!m || m <= 0) { FT.toast(es ? 'Ingresa el monto' : 'Enter the amount'); return true; }
       var r = FT.recordCheque({ monto: m, tipo: st.tipo });
-      if (r) FT.toast('✅ ' + FT.money(r.monto) + (r.autoSaved > 0 ? ' · ' + FT.money(r.autoSaved) + (es ? ' a Ahorro libre' : ' to Free savings') : ''));
+      if (r) {
+        FT.toast('✅ ' + FT.money(r.monto) + (r.autoSaved > 0 ? ' · ' + FT.money(r.autoSaved) + (es ? ' a Ahorro libre' : ' to Free savings') : ''));
+        // Parte del aporte hogar que ninguna cuenta con regla cubrió -- antes
+        // este número no se veía en ningún lado, solo quedaba implícito
+        // dentro del % de hogar. Aviso aparte para no perderlo en el toast
+        // principal (que ya se cierra solo a los pocos segundos).
+        if (r.hogarSinAsignar > 0.5) {
+          setTimeout(function () {
+            FT.toast((es ? '🏠 ' + FT.money(r.hogarSinAsignar) + ' de tu aporte hogar sin asignar a ninguna cuenta' : '🏠 ' + FT.money(r.hogarSinAsignar) + " of your household share isn't assigned to any account"), { ms: 4500 });
+          }, 3200);
+        }
+      }
       render();
     }
   });

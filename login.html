@@ -465,6 +465,15 @@ function toggleDetail() {
     '<span>' + (W.lang === 'es' ? (W.detail ? 'Ocultar modo detallado' : '¿No sabes cuál? Modo detallado') : (W.detail ? 'Hide detailed mode' : 'Not sure? Detailed mode')) + '</span>';
   renderDetail(); renderMethods();
 }
+function detailVerdictHTML() {
+  var es = W.lang === 'es';
+  var totFixed = W.fixed.reduce(function (a, f) { return a + (parseFloat(String(f.amt).replace(/\./g, '').replace(',', '.')) || 0); }, 0);
+  return totFixed > 0
+    ? '<div class="verdict">' + (es
+        ? 'Con ' + FT.money(totFixed) + ' en fijos (' + Math.round(totFixed / (W.income || 1) * 100) + '% de tu ingreso), el método <b>' + recommendMethod() + '</b> deja el gasto variable más realista.'
+        : 'With ' + FT.money(totFixed) + ' in fixed costs (' + Math.round(totFixed / (W.income || 1) * 100) + '% of income), the <b>' + recommendMethod() + '</b> method leaves the most realistic variable spending.') + '</div>'
+    : '';
+}
 function renderDetail() {
   var box = document.getElementById('wDetail');
   if (!W.detail) { box.innerHTML = ''; return; }
@@ -473,20 +482,23 @@ function renderDetail() {
     return '<div class="row"><input placeholder="' + (es ? 'Concepto' : 'Item') + '" value="' + (f.name || '') + '" data-i="' + i + '" data-k="name">' +
       '<input placeholder="$" style="max-width:88px" value="' + (f.amt || '') + '" data-i="' + i + '" data-k="amt" inputmode="numeric"></div>';
   }).join('');
-  var totFixed = W.fixed.reduce(function (a, f) { return a + (parseFloat(String(f.amt).replace(/\./g, '').replace(',', '.')) || 0); }, 0);
-  var verdict = totFixed > 0
-    ? '<div class="verdict">' + (es
-        ? 'Con ' + FT.money(totFixed) + ' en fijos (' + Math.round(totFixed / (W.income || 1) * 100) + '% de tu ingreso), el método <b>' + recommendMethod() + '</b> deja el gasto variable más realista.'
-        : 'With ' + FT.money(totFixed) + ' in fixed costs (' + Math.round(totFixed / (W.income || 1) * 100) + '% of income), the <b>' + recommendMethod() + '</b> method leaves the most realistic variable spending.') + '</div>'
-    : '';
   box.innerHTML = '<div class="dt-box"><div class="lbl">' + (es ? 'Gastos fijos reales (opcional)' : 'Real fixed costs (optional)') + '</div>' +
-    rows + '<div class="add" onclick="addFixed()">＋ ' + (es ? 'Agregar gasto fijo' : 'Add fixed cost') + '</div>' + verdict + '</div>';
+    rows + '<div class="add" onclick="addFixed()">＋ ' + (es ? 'Agregar gasto fijo' : 'Add fixed cost') + '</div><div id="wDetVerdict">' + detailVerdictHTML() + '</div></div>';
   box.querySelectorAll('input').forEach(function (inp) {
     inp.oninput = function () {
       var i = +inp.dataset.i, k = inp.dataset.k;
       W.fixed[i] = W.fixed[i] || { name: '', amt: '' };
       W.fixed[i][k] = inp.value;
-      if (k === 'amt') { renderDetail(); renderMethods(); }
+      // Bug real de QA: llamar renderDetail() aquí reconstruía TODOS los
+      // inputs (incluido este mismo) en cada tecleo, perdiendo foco y
+      // cursor ("1800" terminaba como "0018"). Solo el texto del veredicto
+      // depende del monto tecleado -- se actualiza solo, sin tocar los
+      // inputs. Los "name" ni siquiera necesitan esto (no afectan el total).
+      if (k === 'amt') {
+        var vEl = document.getElementById('wDetVerdict');
+        if (vEl) vEl.innerHTML = detailVerdictHTML();
+        renderMethods();
+      }
     };
   });
 }
