@@ -315,7 +315,7 @@ function renderDashboard(hogar) {
       '<div class="box"><div class="r"><span>💵 ' + (L ? 'Recibido este mes' : 'Received this month') + '</span><span>' + FT.money(totalIncomeReceived * hogarPctTotal / 100) + ' / ' + FT.money(hogarBudgetHero) + '</span></div>' +
       '<div class="ft-track" style="height:6px"><div class="ft-fill" data-pct="' + incomeReceivedPct + '" style="width:0;background:var(--g-main)"></div></div>' +
       '<div style="font-size:10px;color:var(--text3);margin-top:6px">' + (L ? 'Bote real del hogar (' + payPctHero + '% de lo recibido − gastado hogar)' : payPctHero + '% of received − household spent') + ': <b style="color:var(--text2)">' + FT.money(botesReal) + '</b></div></div>' +
-      '<div class="box tap" style="margin-top:10px;cursor:pointer" onclick="abrirCuentasSheet()"><div class="r" style="margin-bottom:0"><span>🏦 ' + (L ? 'Cuentas de cheques conjuntas' : 'Joint checking accounts') + '</span><span style="font-weight:800;color:var(--ink)">' + FT.money(checkTotal) + ' ›</span></div>' +
+      '<div class="box tap" style="margin-top:10px;cursor:pointer" onclick="FT.checkingAccountsScreen(true)"><div class="r" style="margin-bottom:0"><span>🏦 ' + (L ? 'Cuentas de cheques conjuntas' : 'Joint checking accounts') + '</span><span style="font-weight:800;color:var(--ink)">' + FT.money(checkTotal) + ' ›</span></div>' +
         (myChecking.some(function (c) { return c.rule || c.autoDeposit; }) ? '<div style="font-size:9.5px;color:var(--g-dark);margin-top:4px">🔗 ' + (L ? 'Tu aporte al hogar se deposita aquí automático' : 'Your household share auto-deposits here') + '</div>' : '<div style="font-size:9.5px;color:var(--text3);margin-top:4px">' + (L ? 'Toca para agregar una cuenta o ponerle una regla de depósito automático' : 'Tap to add an account or set an auto-deposit rule') + '</div>') +
       '</div>' +
     '</div>' +
@@ -572,6 +572,7 @@ function abrirAporteModal(tipo, idx, montoSugerido) {
     return r.metaId != null ? r.metaId === curMetaId : r.metaIdx === idx; // fallback para recurrentes viejos sin metaId
   });
   var origen = 'nuevo'; // 'nuevo' = sale del presupuesto · 'tenia' = ya lo tenía ahorrado
+  var hogarAccts = FT.checking().filter(function (a) { return a.hogar; });
 
   var warnHtml = activos.length
     ? '<div style="background:#FFF4E5;border:1.5px solid #E8A33D;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:#8A5A00"><b>⚠️ ' + activos.length + ' ' + (L ? 'aporte(s) recurrente(s) activo(s)' : 'active recurring deposit(s)') + '</b><br>' +
@@ -590,7 +591,8 @@ function abrirAporteModal(tipo, idx, montoSugerido) {
       '<label style="display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;cursor:pointer"><input type="checkbox" id="apRec" style="width:16px;height:16px">🔄 ' + (L ? 'Hacer este aporte recurrente' : 'Make this deposit recurring') + '</label>' +
       '<div id="apRecFreqWrap" style="display:none;margin-top:10px"><select id="apRecFreq"><option value="weekly">' + (L ? 'Cada semana' : 'Every week') + '</option><option value="biweekly">' + (L ? 'Cada quincena' : 'Every two weeks') + '</option><option value="monthly" selected>' + (L ? 'Cada mes' : 'Every month') + '</option></select>' +
       '<div style="font-size:10.5px;color:var(--text3);margin-top:6px">' + (L ? 'Se aplicará solo, sin que tengas que volver a entrar.' : 'Applies automatically, no need to come back and confirm.') + '</div></div>' +
-    '</div>';
+    '</div>' +
+    (hogarAccts.length ? '<div class="ft-field"><label>' + (L ? '¿De qué cuenta sale? (opcional)' : 'Which account is this from? (optional)') + '</label><select id="apAcct"><option value="">' + (L ? 'Ninguna -- no descuenta cuenta' : "None -- doesn't deduct an account") + '</option>' + hogarAccts.map(function (a) { return '<option value="' + a.id + '">' + a.name + ' (' + FT.money(a.amount) + ')</option>'; }).join('') + '</select><div class="dt-hint" style="margin:6px 0 0">' + (L ? 'Solo se descuenta si el tipo de depósito es "Nuevo depósito" -- si ya lo tenías ahorrado, no sale nada del banco.' : 'Only deducted if the deposit type is "New deposit" -- if you already had it saved, nothing new comes out of the bank.') + '</div></div>' : '');
 
   var saving = false;
   FT.modal({
@@ -615,12 +617,14 @@ function abrirAporteModal(tipo, idx, montoSugerido) {
       if (!monto || monto <= 0) { FT.toast(L ? 'Ingresa un monto válido' : 'Enter a valid amount'); return true; }
       if (!fecha) { FT.toast(L ? 'Selecciona una fecha' : 'Select a date'); return true; }
       var wantsRec = b.querySelector('#apRec').checked;
+      var acctEl = b.querySelector('#apAcct');
+      var checkingAccountId = (acctEl && acctEl.value) || undefined;
       function proceed() {
         saving = true;
         var f = FT.hogarFondos();
         var entry = { id: 'd_' + Date.now(), monto: monto, fecha: fecha, desdePres: origen === 'nuevo' };
-        if (tipo === 'emerg') { f.emerg.hist = f.emerg.hist || []; f.emerg.hist.push(entry); f.emerg.actual = f.emerg.hist.reduce(function (a, h) { return a + (h.monto || 0); }, 0); if (origen === 'nuevo') registrarEnPresupuesto(monto, L ? 'Fondo emergencia hogar' : 'Household emergency fund'); }
-        else { var meta = f.metas[idx]; if (meta) { meta.hist = meta.hist || []; meta.hist.push(entry); meta.actual = meta.hist.reduce(function (a, h) { return a + (h.monto || 0); }, 0); if (origen === 'nuevo') registrarEnPresupuesto(monto, meta.nombre || 'Meta hogar'); } }
+        if (tipo === 'emerg') { f.emerg.hist = f.emerg.hist || []; f.emerg.hist.push(entry); f.emerg.actual = f.emerg.hist.reduce(function (a, h) { return a + (h.monto || 0); }, 0); if (origen === 'nuevo') registrarEnPresupuesto(monto, L ? 'Fondo emergencia hogar' : 'Household emergency fund', checkingAccountId); }
+        else { var meta = f.metas[idx]; if (meta) { meta.hist = meta.hist || []; meta.hist.push(entry); meta.actual = meta.hist.reduce(function (a, h) { return a + (h.monto || 0); }, 0); if (origen === 'nuevo') registrarEnPresupuesto(monto, meta.nombre || 'Meta hogar', checkingAccountId); } }
         FT.saveHogarFondos(f);
 
         if (wantsRec) {
@@ -629,7 +633,7 @@ function abrirAporteModal(tipo, idx, montoSugerido) {
           var nextDate = FT._advanceRecDate(freq, fecha);
           var recurring = FT.recurring();
           var metaIdRec = tipo === 'meta' && f.metas[idx] ? f.metas[idx].id : null;
-          recurring.push({ id: 'rec_' + Date.now(), kind: 'meta', metaTipo: tipo, metaId: metaIdRec, metaIdx: idx, desc: descRec, amount: monto, freq: freq, hogar: true, desdePres: origen === 'nuevo', nextDate: nextDate, active: true, createdBy: FT.userName() });
+          recurring.push({ id: 'rec_' + Date.now(), kind: 'meta', metaTipo: tipo, metaId: metaIdRec, metaIdx: idx, desc: descRec, amount: monto, freq: freq, hogar: true, desdePres: origen === 'nuevo', nextDate: nextDate, active: true, createdBy: FT.userName(), checkingAccountId: checkingAccountId });
           FT.set(FT.K.recurring, recurring);
         }
         FT.toast(L ? 'Aporte guardado' : 'Deposit saved');
@@ -648,176 +652,17 @@ function abrirAporteModal(tipo, idx, montoSugerido) {
     }
   });
 }
-function registrarEnPresupuesto(monto, desc) {
+function registrarEnPresupuesto(monto, desc, checkingAccountId) {
+  if (checkingAccountId) FT.deductChecking(checkingAccountId, monto, FT.todayISO());
   var d = FT.data();
-  d.transactions.push({ id: Date.now(), type: 'ahorro', desc: desc, amount: monto, date: FT.todayISO(), cat: '🏠 Hogar', hogar: true, createdBy: FT.userName() });
+  d.transactions.push({ id: Date.now(), type: 'ahorro', desc: desc, amount: monto, date: FT.todayISO(), cat: '🏠 Hogar', hogar: true, createdBy: FT.userName(), checkingAccountId: checkingAccountId });
   FT.saveData(d);
 }
 
-/* ── CUENTAS DE CHEQUES CONJUNTAS (etapa 3 del reparto: aporte hogar → real) ──
-   Antes "Cuentas de cheques conjuntas" solo mostraba el % presupuestado de
-   cada cheque (un cálculo, no dinero movido) -- de ahí que el aporte de la
-   pareja "no se reflejara" ahí, aunque no era ningún bug, era que nada lo
-   conectaba. Aquí se puede agregar/editar una cuenta propia marcada como
-   conjunta y ponerle una regla (monto fijo o %) para que tu parte de hogar
-   de cada cheque nuevo se reparta ahí de verdad (FT.recordCheque ya hace el
-   crédito real usando FT.suggestCheckingAllocation). Varias cuentas pueden
-   tener regla al mismo tiempo -- Ramón necesitaba justo esto: un monto FIJO
-   (ej. $275/semana) a una cuenta de "Casa + Servicio", no forzosamente el
-   100% a una sola como en la primera versión de este feature. */
-function abrirCuentasSheet() {
-  var L = es();
-  var mine = FT.checking().filter(function (c) { return c.hogar; });
-  var rows = mine.length ? mine.map(function (c) {
-    var ruleLbl = c.rule ? (c.rule.type === 'pct' ? c.rule.value + '%' : FT.money(c.rule.value)) : (c.autoDeposit ? (L ? '100% (config. anterior)' : '100% (old setting)') : null);
-    return '<div style="display:flex;align-items:center;gap:8px;padding:10px;background:var(--sunk);border-radius:12px;margin-bottom:8px">' +
-      '<div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:700">' + (c.name || (L ? 'Cuenta' : 'Account')) + '</div>' +
-      '<div class="tap" data-edit-bal="' + c.id + '" style="font-size:10px;color:var(--text3);cursor:pointer">' + FT.money(c.amount || 0) + ' ✏️' + (ruleLbl ? ' · 🔗 ' + ruleLbl + ' ' + (L ? 'de tu aporte hogar' : 'of your household share') : '') + '</div></div>' +
-      '<button type="button" class="tap" data-rule-acct="' + c.id + '" style="padding:6px 10px;border-radius:8px;border:1.5px solid ' + (ruleLbl ? 'var(--g-main)' : 'var(--hair)') + ';background:' + (ruleLbl ? 'var(--g-light)' : '#fff') + ';color:' + (ruleLbl ? 'var(--g-dark)' : 'var(--text2)') + ';font-family:inherit;font-size:10px;font-weight:800;cursor:pointer">' + (ruleLbl ? (L ? 'Editar' : 'Edit') : (L ? '+ Regla' : '+ Rule')) + '</button>' +
-      '<button type="button" class="tap" data-del-acct="' + c.id + '" style="padding:6px 9px;border-radius:8px;border:none;background:none;color:var(--text3);font-size:13px;cursor:pointer">🗑</button>' +
-    '</div>';
-  }).join('') : '<div style="font-size:12px;color:var(--text3);padding:6px 0 10px">' + (L ? 'Aún no tienes ninguna cuenta de cheques marcada como conjunta.' : "You don't have any account marked as joint yet.") + '</div>';
-
-  FT.sheet({
-    title: '🏦 ' + (L ? 'Cuentas de cheques conjuntas' : 'Joint checking accounts'),
-    html: rows +
-      '<p style="font-size:10.5px;color:var(--text3);margin-top:6px">' + (L ? 'Cada cuenta con regla recibe su parte (monto fijo o %) de tu aporte de hogar cada vez que registras un cheque nuevo -- puedes poner regla en varias cuentas a la vez. Lo que ninguna regla cubra no se deposita en ninguna cuenta, pero sigue contando en tu presupuesto de hogar.' : "Each account with a rule gets its share (fixed $ or %) of your household contribution every time you log a new paycheck -- you can set a rule on more than one account. Whatever no rule covers isn't deposited to any account, but still counts toward your household budget.") + '</p>',
-    actions: [
-      { label: '＋ ' + (L ? 'Agregar cuenta' : 'Add account'), onClick: function () { abrirCuentaForm(); } }
-    ],
-    onOpen: function (body) {
-      body.querySelectorAll('[data-rule-acct]').forEach(function (b) {
-        b.onclick = function () {
-          var id = b.getAttribute('data-rule-acct');
-          var acct = FT.checking().find(function (a) { return String(a.id) === id; });
-          if (acct) abrirReglaCuenta(acct);
-        };
-      });
-      body.querySelectorAll('[data-edit-bal]').forEach(function (b) {
-        b.onclick = function () {
-          var id = b.getAttribute('data-edit-bal');
-          var acct = FT.checking().find(function (a) { return String(a.id) === id; });
-          if (acct) abrirAjusteSaldo(acct);
-        };
-      });
-      body.querySelectorAll('[data-del-acct]').forEach(function (b) {
-        b.onclick = function () {
-          var id = b.getAttribute('data-del-acct');
-          var accts = FT.checking();
-          var acct = accts.find(function (a) { return String(a.id) === id; });
-          if (!acct) return;
-          // Solo se puede eliminar una cuenta en $0 -- si tiene saldo, hay
-          // que retirarlo/moverlo primero para no perder el rastro de ese
-          // dinero (mismo criterio que ya usa Ahorro libre para sus fondos).
-          if (Math.abs(parseFloat(acct.amount) || 0) >= 0.005) {
-            FT.toast(L ? 'Esta cuenta tiene saldo — ajústalo a $0 antes de eliminarla' : 'This account has a balance — set it to $0 before deleting it');
-            return;
-          }
-          FT.confirm(L ? '¿Eliminar «' + acct.name + '»?' : 'Delete "' + acct.name + '"?').then(function (ok) {
-            if (!ok) return;
-            var fresh = FT.checking().find(function (a) { return String(a.id) === id; });
-            if (!fresh || Math.abs(parseFloat(fresh.amount) || 0) >= 0.005) { FT.toast(L ? 'Esta cuenta ya no está en $0' : 'This account is no longer at $0'); FT.closeTop(); render(); return; }
-            FT.saveChecking(FT.checking().filter(function (a) { return String(a.id) !== id; }));
-            FT.toast(L ? 'Eliminada' : 'Deleted');
-            FT.closeTop();
-            render();
-          });
-        };
-      });
-    }
-  });
-}
-function abrirCuentaForm() {
-  var L = es();
-  FT.modal({
-    title: L ? 'Nueva cuenta de cheques' : 'New checking account',
-    html: '<div class="ft-field"><label>' + (L ? 'Nombre' : 'Name') + '</label><input id="ctName" placeholder="' + (L ? 'Ej. Cuenta conjunta' : 'E.g. Joint account') + '"></div>' +
-      '<div class="ft-field"><label>' + (L ? 'Saldo actual' : 'Current balance') + '</label><input id="ctAmt" inputmode="decimal" placeholder="$0"></div>',
-    saveLabel: L ? 'Agregar' : 'Add',
-    onSave: function (body) {
-      var name = (body.querySelector('#ctName').value || '').trim();
-      if (!name) { FT.toast(L ? 'Ingresa un nombre' : 'Enter a name'); return true; }
-      var amt = parseFloat((body.querySelector('#ctAmt').value || '').replace(/,/g, '')) || 0;
-      var accts = FT.checking();
-      accts.push({ id: 'chk_' + Date.now(), name: name, amount: amt, hogar: true, updatedAt: FT.todayISO() });
-      FT.saveChecking(accts);
-      FT.toast(L ? '✅ Cuenta agregada' : '✅ Account added');
-      FT.closeTop();
-      render();
-    }
-  });
-}
-/** Regla de reparto (monto fijo o %) para una cuenta de cheques conjunta --
- *  mismo patrón que las reglas de fondos de Ahorro libre. Varias cuentas
- *  pueden tener regla a la vez; FT.suggestCheckingAllocation las aplica en
- *  orden (fijas primero, luego %) sobre tu parte de hogar de cada cheque. */
-function abrirReglaCuenta(acct) {
-  var L = es();
-  var chosenRule = (acct.rule && acct.rule.type) || (acct.autoDeposit ? 'pct' : 'none');
-  var chosenVal = acct.rule ? acct.rule.value : (acct.autoDeposit ? 100 : '');
-  FT.modal({
-    title: (L ? 'Regla para ' : 'Rule for ') + acct.name,
-    html:
-      '<div class="ft-field"><label>' + (L ? 'Tipo de regla' : 'Rule type') + '</label>' +
-        '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px" id="crSeg">' +
-          ['none:' + (L ? 'Ninguna' : 'None'), 'fixed:' + (L ? 'Monto fijo' : 'Fixed $'), 'pct:' + (L ? '% del aporte' : '% of share')].map(function (o) { var v = o.split(':')[0], on = v === chosenRule; return '<button type="button" data-r="' + v + '" style="padding:8px 4px;border-radius:9px;border:1.5px solid ' + (on ? 'var(--g-main)' : 'var(--hair)') + ';background:' + (on ? 'var(--g-light)' : 'var(--sunk)') + ';font-family:inherit;font-size:10px;font-weight:800;color:' + (on ? 'var(--g-dark)' : 'var(--text2)') + ';cursor:pointer">' + o.split(':')[1] + '</button>'; }).join('') + '</div>' +
-        '<input id="crVal" inputmode="decimal" style="margin-top:8px;display:' + (chosenRule === 'none' ? 'none' : 'block') + '" placeholder="' + (chosenRule === 'pct' ? (L ? '% de tu aporte hogar' : '% of your household share') : '$') + '" value="' + (chosenVal || '') + '">' +
-      '</div>' +
-      '<div style="background:var(--sky-bg);color:#2A4CC0;border-radius:10px;padding:9px 11px;font-size:11px;font-weight:600">' + (L ? 'Se aplica solo, sin preguntar cada vez -- es una regla que tú configuras de antemano, no un reparto que haya que confirmar cada cheque.' : "Applies automatically, no need to confirm each time -- it's a rule you set in advance, not something to confirm every paycheck.") + '</div>',
-    saveLabel: L ? 'Guardar regla' : 'Save rule',
-    onOpen: function (body) {
-      var valInput = body.querySelector('#crVal');
-      body.querySelectorAll('#crSeg button').forEach(function (b) {
-        b.onclick = function () {
-          chosenRule = b.getAttribute('data-r');
-          body.querySelectorAll('#crSeg button').forEach(function (x) { var on = x === b; x.style.borderColor = on ? 'var(--g-main)' : 'var(--hair)'; x.style.background = on ? 'var(--g-light)' : 'var(--sunk)'; x.style.color = on ? 'var(--g-dark)' : 'var(--text2)'; });
-          valInput.style.display = chosenRule === 'none' ? 'none' : 'block';
-          valInput.placeholder = chosenRule === 'pct' ? (L ? '% de tu aporte hogar' : '% of your household share') : '$';
-        };
-      });
-    },
-    onSave: function (body) {
-      var val = parseFloat((body.querySelector('#crVal').value || '').replace(/,/g, '')) || 0;
-      var accts = FT.checking();
-      var a = accts.find(function (x) { return String(x.id) === String(acct.id); });
-      if (!a) return;
-      a.rule = (chosenRule !== 'none' && val > 0) ? { type: chosenRule, value: val } : null;
-      a.autoDeposit = false; // ya no se usa el toggle viejo -- todo pasa por `rule` de aquí en adelante
-      FT.saveChecking(accts);
-      FT.toast(L ? '✅ Regla guardada' : '✅ Rule saved');
-      FT.closeTop();
-      render();
-    }
-  });
-}
-/** Corrige a mano el saldo de una cuenta conjunta -- para cuando el depósito
- *  automático no aplicó (ej. cheques registrados antes de configurar la
- *  regla, o antes de que este feature existiera) y quieres que el número
- *  aquí refleje tu banco real sin tener que borrar/rehacer nada. Reemplaza
- *  el saldo directo (no suma/resta), para no tener que hacer cuentas --
- *  solo escribes lo que de verdad dice tu banco. */
-function abrirAjusteSaldo(acct) {
-  var L = es();
-  FT.modal({
-    title: (L ? 'Ajustar saldo de ' : 'Adjust balance for ') + acct.name,
-    html: '<div class="ft-field"><label>' + (L ? 'Saldo real actual' : 'Real current balance') + '</label><input id="abSaldo" inputmode="decimal" value="' + (acct.amount || 0) + '"></div>' +
-      '<p style="font-size:10.5px;color:var(--text3)">' + (L ? 'Escribe lo que de verdad dice tu banco -- esto reemplaza el número, no lo suma. Útil si un depósito automático no aplicó (ej. un cheque que registraste antes de poner la regla).' : "Type what your bank actually shows -- this replaces the number, it doesn't add to it. Useful if an auto-deposit didn't apply (e.g. a paycheck logged before you set the rule).") + '</p>',
-    saveLabel: L ? 'Guardar saldo' : 'Save balance',
-    onSave: function (body) {
-      var val = parseFloat((body.querySelector('#abSaldo').value || '').replace(/,/g, ''));
-      if (isNaN(val) || val < 0) { FT.toast(L ? 'Ingresa un saldo válido' : 'Enter a valid balance'); return true; }
-      var accts = FT.checking();
-      var a = accts.find(function (x) { return String(x.id) === String(acct.id); });
-      if (!a) return;
-      a.amount = +val.toFixed(2);
-      a.updatedAt = FT.todayISO();
-      FT.saveChecking(accts);
-      FT.toast(L ? '✅ Saldo actualizado' : '✅ Balance updated');
-      FT.closeTop();
-      render();
-    }
-  });
-}
+/* ── CUENTAS DE CHEQUES CONJUNTAS ──────────────────────────────────────────
+   Movido a FT.checkingAccountsScreen(isHogar) en premium.js (2026-09-25) --
+   se generalizó para que Dashboard también la use con cuentas personales,
+   en vez de duplicar toda la pantalla. Ver el comentario ahí. */
 
 /* ── TAB DEPÓSITOS ── */
 function tabDepositos() {
