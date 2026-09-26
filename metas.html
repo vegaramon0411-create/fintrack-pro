@@ -17,11 +17,18 @@ function es() { return FT.lang === 'es'; }
 
 function render() {
   var L = es(), goals = FT.goals(), root = document.getElementById('root');
+  // Bug real de QA (B5): crear una meta SÍ funcionaba (el "+" del menú
+  // inferior ya abre el formulario), pero la propia página de Metas no
+  // tenía ningún botón visible -- solo se descubría por accidente. Ahora
+  // hay un botón "Nueva meta" aquí mismo, tanto vacía como con metas ya
+  // creadas.
   if (!goals.length) {
-    root.innerHTML = '<div class="ft-empty" style="padding:60px 20px"><div style="font-size:44px;margin-bottom:10px">🎯</div><div style="font-size:15px;font-weight:800;color:var(--ink);margin-bottom:5px">' + (L ? 'Sin metas aún' : 'No goals yet') + '</div><div>' + (L ? 'Crea tu primera meta de ahorro' : 'Create your first savings goal') + '</div></div>';
+    root.innerHTML = '<div class="ft-empty" style="padding:60px 20px"><div style="font-size:44px;margin-bottom:10px">🎯</div><div style="font-size:15px;font-weight:800;color:var(--ink);margin-bottom:5px">' + (L ? 'Sin metas aún' : 'No goals yet') + '</div><div style="margin-bottom:18px">' + (L ? 'Crea tu primera meta de ahorro' : 'Create your first savings goal') + '</div>' +
+      '<button class="ft-btn ft-btn-primary tap" style="max-width:220px;margin:0 auto" onclick="openForm(null)">＋ ' + (L ? 'Nueva meta' : 'New goal') + '</button></div>';
     return;
   }
-  root.innerHTML = goals.map(function (g) {
+  root.innerHTML = '<div class="ft-section-head"><h3>' + (L ? 'Mis metas' : 'My goals') + '</h3><button class="link" onclick="openForm(null)">＋ ' + (L ? 'Nueva meta' : 'New goal') + '</button></div>' +
+    goals.map(function (g) {
     var saved = parseFloat(g.saved) || 0, target = parseFloat(g.target) || 1;
     var pct = Math.min(Math.round(saved / target * 100), 100), done = pct >= 100;
     var color = done ? 'var(--g-main)' : 'var(--amber)';

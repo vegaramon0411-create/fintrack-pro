@@ -13,6 +13,16 @@
 <script>
 var selectedMonth = FT.todayISO().slice(0, 7);
 var activeFilter = 'all';
+// Bug real de QA (N3): la sección "Del hogar" alternaba entre dos números
+// distintos (ej. "Aportado $120" y luego "Aportado $0 / Gastos $120") sin
+// que cambiara ningún dato real -- FT.boot() dispara "ft:ready" (que pinta
+// esta pantalla por primera vez) SIN esperar a que termine de sincronizar
+// con la pareja; cuando la sincronización sí termina, dispara
+// "ft:datachanged" y esta pantalla se vuelve a pintar con los datos ya
+// frescos. Mismo dato, dos momentos -- antes de sincronizar y después. En
+// vez de mostrar un número que sabemos que puede estar incompleto, se
+// muestra "Sincronizando…" hasta el primer repintado real.
+var _syncSettled = !FT.hogarConnected();
 var _currentList = [];
 var shell;
 
@@ -68,9 +78,11 @@ function render() {
   '</div>' +
   '<div class="ft-card">' +
     '<div style="font-size:11px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">🏠 ' + (L ? 'Del hogar' : 'Household') + '</div>' +
-    '<div class="ft-row"><span class="k">💰 ' + (L ? 'Aportado' : 'Contributed') + '</span><span class="v" style="color:var(--g-main)">' + FT.money(hAportado) + '</span></div>' +
-    '<div class="ft-row"><span class="k">💸 ' + (L ? 'Gastos' : 'Expenses') + '</span><span class="v" style="color:var(--red)">' + FT.money(hGastado) + '</span></div>' +
-    '<div class="ft-row"><span class="k">📥 ' + (L ? 'Ingreso' : 'Income') + '</span><span class="v" style="color:var(--blue)">' + FT.money(hIngreso) + '</span></div>' +
+    (!_syncSettled
+      ? '<div style="font-size:11.5px;color:var(--text3);padding:4px 0">🔄 ' + (L ? 'Sincronizando con tu pareja…' : 'Syncing with your partner…') + '</div>'
+      : '<div class="ft-row"><span class="k">💰 ' + (L ? 'Aportado' : 'Contributed') + '</span><span class="v" style="color:var(--g-main)">' + FT.money(hAportado) + '</span></div>' +
+        '<div class="ft-row"><span class="k">💸 ' + (L ? 'Gastos' : 'Expenses') + '</span><span class="v" style="color:var(--red)">' + FT.money(hGastado) + '</span></div>' +
+        '<div class="ft-row"><span class="k">📥 ' + (L ? 'Ingreso' : 'Income') + '</span><span class="v" style="color:var(--blue)">' + FT.money(hIngreso) + '</span></div>') +
   '</div>' +
   '<div style="background:var(--sunk);border-radius:14px;padding:12px 14px;margin-bottom:14px;font-size:11px;color:var(--text3)">' +
     '<div style="margin-bottom:4px">' + (L ? 'Total combinado' : 'Combined total') + '</div>' +
@@ -151,6 +163,11 @@ function renderList() {
     txs = txs.concat(partnerTxs);
   }
   if (activeFilter === 'hogar') txs = txs.filter(function (t) { return t.isHogar || t.hogar === true; });
+  // Bug real de QA (N1): el filtro "Gastos" mostraba solo type==='gasto' en
+  // la lista, pero el resumen de arriba (totalExpense) ya sumaba también
+  // suscripcion e hipoteca -- la lista se veía más corta que el total. La
+  // lista ahora incluye lo mismo que ya cuenta el resumen.
+  else if (activeFilter === 'gasto') txs = txs.filter(function (t) { return t.type === 'gasto' || t.type === 'suscripcion' || t.type === 'hipoteca'; });
   else if (activeFilter !== 'all') txs = txs.filter(function (t) { return t.type === activeFilter; });
   txs.sort(function (a, b) { return String(b.date || '').localeCompare(String(a.date || '')) || ((parseInt(b.id, 10) || 0) - (parseInt(a.id, 10) || 0)); });
 
@@ -224,7 +241,13 @@ document.addEventListener('ft:ready', function () {
   var t = function () { return FT.lang === 'es' ? 'Historial' : 'History'; };
   shell = FT.shell({ active: 'hist', title: t(), month: true, monthLabel: monthLabel(), onMonth: changeMonth });
   document.addEventListener('ft:langchange', function () { shell.setTitle(t()); render(); });
-  document.addEventListener('ft:datachanged', render);
+  document.addEventListener('ft:datachanged', function () { _syncSettled = true; render(); });
+  // Resguardo: si hogar está conectado pero la sincronización no dispara
+  // ningún "ft:datachanged" en este arranque (ej. no había nada que
+  // automatizar, o la red falló), "Sincronizando…" no debe quedarse para
+  // siempre -- FT.boot() ya le da un máximo de 3s a la sincronización antes
+  // de seguir; 3.5s aquí asegura que ya pasó ese margen.
+  if (!_syncSettled) setTimeout(function () { if (!_syncSettled) { _syncSettled = true; render(); } }, 3500);
 
   // Filtro automático vía URL: historial.html?filter=ingreso
   try {

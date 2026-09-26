@@ -213,11 +213,11 @@ function render() {
 
     '<div class="ft-card">' +
       '<div class="d-bud-h"><span class="t">' + (es ? 'Presupuesto de ' : 'Budget for ') + MES[FT.lang][viewDate().getMonth()].toLowerCase() + '</span>' +
-        '<button class="r" onclick="explain(\'presupuesto\')">' + FT.money(budgetLeft) + ' ' + (es ? 'restante' : 'left') + '</button></div>' +
+        '<button class="r" onclick="explain(\'presupuesto\')">' + FT.money(budgetLeft, { cents: true }) + ' ' + (es ? 'restante' : 'left') + '</button></div>' +
       '<div class="ft-track"><div class="ft-fill" id="dFill"></div></div>' +
       '<div class="d-bud-a"><button onclick="FT.go(\'perfil.html\')">↑ ' + (es ? 'Editar presupuesto' : 'Edit budget') + '</button>' +
         '<button onclick="openPicker()">↓ ' + (es ? 'Nueva transacción' : 'New transaction') + '</button></div>' +
-      (dl > 0 ? '<div class="d-bud-day">' + FT.money(perDay) + ' / ' + (es ? 'día disponible · ' + dl + ' días restantes' : 'day available · ' + dl + ' days left') + '</div>' : '') +
+      (dl > 0 ? '<div class="d-bud-day">' + FT.money(perDay, { cents: true }) + ' / ' + (es ? 'día disponible · ' + dl + ' días restantes' : 'day available · ' + dl + ' days left') + '</div>' : '') +
     '</div>' +
 
     '<div class="ft-section">' +
@@ -236,7 +236,7 @@ function render() {
         mrow(es ? 'Necesidades' : 'Needs', 'needs', t.needs, L.needs, nP, 'var(--g-main)') +
         mrow(es ? 'Gustos' : 'Wants', 'wants', t.wants, L.wants, wP, 'var(--amber)') +
         mrow(es ? 'Ahorro' : 'Savings', 'savings', savingsSpent, L.savings, sP, 'var(--blue)') +
-        (nP >= 90 ? '<div class="d-alert">⚠️ ' + (es ? 'Necesidades casi al límite — te quedan ' : 'Needs almost at limit — ') + FT.money(Math.max(0, L.needs - t.needs)) + '</div>' : '') +
+        (nP >= 90 ? '<div class="d-alert">⚠️ ' + (es ? 'Necesidades casi al límite — te quedan ' : 'Needs almost at limit — ') + FT.money(Math.max(0, L.needs - t.needs), { cents: true }) + '</div>' : '') +
       '</div>' +
     '</div>' +
 
@@ -268,11 +268,16 @@ function render() {
 function mrow(label, key, spent, limit, pct, color) {
   var es = FT.lang === 'es';
   if (pct >= 90) color = 'var(--red)';
+  // Bug real de QA (N6): estos montos se mostraban sin centavos mientras
+  // que "Últimos movimientos" (FT.txRow) sí los muestra -- un gasto de
+  // $100.50 se veía como "$101" aquí pero "$100,50" en la lista de abajo,
+  // pareciendo que no cuadraban. Mismo criterio (cents:true) en los dos
+  // lados de la misma pantalla.
   return '<div class="d-mrow"><div class="mt">' +
     '<button class="l" onclick="explain(\'' + key + '\')">' + label + ' <span class="ft-chev">›</span></button>' +
-    '<span class="n"><b>' + FT.money(spent) + '</b> / ' + FT.money(limit) + '</span></div>' +
+    '<span class="n"><b>' + FT.money(spent, { cents: true }) + '</b> / ' + FT.money(limit, { cents: true }) + '</span></div>' +
     '<div class="d-mtrack"><div class="d-mfill" id="mf_' + key + '" data-pct="' + pct + '" style="width:0;background:' + color + '"></div></div>' +
-    '<div class="foot"><span>' + Math.round(pct) + '% ' + (es ? 'usado' : 'used') + '</span><span>' + FT.money(Math.max(0, limit - spent)) + ' ' + (es ? 'disponible' : 'available') + '</span></div></div>';
+    '<div class="foot"><span>' + Math.round(pct) + '% ' + (es ? 'usado' : 'used') + '</span><span>' + FT.money(Math.max(0, limit - spent), { cents: true }) + ' ' + (es ? 'disponible' : 'available') + '</span></div></div>';
 }
 
 /* Extracto de "Recurrentes" (♻️) — los 3 más próximos de cualquier categoría,

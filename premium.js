@@ -2141,7 +2141,14 @@ button{font-family:var(--ui-font);}
 .ft-ico .ft-dot{position:absolute;top:6px;right:7px;width:7px;height:7px;border-radius:50%;background:var(--red);border:1.5px solid #fff;}
 .ft-monthpick{display:inline-flex;align-items:center;gap:9px;padding:6px 11px;border-radius:99px;background:var(--chip);font-size:12.5px;}
 .ft-monthpick b{font-family:var(--round-font);font-weight:800;letter-spacing:-.3px;}
-.ft-monthpick span{color:var(--text3);cursor:pointer;padding:0 2px;}
+/* Bug real de QA (B7): las flechas eran texto plano de 12.5px, sin
+   retroalimentación táctil (sin la clase .tap que sí tiene todo lo demás
+   clicleable) y con área de toque muy por debajo de lo usable en un dedo
+   real -- por eso "no respondían" aunque el listener estuviera bien
+   conectado. Ahora tienen tamaño mínimo de toque y la misma animación de
+   presión que el resto de los botones de la app. */
+.ft-monthpick span{color:var(--text3);cursor:pointer;padding:8px 10px;margin:-8px 0;min-width:20px;text-align:center;font-size:15px;border-radius:8px;}
+.ft-monthpick span:active{background:rgba(0,0,0,.08);}
 
 /* HERO (§4.6) */
 .ft-hero{text-align:center;margin-bottom:6px;}
