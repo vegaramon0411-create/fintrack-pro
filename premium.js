@@ -1400,8 +1400,19 @@ function _applyDueList(key, defCat) {
         var p = s.date.split('-').map(Number);
         var dd = new Date(p[0], p[1] - 1, p[2]);
         if (!(dd < today)) break;
+        // Endurecido (2026-09-26, QA): antes solo revisaba la copia
+        // sincronizada de la pareja -- nunca revisaba MIS PROPIAS
+        // transacciones ya creadas para este mismo servId+fecha. Si esta
+        // función se llegara a correr dos veces para el mismo periodo
+        // antes de que la primera pasada alcanzara a guardar el avance de
+        // fecha (ej. dos pestañas abiertas del mismo dispositivo, o
+        // cualquier re-entrada), podía generar dos cargos idénticos sin
+        // que la sincronización con la pareja tuviera nada que ver. Este
+        // chequeo es la misma idea que ya existía, aplicada también hacia
+        // adentro, no solo hacia la pareja.
+        var alreadyMine = d.transactions.some(function (t) { return t.servId === s.id && t.date === s.date; });
         var alreadyByPartner = s.hogar === true && partnerTx.some(function (t) { return t.servId === s.id && t.date === s.date; });
-        if (!alreadyByPartner) {
+        if (!alreadyMine && !alreadyByPartner) {
           d.transactions.push({ id: Date.now() + guard, type: 'suscripcion', desc: s.name, amount: parseFloat(s.amount) || 0, date: s.date, cat: s.cat || defCat, hogar: s.hogar === true, createdBy: name, auto: true, servId: s.id });
           applied++; dataChanged = true;
         }
