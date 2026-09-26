@@ -147,7 +147,7 @@ function rowHtml(t) {
       '<div style="font-size:14px;font-weight:800;font-family:var(--round-font);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:3px">' + (t.desc || '—') + '</div>' +
       '<span style="font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:20px;background:' + tagBg + ';color:' + tagColor + '">' + tagLabel + '</span>' +
     '</div>' +
-    '<div style="font-size:14px;font-weight:800;font-family:var(--round-font);color:' + (t.type === 'ingreso' ? 'var(--g-main)' : 'var(--ink)') + ';flex-shrink:0">' + (t.type === 'ingreso' ? '+' : '−') + FT.money(Math.abs(parseFloat(t.amount) || 0)) + '</div>' +
+    '<div style="font-size:14px;font-weight:800;font-family:var(--round-font);color:' + (t.type === 'ingreso' ? 'var(--g-main)' : 'var(--ink)') + ';flex-shrink:0">' + (t.type === 'ingreso' ? '+' : '−') + FT.money(Math.abs(parseFloat(t.amount) || 0), { cents: true }) + '</div>' +
     (esDePareja ? '' : '<div style="color:var(--text3);font-size:15px;flex-shrink:0">›</div>') +
   '</div>';
 }
@@ -224,7 +224,7 @@ function buscarDuplicados() {
       return '<div class="ft-card" style="border:1.5px solid ' + (mismaFecha ? 'var(--red)' : 'var(--amber)') + '">' +
         '<div style="font-size:11px;font-weight:700;color:' + (mismaFecha ? 'var(--red)' : '#8A5A00') + ';margin-bottom:8px">' + (mismaFecha ? (L ? '🔴 Misma fecha y monto — muy probable duplicado' : '🔴 Same date and amount — very likely duplicate') : (L ? '🟡 Mismo monto/descripción, fechas distintas' : '🟡 Same amount/description, different dates')) + '</div>' +
         g.map(function (t) { return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--hair)">' +
-          '<div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:700">' + (t.desc || '—') + '</div><div style="font-size:10.5px;color:var(--text3)">' + t.date + ' · ' + FT.money(t.amount) + ' · ' + t.type + '</div></div>' +
+          '<div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:700">' + (t.desc || '—') + '</div><div style="font-size:10.5px;color:var(--text3)">' + t.date + ' · ' + FT.money(t.amount, { cents: true }) + ' · ' + t.type + '</div></div>' +
           '<button class="tap" style="background:var(--red-dim);color:var(--red);border:none;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit" onclick="borrarTxDuplicada(\'' + t.id + '\')">🗑️ ' + (L ? 'Borrar' : 'Delete') + '</button></div>'; }).join('') +
       '</div>';
     }).join('');

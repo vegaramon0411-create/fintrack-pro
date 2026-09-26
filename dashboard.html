@@ -171,8 +171,8 @@ function render() {
     heroCap = es ? 'Gastado en ' + MES[FT.lang][viewDate().getMonth()].toLowerCase() : 'Spent this month'; heroAmt = t.spent; heroSign = 'neg';
     splitHTML =
       '<div class="d-split">' +
-        '<button class="c" onclick="explain(\'ingreso\')"><span class="m pos">+</span>' + FT.money(t.ingreso) + ' <small>' + (es ? 'ingreso' : 'income') + '</small></button>' +
-        (FT.hogarConnected() ? '<button class="c" onclick="explain(\'hogar\')"><span class="m neg">−</span>' + FT.money(hogarCombined) + ' <small>' + (es ? 'hogar' : 'household') + '</small></button>' : '') +
+        '<button class="c" onclick="explain(\'ingreso\')"><span class="m pos">+</span>' + FT.money(t.ingreso, { cents: true }) + ' <small>' + (es ? 'ingreso' : 'income') + '</small></button>' +
+        (FT.hogarConnected() ? '<button class="c" onclick="explain(\'hogar\')"><span class="m neg">−</span>' + FT.money(hogarCombined, { cents: true }) + ' <small>' + (es ? 'hogar' : 'household') + '</small></button>' : '') +
       '</div>';
   }
   // N6: el hero mostraba redondeado a entero (regla original "sin decimales
@@ -299,7 +299,7 @@ function recurCardHTML(es) {
     upcoming.map(function (i) {
       return '<div class="ft-mv tap" onclick="FT.go(\'recurrentes.html\')"><div class="ic rec">' + i.icon + '</div>' +
         '<div class="m"><div class="n">' + i.name + '</div><div class="d">' + (es ? 'próximo ' : 'next ') + FT.date(i.nextDate) + '</div></div>' +
-        '<div class="amt in">' + FT.money(i.amount) + '</div></div>';
+        '<div class="amt in">' + FT.money(i.amount, { cents: true }) + '</div></div>';
     }).join('') +
   '</div>';
 }
