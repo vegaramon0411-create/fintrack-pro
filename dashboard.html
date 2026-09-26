@@ -175,7 +175,13 @@ function render() {
         (FT.hogarConnected() ? '<button class="c" onclick="explain(\'hogar\')"><span class="m neg">−</span>' + FT.money(hogarCombined) + ' <small>' + (es ? 'hogar' : 'household') + '</small></button>' : '') +
       '</div>';
   }
-  var mp = FT.moneyParts(heroAmt);
+  // N6: el hero mostraba redondeado a entero (regla original "sin decimales
+  // en cifras grandes") mientras "Presupuesto restante"/$/día ya mostraban
+  // centavos en el mismo vistazo -- dos rondas de QA distintas lo siguieron
+  // marcando como "3 formatos" pese al fix previo de posicion del "$".
+  // Se retira la excepcion: el hero ahora también muestra centavos, igual
+  // que el resto de la pantalla (mismo criterio en FT.balanceScreen, abajo).
+  var mp = FT.moneyParts(heroAmt, { cents: true });
 
   // BUDGET
   var budgetLeft = (L.income || 0) - t.spent;
@@ -207,7 +213,7 @@ function render() {
     '<div class="d-hero" onclick="cycleView()">' +
       '<div class="cap" onclick="event.stopPropagation();explain(\'' + (HERO_VIEW === 2 ? 'patrimonio' : 'gasto') + '\')">' + heroCap + ' <span class="ft-info">i</span></div>' +
       '<div class="row"><span class="sign ' + heroSign + '">' + (heroSign === 'neg' ? '−' : '+') + '</span>' +
-        '<span class="amt"><span class="cur">$</span>' + mp.int + '</span></div>' +
+        '<span class="amt"><span class="cur">$</span>' + mp.int + '<span style="font-size:.5em">,' + mp.dec + '</span></span></div>' +
       splitHTML +
     '</div>' +
 

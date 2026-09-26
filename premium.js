@@ -2920,7 +2920,12 @@ FT.balanceScreen = function (opts) {
     var hero = '<div class="ft-bs-hero' + (E ? ' emerg' : '') + '">' +
       '<button class="cap" data-x="bal">' + (L ? 'Saldo' : 'Balance') + ' <span class="ft-info">i</span></button>' +
       (!E ? ' <button type="button" data-fund-edit="1" style="border:none;background:none;font-size:11px;color:var(--text3);cursor:pointer;vertical-align:middle">✏️</button>' : '') +
-      '<div class="amt">' + FT.money(b) + '</div>';
+      // N6: mismo criterio que el hero del dashboard (ver dashboard.html) --
+      // se retira la excepcion de "cifra grande sin decimales" para que el
+      // saldo grande de Ahorro libre/Emergencia no vuelva a ser el 3er
+      // formato inconsistente en pantallas donde otros montos ya muestran
+      // centavos.
+      '<div class="amt">' + FT.money(b, { cents: true }) + '</div>';
     if (E) {
       var g = goal(), pct = g > 0 ? Math.min(100, Math.round(b / g * 100)) : 0;
       hero += '<button class="cap" data-x="goal" style="margin-top:4px">' + (L ? 'Meta: ' : 'Goal: ') + FT.money(g) + ' (' + (L ? '3 meses de ingreso' : '3 months income') + ') <span class="ft-info">i</span></button>' +
