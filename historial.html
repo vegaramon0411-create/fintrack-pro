@@ -40,8 +40,8 @@ function changeMonth(dir) {
   if (shell) shell.setMonth(monthLabel());
   render();
 }
-var TYPE_ICO = { gasto: '💸', ingreso: '💰', inversion: '📈', ahorro: '🛡️', suscripcion: '🔄', hipoteca: '🏠', transferencia: '🔁' };
-var TYPE_PASTEL = { gasto: 'coral', ingreso: 'mint', inversion: 'sky', ahorro: 'peach', suscripcion: 'sky', hipoteca: 'coral', transferencia: 'sky' };
+var TYPE_ICO = { gasto: '💸', ingreso: '💰', inversion: '📈', ahorro: '🛡️', suscripcion: '🔄', hipoteca: '🏠', transferencia: '🔁', ajuste: '⚖️' };
+var TYPE_PASTEL = { gasto: 'coral', ingreso: 'mint', inversion: 'sky', ahorro: 'peach', suscripcion: 'sky', hipoteca: 'coral', transferencia: 'sky', ajuste: 'peach' };
 
 function render() {
   var L = es();
@@ -138,6 +138,8 @@ function rowHtml(t) {
     // Neutral por regla (#1) -- no es personal ni de hogar, es un
     // movimiento entre tus propias cuentas/fondos.
     tagLabel = (t.fromLabel || '?') + ' → ' + (t.toLabel || '?'); tagBg = 'var(--sky-bg)'; tagColor = 'var(--sky-tx)';
+  } else if (t.type === 'ajuste') {
+    tagLabel = L ? '⚖️ Ajuste manual' : '⚖️ Manual adjustment'; tagBg = 'var(--peach-bg,#FBEFE8)'; tagColor = 'var(--peach-tx)';
   } else {
     tagLabel = esHogarTx ? (L ? '🏠 Hogar' : '🏠 Household') : (L ? '👤 Personal' : '👤 Personal');
     tagBg = esHogarTx ? 'var(--g-light)' : 'var(--chip)'; tagColor = esHogarTx ? 'var(--g-dark)' : 'var(--text3)';
@@ -151,7 +153,7 @@ function rowHtml(t) {
       '<div style="font-size:14px;font-weight:800;font-family:var(--round-font);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:3px">' + (t.desc || '—') + '</div>' +
       '<span style="font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:20px;background:' + tagBg + ';color:' + tagColor + '">' + tagLabel + '</span>' +
     '</div>' +
-    '<div style="font-size:14px;font-weight:800;font-family:var(--round-font);color:' + (t.type === 'ingreso' ? 'var(--g-main)' : 'var(--ink)') + ';flex-shrink:0">' + (t.type === 'ingreso' ? '+' : (t.type === 'transferencia' ? '' : '−')) + FT.money(Math.abs(parseFloat(t.amount) || 0), { cents: true }) + '</div>' +
+    '<div style="font-size:14px;font-weight:800;font-family:var(--round-font);color:' + ((t.type === 'ingreso' || (t.type === 'ajuste' && t.acctCredited)) ? 'var(--g-main)' : 'var(--ink)') + ';flex-shrink:0">' + ((t.type === 'ingreso' || (t.type === 'ajuste' && t.acctCredited)) ? '+' : (t.type === 'transferencia' ? '' : '−')) + FT.money(Math.abs(parseFloat(t.amount) || 0), { cents: true }) + '</div>' +
     (esDePareja ? '' : '<div style="color:var(--text3);font-size:15px;flex-shrink:0">›</div>') +
   '</div>';
 }
