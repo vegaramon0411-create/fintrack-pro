@@ -171,8 +171,8 @@ function render() {
     heroCap = es ? 'Gastado en ' + MES[FT.lang][viewDate().getMonth()].toLowerCase() : 'Spent this month'; heroAmt = t.spent; heroSign = 'neg';
     splitHTML =
       '<div class="d-split">' +
-        '<button class="c" onclick="explain(\'ingreso\')"><span class="m pos">+</span>' + FT.money(t.ingreso).replace('$', '') + ' <small>' + (es ? 'ingreso' : 'income') + '</small></button>' +
-        (FT.hogarConnected() ? '<button class="c" onclick="explain(\'hogar\')"><span class="m neg">−</span>' + FT.money(hogarCombined).replace('$', '') + ' <small>' + (es ? 'hogar' : 'household') + '</small></button>' : '') +
+        '<button class="c" onclick="explain(\'ingreso\')"><span class="m pos">+</span>' + FT.money(t.ingreso) + ' <small>' + (es ? 'ingreso' : 'income') + '</small></button>' +
+        (FT.hogarConnected() ? '<button class="c" onclick="explain(\'hogar\')"><span class="m neg">−</span>' + FT.money(hogarCombined) + ' <small>' + (es ? 'hogar' : 'household') + '</small></button>' : '') +
       '</div>';
   }
   var mp = FT.moneyParts(heroAmt);
