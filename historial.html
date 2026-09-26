@@ -40,8 +40,8 @@ function changeMonth(dir) {
   if (shell) shell.setMonth(monthLabel());
   render();
 }
-var TYPE_ICO = { gasto: '💸', ingreso: '💰', inversion: '📈', ahorro: '🛡️', suscripcion: '🔄', hipoteca: '🏠' };
-var TYPE_PASTEL = { gasto: 'coral', ingreso: 'mint', inversion: 'sky', ahorro: 'peach', suscripcion: 'sky', hipoteca: 'coral' };
+var TYPE_ICO = { gasto: '💸', ingreso: '💰', inversion: '📈', ahorro: '🛡️', suscripcion: '🔄', hipoteca: '🏠', transferencia: '🔁' };
+var TYPE_PASTEL = { gasto: 'coral', ingreso: 'mint', inversion: 'sky', ahorro: 'peach', suscripcion: 'sky', hipoteca: 'coral', transferencia: 'sky' };
 
 function render() {
   var L = es();
@@ -134,6 +134,10 @@ function rowHtml(t) {
       var amt = parseFloat(t.amount) || 0, hp = amt * pct / 100, pp2 = amt - hp;
       tagLabel = '🏠 ' + FT.money(hp) + ' + 👤 ' + FT.money(pp2); tagBg = '#FBF0DD'; tagColor = 'var(--amber)';
     }
+  } else if (t.type === 'transferencia') {
+    // Neutral por regla (#1) -- no es personal ni de hogar, es un
+    // movimiento entre tus propias cuentas/fondos.
+    tagLabel = (t.fromLabel || '?') + ' → ' + (t.toLabel || '?'); tagBg = 'var(--sky-bg)'; tagColor = 'var(--sky-tx)';
   } else {
     tagLabel = esHogarTx ? (L ? '🏠 Hogar' : '🏠 Household') : (L ? '👤 Personal' : '👤 Personal');
     tagBg = esHogarTx ? 'var(--g-light)' : 'var(--chip)'; tagColor = esHogarTx ? 'var(--g-dark)' : 'var(--text3)';
@@ -147,7 +151,7 @@ function rowHtml(t) {
       '<div style="font-size:14px;font-weight:800;font-family:var(--round-font);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:3px">' + (t.desc || '—') + '</div>' +
       '<span style="font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:20px;background:' + tagBg + ';color:' + tagColor + '">' + tagLabel + '</span>' +
     '</div>' +
-    '<div style="font-size:14px;font-weight:800;font-family:var(--round-font);color:' + (t.type === 'ingreso' ? 'var(--g-main)' : 'var(--ink)') + ';flex-shrink:0">' + (t.type === 'ingreso' ? '+' : '−') + FT.money(Math.abs(parseFloat(t.amount) || 0), { cents: true }) + '</div>' +
+    '<div style="font-size:14px;font-weight:800;font-family:var(--round-font);color:' + (t.type === 'ingreso' ? 'var(--g-main)' : 'var(--ink)') + ';flex-shrink:0">' + (t.type === 'ingreso' ? '+' : (t.type === 'transferencia' ? '' : '−')) + FT.money(Math.abs(parseFloat(t.amount) || 0), { cents: true }) + '</div>' +
     (esDePareja ? '' : '<div style="color:var(--text3);font-size:15px;flex-shrink:0">›</div>') +
   '</div>';
 }

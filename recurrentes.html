@@ -21,11 +21,12 @@ var FILTERS = [
   ['metapersonal', '🎯', 'Mis metas', 'My goals'],
   ['hogar', '🏠', 'Aportes hogar', 'Household deposits'],
   ['sub', '🔄', 'Suscripciones', 'Subscriptions'],
-  ['serv', '🏠', 'Servicios', 'Services']
+  ['serv', '🏠', 'Servicios', 'Services'],
+  ['transferencia', '🔁', 'Transferencias', 'Transfers']
 ];
-var PASTEL = { debt: 'coral', ahorro: 'mint', emerg: 'sky', inversion: 'peach', hogar: 'pink', metapersonal: 'peach', sub: 'pink', serv: 'coral' };
-var PASTEL_TX = { debt: 'var(--coral-tx)', ahorro: 'var(--mint-tx)', emerg: 'var(--sky-tx)', inversion: 'var(--peach-tx)', hogar: 'var(--pink-tx)', metapersonal: 'var(--peach-tx)', sub: 'var(--pink-tx)', serv: 'var(--coral-tx)' };
-var PAGE_LABEL = { debt: ['Deudas', 'Debts'], ahorro: ['Ahorro libre', 'Free savings'], emerg: ['Emergencia', 'Emergency'], inversion: ['Inversiones', 'Investments'], hogar: ['Hogar', 'Household'], metapersonal: ['Metas', 'Goals'], sub: ['Suscripciones', 'Subscriptions'], serv: ['Servicios', 'Services'] };
+var PASTEL = { debt: 'coral', ahorro: 'mint', emerg: 'sky', inversion: 'peach', hogar: 'pink', metapersonal: 'peach', sub: 'pink', serv: 'coral', transferencia: 'sky' };
+var PASTEL_TX = { debt: 'var(--coral-tx)', ahorro: 'var(--mint-tx)', emerg: 'var(--sky-tx)', inversion: 'var(--peach-tx)', hogar: 'var(--pink-tx)', metapersonal: 'var(--peach-tx)', sub: 'var(--pink-tx)', serv: 'var(--coral-tx)', transferencia: 'var(--sky-tx)' };
+var PAGE_LABEL = { debt: ['Deudas', 'Debts'], ahorro: ['Ahorro libre', 'Free savings'], emerg: ['Emergencia', 'Emergency'], inversion: ['Inversiones', 'Investments'], hogar: ['Hogar', 'Household'], metapersonal: ['Metas', 'Goals'], sub: ['Suscripciones', 'Subscriptions'], serv: ['Servicios', 'Services'], transferencia: ['Mi dinero', 'My money'] };
 
 function es() { return FT.lang === 'es'; }
 function toMonthly(i) { if (i.freq === 'annual') return i.amount / 12; if (i.freq === 'weekly') return i.amount * 4.33; if (i.freq === 'biweekly') return i.amount * 2.17; return i.amount; }
@@ -35,7 +36,10 @@ function render() {
   var L = es(), root = document.getElementById('root');
   var all = FT.recurAllList();
   var active = all.filter(function (i) { return !i.paused; });
-  var total = active.reduce(function (a, i) { return a + toMonthly(i); }, 0);
+  // Una transferencia recurrente es neutral (mueve dinero entre tus propias
+  // cuentas/fondos, regla #1) -- no es un compromiso real como una deuda o
+  // suscripción, así que no debe inflar el "total recurrente activo".
+  var total = active.filter(function (i) { return i.pk !== 'transferencia'; }).reduce(function (a, i) { return a + toMonthly(i); }, 0);
   var items = filterMode === 'all' ? all : all.filter(function (i) { return i.pk === filterMode; });
 
   var h = '<div class="ft-card">' +

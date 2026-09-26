@@ -52,7 +52,8 @@ var K = {
   onbSaldos:'ft_onboarding_saldos_done', openAbonar:'ft_open_abonar',
   shortcuts:'ft_shortcuts', googleUser:'ft_google_user',
   investSuggest:'ft_invest_suggest', importAnswers:'ft_import_answers',
-  navStack:'ft_nav_stack', profileB:'ft_profile_B', chatHist:'ft_chat_hist'
+  navStack:'ft_nav_stack', profileB:'ft_profile_B', chatHist:'ft_chat_hist',
+  emergAccountId:'ft_emerg_account_id'
 };
 FT.K = K;
 
@@ -284,6 +285,10 @@ function _recurLastApplied(kind, r) {
       var gh = (g && g.hist || []).filter(function (h) { return h.recId === r.id; });
       return gh.length ? gh.reduce(function (mx, h) { return h.fecha > mx ? h.fecha : mx; }, '') : null;
     }
+    if (kind === 'transferencia') {
+      var xt = FT.txs().filter(function (t) { return t.type === 'transferencia' && t.recId === r.id; });
+      return xt.length ? xt.reduce(function (mx, t) { return t.date > mx ? t.date : mx; }, '') : null;
+    }
   } catch (e) {}
   return null;
 }
@@ -311,11 +316,17 @@ FT.recurAllList = function () {
     } else if (r.kind === 'metapersonal') {
       var g = goals.find(function (x) { return String(x.id) === String(r.goalId); });
       name = (g && g.name) || (es ? 'Meta' : 'Goal'); icon = (g && g.icon) || '🎯'; pk = 'metapersonal'; typeLabel = es ? 'Aporte a meta personal' : 'Personal goal deposit';
+    } else if (r.kind === 'transferencia') {
+      // Revisión independiente (hallazgo F-1): sin esta rama, una
+      // transferencia recurrente corría para siempre sin aparecer en
+      // ningún lado -- invisible, imposible de pausar/editar/eliminar
+      // desde la app.
+      name = r.desc || (FT._xferLabel(r.from) + ' → ' + FT._xferLabel(r.to)); icon = '🔁'; pk = 'transferencia'; typeLabel = es ? 'Transferencia recurrente' : 'Recurring transfer';
     } else return;
     items.push({
       uid: 'recurring:' + r.id, kind: r.kind, pk: pk, name: name, icon: icon, typeLabel: typeLabel,
       amount: parseFloat(r.amount) || 0, freq: r.freq, nextDate: r.nextDate, paused: !!r.paused,
-      page: { debt: 'deudas.html', ahorro: (r.dest === 'emergencia' ? 'emergencia.html' : 'ahorro.html'), inversion: 'inversiones.html', meta: 'hogar.html', metapersonal: 'metas.html' }[r.kind],
+      page: { debt: 'deudas.html', ahorro: (r.dest === 'emergencia' ? 'emergencia.html' : 'ahorro.html'), inversion: 'inversiones.html', meta: 'hogar.html', metapersonal: 'metas.html', transferencia: 'midinero.html' }[r.kind],
       lastApplied: _recurLastApplied(r.kind, r)
     });
   });
@@ -422,8 +433,19 @@ FT.addSavings = function (entry) {
   var f = (entry.fundId && funds.find(function (x) { return x.id === entry.fundId; })) || FT.defaultSavingsFund(funds);
   var amt = parseFloat(entry.amount) || 0;
   var tipo = entry.tipo || 'deposito';
+  // Cuentas como base (Fase 3): si este fondo esta vinculado a una cuenta
+  // (f.accountId), es un "apartado" que vive DENTRO de esa cuenta -- un
+  // depósito/retiro de fondo es entonces una transferencia neutral: el
+  // "libre" de la cuenta (account.amount) baja/sube exactamente lo que el
+  // fondo sube/baja. Esto corre pase lo que pase con `entry.monthTx` (si
+  // además cuenta como ahorro del mes es una decisión totalmente aparte,
+  // ver openMove en FT.balanceScreen) -- por eso se guarda en la propia fila
+  // de historial (acctMoved), no solo en una transacción de ft_data que
+  // podria no existir (el camino "ya lo tenía" no crea ninguna).
+  var acctId = entry._noAcctMove ? null : (f.accountId || null);
+  if (acctId) FT[tipo === 'retiro' ? 'creditChecking' : 'deductChecking'](acctId, amt, entry.date);
   f.hist = f.hist || [];
-  f.hist.push({ id: 'tx_' + entry.id, tipo: tipo, monto: amt, fecha: entry.date, nota: entry.note || '', cat: entry.cat || '', recId: entry.recId || null, cobId: entry.cobId || null, cobFor: entry.cobFor || null, monthTx: entry.monthTx || null });
+  f.hist.push({ id: 'tx_' + entry.id, tipo: tipo, monto: amt, fecha: entry.date, nota: entry.note || '', cat: entry.cat || '', recId: entry.recId || null, cobId: entry.cobId || null, cobFor: entry.cobFor || null, monthTx: entry.monthTx || null, acctMoved: acctId });
   f.actual = Math.max(0, f.hist.reduce(function (a, h) { var m = parseFloat(h.monto) || 0; return a + (h.tipo === 'retiro' ? -m : m); }, 0));
   FT.saveSavingsFunds(funds);
 };
@@ -433,6 +455,10 @@ FT.reverseSavings = function (txId) {
     var f = funds[i], hist = f.hist || [];
     var j = hist.findIndex(function (h) { return h.id === 'tx_' + txId || h.id === txId; });
     if (j >= 0) {
+      var row = hist[j];
+      // Reversa tambien el lado de la cuenta vinculada, si este movimiento
+      // llegó a moverla (ver comentario en FT.addSavings).
+      if (row.acctMoved) FT[row.tipo === 'retiro' ? 'deductChecking' : 'creditChecking'](row.acctMoved, parseFloat(row.monto) || 0);
       hist.splice(j, 1);
       f.hist = hist;
       f.actual = Math.max(0, hist.reduce(function (a, h) { var m = parseFloat(h.monto) || 0; return a + (h.tipo === 'retiro' ? -m : m); }, 0));
@@ -444,6 +470,10 @@ FT.reverseSavings = function (txId) {
 
 /* ── Fondo de emergencia (saldo en ft_data.emergency; historial en 2 claves) ── */
 FT.emergencyBalance = function () { return FT.data().emergency || 0; };
+/** Cuenta a la que Emergencia está vinculada como apartado (Fase 3), o null
+ *  si sigue siendo un pozo independiente (comportamiento de siempre). */
+FT.emergencyAccountId = function () { return FT.get(K.emergAccountId, null); };
+FT.setEmergencyAccountId = function (accountId) { FT.set(K.emergAccountId, accountId || null); FT._changed(); };
 /** Historial de emergencia — funde ft_emerg_hist + ft_emergency_history (legado), dedup por id. */
 FT.emergencyHist = function () {
   var a = FT.get(K.emergHist, []) || [];
@@ -458,9 +488,13 @@ FT.addEmergency = function (entry) {
   var d = FT.data();
   var amt = parseFloat(entry.amount) || 0;
   var tipo = entry.tipo || 'deposito';
+  // Mismo criterio que FT.addSavings: si Emergencia está vinculada a una
+  // cuenta, un depósito/retiro es una transferencia neutral dentro de ella.
+  var acctId = entry._noAcctMove ? null : FT.emergencyAccountId();
+  if (acctId) FT[tipo === 'retiro' ? 'creditChecking' : 'deductChecking'](acctId, amt, entry.date);
   d.emergency = Math.max(0, (d.emergency || 0) + (tipo === 'retiro' ? -amt : amt));
   FT.set(K.data, d);
-  var row = { id: entry.id != null ? String(entry.id) : ('e_' + Date.now()), amount: amt, note: entry.note || '', date: entry.date || FT.todayISO(), tipo: tipo, recId: entry.recId || null, cobId: entry.cobId || null, cobFor: entry.cobFor || null, monthTx: entry.monthTx || null };
+  var row = { id: entry.id != null ? String(entry.id) : ('e_' + Date.now()), amount: amt, note: entry.note || '', date: entry.date || FT.todayISO(), tipo: tipo, recId: entry.recId || null, cobId: entry.cobId || null, cobFor: entry.cobFor || null, monthTx: entry.monthTx || null, acctMoved: acctId };
   var h1 = FT.get(K.emergHist, []) || []; h1.push(row); FT.set(K.emergHist, h1);
   var h2 = FT.get(K.emergHistLegacy, []) || []; h2.push({ id: 'tx_' + row.id, amount: amt, date: row.date, type: tipo, note: row.note }); FT.set(K.emergHistLegacy, h2);
   FT._changed();
@@ -472,6 +506,7 @@ FT.reverseEmergency = function (id) {
   var row = h1.find(function (r) { return String(r.id) === target || String(r.id) === 'tx_' + target; });
   if (row) {
     var amt = parseFloat(row.amount) || 0;
+    if (row.acctMoved) FT[row.tipo === 'retiro' ? 'deductChecking' : 'creditChecking'](row.acctMoved, amt);
     d.emergency = Math.max(0, (d.emergency || 0) + (row.tipo === 'retiro' ? amt : -amt));
     FT.set(K.data, d);
   }
@@ -529,6 +564,18 @@ FT.deductChecking = function (accountId, amount, dateISO) {
   if (dateISO) accts[idx].updatedAt = dateISO;
   FT.saveChecking(accts);
 };
+/** Sobregiro estilo SoFi: revisa si `amount` cabe en el "libre" de la cuenta
+ *  (nunca en lo apartado -- los fondos vinculados NUNCA se tocan solos)
+ *  ANTES de comprometerse a un gasto. La UI debe llamar esto y, si
+ *  `ok:false`, pedir confirmación explícita antes de llamar a
+ *  FT.deductChecking/FT.addEntry -- este helper solo informa, nunca bloquea
+ *  ni descuenta nada por sí mismo. */
+FT.checkOverdraft = function (accountId, amount) {
+  var acct = FT.checking().find(function (a) { return String(a.id) === String(accountId); });
+  if (!acct) return { ok: true, libre: 0, shortfall: 0 };
+  var libre = FT.accountFree(acct), amt = parseFloat(amount) || 0;
+  return { ok: amt <= libre + 0.005, libre: libre, shortfall: Math.max(0, +(amt - libre).toFixed(2)) };
+};
 /** Inverso de FT.deductChecking -- para revertir al borrar o editar un movimiento. */
 FT.creditChecking = function (accountId, amount) {
   if (!accountId) return;
@@ -537,6 +584,49 @@ FT.creditChecking = function (accountId, amount) {
   if (idx < 0) return;
   accts[idx].amount = Math.round(((parseFloat(accts[idx].amount) || 0) + (parseFloat(amount) || 0)) * 100) / 100;
   FT.saveChecking(accts);
+};
+
+/** Cuentas como base + fondos vinculados (Fase 3, 2026-09-26) ─────────────
+ *  Un fondo de Ahorro libre o Emergencia puede vincularse a UNA cuenta como
+ *  "apartado" (vault, modelo SoFi): el dinero del fondo ya está DENTRO de
+ *  esa cuenta, no es dinero aparte. account.amount es, literal, "lo libre"
+ *  -- vincular ABSORBE el saldo del fondo hacia el libre (se lo resta a
+ *  account.amount, ver _openVincularFondo/setLink) para que el TOTAL
+ *  mostrado (libre+apartado, FT.accountTotal) NO cambie con el link;
+ *  desvincular lo libera de vuelta (se lo suma). Depositar/retirar de un
+ *  fondo ya vinculado también mueve account.amount de verdad
+ *  (FT.addSavings/FT.addEmergency, arriba), porque es una transferencia
+ *  real dentro de la misma cuenta.
+ *  "No duplica el total": el TOTAL de la cuenta (libre+apartado) es
+ *  idéntico antes y después de vincular/desvincular -- el dinero solo
+ *  cambia de "libre" a "apartado" (o viceversa) dentro de la MISMA cuenta,
+ *  nunca aparece ni desaparece. */
+FT.accountEarmarked = function (accountId) {
+  if (!accountId) return 0;
+  var out = 0;
+  FT.savingsFunds().forEach(function (f) { if (f.accountId === accountId) out += parseFloat(f.actual) || 0; });
+  if (FT.emergencyAccountId() === accountId) out += FT.emergencyBalance();
+  var hf = FT.hogarFondos();
+  if (hf.emerg && hf.emerg.accountId === accountId) out += parseFloat(hf.emerg.actual) || 0;
+  (hf.metas || []).forEach(function (m) { if (m.accountId === accountId) out += parseFloat(m.actual) || 0; });
+  return out;
+};
+/** "Libre en la cuenta" -- lo que NO está apartado en ningún fondo vinculado.
+ *  Es, literalmente, el campo account.amount tal cual se guarda hoy. */
+FT.accountFree = function (account) { return parseFloat(account && account.amount) || 0; };
+/** Total mostrado para una cuenta = libre + todo lo apartado en fondos
+ *  vinculados a ella. Ver nota de "no duplica el total" arriba. */
+FT.accountTotal = function (account) { return FT.accountFree(account) + FT.accountEarmarked(account && account.id); };
+/** Lista de {kind, id, name, actual} de todo lo que YA está vinculado a
+ *  `accountId` -- para pintar el desglose "apartados" de una cuenta. */
+FT.accountVaults = function (accountId) {
+  var out = [];
+  FT.savingsFunds().forEach(function (f) { if (f.accountId === accountId) out.push({ kind: 'fund', id: f.id, name: f.emoji + ' ' + f.name, actual: parseFloat(f.actual) || 0 }); });
+  if (FT.emergencyAccountId() === accountId) out.push({ kind: 'emerg', id: null, name: '🛡️ ' + (FT.lang === 'es' ? 'Emergencia' : 'Emergency'), actual: FT.emergencyBalance() });
+  var hf = FT.hogarFondos();
+  if (hf.emerg && hf.emerg.accountId === accountId) out.push({ kind: 'hogaremerg', id: null, name: '🛡️ ' + (FT.lang === 'es' ? 'Emergencia del hogar' : 'Household emergency'), actual: parseFloat(hf.emerg.actual) || 0 });
+  (hf.metas || []).forEach(function (m) { if (m.accountId === accountId) out.push({ kind: 'hogarmeta', id: m.id, name: '🎯 ' + m.nombre, actual: parseFloat(m.actual) || 0 }); });
+  return out;
 };
 
 /** Pantalla de gestión de cuentas de cheques -- compartida entre Hogar
@@ -556,10 +646,26 @@ FT.checkingAccountsScreen = function (isHogar) {
   var mine = FT.checking().filter(function (c) { return !!c.hogar === !!isHogar; });
   var rows = mine.length ? mine.map(function (c) {
     var ruleLbl = isHogar ? (c.rule ? (c.rule.type === 'pct' ? c.rule.value + '%' : FT.money(c.rule.value)) : (c.autoDeposit ? (L ? '100% (config. anterior)' : '100% (old setting)') : null)) : null;
+    // Cuentas como base (Fase 1/3): si esta cuenta tiene fondos vinculados
+    // (apartados), se muestra el desglose Total → Apartado → Libre en vez
+    // de solo el saldo -- espejo del modelo SoFi. Sin vínculos, se ve
+    // exactamente igual que antes de este feature.
+    var vaults = FT.accountVaults(c.id);
+    var libre = FT.accountFree(c), apartado = FT.accountEarmarked(c.id), total = libre + apartado;
+    var breakdown = vaults.length ?
+      '<div style="font-size:9.5px;color:var(--text3);margin-top:2px">' + (L ? 'Total ' : 'Total ') + FT.money(total, { cents: true }) + ' = ' + (L ? 'Libre ' : 'Free ') + FT.money(libre, { cents: true }) + ' + ' + (L ? 'Apartado ' : 'Set aside ') + FT.money(apartado, { cents: true }) + '</div>' +
+      '<div style="font-size:9px;color:var(--text3);margin-top:1px">' + vaults.map(function (v) { return v.name + ' ' + FT.money(v.actual, { cents: true }); }).join(' · ') + '</div>' : '';
     return '<div style="display:flex;align-items:center;gap:8px;padding:10px;background:var(--sunk);border-radius:12px;margin-bottom:8px">' +
       '<div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:700">' + (c.name || (L ? 'Cuenta' : 'Account')) + '</div>' +
-      '<div class="tap" data-edit-bal="' + c.id + '" style="font-size:10px;color:var(--text3);cursor:pointer">' + FT.money(c.amount || 0) + ' ✏️' + (ruleLbl ? ' · 🔗 ' + ruleLbl + ' ' + (L ? 'de tu aporte hogar' : 'of your household share') : '') + '</div></div>' +
+      '<div class="tap" data-edit-bal="' + c.id + '" style="font-size:10px;color:var(--text3);cursor:pointer">' + FT.money(vaults.length ? total : (c.amount || 0), { cents: true }) + ' ✏️' + (ruleLbl ? ' · 🔗 ' + ruleLbl + ' ' + (L ? 'de tu aporte hogar' : 'of your household share') : '') + '</div>' + breakdown + '</div>' +
       (isHogar ? '<button type="button" class="tap" data-rule-acct="' + c.id + '" style="padding:6px 10px;border-radius:8px;border:1.5px solid ' + (ruleLbl ? 'var(--g-main)' : 'var(--hair)') + ';background:' + (ruleLbl ? 'var(--g-light)' : '#fff') + ';color:' + (ruleLbl ? 'var(--g-dark)' : 'var(--text2)') + ';font-family:inherit;font-size:10px;font-weight:800;cursor:pointer">' + (ruleLbl ? (L ? 'Editar' : 'Edit') : (L ? '+ Regla' : '+ Rule')) + '</button>' : '') +
+      (!isHogar ? '<button type="button" class="tap" data-def-acct="' + c.id + '" style="padding:6px 9px;border-radius:8px;border:none;background:none;color:' + (c.id === FT.user().defaultAccountId ? 'var(--amber, #C99000)' : 'var(--text3)') + ';font-size:14px;cursor:pointer" title="' + (L ? 'Predeterminada para gastos' : 'Default for expenses') + '">' + (c.id === FT.user().defaultAccountId ? '⭐' : '☆') + '</button>' : '') +
+      // Vincular fondos solo en cuentas PERSONALES por ahora -- las metas/
+      // emergencia de Hogar quedaron con el campo accountId listo, pero
+      // ningún flujo de depósito de Hogar (registrarEnPresupuesto,
+      // _applyRecMeta) sabe moverlo todavía; ofrecerlo aquí desincronizaría
+      // los números en silencio (revisión independiente, hallazgo #8).
+      (!isHogar ? '<button type="button" class="tap" data-vault-acct="' + c.id + '" style="padding:6px 9px;border-radius:8px;border:none;background:none;color:var(--text3);font-size:13px;cursor:pointer" title="' + (L ? 'Vincular fondo' : 'Link a fund') + '">🔗</button>' : '') +
       '<button type="button" class="tap" data-del-acct="' + c.id + '" style="padding:6px 9px;border-radius:8px;border:none;background:none;color:var(--text3);font-size:13px;cursor:pointer">🗑</button>' +
     '</div>';
   }).join('') : '<div style="font-size:12px;color:var(--text3);padding:6px 0 10px">' + (isHogar ? (L ? 'Aún no tienes ninguna cuenta marcada como conjunta.' : "You don't have any account marked as joint yet.") : (L ? 'Aún no tienes ninguna cuenta personal registrada.' : "You don't have any personal account yet.")) + '</div>';
@@ -588,12 +694,37 @@ FT.checkingAccountsScreen = function (isHogar) {
           if (acct) _openAjusteSaldoCuenta(acct);
         };
       });
+      body.querySelectorAll('[data-vault-acct]').forEach(function (b) {
+        b.onclick = function () {
+          var id = b.getAttribute('data-vault-acct');
+          var acct = FT.checking().find(function (a) { return String(a.id) === id; });
+          if (acct) _openVincularFondo(acct, isHogar);
+        };
+      });
+      body.querySelectorAll('[data-def-acct]').forEach(function (b) {
+        b.onclick = function () {
+          var id = b.getAttribute('data-def-acct');
+          var u = FT.user();
+          u.defaultAccountId = (u.defaultAccountId === id) ? null : id;
+          FT.saveUser(u);
+          FT.toast(u.defaultAccountId ? (L ? '⭐ Cuenta predeterminada' : '⭐ Default account') : (L ? 'Ya no es la predeterminada' : 'No longer default'));
+          FT.closeTop();
+          FT.checkingAccountsScreen(isHogar);
+        };
+      });
       body.querySelectorAll('[data-del-acct]').forEach(function (b) {
         b.onclick = function () {
           var id = b.getAttribute('data-del-acct');
           var accts = FT.checking();
           var acct = accts.find(function (a) { return String(a.id) === id; });
           if (!acct) return;
+          // Ningún saldo se pierde en silencio: si hay fondos vinculados
+          // (apartados) a esta cuenta, hay que desvincularlos primero -- si
+          // no, quedarían "flotando" sin ninguna cuenta que los respalde.
+          if (FT.accountVaults(id).length) {
+            FT.toast(L ? 'Esta cuenta tiene fondos vinculados — desvincúlalos primero (🔗)' : 'This account has linked funds — unlink them first (🔗)');
+            return;
+          }
           // Solo se puede eliminar una cuenta en $0 -- si tiene saldo, hay
           // que retirarlo/moverlo primero para no perder el rastro de ese
           // dinero (mismo criterio que ya usa Ahorro libre para sus fondos).
@@ -604,7 +735,7 @@ FT.checkingAccountsScreen = function (isHogar) {
           FT.confirm(L ? '¿Eliminar «' + acct.name + '»?' : 'Delete "' + acct.name + '"?').then(function (ok) {
             if (!ok) return;
             var fresh = FT.checking().find(function (a) { return String(a.id) === id; });
-            if (!fresh || Math.abs(parseFloat(fresh.amount) || 0) >= 0.005) { FT.toast(L ? 'Esta cuenta ya no está en $0' : 'This account is no longer at $0'); FT.closeTop(); return; }
+            if (!fresh || Math.abs(parseFloat(fresh.amount) || 0) >= 0.005 || FT.accountVaults(id).length) { FT.toast(L ? 'Esta cuenta ya no está en $0 o sin vínculos' : 'This account is no longer at $0 or unlinked'); FT.closeTop(); return; }
             FT.saveChecking(FT.checking().filter(function (a) { return String(a.id) !== id; }));
             FT.toast(L ? 'Eliminada' : 'Deleted');
             FT.closeTop();
@@ -683,22 +814,138 @@ function _openReglaCuenta(acct) {
  *  solo escribes lo que de verdad dice tu banco. */
 function _openAjusteSaldoCuenta(acct) {
   var L = FT.lang === 'es';
+  // Revisión independiente (hallazgo G-1): si la cuenta tiene fondos
+  // vinculados, la fila de la lista muestra el TOTAL (libre + apartado) --
+  // pedirle al usuario "escribe lo que dice tu banco" pero guardarlo como
+  // si fuera solo el libre duplicaba el apartado (ej. banco real $1,550,
+  // se escribía 1550 como "amount", y la pantalla volvía a sumarle los
+  // $550 del fondo encima → $2,100). Ahora, con vínculos, este campo edita
+  // el mismo TOTAL que la fila muestra, y por dentro se guarda solo el
+  // libre (total − apartado) -- sin vínculos, el comportamiento es
+  // idéntico al de siempre (edita el libre directo).
+  var apartado = FT.accountEarmarked(acct.id);
+  var shown = apartado ? FT.accountTotal(acct) : (parseFloat(acct.amount) || 0);
   FT.modal({
     title: (L ? 'Ajustar saldo de ' : 'Adjust balance for ') + acct.name,
-    html: '<div class="ft-field"><label>' + (L ? 'Saldo real actual' : 'Real current balance') + '</label><input id="abSaldo" inputmode="decimal" value="' + (acct.amount || 0) + '"></div>' +
+    html: '<div class="ft-field"><label>' + (L ? 'Saldo real actual' : 'Real current balance') + '</label><input id="abSaldo" inputmode="decimal" value="' + shown + '"></div>' +
+      (apartado ? '<p style="font-size:10.5px;color:var(--text3)">' + (L ? 'Escribe el TOTAL que dice tu banco (incluye lo apartado en fondos vinculados, ' + FT.money(apartado, { cents: true }) + '). La app descuenta lo apartado solo -- no lo sumes tú.' : 'Type the TOTAL your bank shows (includes what\'s set aside in linked funds, ' + FT.money(apartado, { cents: true }) + '). The app subtracts the set-aside amount on its own -- don\'t subtract it yourself.') + '</p>' : '') +
       '<p style="font-size:10.5px;color:var(--text3)">' + (L ? 'Escribe lo que de verdad dice tu banco -- esto reemplaza el número, no lo suma. Útil si un depósito automático no aplicó (ej. un cheque que registraste antes de poner la regla).' : "Type what your bank actually shows -- this replaces the number, it doesn't add to it. Useful if an auto-deposit didn't apply (e.g. a paycheck logged before you set the rule).") + '</p>',
     saveLabel: L ? 'Guardar saldo' : 'Save balance',
     onSave: function (body) {
       var val = parseFloat((body.querySelector('#abSaldo').value || '').replace(/,/g, ''));
       if (isNaN(val) || val < 0) { FT.toast(L ? 'Ingresa un saldo válido' : 'Enter a valid balance'); return true; }
+      var freshApartado = FT.accountEarmarked(acct.id); // fresco, no el capturado al abrir
+      var newLibre = +(val - freshApartado).toFixed(2);
+      if (newLibre < -0.005) { FT.toast(L ? 'Ese total es menor a lo apartado en fondos vinculados (' + FT.money(freshApartado, { cents: true }) + ') -- no puede ser' : "That total is less than what's set aside in linked funds (" + FT.money(freshApartado, { cents: true }) + ") -- that can't be right"); return true; }
       var accts = FT.checking();
       var a = accts.find(function (x) { return String(x.id) === String(acct.id); });
       if (!a) return;
-      a.amount = +val.toFixed(2);
+      a.amount = Math.max(0, newLibre);
       a.updatedAt = FT.todayISO();
       FT.saveChecking(accts);
       FT.toast(L ? '✅ Saldo actualizado' : '✅ Balance updated');
       FT.closeTop();
+    }
+  });
+}
+
+/** Migración guiada (Fase 3): vincula/desvincula un fondo de Ahorro libre,
+ *  Emergencia, o (en cuentas de hogar) una meta/emergencia de Hogar, como
+ *  apartado de `acct`. Vincular ABSORBE el saldo del fondo hacia el libre
+ *  de la cuenta (resta de account.amount lo mismo que el fondo aporta a
+ *  accountEarmarked) para que el TOTAL mostrado (libre+apartado) no cambie
+ *  -- desvincular lo libera de vuelta (suma). Un fondo ya vinculado a OTRA
+ *  cuenta no aparece aquí (primero hay que desvincularlo desde esa cuenta). */
+function _openVincularFondo(acct, isHogar) {
+  var L = FT.lang === 'es';
+  var linked = FT.accountVaults(acct.id);
+  var linkedIds = {}; linked.forEach(function (v) { linkedIds[v.kind + ':' + (v.id || '')] = 1; });
+  var options = [];
+  if (!isHogar) {
+    FT.savingsFunds().forEach(function (f) {
+      if (!f.accountId) options.push({ kind: 'fund', id: f.id, name: f.emoji + ' ' + f.name, actual: parseFloat(f.actual) || 0 });
+    });
+    if (!FT.emergencyAccountId()) options.push({ kind: 'emerg', id: null, name: '🛡️ ' + (L ? 'Emergencia' : 'Emergency'), actual: FT.emergencyBalance() });
+  } else {
+    var hf = FT.hogarFondos();
+    if (hf.emerg && !hf.emerg.accountId) options.push({ kind: 'hogaremerg', id: null, name: '🛡️ ' + (L ? 'Emergencia del hogar' : 'Household emergency'), actual: parseFloat(hf.emerg.actual) || 0 });
+    (hf.metas || []).forEach(function (m) { if (!m.accountId) options.push({ kind: 'hogarmeta', id: m.id, name: '🎯 ' + m.nombre, actual: parseFloat(m.actual) || 0 }); });
+  }
+  // Revisión independiente (hallazgo G-1): antes, vincular solo escribía
+  // accountId sin tocar ningún número -- eso hacía que el TOTAL MOSTRADO de
+  // la cuenta subiera de golpe por el monto del fondo (ej. cuenta $1,000 +
+  // fondo $550 vinculado = pantalla dice $1,550, tu banco sigue diciendo
+  // $1,000), justo lo contrario de "no duplica el total". Corregido: vincular
+  // ahora SÍ mueve el "libre" de la cuenta -- lo absorbe (resta, porque ese
+  // dinero pasa de "suelto" a "apartado" dentro de la MISMA cuenta) --
+  // desvincular lo libera de vuelta (suma). Con esto el TOTAL mostrado
+  // (libre+apartado) nunca cambia al vincular/desvincular, que es lo que la
+  // regla de negocio realmente pide.
+  function currentActual(kind, id) {
+    if (kind === 'fund') { var f = FT.savingsFunds().find(function (x) { return x.id === id; }); return f ? parseFloat(f.actual) || 0 : 0; }
+    if (kind === 'emerg') return FT.emergencyBalance();
+    var hf = FT.hogarFondos();
+    if (kind === 'hogaremerg') return parseFloat(hf.emerg && hf.emerg.actual) || 0;
+    if (kind === 'hogarmeta') { var m = (hf.metas || []).find(function (x) { return x.id === id; }); return m ? parseFloat(m.actual) || 0 : 0; }
+    return 0;
+  }
+  function setLink(kind, id, accountIdOrNull) {
+    var linking = !!accountIdOrNull;
+    var actual = currentActual(kind, id); // saldo fresco, no el capturado al abrir la pantalla
+    if (actual) FT[linking ? 'deductChecking' : 'creditChecking'](acct.id, actual);
+    if (kind === 'fund') {
+      var funds = FT.savingsFunds();
+      var f = funds.find(function (x) { return x.id === id; });
+      if (f) { f.accountId = accountIdOrNull; FT.saveSavingsFunds(funds); }
+    } else if (kind === 'emerg') {
+      FT.setEmergencyAccountId(accountIdOrNull);
+    } else if (kind === 'hogaremerg') {
+      var hf2 = FT.hogarFondos(); hf2.emerg.accountId = accountIdOrNull; FT.saveHogarFondos(hf2);
+    } else if (kind === 'hogarmeta') {
+      var hf3 = FT.hogarFondos();
+      var m = hf3.metas.find(function (x) { return x.id === id; });
+      if (m) { m.accountId = accountIdOrNull; FT.saveHogarFondos(hf3); }
+    }
+  }
+  function rowHtml(v, isLinked) {
+    return '<div style="display:flex;align-items:center;gap:8px;padding:9px;background:var(--sunk);border-radius:10px;margin-bottom:6px">' +
+      '<div style="flex:1;min-width:0;font-size:12px;font-weight:700">' + v.name + '<div style="font-size:10px;color:var(--text3);font-weight:600">' + FT.money(v.actual, { cents: true }) + '</div></div>' +
+      '<button type="button" data-link="' + v.kind + '|' + (v.id || '') + '" data-mode="' + (isLinked ? 'off' : 'on') + '" style="padding:6px 10px;border-radius:8px;border:1.5px solid ' + (isLinked ? 'var(--red)' : 'var(--g-main)') + ';background:' + (isLinked ? 'var(--red-dim)' : 'var(--g-light)') + ';color:' + (isLinked ? 'var(--red)' : 'var(--g-dark)') + ';font-family:inherit;font-size:10.5px;font-weight:800;cursor:pointer">' + (isLinked ? (L ? 'Desvincular' : 'Unlink') : (L ? 'Vincular' : 'Link')) + '</button>' +
+    '</div>';
+  }
+  var html = '<div style="background:var(--sky-bg);color:#2A4CC0;border-radius:10px;padding:9px 11px;font-size:11px;font-weight:600;margin-bottom:10px">' +
+      (L ? 'Vincular no cambia tu TOTAL: el saldo libre de la cuenta baja lo mismo que sube el apartado (el dinero del fondo pasa a considerarse parte de esta cuenta).' : "Linking doesn't change your TOTAL: the account's free balance goes down by exactly what the set-aside goes up (the fund's money is now considered part of this account).") + '</div>' +
+    (linked.length ? '<div style="font-size:10.5px;font-weight:800;color:var(--text3);text-transform:uppercase;margin-bottom:6px">' + (L ? 'Ya vinculados' : 'Already linked') + '</div>' + linked.map(function (v) { return rowHtml(v, true); }).join('') : '') +
+    (options.length ? '<div style="font-size:10.5px;font-weight:800;color:var(--text3);text-transform:uppercase;margin:10px 0 6px">' + (L ? 'Disponibles para vincular' : 'Available to link') + '</div>' + options.map(function (v) { return rowHtml(v, false); }).join('') : '<div style="font-size:11.5px;color:var(--text3)">' + (L ? 'No hay más fondos sin vincular.' : 'No more unlinked funds.') + '</div>');
+  FT.sheet({
+    title: '🔗 ' + (L ? 'Vincular a ' : 'Link to ') + acct.name,
+    html: html,
+    onOpen: function (body) {
+      body.querySelectorAll('[data-link]').forEach(function (b) {
+        b.onclick = function () {
+          var parts = b.getAttribute('data-link').split('|'), kind = parts[0], id = parts[1] || null;
+          var on = b.getAttribute('data-mode') === 'on';
+          // Vincular ABSORBE el saldo del fondo hacia el libre de la cuenta
+          // (ver setLink) -- si la cuenta no tiene registrado suficiente
+          // saldo propio para absorberlo sin quedar en negativo, eso es
+          // señal de que el saldo de la cuenta está desactualizado (no un
+          // sobregiro real, nadie gastó nada) -- se bloquea y se guía a
+          // corregirlo primero con "Ajustar saldo", en vez de dejarlo
+          // negativo en silencio.
+          if (on) {
+            var freshAcct = FT.checking().find(function (a) { return a.id === acct.id; });
+            var actual = currentActual(kind, id);
+            if (freshAcct && actual > (parseFloat(freshAcct.amount) || 0) + 0.005) {
+              FT.toast(L ? 'La cuenta no tiene registrado suficiente saldo para absorber este fondo sin quedar en negativo -- ajusta su saldo primero (✏️) para que incluya este dinero.' : "The account doesn't have enough recorded balance to absorb this fund without going negative -- adjust its balance first (✏️) to include this money.", { ms: 5000 });
+              return;
+            }
+          }
+          setLink(kind, id, on ? acct.id : null);
+          FT.toast(on ? (L ? '✅ Vinculado' : '✅ Linked') : (L ? 'Desvinculado' : 'Unlinked'));
+          FT.closeTop();
+          _openVincularFondo(acct, isHogar);
+        };
+      });
     }
   });
 }
@@ -783,7 +1030,7 @@ FT._changed = function () { try { document.dispatchEvent(new CustomEvent('ft:dat
    toda la app — historial.html y config.html comparten este, para no tener dos
    formatos de respaldo incompatibles entre sí (el viejo de config.html le
    faltaba la mitad de las claves y no validaba nada antes de sobreescribir). */
-var RESPALDO_KEYS = [K.data, K.debts, K.hogarFondos, K.investments, K.hogarInv, K.subs, K.servicios, K.recurring, K.savings, K.savingsHist, K.savingsFunds, K.checking, K.goals, K.cheques, K.emergHist, K.emergHistLegacy];
+var RESPALDO_KEYS = [K.data, K.debts, K.hogarFondos, K.investments, K.hogarInv, K.subs, K.servicios, K.recurring, K.savings, K.savingsHist, K.savingsFunds, K.checking, K.goals, K.cheques, K.emergHist, K.emergHistLegacy, K.emergAccountId];
 FT.exportBackup = function () {
   var backup = { _meta: { app: 'FinTrack Pro', version: 1, exportedAt: new Date().toISOString(), user: FT.userName() || '' }, data: {} };
   RESPALDO_KEYS.forEach(function (k) { var v = FT.getRaw(k, null); if (v != null && v !== '') backup.data[k] = v; });
@@ -896,9 +1143,19 @@ FT.deleteTx = function (id) {
   // cobertura y devolver el dinero al pozo (ahorro / emergencia).
   if (t.cobId) FT._unwindCobertura(t.cobId);
 
-  // Si este gasto/suscripción había descontado una cuenta de cheques
-  // conjunta al crearse, hay que devolverle el saldo al borrarlo.
-  if (t.checkingAccountId) FT.creditChecking(t.checkingAccountId, t.amount);
+  // Si esta transacción había movido una cuenta al crearse, hay que
+  // revertirla en la dirección correcta: un gasto/suscripción DESCONTÓ (hay
+  // que devolverle el saldo, creditar), pero algo que ACREDITÓ (un ingreso,
+  // o un aporte de FT.recordCheque -- ambos marcados `acctCredited:true`
+  // sin importar su `type`) hay que devolvérselo, descontar. Revisión
+  // independiente: discriminar por `t.type === 'ingreso'` se quedaba corto
+  // con el aporte hogar de recordCheque, que acredita pero es type:'ahorro'
+  // -- se quedaba revertido al revés (creditaba de nuevo en vez de
+  // descontar), inflando esa cuenta al borrar/editar ese aporte.
+  if (t.checkingAccountId) {
+    if (t.acctCredited) FT.deductChecking(t.checkingAccountId, t.amount);
+    else FT.creditChecking(t.checkingAccountId, t.amount);
+  }
 
   // Fuente vinculada
   if (t.type === 'ahorro' && (t.dest === 'libre' || t.cat === '💰 Ahorro')) {
@@ -912,6 +1169,30 @@ FT.deleteTx = function (id) {
     // reverseEmergency no encontraba nada y no hacía nada), pero ya no
     // corre en falso para esos casos.
     FT.reverseEmergency(t.id);
+  } else if (t.type === 'transferencia' && t.fromRef && t.toRef) {
+    // Revierte los dos lados exactos de la transferencia (regla #4: toda
+    // transferencia es reversible). No se busca/borra la fila de historial
+    // original del fondo -- se aplica el movimiento inverso, que deja el
+    // saldo correcto igual (misma idea que una reversa contable).
+    // Revisión independiente: esto asumía que el destino SIEMPRE tiene el
+    // monto completo todavía disponible -- si el destino es un fondo/
+    // Emergencia y ya se retiró parte de ese dinero por OTRO lado desde
+    // entonces, quitarle el monto completo lo clampa en 0 solas (Math.max
+    // en addSavings/addEmergency) mientras el origen igual se acredita
+    // completo -- fabricando la diferencia de la nada. Una cuenta SÍ puede
+    // sobregirarse (ya es el modelo establecido), así que solo se topa la
+    // reversa cuando el destino es fondo/Emergencia -- se recupera lo que
+    // de verdad sigue ahí, nunca más.
+    // Revisión independiente (ronda 3): si cualquiera de los dos extremos
+    // ya no existe (cuenta/fondo borrado), reclaim=0 -- si no, un destino
+    // borrado dejaba acreditar el origen completo sin ningún descuento
+    // real del otro lado (fabricaba dinero igual que el caso ya cubierto).
+    var reclaim = (!FT._xferExists(t.fromRef) || !FT._xferExists(t.toRef)) ? 0
+      : (t.toRef.type === 'account' ? t.amount : Math.min(t.amount, FT._xferBalance(t.toRef)));
+    if (reclaim > 0) {
+      FT._xferMove(t.fromRef, reclaim, t.date, 'xfrev_' + t.id + '_f');
+      FT._xferMove(t.toRef, -reclaim, t.date, 'xfrev_' + t.id + '_t');
+    }
   } else if (t.type === 'inversion' || t.fromInvPage) {
     // Si la posición (o la transacción que la originó) tenía un aporte recurrente
     // ligado, hay que apagarlo también — si no, el motor automático la vuelve a
@@ -943,8 +1224,22 @@ FT.deleteTx = function (id) {
     if (touched) FT.saveDebts(debts);
   }
 
-  d.transactions = d.transactions.filter(function (x) { return String(x.id) !== String(id); });
-  FT.saveData(d);
+  // Bug real preexistente, encontrado por revisión independiente al agregar
+  // la reversa de transferencias: `d` se capturó al PRINCIPIO de esta
+  // función, pero varios de los efectos cruzados de arriba (_unwindCobertura,
+  // FT.reverseEmergency, y ahora FT._xferMove cuando un lado es Emergencia)
+  // hacen su PROPIA lectura+escritura fresca de ft_data por su cuenta
+  // (FT.data() nunca cachea, cada llamada es un JSON.parse nuevo). Guardar
+  // aquí abajo la copia vieja de `d` sobrescribía esos cambios frescos --
+  // ej. borrar un depósito de emergencia SÍ corregía ft_emerg_hist pero el
+  // campo d.emergency volvía a su valor de ANTES de la reversa, y borrar un
+  // gasto con cobertura resucitaba el ingreso de cobertura que
+  // _unwindCobertura ya había quitado. Se vuelve a leer ft_data FRESCO justo
+  // antes de quitar la transacción y guardar, para no pisar ninguno de esos
+  // efectos ya aplicados.
+  var d2 = FT.data();
+  d2.transactions = d2.transactions.filter(function (x) { return String(x.id) !== String(id); });
+  FT.saveData(d2);
   return true;
 };
 
@@ -1074,7 +1369,12 @@ FT.recordCheque = function (o) {
           var amt = chkAlloc[acctId];
           FT.creditChecking(acctId, amt);
           var acct = allAccts.find(function (a) { return String(a.id) === String(acctId); });
-          dH.transactions.push({ id: nextId(), type: 'ahorro', desc: (es ? 'Aporte hogar — ' : 'Household contribution — ') + (acct ? acct.name : '?'), amount: amt, date: fecha, cat: '🏠 Hogar', hogar: true, createdBy: FT.userName(), auto: true, checkingAccountId: acctId });
+          // acctCredited:true -- esta transacción ACREDITÓ la cuenta (no la
+          // descontó) aunque su `type` sea 'ahorro', no 'ingreso' -- ver el
+          // mismo flag en FT.addEntry. Sin esto, borrar/editar este aporte
+          // se revertía en la dirección de un gasto (creditChecking de
+          // nuevo) en vez de deshacer el crédito original (deductChecking).
+          dH.transactions.push({ id: nextId(), type: 'ahorro', desc: (es ? 'Aporte hogar — ' : 'Household contribution — ') + (acct ? acct.name : '?'), amount: amt, date: fecha, cat: '🏠 Hogar', hogar: true, createdBy: FT.userName(), auto: true, checkingAccountId: acctId, acctCredited: true });
         });
         FT.set(K.data, dH);
       }
@@ -1252,11 +1552,19 @@ function _applyRecAhorro(rec, hoy, nextId) {
     }
     // Si este recurrente se configuró con una cuenta de origen (tuya
     // personal, o conjunta si el destino es compartido), descontarla
-    // también -- igual que ya hace un abono de deuda.
-    if (rec.checkingAccountId) FT.deductChecking(rec.checkingAccountId, rec.amount, hoy);
+    // también -- igual que ya hace un abono de deuda. PERO si el fondo/
+    // Emergencia destino YA está vinculado a una cuenta (Fase 3),
+    // FT.addSavings/FT.addEmergency (arriba) ya descontaron esa cuenta
+    // vinculada solas -- si aquí TAMBIÉN se descuenta `rec.checkingAccountId`
+    // (una elección manual de ANTES de vincular, que la UI ya no deja crear
+    // de nuevas pero un recurrente viejo puede seguir trayendo), se
+    // duplicaría el descuento cada vez que corra. Revisión independiente.
+    var targetFund = toEmerg ? null : ((rec.fundId && FT.savingsFunds().find(function (f) { return f.id === rec.fundId; })) || FT.defaultSavingsFund(FT.savingsFunds()));
+    var targetLinkedAcctId = toEmerg ? FT.emergencyAccountId() : (targetFund && targetFund.accountId);
+    if (!targetLinkedAcctId && rec.checkingAccountId) FT.deductChecking(rec.checkingAccountId, rec.amount, hoy);
     // Un recurrente de ahorro es un aporte planeado desde el ingreso → cuenta como ahorro del mes.
     var d = FT.data();
-    d.transactions.push({ id: id, type: 'ahorro', desc: rec.desc, amount: rec.amount, date: hoy, cat: toEmerg ? '🛡️ Emergencia' : '💵 Ahorro', dest: toEmerg ? 'emergencia' : 'libre', createdBy: FT.userName(), auto: true, recId: rec.id, checkingAccountId: rec.checkingAccountId });
+    d.transactions.push({ id: id, type: 'ahorro', desc: rec.desc, amount: rec.amount, date: hoy, cat: toEmerg ? '🛡️ Emergencia' : '💵 Ahorro', dest: toEmerg ? 'emergencia' : 'libre', createdBy: FT.userName(), auto: true, recId: rec.id, checkingAccountId: targetLinkedAcctId ? undefined : rec.checkingAccountId });
     FT.set(K.data, d);
     return 'applied';
   } catch (e) { return 'broken'; }
@@ -1331,6 +1639,30 @@ function _applyRecDebt(rec, hoy, nextId) {
     return 'applied';
   } catch (e) { return 'broken'; }
 }
+/** Transferencia recurrente (Fase 2). Idempotencia: mismo patrón que el
+ *  resto de la familia _applyRec* -- un chequeo propio contra `d.transactions`
+ *  por recId+fecha, ya que una transferencia se guarda ahí (no en un store
+ *  propio como ahorro/deuda). */
+function _applyRecTransferencia(rec, hoy, nextId) {
+  nextId = nextId || Date.now;
+  try {
+    var d = FT.data();
+    if (d.transactions.some(function (t) { return t.type === 'transferencia' && t.recId === rec.id && t.date === hoy; })) return 'already';
+    // Revisión independiente: FT.transfer devuelve null tanto si un extremo
+    // ya no existe (irrecuperable -- hay que desactivar el recurrente,
+    // 'broken') como si un fondo/Emergencia origen no tiene suficiente
+    // saldo TODAVÍA (temporal -- el próximo cheque podría cubrirlo). Antes
+    // ambos casos se trataban igual ('broken'), así que un recurrente con
+    // un mal mes desaparecía de Recurrentes para siempre en vez de
+    // reintentarse. Se distinguen aquí para devolver 'insufficient' en el
+    // segundo caso -- eso no avanza r.nextDate ni desactiva nada, solo
+    // detiene esta pasada para reintentar en la próxima.
+    if (!FT._xferExists(rec.from) || !FT._xferExists(rec.to)) return 'broken';
+    if (rec.from.type !== 'account' && rec.amount > FT._xferBalance(rec.from) + 0.005) return 'insufficient';
+    var entry = FT.transfer({ id: nextId(), from: rec.from, to: rec.to, amount: rec.amount, date: hoy, note: rec.desc, recId: rec.id, auto: true });
+    return entry ? 'applied' : 'broken';
+  } catch (e) { return 'broken'; }
+}
 function _applyRecMetaPersonal(rec, hoy, nextId) {
   nextId = nextId || Date.now;
   try {
@@ -1367,7 +1699,14 @@ FT.applyDueRecurring = function () {
       else if (r.kind === 'inversion') st = _applyRecInversion(r, r.nextDate, nextId);
       else if (r.kind === 'debt') st = _applyRecDebt(r, r.nextDate, nextId);
       else if (r.kind === 'metapersonal') st = _applyRecMetaPersonal(r, r.nextDate, nextId);
+      else if (r.kind === 'transferencia') st = _applyRecTransferencia(r, r.nextDate, nextId);
       if (st === 'broken') { r.active = false; break; }
+      // 'insufficient' (solo _applyRecTransferencia): un fondo/Emergencia
+      // origen no alcanza TODAVÍA -- a diferencia de 'broken', no se
+      // desactiva ni se avanza r.nextDate, para poder reintentarlo en la
+      // próxima corrida en vez de que el recurrente desaparezca para
+      // siempre por un mes corto de fondos.
+      if (st === 'insufficient') break;
       if (st === 'applied') applied++;
       r.nextDate = _advanceRecDate(r.freq, r.nextDate);
       guard++;
@@ -1601,13 +1940,30 @@ FT.addEntry = function (o) {
     }
   }
 
-  // Descuento automático de la cuenta de cheques conjunta cuando el gasto/
-  // suscripción es del hogar y se eligió de qué cuenta sale -- así el saldo
-  // que se ve en Hogar refleja la realidad sin que alguien tenga que ir a
-  // actualizarlo a mano cada vez que se paga algo con la cuenta conjunta.
-  if ((o.type === 'gasto' || o.type === 'suscripcion') && hogar && o.checkingAccountId) {
+  // Descuento automático de la cuenta elegida para un gasto/suscripción --
+  // antes solo pasaba para gastos de HOGAR con cuenta conjunta; con Cuentas
+  // como base (Fase 1) un gasto PERSONAL también puede elegir de qué cuenta
+  // sale (predeterminada o cambiada para este gasto en particular), así que
+  // ya no se exige `hogar`. El sobregiro (¿el libre alcanza?) se revisa y
+  // confirma ANTES de llegar aquí (ver FT.checkOverdraft) -- esta función
+  // solo aplica el descuento, sin clamp, igual que siempre.
+  if ((o.type === 'gasto' || o.type === 'suscripcion') && o.checkingAccountId) {
     FT.deductChecking(o.checkingAccountId, amount, o.date);
     entry.checkingAccountId = o.checkingAccountId; // para poder devolver el saldo si se borra este movimiento
+  }
+  // Un ingreso con cuenta destino (Fase 1: ya no hay "pool sin cuenta") la
+  // acredita -- sigue contando contra el mes exactamente igual (esto solo
+  // agrega el efecto de saldo real, no cambia nada de lo que ya hacía
+  // `totals()`/`personalAvailable()`, que jamás leen FT.checking()).
+  if (o.type === 'ingreso' && o.checkingAccountId) {
+    FT.creditChecking(o.checkingAccountId, amount);
+    entry.checkingAccountId = o.checkingAccountId;
+    // acctCredited (no el `type`) es lo que le dice a FT.deleteTx/
+    // _editTxDetail en qué dirección revertir -- ver el mismo flag en
+    // FT.recordCheque, que también acredita una cuenta desde una
+    // transacción type:'ahorro' (no 'ingreso'). Revisión independiente:
+    // discriminar por `type==='ingreso'` se quedaba corto justo ahí.
+    entry.acctCredited = true;
   }
 
   var d = FT.data();
@@ -1618,6 +1974,191 @@ FT.addEntry = function (o) {
   if (o.type === 'ingreso' && entry.incomeKind === 'extra' && o.autoDist) FT.applyDist(amount, { note: o.desc });
 
   return entry;
+};
+
+/* ─────────────────────────────────────────────────────────────────────────
+   TRANSFERENCIAS (Fase 2, Cuentas como base) — neutral por regla, reversible
+   ───────────────────────────────────────────────────────────────────────── */
+/** Mueve `amount` (+ entra, − sale) dentro de una cuenta/fondo/Emergencia.
+ *  `_noAcctMove:true` evita que FT.addSavings/addEmergency ADEMÁS muevan la
+ *  cuenta vinculada del fondo (aquí FT.transfer ya está moviendo esa cuenta
+ *  a mano como el otro extremo de la transferencia -- sin este flag se
+ *  descontaría/acreditaría dos veces). */
+FT._xferMove = function (ref, amount, date, tag) {
+  if (!ref) return;
+  if (ref.type === 'account') {
+    if (amount >= 0) FT.creditChecking(ref.id, amount); else FT.deductChecking(ref.id, -amount, date);
+  } else if (ref.type === 'fund') {
+    if (amount >= 0) FT.addSavings({ id: tag, amount: amount, date: date, tipo: 'deposito', note: '', fundId: ref.id, _noAcctMove: true });
+    else FT.addSavings({ id: tag, amount: -amount, date: date, tipo: 'retiro', note: '', fundId: ref.id, _noAcctMove: true });
+  } else if (ref.type === 'emerg') {
+    if (amount >= 0) FT.addEmergency({ id: tag, amount: amount, date: date, tipo: 'deposito', note: '', _noAcctMove: true });
+    else FT.addEmergency({ id: tag, amount: -amount, date: date, tipo: 'retiro', note: '', _noAcctMove: true });
+  }
+};
+FT._xferLabel = function (ref) {
+  if (!ref) return '?';
+  if (ref.type === 'account') { var a = FT.checking().find(function (x) { return String(x.id) === String(ref.id); }); return a ? a.name : '?'; }
+  if (ref.type === 'fund') { var f = FT.savingsFunds().find(function (x) { return x.id === ref.id; }); return f ? f.emoji + ' ' + f.name : '?'; }
+  return '🛡️ ' + (FT.lang === 'es' ? 'Emergencia' : 'Emergency');
+};
+/** ¿Existe de verdad este extremo? (revisión independiente: un ref que
+ *  apunta a una cuenta/fondo ya borrado no debe aplicarse a medias -- ver
+ *  FT._xferBalance para el saldo). */
+FT._xferExists = function (ref) {
+  if (!ref) return false;
+  if (ref.type === 'account') return !!FT.checking().find(function (x) { return String(x.id) === String(ref.id); });
+  if (ref.type === 'fund') return !!FT.savingsFunds().find(function (x) { return x.id === ref.id; });
+  return ref.type === 'emerg';
+};
+/** Saldo disponible en este extremo -- para cuentas es solo el LIBRE (una
+ *  cuenta puede sobregirarse con aviso, ver FT.checkOverdraft); para un
+ *  fondo/Emergencia es su `.actual` real, porque esos SIEMPRE se topan en 0
+ *  (Math.max(0,...) en FT.addSavings/addEmergency) -- si no se revisa antes
+ *  de intentar sacar más de lo que tienen, el retiro se clampa solo pero el
+ *  destino igual recibe el monto completo, fabricando la diferencia de la
+ *  nada (hallazgo real de revisión independiente). */
+FT._xferBalance = function (ref) {
+  if (!ref) return 0;
+  if (ref.type === 'account') { var a = FT.checking().find(function (x) { return String(x.id) === String(ref.id); }); return a ? FT.accountFree(a) : 0; }
+  if (ref.type === 'fund') { var f = FT.savingsFunds().find(function (x) { return x.id === ref.id; }); return f ? parseFloat(f.actual) || 0 : 0; }
+  return FT.emergencyBalance();
+};
+/** Transferencia entre mis propias cuentas/fondos/Emergencia. SIEMPRE
+ *  neutral (regla #1: nunca toca ingreso/gasto/presupuesto del mes) -- solo
+ *  cambia DÓNDE vive el dinero, nunca cuánto tengo en total. Se registra
+ *  como UNA transacción type:'transferencia' (queda en Historial, y
+ *  FT.deleteTx sabe revertirla completa desde ambos lados).
+ *  o = { from:{type,id}, to:{type,id}, amount, date, note, recId }
+ *  type ∈ 'account' | 'fund' | 'emerg'. */
+FT.transfer = function (o) {
+  o = o || {};
+  var amt = parseFloat(o.amount) || 0;
+  if (!amt || amt <= 0 || !o.from || !o.to) return null;
+  // Revisión independiente: sin esto, un origen apuntando a una cuenta/
+  // fondo YA BORRADO aplicaba solo un lado (el otro se descartaba en
+  // silencio), y un origen fondo/Emergencia con MENOS saldo del pedido se
+  // topaba en 0 mientras el destino igual recibía el monto completo --
+  // fabricando la diferencia de la nada. Cuentas SÍ pueden sobregirarse
+  // (con aviso, ver FT.checkOverdraft en la UI) -- fondos/Emergencia no,
+  // porque su saldo siempre se clampa en 0 sin avisar.
+  if (!FT._xferExists(o.from) || !FT._xferExists(o.to)) return null;
+  if (o.from.type !== 'account' && amt > FT._xferBalance(o.from) + 0.005) return null;
+  var date = o.date || FT.todayISO();
+  // Acepta un id ya generado (recurrentes atrasados corren varias veces
+  // 100% síncrono en la misma pasada -- Date.now() puede repetirse entre
+  // una vuelta y la siguiente, mismo riesgo ya corregido en
+  // FT.applyDueRecurring para el resto de _applyRec*).
+  var id = o.id || Date.now();
+  FT._xferMove(o.from, -amt, date, 'xf_' + id + '_f');
+  FT._xferMove(o.to, amt, date, 'xf_' + id + '_t');
+  var d = FT.data();
+  var entry = {
+    id: id, type: 'transferencia', desc: o.note || (FT.lang === 'es' ? 'Transferencia' : 'Transfer'), amount: amt, date: date,
+    note: o.note || '', createdBy: FT.userName(), fromRef: o.from, toRef: o.to,
+    fromLabel: FT._xferLabel(o.from), toLabel: FT._xferLabel(o.to), recId: o.recId || null, auto: !!o.auto
+  };
+  d.transactions.push(entry);
+  FT.saveData(d);
+  return entry;
+};
+
+/** Pantalla/modal reutilizable para crear una transferencia -- origen y
+ *  destino pueden ser cualquier combinación de cuenta personal, cuenta de
+ *  hogar (si hay hogar conectado), fondo de Ahorro libre, o Emergencia.
+ *  Sobregiro estilo SoFi (regla de negocio): si el origen es una cuenta y
+ *  su LIBRE no alcanza, se avisa y se pide confirmación explícita antes de
+ *  dejarla en negativo -- los fondos vinculados a esa cuenta nunca se
+ *  tocan solos para cubrir la diferencia. opts.onDone() corre después de
+ *  guardar (para refrescar quien haya abierto esto). */
+FT.openTransfer = function (opts) {
+  opts = opts || {};
+  var L = FT.lang === 'es';
+  function endpoints() {
+    var out = [];
+    FT.checking().filter(function (c) { return !c.hogar; }).forEach(function (a) { out.push({ type: 'account', id: a.id, label: '🏦 ' + a.name, sub: FT.money(FT.accountTotal(a), { cents: true }) }); });
+    if (FT.hogarConnected()) FT.checking().filter(function (c) { return c.hogar; }).forEach(function (a) { out.push({ type: 'account', id: a.id, label: '🏠 ' + a.name, sub: FT.money(FT.accountTotal(a), { cents: true }) }); });
+    FT.savingsFunds().forEach(function (f) { out.push({ type: 'fund', id: f.id, label: f.emoji + ' ' + f.name, sub: FT.money(f.actual, { cents: true }) }); });
+    out.push({ type: 'emerg', id: null, label: '🛡️ ' + (L ? 'Emergencia' : 'Emergency'), sub: FT.money(FT.emergencyBalance(), { cents: true }) });
+    return out;
+  }
+  var eps = endpoints();
+  if (eps.length < 2) { FT.toast(L ? 'Necesitas al menos 2 cuentas/fondos para transferir' : 'You need at least 2 accounts/funds to transfer'); return; }
+  var st = { freq: 'monthly' };
+  function selHtml(id, chosenIdx) {
+    return '<select id="' + id + '">' + eps.map(function (e, i) { return '<option value="' + i + '"' + (i === chosenIdx ? ' selected' : '') + '>' + e.label + ' (' + e.sub + ')</option>'; }).join('') + '</select>';
+  }
+  FT.modal({
+    title: '🔁 ' + (L ? 'Transferir' : 'Transfer'),
+    html:
+      '<div class="ft-field"><label>' + (L ? 'Origen' : 'From') + '</label>' + selHtml('xfFrom', 0) + '</div>' +
+      '<div class="ft-field"><label>' + (L ? 'Destino' : 'To') + '</label>' + selHtml('xfTo', eps.length > 1 ? 1 : 0) + '</div>' +
+      '<div class="ft-field"><label>' + (L ? 'Monto' : 'Amount') + '</label><input id="xfAmt" inputmode="decimal" placeholder="$0"></div>' +
+      '<div class="ft-field"><label>' + (L ? 'Fecha' : 'Date') + '</label><input id="xfDate" type="date" value="' + FT.todayISO() + '"></div>' +
+      '<div class="ft-field"><label>' + (L ? 'Nota (opcional)' : 'Note (optional)') + '</label><input id="xfNote"></div>' +
+      '<label style="display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600;margin-top:4px;cursor:pointer"><input type="checkbox" id="xfRec"> ' + (L ? 'Hacerla recurrente' : 'Make it recurring') + '</label>' +
+      '<div id="xfRecWrap" style="display:none;margin-top:8px"><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px" id="xfFreq">' +
+        ['weekly:' + (L ? 'Semanal' : 'Weekly'), 'biweekly:' + (L ? 'Quincenal' : 'Biweekly'), 'monthly:' + (L ? 'Mensual' : 'Monthly')].map(function (o) { var v = o.split(':')[0], on = v === 'monthly'; return '<button type="button" data-f="' + v + '" style="padding:8px;border-radius:9px;border:1.5px solid ' + (on ? 'var(--g-main)' : 'var(--hair)') + ';background:' + (on ? 'var(--g-light)' : 'var(--sunk)') + ';font-family:var(--ui-font);font-size:11px;font-weight:800;color:' + (on ? 'var(--g-dark)' : 'var(--text2)') + ';cursor:pointer">' + o.split(':')[1] + '</button>'; }).join('') + '</div></div>' +
+      '<div style="background:var(--sky-bg);color:#2A4CC0;border-radius:10px;padding:9px 11px;font-size:11px;font-weight:600;margin-top:8px">' + (L ? 'Una transferencia entre tus propias cuentas/fondos nunca cuenta como ingreso ni gasto — no toca tu presupuesto del mes.' : "A transfer between your own accounts/funds never counts as income or an expense — it doesn't touch your monthly budget.") + '</div>',
+    saveLabel: L ? 'Transferir' : 'Transfer',
+    onOpen: function (body) {
+      body.querySelector('#xfRec').onchange = function (e) { body.querySelector('#xfRecWrap').style.display = e.target.checked ? 'block' : 'none'; };
+      body.querySelectorAll('#xfFreq button').forEach(function (b) {
+        b.onclick = function () {
+          st.freq = b.getAttribute('data-f');
+          body.querySelectorAll('#xfFreq button').forEach(function (x) { var on = x === b; x.style.borderColor = on ? 'var(--g-main)' : 'var(--hair)'; x.style.background = on ? 'var(--g-light)' : 'var(--sunk)'; x.style.color = on ? 'var(--g-dark)' : 'var(--text2)'; });
+        };
+      });
+    },
+    onSave: function (body) {
+      var amt = parseFloat((body.querySelector('#xfAmt').value || '').replace(/,/g, '')) || 0;
+      if (!amt || amt <= 0) { FT.toast(L ? 'Ingresa un monto' : 'Enter an amount'); return true; }
+      var fi = +body.querySelector('#xfFrom').value, ti = +body.querySelector('#xfTo').value;
+      if (fi === ti) { FT.toast(L ? 'Elige un origen y un destino distintos' : 'Pick a different origin and destination'); return true; }
+      var from = eps[fi], to = eps[ti];
+      var date = body.querySelector('#xfDate').value || FT.todayISO();
+      var note = body.querySelector('#xfNote').value.trim();
+      var makeRec = body.querySelector('#xfRec').checked;
+      // onSave siempre devuelve true (el modal se cierra a mano en
+      // doTransfer) -- así el sobregiro puede esperar la respuesta async de
+      // FT.confirm sin que el framework cierre el modal equivocado mientras
+      // tanto (ver FT.modal: onSave falsy = autocierra el de arriba del
+      // stack, que para cuando resuelve la promesa ya sería el confirm).
+      var doTransfer = function () {
+        // Revisión independiente: si un extremo desapareció justo entre
+        // abrir este modal y guardar (ventana muy corta pero real),
+        // FT.transfer rechaza y devuelve null -- antes se ignoraba ese
+        // resultado y igual se mostraba "✅ registrada" y se creaba el
+        // recurrente para una transferencia que nunca pasó.
+        var ok = FT.transfer({ from: { type: from.type, id: from.id }, to: { type: to.type, id: to.id }, amount: amt, date: date, note: note });
+        if (!ok) { FT.toast(L ? '⚠️ No se pudo hacer la transferencia -- revisa los saldos e intenta de nuevo' : "⚠️ Couldn't complete the transfer -- check balances and try again"); return; }
+        if (makeRec) {
+          var rec = FT.recurring();
+          rec.push({ id: 'rec_' + Date.now(), kind: 'transferencia', from: { type: from.type, id: from.id }, to: { type: to.type, id: to.id }, amount: amt, desc: note || ((L ? 'Transferencia: ' : 'Transfer: ') + from.label + ' → ' + to.label), freq: st.freq, hogar: false, nextDate: _advanceRecDate(st.freq, date), active: true, createdBy: FT.userName() });
+          FT.set(K.recurring, rec);
+        }
+        FT.toast(L ? '✅ Transferencia registrada' : '✅ Transfer recorded');
+        FT.closeTop();
+        if (opts.onDone) opts.onDone();
+      };
+      if (from.type === 'account') {
+        var chk = FT.checkOverdraft(from.id, amt);
+        if (!chk.ok) {
+          FT.confirm(L ? 'Esta transferencia deja «' + from.label + '» en negativo (te faltan ' + FT.money(chk.shortfall, { cents: true }) + '). ¿Continuar de todas formas?' : 'This transfer leaves "' + from.label + '" negative (short ' + FT.money(chk.shortfall, { cents: true }) + '). Continue anyway?').then(function (ok) { if (ok) doTransfer(); });
+          return true;
+        }
+      } else if (amt > FT._xferBalance(from.type === 'fund' ? { type: 'fund', id: from.id } : { type: 'emerg' }) + 0.005) {
+        // Fondos/Emergencia nunca se sobregiran (a diferencia de una
+        // cuenta) -- su saldo se topa en 0 sin avisar, así que esto se
+        // bloquea aquí en vez de dejar que FT.transfer lo rechace en
+        // silencio (return null) sin que el usuario sepa por qué no pasó nada.
+        FT.toast(L ? 'No tienes suficiente en «' + from.label + '»' : 'Not enough in "' + from.label + '"');
+        return true;
+      }
+      doTransfer();
+      return true;
+    }
+  });
 };
 
 /** Reparto del sobrante segun ft_dist_pcts (ahorro / emergencia / inversion-sugerida). */
@@ -2097,7 +2638,7 @@ var I18N = {
     automations_done: 'Movimientos automáticos al día',
     money_group_your: 'Tu dinero', money_group_debts: 'Deudas y pagos', money_group_input: 'Entrada de datos',
     money_group_analysis: 'Análisis', money_group_account: 'Cuenta',
-    l_ahorro: 'Ahorro libre', l_emergencia: 'Fondo de emergencia', l_inversiones: 'Inversiones', l_metas: 'Metas',
+    l_ahorro: 'Ahorro libre', l_emergencia: 'Fondo de emergencia', l_inversiones: 'Inversiones', l_metas: 'Metas', l_midinero: 'Mi dinero',
     l_deudas: 'Deudas', l_suscripciones: 'Suscripciones', l_servicios: 'Servicios', l_recurrentes: 'Recurrentes',
     l_scanner: 'Escanear recibo', l_importar: 'Importar', l_analisis: 'Análisis', l_reporte: 'Reporte mensual',
     l_asistente: 'Asistente IA',
@@ -2111,7 +2652,7 @@ var I18N = {
     automations_done: 'Automatic entries caught up',
     money_group_your: 'Your money', money_group_debts: 'Debts & payments', money_group_input: 'Data entry',
     money_group_analysis: 'Analysis', money_group_account: 'Account',
-    l_ahorro: 'Free savings', l_emergencia: 'Emergency fund', l_inversiones: 'Investments', l_metas: 'Goals',
+    l_ahorro: 'Free savings', l_emergencia: 'Emergency fund', l_inversiones: 'Investments', l_metas: 'Goals', l_midinero: 'My money',
     l_deudas: 'Debts', l_suscripciones: 'Subscriptions', l_servicios: 'Services', l_recurrentes: 'Recurring',
     l_scanner: 'Scan receipt', l_importar: 'Import', l_analisis: 'Analysis', l_reporte: 'Monthly report',
     l_asistente: 'AI Assistant',
@@ -2537,10 +3078,15 @@ FT.catBars = function (items, o) {
 
 /** tx = transacción de ft_data. Devuelve una fila .ft-tx */
 FT.txRow = function (t, idx) {
-  var meta = FT.catMeta(t.cat, idx);
+  // Una transferencia es neutral (regla #1: nunca es ingreso ni gasto) --
+  // no lleva `cat`, así que se le da un meta propio en vez de dejar que
+  // FT.catMeta(undefined) caiga en el "Otro"/#gasto genérico (revisión
+  // independiente, hallazgo cosmético repetido dos veces).
+  var isXfer = t.type === 'transferencia';
+  var meta = isXfer ? { emoji: '🔁', label: FT.lang === 'es' ? 'Transferencia' : 'Transfer', pastel: 'sky' } : FT.catMeta(t.cat, idx);
   var isIn = t.type === 'ingreso';
   var amt = FT.money(t.amount, { cents: true, sign: true });
-  amt = (isIn ? '+' : '−') + FT.money(t.amount, { cents: true });
+  amt = (isIn ? '+' : (isXfer ? '' : '−')) + FT.money(t.amount, { cents: true });
   var isCheque = t.incomeKind === 'cheque';
   var mid;
   if (isCheque) {
@@ -2549,13 +3095,16 @@ FT.txRow = function (t, idx) {
     var hogarAmt = (t.amount || 0) * totH / 100, persAmt = (t.amount || 0) - hogarAmt;
     mid = '<div class="ft-tx-name">' + (t.desc || FT.catMeta(t.cat).label) + '</div>' +
           '<div class="ft-tx-breakdown">🏠 ' + FT.money(hogarAmt) + ' &nbsp;+&nbsp; 👤 ' + FT.money(persAmt) + '</div>';
+  } else if (isXfer) {
+    mid = '<div class="ft-tx-name">' + (t.desc || meta.label) + '</div>' +
+          '<div class="ft-tx-breakdown">' + (t.fromLabel || '?') + ' → ' + (t.toLabel || '?') + '</div>';
   } else {
     mid = '<div class="ft-tx-name">' + (t.desc || meta.label) + '</div>' +
           '<span class="ft-hashtag">#' + (meta.label || 'gasto').toLowerCase().replace(/\s+/g, '') + '</span>';
   }
   return '<div class="ft-tx tap" data-txid="' + t.id + '">' +
     '<div class="ft-tx-top"><span class="ft-pill">' + FT.date(t.date) + '</span>' +
-      '<span class="ft-pill"' + (isIn ? ' style="color:var(--g-main)"' : '') + '>' + (isIn ? '+' : '−') + FT.money(t.amount, { cents: true, noSymbol: false }).replace('−', '') + '</span></div>' +
+      '<span class="ft-pill"' + (isIn ? ' style="color:var(--g-main)"' : '') + '>' + (isIn ? '+' : (isXfer ? '' : '−')) + FT.money(t.amount, { cents: true, noSymbol: false }).replace('−', '') + '</span></div>' +
     '<div class="ft-tx-body">' +
       '<div class="ft-tx-ico ' + meta.pastel + '">' + (meta.emoji || '•') + '</div>' +
       '<div class="ft-tx-main"><div class="ft-tx-label">' + meta.label + '</div>' + mid + '</div>' +
@@ -2573,7 +3122,7 @@ FT.openTxDetail = function (tx, opts) {
   var es = FT.lang === 'es';
   if (typeof tx !== 'object' || tx === null) tx = FT.txs().find(function (t) { return String(t.id) === String(tx); });
   if (!tx) return;
-  var typeName = { gasto: es ? 'Gasto' : 'Expense', ingreso: es ? 'Ingreso' : 'Income', ahorro: es ? 'Ahorro' : 'Savings', inversion: es ? 'Inversión' : 'Investment', suscripcion: es ? 'Suscripción' : 'Subscription', hipoteca: es ? 'Renta/Hipoteca' : 'Rent/Mortgage' }[tx.type] || tx.type;
+  var typeName = { gasto: es ? 'Gasto' : 'Expense', ingreso: es ? 'Ingreso' : 'Income', ahorro: es ? 'Ahorro' : 'Savings', inversion: es ? 'Inversión' : 'Investment', suscripcion: es ? 'Suscripción' : 'Subscription', hipoteca: es ? 'Renta/Hipoteca' : 'Rent/Mortgage', transferencia: es ? 'Transferencia' : 'Transfer' }[tx.type] || tx.type;
   var esHogar = tx.hogar === true || tx.isHogar === true;
   var createdMs = parseInt(tx.id, 10);
   var created = new Date(createdMs);
@@ -2587,19 +3136,27 @@ FT.openTxDetail = function (tx, opts) {
   if (tx.createdBy) rows.push([es ? 'Registrado por' : 'Recorded by', tx.createdBy]);
   if (tx.auto) rows.push([es ? 'Origen' : 'Source', es ? 'Automático' : 'Automatic']);
   var html = '<div style="text-align:center;margin-bottom:16px">' +
-      '<div class="ft-num" style="font-size:28px;color:' + (tx.type === 'ingreso' ? 'var(--g-main)' : 'var(--ink)') + '">' + (tx.type === 'ingreso' ? '+' : '−') + FT.money(tx.amount, { cents: true }) + '</div>' +
+      '<div class="ft-num" style="font-size:28px;color:' + (tx.type === 'ingreso' ? 'var(--g-main)' : 'var(--ink)') + '">' + (tx.type === 'ingreso' ? '+' : (tx.type === 'transferencia' ? '' : '−')) + FT.money(tx.amount, { cents: true }) + '</div>' +
+      (tx.type === 'transferencia' && tx.fromLabel && tx.toLabel ? '<div style="font-size:12px;color:var(--text3);margin-top:2px">' + tx.fromLabel + ' → ' + tx.toLabel + '</div>' : '') +
       (esHogar ? '<span style="background:var(--g-light);color:var(--g-dark);font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;display:inline-block;margin-top:4px">🏠 ' + (es ? 'Del hogar' : 'Household') + '</span>' : '') +
     '</div>' +
     rows.map(function (r) { return '<div class="ft-row"><span class="k">' + r[0] + '</span><span class="v">' + r[1] + '</span></div>'; }).join('') +
     (tx.note ? '<div style="margin-top:10px"><div style="font-size:11px;color:var(--text3);margin-bottom:4px">' + (es ? 'Nota' : 'Note') + '</div><div style="background:var(--sunk);border-radius:10px;padding:10px;font-size:13px">' + tx.note + '</div></div>' : '');
-  var actions = opts.readOnly ? [] : [
-    { label: '✏️ ' + (es ? 'Editar' : 'Edit'), onClick: function () { _editTxDetail(tx); } },
+  // Revisión independiente: editar el monto de una TRANSFERENCIA con este
+  // formulario genérico (no sabe nada de fromRef/toRef) desajustaba los dos
+  // lados sin corregir ninguno -- y borrarla después revertía el monto
+  // EDITADO, no el original, fabricando/destruyendo dinero de la nada. En
+  // vez de construir un editor de dos lados, se quita "Editar" para
+  // transferencias -- borrar y volver a crearla ya es 100% correcto.
+  var actions = opts.readOnly ? [] : (tx.type === 'transferencia' ? [] : [
+    { label: '✏️ ' + (es ? 'Editar' : 'Edit'), onClick: function () { _editTxDetail(tx); } }
+  ]).concat([
     { label: '🗑️ ' + (es ? 'Eliminar' : 'Delete'), onClick: function () {
         FT.confirm(es ? '¿Eliminar este movimiento? Se revierten los saldos vinculados.' : 'Delete this entry? Linked balances will be reverted.').then(function (ok) {
           if (ok) { FT.deleteTx(tx.id); FT.toast(es ? '🗑️ Eliminado' : '🗑️ Deleted'); }
         });
       } }
-  ];
+  ]);
   FT.sheet({ title: tx.desc || typeName, html: html, actions: actions });
 };
 function _editTxDetail(tx) {
@@ -2622,7 +3179,18 @@ function _editTxDetail(tx) {
         // independiente al construir la función de descuento automático).
         var oldTx = d.transactions[i];
         if (oldTx.checkingAccountId && newAmount !== oldTx.amount) {
-          FT.creditChecking(oldTx.checkingAccountId, (parseFloat(oldTx.amount) || 0) - newAmount); // delta: viejo − nuevo
+          var oldAmt = parseFloat(oldTx.amount) || 0;
+          // Revisión independiente: esto SIEMPRE hacía creditChecking(viejo
+          // − nuevo), que es correcto para un GASTO (más monto = ya se
+          // dedujo de más, hay que quitarle más al saldo) pero está AL
+          // REVÉS para algo que ACREDITÓ la cuenta (`acctCredited:true` --
+          // un ingreso, o el aporte hogar de FT.recordCheque, que acredita
+          // pero es type:'ahorro', no 'ingreso') -- ahí más monto = se
+          // acreditó de más, hay que AGREGARLE más al saldo, signo
+          // contrario. Discriminar por `type==='ingreso'` se quedaba corto
+          // con el aporte de recordCheque.
+          if (oldTx.acctCredited) FT.creditChecking(oldTx.checkingAccountId, newAmount - oldAmt);
+          else FT.creditChecking(oldTx.checkingAccountId, oldAmt - newAmount);
         }
         d.transactions[i] = Object.assign({}, oldTx, {
           desc: body.querySelector('#etDesc').value.trim(),
@@ -2665,7 +3233,7 @@ FT.back = function (fallback) {
    14 · SHELL — header + menú inferior + hoja "Más"
    ───────────────────────────────────────────────────────────────────────── */
 var MORE_GROUPS = [
-  { key: 'money_group_your', items: [['l_ahorro', 'ahorro.html', '💵'], ['l_emergencia', 'emergencia.html', '🛡️'], ['l_inversiones', 'inversiones.html', '🏦'], ['l_metas', 'metas.html', '🎯']] },
+  { key: 'money_group_your', items: [['l_midinero', 'midinero.html', '🏦'], ['l_ahorro', 'ahorro.html', '💵'], ['l_emergencia', 'emergencia.html', '🛡️'], ['l_inversiones', 'inversiones.html', '🏦'], ['l_metas', 'metas.html', '🎯']] },
   { key: 'money_group_debts', items: [['l_deudas', 'deudas.html', '💳'], ['l_suscripciones', 'suscripciones.html', '🔄'], ['l_servicios', 'servicios.html', '🏠'], ['l_recurrentes', 'recurrentes.html', '♻️']] },
   { key: 'money_group_input', items: [['l_scanner', 'scanner.html', '📷'], ['l_importar', 'importar.html', '📥']] },
   { key: 'money_group_analysis', items: [['l_analisis', 'analisis.html', '📈'], ['l_reporte', 'reporte.html', '📄'], ['l_asistente', 'asistente.html', '💬']] },
@@ -2995,6 +3563,16 @@ FT.balanceScreen = function (opts) {
 
   function openMove(mode) {
     var L = es(), isW = mode === 'retiro';
+    // Cuentas como base (Fase 3): si este fondo/Emergencia YA está vinculado
+    // a una cuenta, depositar/retirar es una transferencia neutral DENTRO de
+    // esa cuenta -- FT.addSavings/FT.addEmergency ya mueven su "libre" solas
+    // (ver esas funciones), así que aquí ya no tiene sentido dejar elegir
+    // una cuenta manual distinta (se movería la cuenta equivocada) ni
+    // descontarla dos veces. Sin vínculo, el comportamiento es exactamente
+    // el de siempre (selector manual opcional, sin tocar ninguna cuenta si
+    // no se elige).
+    var linkedAcctId = E ? FT.emergencyAccountId() : (activeFund() && activeFund().accountId);
+    var linkedAcct = linkedAcctId && FT.checking().find(function (a) { return a.id === linkedAcctId; });
     var origen = 'previo'; // 'previo' = ya lo tenía (no toca el mes) · 'mes' = de mi disponible
     var origToggle = isW ? '' :
       '<div class="ft-field"><label>' + (L ? '¿De dónde sale este dinero?' : 'Where does this money come from?') + '</label>' +
@@ -3007,11 +3585,14 @@ FT.balanceScreen = function (opts) {
     // ahora mismo, así que no tiene caso descontar una). Antes solo el
     // recurrente de este mismo fondo (openRec) podía elegir cuenta -- un
     // depósito manual de una sola vez no tenía forma de dejar ese rastro.
-    var myAccts2 = !isW ? FT.checking().filter(function (a) { return !a.hogar; }) : [];
+    // Se oculta por completo si el fondo ya está vinculado (ver arriba).
+    var myAccts2 = (!isW && !linkedAcctId) ? FT.checking().filter(function (a) { return !a.hogar; }) : [];
     var acctField = (myAccts2.length ? '<div class="ft-field" id="mAcctWrap" style="display:none"><label>' + (L ? '¿De qué cuenta sale? (opcional)' : 'Which account is this from? (optional)') + '</label><select id="mAcct"><option value="">' + (L ? 'Ninguna' : 'None') + '</option>' + myAccts2.map(function (a) { return '<option value="' + a.id + '">' + a.name + ' (' + FT.money(a.amount) + ')</option>'; }).join('') + '</select></div>' : '');
+    var linkedNote = linkedAcct ? '<div style="background:var(--g-light);color:var(--g-dark);border-radius:10px;padding:9px 11px;font-size:11px;font-weight:600;margin-bottom:10px">🔗 ' + (L ? 'Este fondo está vinculado a «' + linkedAcct.name + '» -- ' + (isW ? 'el retiro se suma a tu libre ahí' : 'el depósito sale de tu libre ahí') + '.' : 'This fund is linked to "' + linkedAcct.name + '" -- the ' + (isW ? 'withdrawal adds to your free balance there' : 'deposit comes out of your free balance there') + '.') + '</div>' : '';
     FT.modal({
       title: isW ? (E ? (L ? 'Retirar del fondo' : 'Withdraw from fund') : (L ? 'Retirar del ahorro' : 'Withdraw from savings')) : (L ? 'Depositar' : 'Deposit'),
       html: (isW && E ? '<div class="ft-bs-info" style="margin:0 0 12px"><p>⚠️ ' + (L ? 'Este fondo es solo para emergencias reales. ¿Esto es una emergencia, o debería salir de tu Ahorro libre?' : 'This fund is only for real emergencies. Is this an emergency, or should it come from Free savings?') + '</p></div>' : '') +
+        linkedNote +
         '<div class="ft-field"><label>' + (L ? 'Monto' : 'Amount') + '</label><input id="mAmt" inputmode="decimal" placeholder="$0"></div>' +
         origToggle + acctField +
         '<div class="ft-field"><label>' + (L ? 'Nota (opcional)' : 'Note (optional)') + '</label><input id="mNote"></div>' +
@@ -3040,7 +3621,10 @@ FT.balanceScreen = function (opts) {
         var id = Date.now();
         var counts = !isW && origen === 'mes';
         var acctEl = body.querySelector('#mAcct');
-        var checkingAccountId = (counts && acctEl && acctEl.value) || undefined;
+        // Sin vínculo: selector manual, como siempre. Con vínculo: ninguna
+        // cuenta manual (FT.addSavings/addEmergency ya descuentan la
+        // vinculada solas) -- evita duplicar el descuento.
+        var checkingAccountId = (!linkedAcctId && counts && acctEl && acctEl.value) || undefined;
         var payload = { id: id, amount: amt, date: body.querySelector('#mDate').value || FT.todayISO(), tipo: mode, note: body.querySelector('#mNote').value.trim() || (isW ? (L ? 'Retiro' : 'Withdrawal') : ''), monthTx: counts || null, fundId: E ? undefined : activeFundId };
         if (E) FT.addEmergency(payload); else FT.addSavings(payload);
         if (counts) {
@@ -3060,8 +3644,14 @@ FT.balanceScreen = function (opts) {
     var seg = ['weekly:' + (L ? 'Semanal' : 'Weekly'), 'biweekly:' + (L ? 'Quincenal' : 'Biweekly'), 'monthly:' + (L ? 'Mensual' : 'Monthly')];
     // De qué cuenta PERSONAL sale (opcional) -- para que el saldo de esa
     // cuenta también baje solo cada vez que este recurrente se aplique,
-    // igual que ya pasa con las deudas.
-    var myAccts = FT.checking().filter(function (a) { return !a.hogar; });
+    // igual que ya pasa con las deudas. Revisión independiente: si el fondo
+    // YA está vinculado a una cuenta (Fase 3), _applyRecAhorro/FT.addSavings
+    // descuentan esa cuenta vinculada SOLAS -- ofrecer aquí una cuenta
+    // manual además duplicaría el descuento cada vez que corra el
+    // recurrente. Se oculta el selector por completo en ese caso (mismo
+    // criterio ya usado en openMove).
+    var linkedAcctIdRec = E ? FT.emergencyAccountId() : (activeFund() && activeFund().accountId);
+    var myAccts = !linkedAcctIdRec ? FT.checking().filter(function (a) { return !a.hogar; }) : [];
     FT.modal({
       title: L ? 'Depósito recurrente' : 'Recurring deposit',
       html: '<div class="ft-field"><label>' + (L ? 'Monto' : 'Amount') + '</label><input id="rAmt" inputmode="decimal" placeholder="$0"></div>' +

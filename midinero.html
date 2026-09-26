@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>FinTrack Pro · Mi dinero</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+<script src="premium.js"></script>
+<style>
+.md-acct{display:flex;align-items:center;gap:10px;padding:12px;background:var(--sunk);border-radius:14px;margin-bottom:8px;cursor:pointer;}
+.md-acct .name{font-size:13px;font-weight:800;}
+.md-acct .total{font-size:15px;font-weight:900;font-family:var(--round-font);}
+.md-acct .sub{font-size:10.5px;color:var(--text3);margin-top:2px;}
+.md-two{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.md-two .box{background:var(--sunk);border-radius:14px;padding:12px;}
+.md-two .box .lbl{font-size:10px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.3px;}
+.md-two .box .val{font-size:19px;font-weight:900;font-family:var(--round-font);margin-top:3px;}
+</style>
+</head>
+<body>
+<div class="ft-app"><div class="ft-page" id="root"></div></div>
+<script>
+function es() { return FT.lang === 'es'; }
+
+/** Fase 4 (Cuentas como base): "Mi dinero" muestra el saldo REAL en cuentas
+ *  (total → apartado → libre por cuenta, modelo SoFi) SEPARADO del
+ *  "Disponible del mes" (flujo de presupuesto, FT.personalAvailable() --
+ *  el mismo cálculo que ya usa el resto de la app, no uno nuevo). Regla de
+ *  negocio #3: los dos "disponibles" siempre van etiquetados y aparte, para
+ *  no confundir saldo real con presupuesto mensual. */
+function render() {
+  var L = es(), root = document.getElementById('root');
+  var myAccts = FT.checking().filter(function (a) { return !a.hogar; });
+  var enCuentas = myAccts.reduce(function (s, a) { return s + FT.accountTotal(a); }, 0);
+  var disponibleMes = FT.personalAvailable();
+
+  var h = '<div class="md-two" style="margin-bottom:14px">' +
+    '<div class="box"><div class="lbl">' + (L ? '💰 En mis cuentas' : '💰 In my accounts') + '</div><div class="val">' + FT.money(enCuentas, { cents: true }) + '</div><div style="font-size:9.5px;color:var(--text3);margin-top:2px">' + (L ? 'saldo real' : 'real balance') + '</div></div>' +
+    '<div class="box"><div class="lbl">' + (L ? '📅 Disponible del mes' : '📅 Available this month') + '</div><div class="val" style="color:' + (disponibleMes < 0 ? 'var(--red)' : 'var(--ink)') + '">' + FT.money(disponibleMes, { cents: true }) + '</div><div style="font-size:9.5px;color:var(--text3);margin-top:2px">' + (L ? 'presupuesto, no saldo' : 'budget, not balance') + '</div></div>' +
+  '</div>';
+
+  h += '<div class="ft-card">' +
+    '<div class="ft-section-head" style="margin-bottom:8px"><h3>🏦 ' + (L ? 'Mis cuentas' : 'My accounts') + '</h3><button class="link" data-manage="1">' + (L ? 'Gestionar' : 'Manage') + '</button></div>' +
+    (myAccts.length ? myAccts.map(function (a) {
+      var vaults = FT.accountVaults(a.id);
+      var libre = FT.accountFree(a), apartado = FT.accountEarmarked(a.id), total = libre + apartado;
+      return '<div class="md-acct" data-acct="' + a.id + '">' +
+        '<div style="flex:1;min-width:0"><div class="name">' + a.name + (a.id === FT.user().defaultAccountId ? ' ⭐' : '') + '</div>' +
+        (vaults.length ? '<div class="sub">' + (L ? 'Libre ' : 'Free ') + FT.money(libre, { cents: true }) + ' + ' + (L ? 'Apartado ' : 'Set aside ') + FT.money(apartado, { cents: true }) + '</div>' : '<div class="sub">' + (L ? 'Libre' : 'Free') + '</div>') +
+        '</div><div class="total">' + FT.money(total, { cents: true }) + '</div></div>';
+    }).join('') : '<div class="d-empty">' + (L ? 'Aún no tienes ninguna cuenta personal.' : "You don't have any personal account yet.") + '</div>') +
+  '</div>';
+
+  h += '<button class="ft-btn ft-btn-primary tap" data-xfer="1" style="width:100%;margin-top:14px">🔁 ' + (L ? 'Transferir' : 'Transfer') + '</button>';
+
+  root.innerHTML = h;
+  root.querySelectorAll('[data-manage]').forEach(function (b) { b.onclick = function () { FT.checkingAccountsScreen(false); }; });
+  root.querySelectorAll('[data-acct]').forEach(function (b) { b.onclick = function () { FT.checkingAccountsScreen(false); }; });
+  root.querySelectorAll('[data-xfer]').forEach(function (b) { b.onclick = function () { FT.openTransfer({ onDone: render }); }; });
+}
+
+document.addEventListener('ft:ready', function () {
+  var t = function () { return FT.lang === 'es' ? 'Mi dinero' : 'My money'; };
+  var sh = FT.shell({ active: '', title: t() });
+  document.addEventListener('ft:langchange', function () { sh.setTitle(t()); render(); });
+  document.addEventListener('ft:datachanged', render);
+  render();
+});
+</script>
+</body>
+</html>
