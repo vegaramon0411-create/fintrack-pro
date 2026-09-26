@@ -829,20 +829,40 @@ function _openAjusteSaldoCuenta(acct) {
     title: (L ? 'Ajustar saldo de ' : 'Adjust balance for ') + acct.name,
     html: '<div class="ft-field"><label>' + (L ? 'Saldo real actual' : 'Real current balance') + '</label><input id="abSaldo" inputmode="decimal" value="' + shown + '"></div>' +
       (apartado ? '<p style="font-size:10.5px;color:var(--text3)">' + (L ? 'Escribe el TOTAL que dice tu banco (incluye lo apartado en fondos vinculados, ' + FT.money(apartado, { cents: true }) + '). La app descuenta lo apartado solo -- no lo sumes tú.' : 'Type the TOTAL your bank shows (includes what\'s set aside in linked funds, ' + FT.money(apartado, { cents: true }) + '). The app subtracts the set-aside amount on its own -- don\'t subtract it yourself.') + '</p>' : '') +
+      // Fase 4 (QA Jett): "modificable solo vía transferencia o ajuste
+      // manual CON MOTIVO (todo en historial)" -- este ajuste antes
+      // reemplazaba el número en silencio, sin dejar rastro ni pedir el
+      // motivo. Ahora, si el número realmente cambia, se pide un motivo y
+      // queda una transacción reversible en Historial (mismo patrón que
+      // cualquier otro movimiento de cuenta).
+      '<div class="ft-field"><label>' + (L ? 'Motivo del ajuste' : 'Reason for the adjustment') + '</label><input id="abMotivo" placeholder="' + (L ? 'Ej. Cheque no registrado, corrección…' : 'E.g. Unlogged paycheck, correction…') + '"></div>' +
       '<p style="font-size:10.5px;color:var(--text3)">' + (L ? 'Escribe lo que de verdad dice tu banco -- esto reemplaza el número, no lo suma. Útil si un depósito automático no aplicó (ej. un cheque que registraste antes de poner la regla).' : "Type what your bank actually shows -- this replaces the number, it doesn't add to it. Useful if an auto-deposit didn't apply (e.g. a paycheck logged before you set the rule).") + '</p>',
     saveLabel: L ? 'Guardar saldo' : 'Save balance',
     onSave: function (body) {
       var val = parseFloat((body.querySelector('#abSaldo').value || '').replace(/,/g, ''));
       if (isNaN(val) || val < 0) { FT.toast(L ? 'Ingresa un saldo válido' : 'Enter a valid balance'); return true; }
+      var motivo = (body.querySelector('#abMotivo').value || '').trim();
       var freshApartado = FT.accountEarmarked(acct.id); // fresco, no el capturado al abrir
       var newLibre = +(val - freshApartado).toFixed(2);
       if (newLibre < -0.005) { FT.toast(L ? 'Ese total es menor a lo apartado en fondos vinculados (' + FT.money(freshApartado, { cents: true }) + ') -- no puede ser' : "That total is less than what's set aside in linked funds (" + FT.money(freshApartado, { cents: true }) + ") -- that can't be right"); return true; }
       var accts = FT.checking();
       var a = accts.find(function (x) { return String(x.id) === String(acct.id); });
       if (!a) return;
-      a.amount = Math.max(0, newLibre);
+      var oldLibre = parseFloat(a.amount) || 0;
+      var clampedNewLibre = Math.max(0, newLibre);
+      var delta = +(clampedNewLibre - oldLibre).toFixed(2);
+      if (Math.abs(delta) >= 0.005 && !motivo) { FT.toast(L ? 'Escribe un motivo para el ajuste' : 'Enter a reason for the adjustment'); return true; }
+      a.amount = clampedNewLibre;
       a.updatedAt = FT.todayISO();
       FT.saveChecking(accts);
+      // Deja rastro reversible en Historial -- mismo flag `acctCredited`
+      // que ya usan ingreso/recordCheque, así FT.deleteTx/_editTxDetail lo
+      // revierten en la dirección correcta sin necesitar una rama nueva.
+      if (Math.abs(delta) >= 0.005) {
+        var d = FT.data();
+        d.transactions.push({ id: Date.now(), type: 'ajuste', desc: motivo, amount: Math.abs(delta), date: FT.todayISO(), checkingAccountId: acct.id, acctCredited: delta > 0, createdBy: FT.userName() });
+        FT.saveData(d);
+      }
       FT.toast(L ? '✅ Saldo actualizado' : '✅ Balance updated');
       FT.closeTop();
     }
@@ -2144,7 +2164,11 @@ FT.openTransfer = function (opts) {
       if (from.type === 'account') {
         var chk = FT.checkOverdraft(from.id, amt);
         if (!chk.ok) {
-          FT.confirm(L ? 'Esta transferencia deja «' + from.label + '» en negativo (te faltan ' + FT.money(chk.shortfall, { cents: true }) + '). ¿Continuar de todas formas?' : 'This transfer leaves "' + from.label + '" negative (short ' + FT.money(chk.shortfall, { cents: true }) + '). Continue anyway?').then(function (ok) { if (ok) doTransfer(); });
+          // QA: el mensaje de sobregiro era el texto de confirm() más largo
+          // de toda la app -- acortado para que quepa sin depender de que
+          // el body del sheet haga scroll (que sí lo hace, pero un
+          // navegador automatizado/viewport chico puede no dejarlo ver).
+          FT.confirm(L ? '«' + from.label + '» quedaría en negativo (te faltan ' + FT.money(chk.shortfall, { cents: true }) + '). ¿Continuar?' : '"' + from.label + '" would go negative (short ' + FT.money(chk.shortfall, { cents: true }) + '). Continue?').then(function (ok) { if (ok) doTransfer(); });
           return true;
         }
       } else if (amt > FT._xferBalance(from.type === 'fund' ? { type: 'fund', id: from.id } : { type: 'emerg' }) + 0.005) {
@@ -2958,9 +2982,14 @@ FT.closeTop = function () {
 FT.sheet = function (o) {
   o = o || {};
   var acts = o.actions || [];
+  // aria-label explícito (QA de Jett: un botón de acción con emoji al
+  // frente le costó varios intentos localizarlo con su navegador
+  // automatizado -- un <button> ya es accesible por su texto, pero
+  // algunas herramientas de prueba buscan por aria-label explícito en vez
+  // de calcular el nombre accesible desde el contenido con emoji).
   var foot = acts.length
     ? '<div class="ft-sheet-foot">' + acts.map(function (a, i) {
-        return '<button class="ft-btn ' + (a.primary ? 'ft-btn-primary' : 'ft-btn-ghost') + ' tap" data-ai="' + i + '" style="margin:0">' + a.label + '</button>';
+        return '<button type="button" class="ft-btn ' + (a.primary ? 'ft-btn-primary' : 'ft-btn-ghost') + ' tap" data-ai="' + i + '" aria-label="' + String(a.label).replace(/"/g, '&quot;') + '" style="margin:0">' + a.label + '</button>';
       }).join('') + '</div>'
     : '';
   var ov = _overlay('bottom',
@@ -2985,7 +3014,7 @@ FT.modal = function (o) {
     '<div class="ft-modal-box" role="dialog" aria-modal="true">' +
       '<div class="ft-modal-head"><h4>' + (o.title || '') + '</h4><button class="x" aria-label="' + FT.t('close') + '">✕</button></div>' +
       '<div class="ft-modal-body">' + (o.html || '') + '</div>' +
-      (o.onSave ? '<div class="ft-modal-foot"><button class="ft-btn ft-btn-primary tap" data-save style="margin:0">' + (o.saveLabel || FT.t('save')) + '</button>' + (o.cancelLabel ? '<button class="ft-btn ft-btn-ghost tap" data-cancel style="margin:0">' + o.cancelLabel + '</button>' : '') + '</div>' : '') +
+      (o.onSave ? '<div class="ft-modal-foot"><button type="button" class="ft-btn ft-btn-primary tap" data-save aria-label="' + String(o.saveLabel || FT.t('save')).replace(/"/g, '&quot;') + '" style="margin:0">' + (o.saveLabel || FT.t('save')) + '</button>' + (o.cancelLabel ? '<button type="button" class="ft-btn ft-btn-ghost tap" data-cancel aria-label="' + String(o.cancelLabel).replace(/"/g, '&quot;') + '" style="margin:0">' + o.cancelLabel + '</button>' : '') + '</div>' : '') +
     '</div>');
   FT._stack.push(ov);
   ov.querySelector('.x').addEventListener('click', FT.closeTop);
@@ -3083,10 +3112,14 @@ FT.txRow = function (t, idx) {
   // FT.catMeta(undefined) caiga en el "Otro"/#gasto genérico (revisión
   // independiente, hallazgo cosmético repetido dos veces).
   var isXfer = t.type === 'transferencia';
-  var meta = isXfer ? { emoji: '🔁', label: FT.lang === 'es' ? 'Transferencia' : 'Transfer', pastel: 'sky' } : FT.catMeta(t.cat, idx);
-  var isIn = t.type === 'ingreso';
+  var isAdj = t.type === 'ajuste';
+  var meta = isXfer ? { emoji: '🔁', label: FT.lang === 'es' ? 'Transferencia' : 'Transfer', pastel: 'sky' }
+    : isAdj ? { emoji: '⚖️', label: FT.lang === 'es' ? 'Ajuste de saldo' : 'Balance adjustment', pastel: t.acctCredited ? 'mint' : 'coral' }
+    : FT.catMeta(t.cat, idx);
+  var isIn = t.type === 'ingreso' || (isAdj && t.acctCredited);
+  var neutralSign = isXfer;
   var amt = FT.money(t.amount, { cents: true, sign: true });
-  amt = (isIn ? '+' : (isXfer ? '' : '−')) + FT.money(t.amount, { cents: true });
+  amt = (isIn ? '+' : (neutralSign ? '' : '−')) + FT.money(t.amount, { cents: true });
   var isCheque = t.incomeKind === 'cheque';
   var mid;
   if (isCheque) {
@@ -3104,7 +3137,7 @@ FT.txRow = function (t, idx) {
   }
   return '<div class="ft-tx tap" data-txid="' + t.id + '">' +
     '<div class="ft-tx-top"><span class="ft-pill">' + FT.date(t.date) + '</span>' +
-      '<span class="ft-pill"' + (isIn ? ' style="color:var(--g-main)"' : '') + '>' + (isIn ? '+' : (isXfer ? '' : '−')) + FT.money(t.amount, { cents: true, noSymbol: false }).replace('−', '') + '</span></div>' +
+      '<span class="ft-pill"' + (isIn ? ' style="color:var(--g-main)"' : '') + '>' + (isIn ? '+' : (neutralSign ? '' : '−')) + FT.money(t.amount, { cents: true, noSymbol: false }).replace('−', '') + '</span></div>' +
     '<div class="ft-tx-body">' +
       '<div class="ft-tx-ico ' + meta.pastel + '">' + (meta.emoji || '•') + '</div>' +
       '<div class="ft-tx-main"><div class="ft-tx-label">' + meta.label + '</div>' + mid + '</div>' +
@@ -3122,7 +3155,8 @@ FT.openTxDetail = function (tx, opts) {
   var es = FT.lang === 'es';
   if (typeof tx !== 'object' || tx === null) tx = FT.txs().find(function (t) { return String(t.id) === String(tx); });
   if (!tx) return;
-  var typeName = { gasto: es ? 'Gasto' : 'Expense', ingreso: es ? 'Ingreso' : 'Income', ahorro: es ? 'Ahorro' : 'Savings', inversion: es ? 'Inversión' : 'Investment', suscripcion: es ? 'Suscripción' : 'Subscription', hipoteca: es ? 'Renta/Hipoteca' : 'Rent/Mortgage', transferencia: es ? 'Transferencia' : 'Transfer' }[tx.type] || tx.type;
+  var typeName = { gasto: es ? 'Gasto' : 'Expense', ingreso: es ? 'Ingreso' : 'Income', ahorro: es ? 'Ahorro' : 'Savings', inversion: es ? 'Inversión' : 'Investment', suscripcion: es ? 'Suscripción' : 'Subscription', hipoteca: es ? 'Renta/Hipoteca' : 'Rent/Mortgage', transferencia: es ? 'Transferencia' : 'Transfer', ajuste: es ? 'Ajuste de saldo' : 'Balance adjustment' }[tx.type] || tx.type;
+  var isCredit = tx.type === 'ingreso' || (tx.type === 'ajuste' && tx.acctCredited);
   var esHogar = tx.hogar === true || tx.isHogar === true;
   var createdMs = parseInt(tx.id, 10);
   var created = new Date(createdMs);
@@ -3136,7 +3170,7 @@ FT.openTxDetail = function (tx, opts) {
   if (tx.createdBy) rows.push([es ? 'Registrado por' : 'Recorded by', tx.createdBy]);
   if (tx.auto) rows.push([es ? 'Origen' : 'Source', es ? 'Automático' : 'Automatic']);
   var html = '<div style="text-align:center;margin-bottom:16px">' +
-      '<div class="ft-num" style="font-size:28px;color:' + (tx.type === 'ingreso' ? 'var(--g-main)' : 'var(--ink)') + '">' + (tx.type === 'ingreso' ? '+' : (tx.type === 'transferencia' ? '' : '−')) + FT.money(tx.amount, { cents: true }) + '</div>' +
+      '<div class="ft-num" style="font-size:28px;color:' + (isCredit ? 'var(--g-main)' : 'var(--ink)') + '">' + (isCredit ? '+' : (tx.type === 'transferencia' ? '' : '−')) + FT.money(tx.amount, { cents: true }) + '</div>' +
       (tx.type === 'transferencia' && tx.fromLabel && tx.toLabel ? '<div style="font-size:12px;color:var(--text3);margin-top:2px">' + tx.fromLabel + ' → ' + tx.toLabel + '</div>' : '') +
       (esHogar ? '<span style="background:var(--g-light);color:var(--g-dark);font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;display:inline-block;margin-top:4px">🏠 ' + (es ? 'Del hogar' : 'Household') + '</span>' : '') +
     '</div>' +

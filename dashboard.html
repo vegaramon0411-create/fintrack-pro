@@ -496,9 +496,11 @@ function openEntry(type) {
         var chk = FT.checkOverdraft(o.checkingAccountId, parseFloat(o.amount));
         if (!chk.ok) {
           var acctObj = FT.checking().find(function (a) { return String(a.id) === String(o.checkingAccountId); }) || {};
+          // QA: acortado -- era el confirm() más largo de la app y podía
+          // no verse completo sin depender de scroll dentro del sheet.
           FT.confirm(FT.lang === 'es'
-            ? 'Este gasto es mayor a tu libre en «' + (acctObj.name || '') + '» (' + FT.money(chk.libre, { cents: true }) + '). Te faltarían ' + FT.money(chk.shortfall, { cents: true }) + ' y la cuenta quedaría en negativo. ¿Continuar de todas formas?'
-            : 'This expense is more than your free balance in "' + (acctObj.name || '') + '" (' + FT.money(chk.libre, { cents: true }) + '). You would be short ' + FT.money(chk.shortfall, { cents: true }) + ' and the account would go negative. Continue anyway?'
+            ? '«' + (acctObj.name || '') + '» quedaría en negativo (te faltan ' + FT.money(chk.shortfall, { cents: true }) + '). ¿Continuar?'
+            : '"' + (acctObj.name || '') + '" would go negative (short ' + FT.money(chk.shortfall, { cents: true }) + '). Continue?'
           ).then(function (ok) { if (ok) afterOverdraft(); });
           return true;
         }
