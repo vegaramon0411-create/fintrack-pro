@@ -158,7 +158,9 @@ function render() {
   var u = FT.user(), t = totals(), L = limits();
   var hogarCombined = t.hogar + partnerHogarSpent();
   var pendingReparto = FT.pendingReparto();
-  var myPersonalAccts = FT.checking().filter(function (c) { return !c.hogar; }).reduce(function (a, c) { return a + (parseFloat(c.amount) || 0); }, 0);
+  // FT.accountTotal (Fase 3) incluye lo apartado en fondos vinculados -- si
+  // no hay ninguno vinculado, es exactamente lo mismo que sumar c.amount.
+  var myPersonalAccts = FT.checking().filter(function (c) { return !c.hogar; }).reduce(function (a, c) { return a + FT.accountTotal(c); }, 0);
 
   // HERO
   var heroCap, heroAmt, heroSign, splitHTML = '';
@@ -251,7 +253,7 @@ function render() {
       '<div class="sub">' + chequeSub() + '</div>' +
       '<button class="ft-btn ft-btn-primary tap" onclick="openCheque()">＋ ' + (es ? 'Recibí mi cheque' : 'I got paid') + '</button>' +
       (pendingReparto > 0.005 ? '<button type="button" class="tap" onclick="openReparto()" style="margin-top:9px;width:100%;display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-radius:10px;border:1.5px dashed var(--g-main);background:var(--g-light);color:var(--g-dark);font-family:var(--ui-font);font-weight:800;font-size:12px;cursor:pointer"><span>💰 ' + (es ? 'Sin repartir a tus fondos' : 'Unassigned to your funds') + '</span><span>' + FT.money(pendingReparto) + ' ›</span></button>' : '') +
-      '<button type="button" class="tap" onclick="FT.checkingAccountsScreen(false)" style="margin-top:9px;width:100%;display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-radius:10px;border:1.5px solid var(--hair);background:#fff;color:var(--text2);font-family:var(--ui-font);font-weight:800;font-size:12px;cursor:pointer"><span>🏦 ' + (es ? 'Mis cuentas' : 'My accounts') + '</span><span>' + FT.money(myPersonalAccts) + ' ›</span></button>' +
+      '<button type="button" class="tap" onclick="FT.go(\'midinero.html\')" style="margin-top:9px;width:100%;display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-radius:10px;border:1.5px solid var(--hair);background:#fff;color:var(--text2);font-family:var(--ui-font);font-weight:800;font-size:12px;cursor:pointer"><span>🏦 ' + (es ? 'Mi dinero' : 'My money') + '</span><span>' + FT.money(myPersonalAccts, { cents: true }) + ' ›</span></button>' +
     '</div>' +
 
     recurCardHTML(es);
@@ -391,6 +393,20 @@ function openEntry(type) {
   if (realType === 'gasto' || realType === 'hipoteca') extra += '<div class="ft-field"><label>' + (es ? 'Categoría' : 'Category') + '</label><select id="eCat">' + CATS.map(function (c) { return '<option>' + c + '</option>'; }).join('') + '</select></div>';
   var hogarAccts = FT.checking().filter(function (a) { return a.hogar; });
   var canDeductAcct = (realType === 'gasto' || (realType === 'suscripcion' && !isServ)) && hogarAccts.length > 0;
+  // Cuentas como base (Fase 1): un gasto PERSONAL (no solo de hogar) también
+  // puede elegir de qué cuenta sale -- predeterminada (FT.user().
+  // defaultAccountId) o cambiada para este gasto en particular. Un ingreso
+  // también puede elegir a qué cuenta llega (ya no hay "pool sin cuenta"
+  // obligatorio, pero sigue siendo opcional para no romper a quien no usa
+  // cuentas todavía).
+  var myAccts = FT.checking().filter(function (a) { return !a.hogar; });
+  if (realType === 'gasto' && myAccts.length) {
+    var defAcctId = FT.user().defaultAccountId;
+    extra += '<div class="ft-field" id="eAcctPersWrap"><label>' + (es ? '¿De qué cuenta se paga? (opcional)' : 'Paid from which account? (optional)') + '</label><select id="eAcctPers"><option value="">' + (es ? 'Ninguna' : 'None') + '</option>' + myAccts.map(function (a) { return '<option value="' + a.id + '"' + (a.id === defAcctId ? ' selected' : '') + '>' + a.name + ' (' + FT.money(FT.accountFree(a), { cents: true }) + ' ' + (es ? 'libre' : 'free') + ')</option>'; }).join('') + '</select></div>';
+  }
+  if (realType === 'ingreso' && myAccts.length) {
+    extra += '<div class="ft-field"><label>' + (es ? '¿A qué cuenta llega? (opcional)' : 'Which account does it land in? (optional)') + '</label><select id="eAcctIn"><option value="">' + (es ? 'Ninguna' : 'None') + '</option>' + myAccts.map(function (a) { return '<option value="' + a.id + '">' + a.name + ' (' + FT.money(FT.accountFree(a), { cents: true }) + ')</option>'; }).join('') + '</select></div>';
+  }
   if (FT.hogarConnected() && (realType === 'gasto' || realType === 'inversion' || (realType === 'suscripcion' && !isServ))) {
     extra += '<div class="ft-field"><label>' + (es ? 'Es para' : 'For') + '</label><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><button type="button" id="ePers" class="tap" style="padding:9px;border-radius:10px;border:1.5px solid var(--g-main);background:var(--g-light);color:var(--g-dark);font-weight:800;font-family:var(--ui-font)">👤 ' + (es ? 'Personal' : 'Personal') + '</button><button type="button" id="eHog" class="tap" style="padding:9px;border-radius:10px;border:1px solid var(--hair);background:var(--sunk);color:var(--text2);font-weight:800;font-family:var(--ui-font)">🏠 ' + (es ? 'Hogar' : 'Household') + '</button></div></div>';
     if (canDeductAcct) {
@@ -419,9 +435,10 @@ function openEntry(type) {
     saveLabel: es ? 'Guardar registro' : 'Save entry',
     onOpen: function (body) {
       var h = body.querySelector('#eHog'), p = body.querySelector('#ePers'), acctWrap = body.querySelector('#eAcctWrap');
+      var persAcctWrap = body.querySelector('#eAcctPersWrap');
       if (h) {
-        h.onclick = function () { state.hogar = true; sel(h, p); if (acctWrap) acctWrap.style.display = ''; };
-        p.onclick = function () { state.hogar = false; sel(p, h); if (acctWrap) acctWrap.style.display = 'none'; };
+        h.onclick = function () { state.hogar = true; sel(h, p); if (acctWrap) acctWrap.style.display = ''; if (persAcctWrap) persAcctWrap.style.display = 'none'; };
+        p.onclick = function () { state.hogar = false; sel(p, h); if (acctWrap) acctWrap.style.display = 'none'; if (persAcctWrap) persAcctWrap.style.display = ''; };
       }
       var lib = body.querySelector('#eLib'), emg = body.querySelector('#eEmg');
       if (lib) { emg.onclick = function () { state.dest = 'emergencia'; sel(emg, lib); }; lib.onclick = function () { state.dest = 'libre'; sel(lib, emg); }; }
@@ -441,24 +458,53 @@ function openEntry(type) {
         incomeKind: realType === 'ingreso' ? 'extra' : undefined,
         autoDist: body.querySelector('#eDist') ? body.querySelector('#eDist').checked : false,
         esServicioHogar: isServ,
-        checkingAccountId: (state.hogar && canDeductAcct) ? (body.querySelector('#eAcct') ? body.querySelector('#eAcct').value : hogarAccts[0].id) : undefined
+        // Orden importa: el primer caso (hogar + canDeductAcct) es el
+        // comportamiento de SIEMPRE, cubre gasto Y suscripción de hogar --
+        // NO se puede perder al agregar los casos nuevos (gasto personal,
+        // ingreso). Antes de este comentario hubo una versión que colapsaba
+        // el chequeo a solo "realType==='gasto'", rompiendo en silencio la
+        // cuenta de una suscripción de hogar -- corregido antes de subir.
+        checkingAccountId: (state.hogar && canDeductAcct)
+          ? (body.querySelector('#eAcct') ? body.querySelector('#eAcct').value : hogarAccts[0].id)
+          : (realType === 'gasto' && !state.hogar && body.querySelector('#eAcctPers') ? (body.querySelector('#eAcctPers').value || undefined)
+            : (realType === 'ingreso' && body.querySelector('#eAcctIn') ? (body.querySelector('#eAcctIn').value || undefined) : undefined))
       };
       if (!o.desc || !parseFloat(o.amount) || !o.date) { FT.toast(FT.lang === 'es' ? 'Completa descripción, monto y fecha' : 'Fill description, amount and date'); return true; }
 
       // Gasto personal que excede el disponible → hoja de cobertura (opción C).
-      if (realType === 'gasto' && !o.hogar) {
-        var disp = FT.personalAvailable();
-        var amt = parseFloat(o.amount);
-        if (amt > disp) {
-          var falt = Math.round((amt - Math.max(0, disp)) * 100) / 100;
-          coberturaSheet(o.desc, falt).then(function (choice) {
-            if (choice === 'libre' || choice === 'emergencia') o.cobertura = { source: choice, monto: falt };
-            commit(o); FT.closeTop();
-          });
+      function afterOverdraft() {
+        if (realType === 'gasto' && !o.hogar) {
+          var disp = FT.personalAvailable();
+          var amt = parseFloat(o.amount);
+          if (amt > disp) {
+            var falt = Math.round((amt - Math.max(0, disp)) * 100) / 100;
+            coberturaSheet(o.desc, falt).then(function (choice) {
+              if (choice === 'libre' || choice === 'emergencia') o.cobertura = { source: choice, monto: falt };
+              commit(o); FT.closeTop();
+            });
+            return;
+          }
+        }
+        commit(o); FT.closeTop();
+      }
+      // Sobregiro estilo SoFi (Fase 1/2): si el gasto elige una cuenta y su
+      // LIBRE no alcanza, se avisa y pide confirmación antes de dejarla en
+      // negativo -- los fondos vinculados a esa cuenta NUNCA se tocan
+      // solos para cubrir la diferencia (eso violaría la regla de que un
+      // fondo/apartado nunca se mueve sin que el usuario lo pida).
+      if (realType === 'gasto' && o.checkingAccountId) {
+        var chk = FT.checkOverdraft(o.checkingAccountId, parseFloat(o.amount));
+        if (!chk.ok) {
+          var acctObj = FT.checking().find(function (a) { return String(a.id) === String(o.checkingAccountId); }) || {};
+          FT.confirm(FT.lang === 'es'
+            ? 'Este gasto es mayor a tu libre en «' + (acctObj.name || '') + '» (' + FT.money(chk.libre, { cents: true }) + '). Te faltarían ' + FT.money(chk.shortfall, { cents: true }) + ' y la cuenta quedaría en negativo. ¿Continuar de todas formas?'
+            : 'This expense is more than your free balance in "' + (acctObj.name || '') + '" (' + FT.money(chk.libre, { cents: true }) + '). You would be short ' + FT.money(chk.shortfall, { cents: true }) + ' and the account would go negative. Continue anyway?'
+          ).then(function (ok) { if (ok) afterOverdraft(); });
           return true;
         }
       }
-      commit(o);
+      afterOverdraft();
+      return true;
     }
   });
 
