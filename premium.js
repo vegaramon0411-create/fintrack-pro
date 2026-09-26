@@ -11,6 +11,22 @@
 (function (window, document) {
 'use strict';
 
+// Bug real de QA (B1, causa raíz encontrada 2026-09-26): esta app navega
+// entre pantallas con recarga completa (cada .html es su propia página, no
+// es una sola app de una página) -- si el usuario usa el botón "atrás" del
+// navegador para "volver" a una pantalla, el navegador puede restaurarla
+// desde bfcache (una versión CONGELADA de justo antes de salir de ahí) sin
+// volver a ejecutar nada de este archivo -- ni FT.boot(), ni el render de
+// esa pantalla. Eso significa que se ve el número de ANTES del depósito
+// (ej. Ahorro libre mostrando $550 después de depositar $50 en otra
+// pantalla), aunque el dato ya se haya guardado bien en localStorage -- no
+// es que el depósito se perdiera, es que la pantalla nunca se volvió a
+// leer. `pageshow` con `event.persisted:true` es la señal exacta de que el
+// navegador restauró la página desde esa caché en vez de cargarla de
+// verdad -- forzamos una recarga real para que siempre se lea el dato
+// fresco, en cualquier pantalla de toda la app.
+window.addEventListener('pageshow', function (e) { if (e.persisted) location.reload(); });
+
 var FT = window.FT || {};
 window.FT = FT;
 
@@ -3297,6 +3313,39 @@ FT.recurringItemsScreen = function (opts) {
       '<div style="font-size:11px;color:var(--text3);margin-top:4px">' + msg + '</div></div>';
   }
 
+    /** Herramienta de limpieza de duplicados (pedida explícita en el reporte
+     *  de QA de B2, "cargo zombie"): dos suscripciones/servicios con el
+     *  mismo nombre y monto generan CADA UNA su propio cargo por separado
+     *  -- no es que un cargo "regenere", son dos registros reales
+     *  cobrándose cada mes. El resguardo de doble-tap (agregado antes)
+     *  previene NUEVOS duplicados, pero no corrige uno que ya se creó antes
+     *  de que ese resguardo existiera -- por eso hace falta esta pantalla
+     *  aparte: agrupa por nombre+monto normalizados y deja borrar la(s)
+     *  copia(s) de más, quedándote solo con una. */
+  function findDuplicateGroups() {
+    var norm = function (s) { return String(s || '').toLowerCase().trim().replace(/\s+/g, ' ').replace(/[^\w\sáéíóúñ]/g, ''); };
+    var groups = {};
+    list().forEach(function (s) {
+      var k = norm(s.name) + '|' + (parseFloat(s.amount) || 0).toFixed(2);
+      (groups[k] = groups[k] || []).push(s);
+    });
+    return Object.keys(groups).map(function (k) { return groups[k]; }).filter(function (g) { return g.length >= 2; });
+  }
+  function duplicateWarningHTML() {
+    var L = es(), dups = findDuplicateGroups();
+    if (!dups.length) return '';
+    return '<div class="ft-card" style="border:1.5px solid var(--red)">' +
+      '<div style="font-size:12.5px;font-weight:800;color:var(--red);margin-bottom:8px">⚠️ ' + (L ? dups.length + ' posible(s) duplicado(s) -- cada copia cobra por separado' : dups.length + ' possible duplicate(s) -- each copy charges separately') + '</div>' +
+      dups.map(function (g) {
+        return '<div style="background:var(--sunk);border-radius:10px;padding:8px 10px;margin-bottom:8px">' +
+          '<div style="font-size:11.5px;font-weight:700;margin-bottom:6px">' + g[0].name + ' · ' + FT.money(parseFloat(g[0].amount) || 0) + ' × ' + g.length + '</div>' +
+          g.map(function (s) { return '<div style="display:flex;align-items:center;justify-content:space-between;padding:3px 0"><span style="font-size:10.5px;color:var(--text3)">' + freqLbl(s.freq) + ' · ' + FT.date(s.date) + (s.paused ? ' · ' + (L ? 'pausada' : 'paused') : '') + '</span><button type="button" class="tap" data-deldup="' + s.id + '" style="background:var(--red-dim);color:var(--red);border:none;border-radius:8px;padding:5px 9px;font-size:10.5px;font-weight:700;cursor:pointer;font-family:inherit">🗑️ ' + (L ? 'Borrar esta' : 'Delete this') + '</button></div>'; }).join('') +
+        '</div>';
+      }).join('') +
+      '<div style="font-size:10.5px;color:var(--text3)">' + (L ? 'Deja solo una copia de cada una -- los cargos ya cobrados no se borran solos, revísalos en Historial.' : "Keep only one copy of each -- charges already billed don't delete themselves, check Historial.") + '</div>' +
+    '</div>';
+  }
+
   function render() {
     var L = es(), all = list();
     var filtered = filterMode === 'all' ? all : all.filter(function (s) { return s.freq === filterMode; });
@@ -3307,7 +3356,7 @@ FT.recurringItemsScreen = function (opts) {
     var upcoming = active.map(function (s) { return { s: s, next: nextBillingDate(s) }; }).filter(function (x) { return x.next; })
       .sort(function (a, b) { return a.next - b.next; }).slice(0, 5);
 
-    var h = '<div class="ft-card"><div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">' +
+    var h = duplicateWarningHTML() + '<div class="ft-card"><div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">' +
       '<div style="text-align:center"><div class="ft-num" style="font-size:21px;color:' + pastelTx + '">' + FT.money(total) + '</div><div style="font-size:11px;color:var(--text3)">' + (L ? 'al mes' : 'per month') + '</div></div>' +
       '<div style="text-align:center"><div class="ft-num" style="font-size:21px;color:var(--red)">' + FT.money(total * 12) + '</div><div style="font-size:11px;color:var(--text3)">' + (L ? 'al año' : 'per year') + '</div></div></div></div>';
 
@@ -3351,6 +3400,17 @@ FT.recurringItemsScreen = function (opts) {
     mount.querySelectorAll('[data-f]').forEach(function (b) { b.onclick = function () { filterMode = b.getAttribute('data-f'); render(); }; });
     mount.querySelectorAll('[data-open]').forEach(function (b) { b.onclick = function () { openDetail(b.getAttribute('data-open')); }; });
     mount.querySelectorAll('[data-go]').forEach(function (b) { b.onclick = function () { FT.go(b.getAttribute('data-go')); }; });
+    mount.querySelectorAll('[data-deldup]').forEach(function (b) {
+      b.onclick = function () {
+        var id = b.getAttribute('data-deldup'), L2 = es();
+        FT.confirm(L2 ? '¿Eliminar esta copia? Esto NO borra los cargos que ya se cobraron -- revísalos en Historial.' : "Delete this copy? This does NOT delete charges already billed -- check Historial.").then(function (ok) {
+          if (!ok) return;
+          saveList(list().filter(function (x) { return String(x.id) !== id; }));
+          FT.toast(L2 ? '🗑️ Copia eliminada' : '🗑️ Copy deleted');
+          render();
+        });
+      };
+    });
   }
 
   function formFields(s) {
