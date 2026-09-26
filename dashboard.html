@@ -15,7 +15,7 @@
   .d-hero .sign{width:23px;height:23px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:14px;font-weight:900;}
   .d-hero .sign.neg{background:var(--red);}.d-hero .sign.pos{background:var(--g-main);}
   .d-hero .amt{font-family:var(--round-font);font-weight:900;font-size:47px;letter-spacing:-1.8px;line-height:1;font-variant-numeric:tabular-nums;}
-  .d-hero .amt .cur{font-size:.42em;color:var(--text3);font-weight:800;margin-left:4px;letter-spacing:0;}
+  .d-hero .amt .cur{font-size:.42em;color:var(--text3);font-weight:800;margin-right:4px;letter-spacing:0;}
   .d-split{display:flex;justify-content:center;gap:8px;margin-top:15px;flex-wrap:wrap;}
   .d-split .c{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:800;padding:7px 12px;border-radius:99px;background:var(--chip);font-variant-numeric:tabular-nums;cursor:pointer;}
   .d-split .c small{color:var(--text3);font-weight:700;}
@@ -207,7 +207,7 @@ function render() {
     '<div class="d-hero" onclick="cycleView()">' +
       '<div class="cap" onclick="event.stopPropagation();explain(\'' + (HERO_VIEW === 2 ? 'patrimonio' : 'gasto') + '\')">' + heroCap + ' <span class="ft-info">i</span></div>' +
       '<div class="row"><span class="sign ' + heroSign + '">' + (heroSign === 'neg' ? '−' : '+') + '</span>' +
-        '<span class="amt">' + mp.int + '<span class="cur">$</span></span></div>' +
+        '<span class="amt"><span class="cur">$</span>' + mp.int + '</span></div>' +
       splitHTML +
     '</div>' +
 

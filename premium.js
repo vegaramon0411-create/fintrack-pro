@@ -2175,7 +2175,14 @@ button{font-family:var(--ui-font);}
 .ft-hero .amt{font-family:var(--round-font);font-weight:900;font-size:47px;letter-spacing:-1.8px;color:var(--ink);font-variant-numeric:tabular-nums;line-height:1;}
 .ft-info{width:14px;height:14px;border-radius:50%;border:1px solid var(--text3);color:var(--text3);font-size:9px;font-weight:900;display:inline-grid;place-items:center;opacity:.55;vertical-align:middle;}
 .ft-chev{color:var(--text3);font-weight:900;font-size:12px;}
-.ft-hero .amt .cur{font-size:.44em;letter-spacing:0;color:var(--text3);font-weight:800;margin-left:3px;}
+/* N6 (2026-09-26): el "$" pasó de sufijo a prefijo -- dos revisores
+   independientes señalaron que ver "3.290$" (símbolo DESPUÉS del número)
+   junto a el resto de la app, que siempre pone "$" antes, se leía como un
+   tercer formato roto más, aunque nunca fue un descuido (diseño original a
+   propósito para el número grande del hero). El número grande sin
+   centavos se conserva -- eso sí es un patrón válido para una cifra
+   "de un vistazo"; lo que se corrige es solo la posición del símbolo. */
+.ft-hero .amt .cur{font-size:.44em;letter-spacing:0;color:var(--text3);font-weight:800;margin-right:3px;}
 .ft-split{display:flex;justify-content:center;gap:9px;margin-top:14px;flex-wrap:wrap;}
 .ft-split .chip{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:800;padding:7px 13px;border-radius:99px;background:var(--chip);color:var(--ink);font-variant-numeric:tabular-nums;}
 .ft-split .chip .mini{width:17px;height:17px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:11px;font-weight:900;line-height:1;}
@@ -2477,7 +2484,7 @@ FT.heroNumber = function (o) {
       (o.label ? '<div class="cap">' + o.label + '</div>' : '') +
       '<div class="row">' +
         '<span class="ft-sign ' + (neg ? 'neg' : 'pos') + '">' + (neg ? '−' : '+') + '</span>' +
-        '<span class="amt">' + p.int + (o.cents ? '<span style="font-size:.5em">,' + p.dec + '</span>' : '') + '<span class="cur">$</span></span>' +
+        '<span class="amt"><span class="cur">$</span>' + p.int + (o.cents ? '<span style="font-size:.5em">,' + p.dec + '</span>' : '') + '</span>' +
       '</div>' +
       (o.splitHTML ? '<div class="ft-split">' + o.splitHTML + '</div>' : '') +
     '</div>';
