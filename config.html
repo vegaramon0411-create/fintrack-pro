@@ -92,12 +92,17 @@ function clearData() {
   var warnHogar = (h && h.connected) ? (L
     ? ' También saldrás de tu hogar compartido — tu pareja no verá tus datos borrados, pero para volver a compartir necesitarán invitarse de nuevo.'
     : " You will also leave your shared household — your partner won't see your deleted data, but you'll need to invite each other again to reconnect.") : '';
-  if (!confirm((L
+  // Mismo cambio que en Historial (B2): confirm() nativo se auto-descarta
+  // en navegadores automatizados/de prueba -- FT.confirm() es un modal
+  // real de la app, no un diálogo del navegador.
+  FT.confirm((L
     ? '¿Borrar TODOS tus datos? Esto también borra tu perfil (ingreso, cheque, configuración) y vas a tener que registrarte de nuevo desde cero. No se puede deshacer.'
-    : "Delete ALL your data? This also erases your profile (income, paycheck, settings) and you'll have to sign up again from scratch. This cannot be undone.") + warnHogar)) return;
-  FT.clearAllData();
-  FT.toast(L ? '🗑️ Datos eliminados' : '🗑️ Data cleared');
-  setTimeout(function () { location.href = 'login.html'; }, 1200);
+    : "Delete ALL your data? This also erases your profile (income, paycheck, settings) and you'll have to sign up again from scratch. This cannot be undone.") + warnHogar).then(function (ok) {
+    if (!ok) return;
+    FT.clearAllData();
+    FT.toast(L ? '🗑️ Datos eliminados' : '🗑️ Data cleared');
+    setTimeout(function () { location.href = 'login.html'; }, 1200);
+  });
 }
 
 document.addEventListener('ft:ready', function () {

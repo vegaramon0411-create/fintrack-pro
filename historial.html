@@ -231,10 +231,17 @@ function buscarDuplicados() {
 }
 function borrarTxDuplicada(txId) {
   var L = es();
-  if (!confirm(L ? '¿Eliminar esta transacción?' : 'Delete this transaction?')) return;
-  FT.deleteTx(txId);
-  FT.toast(L ? '🗑️ Eliminada' : '🗑️ Deleted');
-  buscarDuplicados();
+  // Bug real de QA (B2): usaba confirm() nativo del navegador -- en
+  // navegadores automatizados/de prueba ese diálogo se auto-descarta solo
+  // (siempre responde "cancelar"), así que el borrado nunca procedía. Se
+  // cambia a FT.confirm() (el propio de la app, un modal real en el DOM),
+  // el mismo que ya usa el resto de la app para confirmaciones.
+  FT.confirm(L ? '¿Eliminar esta transacción?' : 'Delete this transaction?').then(function (ok) {
+    if (!ok) return;
+    FT.deleteTx(txId);
+    FT.toast(L ? '🗑️ Eliminada' : '🗑️ Deleted');
+    buscarDuplicados();
+  });
 }
 
 document.addEventListener('ft:ready', function () {
