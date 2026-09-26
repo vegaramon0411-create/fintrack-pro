@@ -398,8 +398,14 @@ FT.saveSavingsFunds = function (list) { FT.set(K.savingsFunds, list); FT._change
 /** Fondo destino cuando nadie especifica uno (todo el código viejo que
  *  llama FT.addSavings sin fundId) -- siempre "General" si existe, si no el
  *  primero de la lista. */
-FT.defaultSavingsFund = function () {
-  var list = FT.savingsFunds();
+// Acepta una lista ya cargada (opcional) para no volver a leer localStorage
+// -- FT.get() siempre deserializa un array/objetos NUEVOS en cada llamada
+// (sin caché), así que llamar FT.savingsFunds() una 2da vez aqui devolvia
+// una copia INDEPENDIENTE de la que ya tenia quien llama (ej. FT.addSavings).
+// Mutar esa copia y guardar la original nunca persistia nada -- causa raiz
+// real de B1 (depósito al fondo default silenciosamente no se guardaba).
+FT.defaultSavingsFund = function (list) {
+  list = list || FT.savingsFunds();
   return list.find(function (f) { return f.id === 'fund_general'; }) || list[0];
 };
 FT.savingsBalance = function () { return FT.savingsFunds().reduce(function (a, f) { return a + (parseFloat(f.actual) || 0); }, 0); };
@@ -413,7 +419,7 @@ FT.savingsHist = function () {
 };
 FT.addSavings = function (entry) {
   var funds = FT.savingsFunds();
-  var f = (entry.fundId && funds.find(function (x) { return x.id === entry.fundId; })) || FT.defaultSavingsFund();
+  var f = (entry.fundId && funds.find(function (x) { return x.id === entry.fundId; })) || FT.defaultSavingsFund(funds);
   var amt = parseFloat(entry.amount) || 0;
   var tipo = entry.tipo || 'deposito';
   f.hist = f.hist || [];
