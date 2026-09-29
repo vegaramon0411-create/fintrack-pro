@@ -115,16 +115,19 @@ function totals() {
     }
   });
   t.personalAhorro = txs.filter(function (x) { return x.type === 'ahorro' && x.hogar !== true; }).reduce(function (s, x) { return s + (parseFloat(x.amount) || 0); }, 0);
-  // "Presupuesto"/"Gastado este mes" es 100% personal -- el mismo criterio
-  // que ya usan needs/wants (nunca incluyen nada marcado hogar). Aporte
-  // hogar del cheque (60% automático en su caso, type:'ahorro' cat:'🏠
-  // Hogar') NUNCA salió de tu 40% personal para empezar -- por eso
-  // t.personalAhorro (ya excluye hogar) reemplaza al t.ahorro genérico
-  // (que sí lo incluía) en esta suma. QA 29-sep-2026: Ramón confirmó que
-  // "Presupuesto de septiembre" debe mostrar solo tu % personal, sin que
-  // NADA de hogar lo toque -- ni el gasto (ya lo excluía desde el fix
-  // anterior para lo pagado con cuenta conjunta) ni el aporte automático.
-  t.spent = t.needs + t.wants + t.personalAhorro + t.inversion;
+  // "Presupuesto"/"Gastado este mes" es personal -- el aporte automático a
+  // hogar (60% en su caso, type:'ahorro' cat:'🏠 Hogar') NUNCA salió de tu
+  // % personal para empezar, así que t.personalAhorro (ya lo excluye)
+  // reemplaza al t.ahorro genérico aquí. PERO un gasto marcado "hogar" SÍ
+  // cuenta contra tu presupuesto cuando tú decides pagarlo con tu PROPIA
+  // cuenta (adelantarlo) -- t.hogar ya excluye únicamente lo pagado desde
+  // la cuenta CONJUNTA (default, no toca tu presupuesto); lo que pagas con
+  // tu cuenta personal sigue siendo, con toda razón, gasto tuyo. Aclarado
+  // por Ramón (29-sep-2026): "para eso implementamos lo de las cuentas,
+  // para que el usuario escoja... si escojo la mía se restará de mi
+  // presupuesto aunque sea un gasto del hogar". Revertido de la versión
+  // anterior (que excluía TODO gasto de hogar sin importar la cuenta).
+  t.spent = t.needs + t.wants + t.hogar + t.personalAhorro + t.inversion;
   return t;
 }
 function partnerHogarSpent() {
@@ -366,13 +369,12 @@ function explain(kind) {
   var es = FT.lang === 'es', t = totals(), L = limits(), rows, title;
   if (kind === 'gasto') {
     title = es ? 'Gastado este mes' : 'Spent this month';
-    // "Gasto del hogar (tu parte)" ya no aparece aquí -- desde el 29-sep
-    // dejó de contar contra tu presupuesto personal (ver totals()), así
-    // que mostrarla en esta suma sería confuso (una línea que no suma al
-    // total de abajo). Sigue visible aparte: el chip "hogar" del hero y su
-    // propio explain('hogar').
+    // "Gasto del hogar (tu parte)" -- restaurada (ver totals()): vuelve a
+    // sumar al total cuando adelantas un gasto de hogar con tu cuenta
+    // personal en vez de la conjunta.
     rows = [
       [(es ? 'Gastos (necesidades + gustos)' : 'Expenses'), '−' + FT.money(t.needs + t.wants)],
+      [(es ? 'Gasto del hogar que adelantaste' : 'Household expenses you fronted'), '−' + FT.money(t.hogar)],
       [(es ? 'Ahorro apartado' : 'Saved'), '−' + FT.money(t.personalAhorro)],
       [(es ? 'Invertido' : 'Invested'), '−' + FT.money(t.inversion)],
       [(es ? '= Total del mes' : '= Month total'), FT.money(t.spent)]
@@ -441,7 +443,6 @@ function openEntry(type) {
   var extra = '';
   if (realType === 'gasto' || realType === 'hipoteca') extra += '<div class="ft-field"><label>' + (es ? 'Categoría' : 'Category') + '</label><select id="eCat">' + CATS.map(function (c) { return '<option>' + c + '</option>'; }).join('') + '</select></div>';
   var hogarAccts = FT.checking().filter(function (a) { return a.hogar; });
-  var canDeductAcct = (realType === 'gasto' || (realType === 'suscripcion' && !isServ)) && hogarAccts.length > 0;
   // Cuentas como base (Fase 1): un gasto PERSONAL (no solo de hogar) también
   // puede elegir de qué cuenta sale -- predeterminada (FT.user().
   // defaultAccountId) o cambiada para este gasto en particular. Un ingreso
@@ -449,6 +450,15 @@ function openEntry(type) {
   // obligatorio, pero sigue siendo opcional para no romper a quien no usa
   // cuentas todavía).
   var myAccts = FT.checking().filter(function (a) { return !a.hogar; });
+  // Un gasto de HOGAR también puede pagarse con tu cuenta PERSONAL (para
+  // adelantarlo de tu propio bolsillo) además de la conjunta -- la
+  // conjunta va primero en la lista (sugerencia/default), pero el usuario
+  // puede elegir cualquiera. Aclarado por Ramón (29-sep-2026): "para eso
+  // implementamos lo de las cuentas, para que el usuario escoja... si
+  // escojo la mía se restará de mi presupuesto aunque sea un gasto del
+  // hogar". Antes este selector solo ofrecía cuentas conjuntas.
+  var hogarAcctOpts = hogarAccts.concat(myAccts);
+  var canDeductAcct = (realType === 'gasto' || (realType === 'suscripcion' && !isServ)) && hogarAcctOpts.length > 0;
   if (realType === 'gasto' && myAccts.length) {
     var defAcctId = FT.user().defaultAccountId;
     extra += '<div class="ft-field" id="eAcctPersWrap"><label>' + (es ? '¿De qué cuenta se paga? (opcional)' : 'Paid from which account? (optional)') + '</label><select id="eAcctPers"><option value="">' + (es ? 'Ninguna' : 'None') + '</option>' + myAccts.map(function (a) { return '<option value="' + a.id + '"' + (a.id === defAcctId ? ' selected' : '') + '>' + a.name + ' (' + FT.money(FT.accountFree(a), { cents: true }) + ' ' + (es ? 'libre' : 'free') + ')</option>'; }).join('') + '</select></div>';
@@ -459,11 +469,22 @@ function openEntry(type) {
   if (FT.hogarConnected() && (realType === 'gasto' || realType === 'inversion' || (realType === 'suscripcion' && !isServ))) {
     extra += '<div class="ft-field"><label>' + (es ? 'Es para' : 'For') + '</label><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><button type="button" id="ePers" class="tap" style="padding:9px;border-radius:10px;border:1.5px solid var(--g-main);background:var(--g-light);color:var(--g-dark);font-weight:800;font-family:var(--ui-font)">👤 ' + (es ? 'Personal' : 'Personal') + '</button><button type="button" id="eHog" class="tap" style="padding:9px;border-radius:10px;border:1px solid var(--hair);background:var(--sunk);color:var(--text2);font-weight:800;font-family:var(--ui-font)">🏠 ' + (es ? 'Hogar' : 'Household') + '</button></div></div>';
     if (canDeductAcct) {
-      extra += '<div class="ft-field" id="eAcctWrap" style="display:none">' +
-        (hogarAccts.length > 1
-          ? '<label>' + (es ? '¿De qué cuenta se paga?' : 'Paid from which account?') + '</label><select id="eAcct">' + hogarAccts.map(function (a) { return '<option value="' + a.id + '">' + a.name + ' (' + FT.money(a.amount) + ')</option>'; }).join('') + '</select>'
-          : '<div class="dt-hint" style="margin:0">💳 ' + (es ? 'Se descontará de "' + hogarAccts[0].name + '" (' + FT.money(hogarAccts[0].amount) + ')' : 'Will be deducted from "' + hogarAccts[0].name + '" (' + FT.money(hogarAccts[0].amount) + ')') + '</div>') +
-        '</div>';
+      // Conjunta primero (grupo aparte, es la sugerencia/default -- no
+      // toca tu presupuesto personal), luego tus cuentas personales (si
+      // eliges una, SÍ cuenta contra tu presupuesto -- lo estás
+      // adelantando de tu bolsillo).
+      extra += '<div class="ft-field" id="eAcctWrap" style="display:none"><label>' + (es ? '¿De qué cuenta se paga?' : 'Paid from which account?') + '</label><select id="eAcct">' +
+        (hogarAccts.length ? '<optgroup label="' + (es ? 'Conjunta' : 'Joint') + '">' + hogarAccts.map(function (a, i) { return '<option value="' + a.id + '"' + (i === 0 ? ' selected' : '') + '>' + a.name + ' (' + FT.money(FT.accountFree(a), { cents: true }) + ')</option>'; }).join('') + '</optgroup>' : '') +
+        (myAccts.length ? '<optgroup label="' + (es ? 'Mi cuenta (adelantar)' : 'My account (front it)') + '">' + myAccts.map(function (a) { return '<option value="' + a.id + '">' + a.name + ' (' + FT.money(FT.accountFree(a), { cents: true }) + ')</option>'; }).join('') + '</optgroup>' : '') +
+        // "Ninguna" al final (gasto en efectivo, o sin cuenta conjunta que
+        // no quieres adelantar de tu bolsillo) -- si no hay ninguna cuenta
+        // conjunta, esta es la que queda seleccionada por default (nunca
+        // se elige una cuenta personal en automático, sin que el usuario
+        // lo pida).
+        '<option value=""' + (hogarAccts.length ? '' : ' selected') + '>' + (es ? 'Ninguna (efectivo / sin registrar)' : 'None (cash / untracked)') + '</option>' +
+        '</select>' +
+        '<p style="font-size:10px;color:var(--text3);margin-top:4px">' + (es ? 'La conjunta no toca tu presupuesto personal -- tu propia cuenta sí.' : "The joint account doesn't touch your personal budget -- your own account does.") + '</p>' +
+      '</div>';
     }
   }
   if (realType === 'ahorro')
@@ -514,7 +535,7 @@ function openEntry(type) {
         // el chequeo a solo "realType==='gasto'", rompiendo en silencio la
         // cuenta de una suscripción de hogar -- corregido antes de subir.
         checkingAccountId: (state.hogar && canDeductAcct)
-          ? (body.querySelector('#eAcct') ? body.querySelector('#eAcct').value : hogarAccts[0].id)
+          ? (body.querySelector('#eAcct') ? body.querySelector('#eAcct').value : hogarAcctOpts[0].id)
           : (realType === 'gasto' && !state.hogar && body.querySelector('#eAcctPers') ? (body.querySelector('#eAcctPers').value || undefined)
             : (realType === 'ingreso' && body.querySelector('#eAcctIn') ? (body.querySelector('#eAcctIn').value || undefined) : undefined))
       };
