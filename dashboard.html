@@ -81,13 +81,33 @@ function monthTxs(off) {
 }
 function totals() {
   var txs = monthTxs();
-  var t = { gasto: 0, ingreso: 0, ahorro: 0, inversion: 0, suscripcion: 0, hipoteca: 0, needs: 0, wants: 0, hogar: 0, txs: txs };
+  var t = { gasto: 0, ingreso: 0, ahorro: 0, inversion: 0, suscripcion: 0, hipoteca: 0, needs: 0, wants: 0, hogar: 0, hogarTotal: 0, txs: txs };
   var conn = FT.hogarConnected();
+  // Cuentas como base (Fase 1): un gasto de hogar puede pagarse desde una
+  // cuenta CONJUNTA -- ese dinero ya se reflejó en el saldo real de esa
+  // cuenta (FT.deductChecking en FT.addEntry), así que no debe ADEMÁS
+  // restarse de tu disponible PERSONAL del mes. Bug real reportado por QA
+  // (29-sep-2026, "Abono a Burbank" $2,200): la cuenta House bajaba a $0
+  // correctamente Y ADEMÁS "Gasto del hogar (tu parte)" subía por el mismo
+  // monto -- doble atribución del mismo dinero. `t.hogarTotal` sigue
+  // sumando TODO el gasto marcado de hogar sin importar de dónde salió
+  // (para la vista combinada "Gasto del hogar en [mes]", hogarCombined
+  // abajo, que sí debe reflejar el gasto real de la casa completo);
+  // `t.hogar` (y por lo tanto `t.spent`/tu disponible) solo suma lo que de
+  // verdad salió de TU lado -- pagado desde tu cuenta personal, o sin
+  // cuenta elegida (el comportamiento de siempre para quien no usa cuentas).
+  var hogarAcctIds = {};
+  FT.checking().forEach(function (a) { if (a.hogar) hogarAcctIds[a.id] = 1; });
   txs.forEach(function (x) {
     var a = parseFloat(x.amount) || 0;
+    var isExpenseType = x.type === 'gasto' || x.type === 'suscripcion' || x.type === 'hipoteca';
+    var isHogarTx = conn && isExpenseType && x.hogar === true;
+    var paidFromHogarAcct = isHogarTx && x.checkingAccountId && hogarAcctIds[x.checkingAccountId];
+    if (isHogarTx) t.hogarTotal += a;
+    if (paidFromHogarAcct) return; // ya se contabilizó en el saldo de la cuenta conjunta -- no toca tu presupuesto personal
     t[x.type] = (t[x.type] || 0) + a;
-    if (x.type === 'gasto' || x.type === 'suscripcion' || x.type === 'hipoteca') {
-      if (conn && x.hogar === true) { t.hogar += a; }
+    if (isExpenseType) {
+      if (isHogarTx) { t.hogar += a; }
       else {
         var kind = x.type === 'hipoteca' ? 'needs' : FT.entryCategoryType(x.cat);
         if (kind === 'needs') t.needs += a; else t.wants += a;
@@ -156,7 +176,11 @@ function catLabel(cat) { var m = String(cat || '').match(/^(\S+)\s+(.*)$/); retu
 function render() {
   var es = FT.lang === 'es';
   var u = FT.user(), t = totals(), L = limits();
-  var hogarCombined = t.hogar + partnerHogarSpent();
+  // hogarCombined = gasto REAL de la casa (mío + de mi pareja), sin
+  // importar de qué cuenta salió cada quien -- por eso usa t.hogarTotal,
+  // no t.hogar (que ahora excluye a propósito lo pagado desde una cuenta
+  // conjunta, ver comentario en totals()).
+  var hogarCombined = t.hogarTotal + partnerHogarSpent();
   var pendingReparto = FT.pendingReparto();
   // FT.accountTotal (Fase 3) incluye lo apartado en fondos vinculados -- si
   // no hay ninguno vinculado, es exactamente lo mismo que sumar c.amount.
@@ -346,7 +370,11 @@ function explain(kind) {
     if (!rows.length) rows = [[es ? 'Sin ingresos registrados' : 'No income logged', FT.money(0)]];
   } else if (kind === 'hogar') {
     title = es ? 'Gasto del hogar' : 'Household spending';
-    rows = [[es ? 'Tu gasto marcado hogar' : 'Your household expenses', FT.money(t.hogar)], [es ? 'Gasto de tu pareja' : "Partner's expenses", FT.money(partnerHogarSpent())], [es ? '= Combinado' : '= Combined', FT.money(t.hogar + partnerHogarSpent())]];
+    // Revisión independiente: `hogarCombined` es una variable local de
+    // render(), no existe aquí dentro de explain() -- usarla tronaba con
+    // ReferenceError y esta hoja nunca abría. Mismo cálculo, expresado
+    // directo con lo que sí está disponible en este scope.
+    rows = [[es ? 'Tu gasto marcado hogar' : 'Your household expenses', FT.money(t.hogarTotal)], [es ? 'Gasto de tu pareja' : "Partner's expenses", FT.money(partnerHogarSpent())], [es ? '= Combinado' : '= Combined', FT.money(t.hogarTotal + partnerHogarSpent())]];
   } else if (kind === 'needs' || kind === 'wants' || kind === 'savings') {
     var pctLbl = { needs: '50%', wants: '30%', savings: '20%' }[kind];
     var spent = kind === 'needs' ? t.needs : kind === 'wants' ? t.wants : (t.personalAhorro + t.inversion);
