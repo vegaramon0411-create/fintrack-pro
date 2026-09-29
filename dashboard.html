@@ -114,8 +114,17 @@ function totals() {
       }
     }
   });
-  t.spent = t.gasto + t.suscripcion + t.hipoteca + t.ahorro + t.inversion;
   t.personalAhorro = txs.filter(function (x) { return x.type === 'ahorro' && x.hogar !== true; }).reduce(function (s, x) { return s + (parseFloat(x.amount) || 0); }, 0);
+  // "Presupuesto"/"Gastado este mes" es 100% personal -- el mismo criterio
+  // que ya usan needs/wants (nunca incluyen nada marcado hogar). Aporte
+  // hogar del cheque (60% automático en su caso, type:'ahorro' cat:'🏠
+  // Hogar') NUNCA salió de tu 40% personal para empezar -- por eso
+  // t.personalAhorro (ya excluye hogar) reemplaza al t.ahorro genérico
+  // (que sí lo incluía) en esta suma. QA 29-sep-2026: Ramón confirmó que
+  // "Presupuesto de septiembre" debe mostrar solo tu % personal, sin que
+  // NADA de hogar lo toque -- ni el gasto (ya lo excluía desde el fix
+  // anterior para lo pagado con cuenta conjunta) ni el aporte automático.
+  t.spent = t.needs + t.wants + t.personalAhorro + t.inversion;
   return t;
 }
 function partnerHogarSpent() {
@@ -210,10 +219,16 @@ function render() {
   var mp = FT.moneyParts(heroAmt, { cents: true });
 
   // BUDGET
-  var budgetLeft = (L.income || 0) - t.spent;
+  // Presupuesto = 100% personal (QA 29-sep-2026): contra L.base (tu % del
+  // cheque, ej. 40%), no L.income (el cheque completo) -- si no, "Presupuesto
+  // restante" mezclaba tu presupuesto personal con el 60%/lo que sea que se
+  // va a hogar, que nunca fue tuyo para empezar. Sin hogar conectado,
+  // L.base === L.income (limits() ya lo resuelve así), cero cambio para
+  // quien no usa Hogar.
+  var budgetLeft = (L.base || 0) - t.spent;
   var dl = daysLeft();
-  var perDay = (L.income > 0 && dl > 0) ? Math.max(0, budgetLeft / dl) : 0;
-  var spentPct = L.income > 0 ? Math.min(100, t.spent / L.income * 100) : 0;
+  var perDay = (L.base > 0 && dl > 0) ? Math.max(0, budgetLeft / dl) : 0;
+  var spentPct = L.base > 0 ? Math.min(100, t.spent / L.base * 100) : 0;
 
   // CATEGORY BARS
   var budgets = catBudgets();
@@ -351,9 +366,13 @@ function explain(kind) {
   var es = FT.lang === 'es', t = totals(), L = limits(), rows, title;
   if (kind === 'gasto') {
     title = es ? 'Gastado este mes' : 'Spent this month';
+    // "Gasto del hogar (tu parte)" ya no aparece aquí -- desde el 29-sep
+    // dejó de contar contra tu presupuesto personal (ver totals()), así
+    // que mostrarla en esta suma sería confuso (una línea que no suma al
+    // total de abajo). Sigue visible aparte: el chip "hogar" del hero y su
+    // propio explain('hogar').
     rows = [
       [(es ? 'Gastos (necesidades + gustos)' : 'Expenses'), '−' + FT.money(t.needs + t.wants)],
-      [(es ? 'Gasto del hogar (tu parte)' : 'Household (your share)'), '−' + FT.money(t.hogar)],
       [(es ? 'Ahorro apartado' : 'Saved'), '−' + FT.money(t.personalAhorro)],
       [(es ? 'Invertido' : 'Invested'), '−' + FT.money(t.inversion)],
       [(es ? '= Total del mes' : '= Month total'), FT.money(t.spent)]
@@ -363,7 +382,9 @@ function explain(kind) {
     rows = pat.parts.map(function (p) { return [p[0], FT.money(p[1])]; }); rows.push([es ? '= Patrimonio' : '= Net worth', FT.money(pat.total)]);
   } else if (kind === 'presupuesto') {
     title = es ? 'Presupuesto del mes' : 'Monthly budget';
-    rows = [[es ? 'Ingreso del mes' : 'Monthly income', FT.money(L.income)], [es ? '− Gastado' : '− Spent', FT.money(t.spent)], [es ? '= Restante' : '= Left', FT.money(L.income - t.spent)]];
+    // L.base = tu % personal del cheque (40% en su caso) cuando hay hogar
+    // conectado; sin hogar, L.base === L.income (limits() ya lo resuelve).
+    rows = [[es ? (FT.hogarConnected() ? 'Tu presupuesto (' + Math.round(FT.personalPct()) + '% de tu cheque)' : 'Ingreso del mes') : (FT.hogarConnected() ? 'Your budget (' + Math.round(FT.personalPct()) + '% of your check)' : 'Monthly income'), FT.money(L.base)], [es ? '− Gastado' : '− Spent', FT.money(t.spent)], [es ? '= Restante' : '= Left', FT.money(L.base - t.spent)]];
   } else if (kind === 'ingreso') {
     title = es ? 'Ingreso del mes' : 'Monthly income';
     rows = t.txs.filter(function (x) { return x.type === 'ingreso'; }).map(function (x) { return [x.desc, '+' + FT.money(x.amount, { cents: true })]; });
