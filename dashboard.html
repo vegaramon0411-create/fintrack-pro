@@ -193,6 +193,18 @@ function render() {
   // no t.hogar (que ahora excluye a propósito lo pagado desde una cuenta
   // conjunta, ver comentario en totals()).
   var hogarCombined = t.hogarTotal + partnerHogarSpent();
+  // Presupuesto del hogar (QA 29-sep-2026): mismo cálculo que ya usa
+  // hogar.html (hogarBudgetHero) -- % combinado (pago + ahorro de casa)
+  // sobre el ingreso combinado de los dos. Se replica aquí en vez de
+  // llamar a una función de hogar.html porque viven en archivos/scripts
+  // separados -- sin tocar el módulo Hogar, solo se lee lo mismo que él ya
+  // expone vía FT.hogar()/FT.partnerProfile().
+  var hg = FT.hogar();
+  var hogarPctTotal = (parseFloat(hg.payPctHogar) || 50) + (parseFloat(hg.saveHogarPct) || 10);
+  var ppr = FT.partnerProfile();
+  var combinedIncome = (u.income || 0) + (ppr ? (ppr.income || 0) : 0);
+  var hogarBudget = combinedIncome * hogarPctTotal / 100;
+  var hogarBudgetLeft = hogarBudget - hogarCombined;
   var pendingReparto = FT.pendingReparto();
   // FT.accountTotal (Fase 3) incluye lo apartado en fondos vinculados -- si
   // no hay ninguno vinculado, es exactamente lo mismo que sumar c.amount.
@@ -233,6 +245,18 @@ function render() {
   var perDay = (L.base > 0 && dl > 0) ? Math.max(0, budgetLeft / dl) : 0;
   var spentPct = L.base > 0 ? Math.min(100, t.spent / L.base * 100) : 0;
 
+  // La tarjeta "Presupuesto" cambia con la vista del hero (QA 29-sep-2026):
+  // en la vista de Hogar (tocar el número grande la cicla), deja de decir
+  // "tu presupuesto" y muestra el presupuesto REAL del hogar (los dos
+  // juntos) en vez de seguir mostrando el personal -- antes se quedaba
+  // fijo en personal sin importar qué vista del hero estuvieras viendo.
+  var showHogarBudget = FT.hogarConnected() && HERO_VIEW === 1;
+  var budCap = showHogarBudget ? (es ? 'Presupuesto del hogar' : 'Household budget') : (es ? 'Presupuesto de ' + MES[FT.lang][viewDate().getMonth()].toLowerCase() : 'Budget for ' + MES[FT.lang][viewDate().getMonth()].toLowerCase());
+  var budLeftShown = showHogarBudget ? hogarBudgetLeft : budgetLeft;
+  var budSpentPct = showHogarBudget ? (hogarBudget > 0 ? Math.min(100, hogarCombined / hogarBudget * 100) : 0) : spentPct;
+  var budPerDay = showHogarBudget ? (hogarBudget > 0 && dl > 0 ? Math.max(0, hogarBudgetLeft / dl) : 0) : perDay;
+  var budExplainKind = showHogarBudget ? 'presupuestoHogar' : 'presupuesto';
+
   // CATEGORY BARS
   var budgets = catBudgets();
   var byCat = {};
@@ -262,12 +286,12 @@ function render() {
     '</div>' +
 
     '<div class="ft-card">' +
-      '<div class="d-bud-h"><span class="t">' + (es ? 'Presupuesto de ' : 'Budget for ') + MES[FT.lang][viewDate().getMonth()].toLowerCase() + '</span>' +
-        '<button class="r" onclick="explain(\'presupuesto\')">' + FT.money(budgetLeft, { cents: true }) + ' ' + (es ? 'restante' : 'left') + '</button></div>' +
+      '<div class="d-bud-h"><span class="t">' + budCap + '</span>' +
+        '<button class="r" onclick="explain(\'' + budExplainKind + '\')">' + FT.money(budLeftShown, { cents: true }) + ' ' + (es ? 'restante' : 'left') + '</button></div>' +
       '<div class="ft-track"><div class="ft-fill" id="dFill"></div></div>' +
       '<div class="d-bud-a"><button onclick="FT.go(\'perfil.html\')">↑ ' + (es ? 'Editar presupuesto' : 'Edit budget') + '</button>' +
         '<button onclick="openPicker()">↓ ' + (es ? 'Nueva transacción' : 'New transaction') + '</button></div>' +
-      (dl > 0 ? '<div class="d-bud-day">' + FT.money(perDay, { cents: true }) + ' / ' + (es ? 'día disponible · ' + dl + ' días restantes' : 'day available · ' + dl + ' days left') + '</div>' : '') +
+      (dl > 0 ? '<div class="d-bud-day">' + FT.money(budPerDay, { cents: true }) + ' / ' + (es ? 'día disponible · ' + dl + ' días restantes' : 'day available · ' + dl + ' days left') + '</div>' : '') +
     '</div>' +
 
     '<div class="ft-section">' +
@@ -301,7 +325,7 @@ function render() {
     recurCardHTML(es);
 
   requestAnimationFrame(function () {
-    var f = document.getElementById('dFill'); if (f) f.style.width = spentPct + '%';
+    var f = document.getElementById('dFill'); if (f) f.style.width = budSpentPct + '%';
     ['needs', 'wants', 'savings'].forEach(function (k) {
       var el = document.getElementById('mf_' + k);
       if (el) el.style.width = el.dataset.pct + '%';
@@ -387,6 +411,23 @@ function explain(kind) {
     // L.base = tu % personal del cheque (40% en su caso) cuando hay hogar
     // conectado; sin hogar, L.base === L.income (limits() ya lo resuelve).
     rows = [[es ? (FT.hogarConnected() ? 'Tu presupuesto (' + Math.round(FT.personalPct()) + '% de tu cheque)' : 'Ingreso del mes') : (FT.hogarConnected() ? 'Your budget (' + Math.round(FT.personalPct()) + '% of your check)' : 'Monthly income'), FT.money(L.base)], [es ? '− Gastado' : '− Spent', FT.money(t.spent)], [es ? '= Restante' : '= Left', FT.money(L.base - t.spent)]];
+  } else if (kind === 'presupuestoHogar') {
+    // Presupuesto del HOGAR (QA 29-sep-2026): la tarjeta debajo del hero
+    // cambia a esto cuando la vista del hero está en "Hogar" -- mismo
+    // cálculo que hogar.html ya usa (hogarBudgetHero), replicado aquí sin
+    // tocar ese módulo.
+    title = es ? 'Presupuesto del hogar' : 'Household budget';
+    var hg2 = FT.hogar();
+    var hogarPctTotal2 = (parseFloat(hg2.payPctHogar) || 50) + (parseFloat(hg2.saveHogarPct) || 10);
+    var ppr2 = FT.partnerProfile();
+    var combinedIncome2 = (FT.user().income || 0) + (ppr2 ? (ppr2.income || 0) : 0);
+    var hogarBudget2 = combinedIncome2 * hogarPctTotal2 / 100;
+    var hogarCombined2 = t.hogarTotal + partnerHogarSpent();
+    rows = [
+      [es ? 'Presupuesto (' + Math.round(hogarPctTotal2) + '% combinado)' : 'Budget (' + Math.round(hogarPctTotal2) + '% combined)', FT.money(hogarBudget2)],
+      [es ? '− Gastado (los dos)' : '− Spent (both)', FT.money(hogarCombined2)],
+      [es ? '= Restante' : '= Left', FT.money(hogarBudget2 - hogarCombined2)]
+    ];
   } else if (kind === 'ingreso') {
     title = es ? 'Ingreso del mes' : 'Monthly income';
     rows = t.txs.filter(function (x) { return x.type === 'ingreso'; }).map(function (x) { return [x.desc, '+' + FT.money(x.amount, { cents: true })]; });
