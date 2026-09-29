@@ -878,19 +878,6 @@ function _openAjusteSaldoCuenta(acct) {
  *  cuenta no aparece aquí (primero hay que desvincularlo desde esa cuenta). */
 function _openVincularFondo(acct, isHogar) {
   var L = FT.lang === 'es';
-  var linked = FT.accountVaults(acct.id);
-  var linkedIds = {}; linked.forEach(function (v) { linkedIds[v.kind + ':' + (v.id || '')] = 1; });
-  var options = [];
-  if (!isHogar) {
-    FT.savingsFunds().forEach(function (f) {
-      if (!f.accountId) options.push({ kind: 'fund', id: f.id, name: f.emoji + ' ' + f.name, actual: parseFloat(f.actual) || 0 });
-    });
-    if (!FT.emergencyAccountId()) options.push({ kind: 'emerg', id: null, name: '🛡️ ' + (L ? 'Emergencia' : 'Emergency'), actual: FT.emergencyBalance() });
-  } else {
-    var hf = FT.hogarFondos();
-    if (hf.emerg && !hf.emerg.accountId) options.push({ kind: 'hogaremerg', id: null, name: '🛡️ ' + (L ? 'Emergencia del hogar' : 'Household emergency'), actual: parseFloat(hf.emerg.actual) || 0 });
-    (hf.metas || []).forEach(function (m) { if (!m.accountId) options.push({ kind: 'hogarmeta', id: m.id, name: '🎯 ' + m.nombre, actual: parseFloat(m.actual) || 0 }); });
-  }
   // Revisión independiente (hallazgo G-1): antes, vincular solo escribía
   // accountId sin tocar ningún número -- eso hacía que el TOTAL MOSTRADO de
   // la cuenta subiera de golpe por el monto del fondo (ej. cuenta $1,000 +
@@ -933,40 +920,64 @@ function _openVincularFondo(acct, isHogar) {
       '<button type="button" data-link="' + v.kind + '|' + (v.id || '') + '" data-mode="' + (isLinked ? 'off' : 'on') + '" style="padding:6px 10px;border-radius:8px;border:1.5px solid ' + (isLinked ? 'var(--red)' : 'var(--g-main)') + ';background:' + (isLinked ? 'var(--red-dim)' : 'var(--g-light)') + ';color:' + (isLinked ? 'var(--red)' : 'var(--g-dark)') + ';font-family:inherit;font-size:10.5px;font-weight:800;cursor:pointer">' + (isLinked ? (L ? 'Desvincular' : 'Unlink') : (L ? 'Vincular' : 'Link')) + '</button>' +
     '</div>';
   }
-  var html = '<div style="background:var(--sky-bg);color:#2A4CC0;border-radius:10px;padding:9px 11px;font-size:11px;font-weight:600;margin-bottom:10px">' +
-      (L ? 'Vincular no cambia tu TOTAL: el saldo libre de la cuenta baja lo mismo que sube el apartado (el dinero del fondo pasa a considerarse parte de esta cuenta).' : "Linking doesn't change your TOTAL: the account's free balance goes down by exactly what the set-aside goes up (the fund's money is now considered part of this account).") + '</div>' +
-    (linked.length ? '<div style="font-size:10.5px;font-weight:800;color:var(--text3);text-transform:uppercase;margin-bottom:6px">' + (L ? 'Ya vinculados' : 'Already linked') + '</div>' + linked.map(function (v) { return rowHtml(v, true); }).join('') : '') +
-    (options.length ? '<div style="font-size:10.5px;font-weight:800;color:var(--text3);text-transform:uppercase;margin:10px 0 6px">' + (L ? 'Disponibles para vincular' : 'Available to link') + '</div>' + options.map(function (v) { return rowHtml(v, false); }).join('') : '<div style="font-size:11.5px;color:var(--text3)">' + (L ? 'No hay más fondos sin vincular.' : 'No more unlinked funds.') + '</div>');
+  // QA (27-sep): al presionar "Vincular"/"Desvincular" la fila debe
+  // cambiar de sección AL INSTANTE, sin tener que cerrar y reabrir el
+  // diálogo. Antes esta función literal cerraba el sheet entero
+  // (FT.closeTop(), animación de 200ms) y abría uno nuevo -- por un
+  // instante había dos overlays encimados (uno saliendo, uno entrando),
+  // que se sentía como "no se actualiza hasta reabrir". Ahora arma el
+  // HTML en una función interna reutilizable y, tras vincular/desvincular,
+  // actualiza el body del MISMO sheet ya abierto en vez de cerrarlo --
+  // misma lógica de montos, cero cambio en eso.
+  function buildHtml() {
+    var linked = FT.accountVaults(acct.id);
+    var options = [];
+    if (!isHogar) {
+      FT.savingsFunds().forEach(function (f) {
+        if (!f.accountId) options.push({ kind: 'fund', id: f.id, name: f.emoji + ' ' + f.name, actual: parseFloat(f.actual) || 0 });
+      });
+      if (!FT.emergencyAccountId()) options.push({ kind: 'emerg', id: null, name: '🛡️ ' + (L ? 'Emergencia' : 'Emergency'), actual: FT.emergencyBalance() });
+    } else {
+      var hf = FT.hogarFondos();
+      if (hf.emerg && !hf.emerg.accountId) options.push({ kind: 'hogaremerg', id: null, name: '🛡️ ' + (L ? 'Emergencia del hogar' : 'Household emergency'), actual: parseFloat(hf.emerg.actual) || 0 });
+      (hf.metas || []).forEach(function (m) { if (!m.accountId) options.push({ kind: 'hogarmeta', id: m.id, name: '🎯 ' + m.nombre, actual: parseFloat(m.actual) || 0 }); });
+    }
+    return '<div style="background:var(--sky-bg);color:#2A4CC0;border-radius:10px;padding:9px 11px;font-size:11px;font-weight:600;margin-bottom:10px">' +
+        (L ? 'Vincular no cambia tu TOTAL: el saldo libre de la cuenta baja lo mismo que sube el apartado (el dinero del fondo pasa a considerarse parte de esta cuenta).' : "Linking doesn't change your TOTAL: the account's free balance goes down by exactly what the set-aside goes up (the fund's money is now considered part of this account).") + '</div>' +
+      (linked.length ? '<div style="font-size:10.5px;font-weight:800;color:var(--text3);text-transform:uppercase;margin-bottom:6px">' + (L ? 'Ya vinculados' : 'Already linked') + '</div>' + linked.map(function (v) { return rowHtml(v, true); }).join('') : '') +
+      (options.length ? '<div style="font-size:10.5px;font-weight:800;color:var(--text3);text-transform:uppercase;margin:10px 0 6px">' + (L ? 'Disponibles para vincular' : 'Available to link') + '</div>' + options.map(function (v) { return rowHtml(v, false); }).join('') : '<div style="font-size:11.5px;color:var(--text3)">' + (L ? 'No hay más fondos sin vincular.' : 'No more unlinked funds.') + '</div>');
+  }
+  function wire(body) {
+    body.querySelectorAll('[data-link]').forEach(function (b) {
+      b.onclick = function () {
+        var parts = b.getAttribute('data-link').split('|'), kind = parts[0], id = parts[1] || null;
+        var on = b.getAttribute('data-mode') === 'on';
+        // Vincular ABSORBE el saldo del fondo hacia el libre de la cuenta
+        // (ver setLink) -- si la cuenta no tiene registrado suficiente
+        // saldo propio para absorberlo sin quedar en negativo, eso es
+        // señal de que el saldo de la cuenta está desactualizado (no un
+        // sobregiro real, nadie gastó nada) -- se bloquea y se guía a
+        // corregirlo primero con "Ajustar saldo", en vez de dejarlo
+        // negativo en silencio.
+        if (on) {
+          var freshAcct = FT.checking().find(function (a) { return a.id === acct.id; });
+          var actual = currentActual(kind, id);
+          if (freshAcct && actual > (parseFloat(freshAcct.amount) || 0) + 0.005) {
+            FT.toast(L ? 'La cuenta no tiene registrado suficiente saldo para absorber este fondo sin quedar en negativo -- ajusta su saldo primero (✏️) para que incluya este dinero.' : "The account doesn't have enough recorded balance to absorb this fund without going negative -- adjust its balance first (✏️) to include this money.", { ms: 5000 });
+            return;
+          }
+        }
+        setLink(kind, id, on ? acct.id : null);
+        FT.toast(on ? (L ? '✅ Vinculado' : '✅ Linked') : (L ? 'Desvinculado' : 'Unlinked'));
+        body.innerHTML = buildHtml();
+        wire(body);
+      };
+    });
+  }
   FT.sheet({
     title: '🔗 ' + (L ? 'Vincular a ' : 'Link to ') + acct.name,
-    html: html,
-    onOpen: function (body) {
-      body.querySelectorAll('[data-link]').forEach(function (b) {
-        b.onclick = function () {
-          var parts = b.getAttribute('data-link').split('|'), kind = parts[0], id = parts[1] || null;
-          var on = b.getAttribute('data-mode') === 'on';
-          // Vincular ABSORBE el saldo del fondo hacia el libre de la cuenta
-          // (ver setLink) -- si la cuenta no tiene registrado suficiente
-          // saldo propio para absorberlo sin quedar en negativo, eso es
-          // señal de que el saldo de la cuenta está desactualizado (no un
-          // sobregiro real, nadie gastó nada) -- se bloquea y se guía a
-          // corregirlo primero con "Ajustar saldo", en vez de dejarlo
-          // negativo en silencio.
-          if (on) {
-            var freshAcct = FT.checking().find(function (a) { return a.id === acct.id; });
-            var actual = currentActual(kind, id);
-            if (freshAcct && actual > (parseFloat(freshAcct.amount) || 0) + 0.005) {
-              FT.toast(L ? 'La cuenta no tiene registrado suficiente saldo para absorber este fondo sin quedar en negativo -- ajusta su saldo primero (✏️) para que incluya este dinero.' : "The account doesn't have enough recorded balance to absorb this fund without going negative -- adjust its balance first (✏️) to include this money.", { ms: 5000 });
-              return;
-            }
-          }
-          setLink(kind, id, on ? acct.id : null);
-          FT.toast(on ? (L ? '✅ Vinculado' : '✅ Linked') : (L ? 'Desvinculado' : 'Unlinked'));
-          FT.closeTop();
-          _openVincularFondo(acct, isHogar);
-        };
-      });
-    }
+    html: buildHtml(),
+    onOpen: wire
   });
 }
 
