@@ -615,8 +615,25 @@ function openEntry(type) {
         var chk = FT.checkOverdraft(o.checkingAccountId, parseFloat(o.amount));
         if (!chk.ok) {
           var acctObj = FT.checking().find(function (a) { return String(a.id) === String(o.checkingAccountId); }) || {};
-          // QA: acortado -- era el confirm() más largo de la app y podía
-          // no verse completo sin depender de scroll dentro del sheet.
+          if (acctObj.hogar) {
+            // Gasto CONJUNTO sin fondos suficientes (QA 30-sep-2026): Ramón
+            // fue explícito -- que la cuenta conjunta llegue a $0 es normal
+            // (se hizo para cubrir gastos de la casa), así que el aviso
+            // genérico de sobregiro ("¿continuar?") no es lo que quiere
+            // aquí. En su lugar, opciones reales: transferir dinero a esa
+            // cuenta ahí mismo, continuar igual, o cancelar.
+            hogarInsufficientSheet(acctObj, chk).then(function (choice) {
+              if (choice === 'continue') afterOverdraft();
+              else if (choice === 'transfer') {
+                FT.closeTop(); // cierra "Nuevo gasto" -- se retoma después de transferir
+                FT.openTransfer({ toType: 'account', toId: acctObj.id, amount: chk.shortfall });
+              }
+              // 'cancel' o cerrar sin elegir: no hace nada, "Nuevo gasto" sigue abierto.
+            });
+            return true;
+          }
+          // Cuenta PERSONAL: el aviso simple de siempre (acortado -- era el
+          // confirm() más largo de la app).
           FT.confirm(FT.lang === 'es'
             ? '«' + (acctObj.name || '') + '» quedaría en negativo (te faltan ' + FT.money(chk.shortfall, { cents: true }) + '). ¿Continuar?'
             : '"' + (acctObj.name || '') + '" would go negative (short ' + FT.money(chk.shortfall, { cents: true }) + '). Continue?'
@@ -652,6 +669,31 @@ function coberturaSheet(name, falt) {
         { label: '💵 ' + (es ? 'Ahorro libre' : 'Free savings') + ' · ' + FT.money(FT.savingsBalance()), primary: true, onClick: function () { resolve('libre'); } },
         { label: '🛡️ ' + (es ? 'Emergencia' : 'Emergency') + ' · ' + FT.money(FT.emergencyBalance()), onClick: function () { resolve('emergencia'); } },
         { label: es ? 'Dejarlo en rojo (gasto extra)' : 'Leave it negative', onClick: function () { resolve('rojo'); } }
+      ]
+    });
+  });
+}
+
+/** Hoja de opciones cuando un gasto CONJUNTO no alcanza en la cuenta
+ *  elegida (QA 30-sep-2026). A diferencia de un gasto personal, quedarse
+ *  en $0 en la cuenta conjunta es normal (se hizo justo para cubrir gastos
+ *  de la casa) -- Ramón no quiere el aviso genérico de sobregiro aquí,
+ *  quiere opciones reales: transferir dinero a esa cuenta ahí mismo,
+ *  continuar igual (queda en negativo), o cancelar. Resuelve
+ *  'transfer'|'continue'|'cancel' -- cerrar el sheet sin elegir nunca
+ *  resuelve nada, mismo criterio que el resto de los sheets de opciones. */
+function hogarInsufficientSheet(acctObj, chk) {
+  var es = FT.lang === 'es';
+  return new Promise(function (resolve) {
+    FT.sheet({
+      title: '🏠 ' + (es ? 'No alcanza en «' + acctObj.name + '»' : 'Not enough in "' + acctObj.name + '"'),
+      html: '<p style="font-size:13px;color:var(--text2);margin:2px 0 6px">' +
+        (es ? 'Tiene ' + FT.money(chk.libre, { cents: true }) + ' libre -- faltan ' : 'Has ' + FT.money(chk.libre, { cents: true }) + ' free -- short ') +
+        '<b>' + FT.money(chk.shortfall, { cents: true }) + '</b>' + (es ? ' para este gasto. ¿Qué quieres hacer?' : ' for this expense. What do you want to do?') + '</p>',
+      actions: [
+        { label: '🔁 ' + (es ? 'Transferir dinero aquí' : 'Transfer money here'), primary: true, onClick: function () { resolve('transfer'); } },
+        { label: '✅ ' + (es ? 'Continuar de todas formas' : 'Continue anyway'), onClick: function () { resolve('continue'); } },
+        { label: es ? 'Cancelar' : 'Cancel', onClick: function () { resolve('cancel'); } }
       ]
     });
   });
