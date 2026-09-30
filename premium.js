@@ -1309,9 +1309,30 @@ FT.personalAvailable = function () {
   var inc = txs.filter(function (t) { return t.type === 'ingreso' && String(t.date || '').slice(0, 7) === mk; });
   var cheque = inc.filter(function (t) { return t.incomeKind !== 'extra' && t.incomeKind !== 'cobertura'; }).reduce(function (s, t) { return s + (parseFloat(t.amount) || 0); }, 0);
   var extra = inc.filter(function (t) { return t.incomeKind === 'extra' || t.incomeKind === 'cobertura'; }).reduce(function (s, t) { return s + (parseFloat(t.amount) || 0); }, 0);
-  var mtx = txs.filter(function (t) { return String(t.date || '').slice(0, 7) === mk && t.hogar !== true; });
-  var sum = function (types) { return mtx.filter(function (t) { return types.indexOf(t.type) > -1; }).reduce(function (s, t) { return s + (parseFloat(t.amount) || 0); }, 0); };
-  return cheque * FT.personalPct() / 100 + extra - sum(['gasto', 'suscripcion', 'hipoteca']) - sum(['ahorro']) - sum(['inversion']);
+  // Mismo criterio que dashboard.html's totals()/budgetLeft (QA 29-sep-2026):
+  // un gasto de hogar pagado con cuenta CONJUNTA no toca tu disponible
+  // personal; pagado con tu propia cuenta (o sin elegir cuenta) sí -- antes
+  // esta función excluía CUALQUIER transacción hogar:true sin importar la
+  // cuenta, dejando "Disponible del mes" (Mi dinero) y el umbral de
+  // cobertura de gasto desincronizados de "Presupuesto restante" del
+  // dashboard, que ya aplicaba este criterio. El aporte automático a hogar
+  // (ahorro) sigue sin contar nunca, sin importar la cuenta -- esa plata
+  // nunca fue tuya para empezar (mismo criterio que t.personalAhorro).
+  var hogarAcctIds = {};
+  FT.checking().forEach(function (a) { if (a.hogar) hogarAcctIds[a.id] = 1; });
+  var mtxAll = txs.filter(function (t) { return String(t.date || '').slice(0, 7) === mk; });
+  var mtxExpense = mtxAll.filter(function (t) { return t.hogar !== true || !(t.checkingAccountId && hogarAcctIds[t.checkingAccountId]); });
+  var mtxPersonal = mtxAll.filter(function (t) { return t.hogar !== true; });
+  var sumOf = function (list, types) { return list.filter(function (t) { return types.indexOf(t.type) > -1; }).reduce(function (s, t) { return s + (parseFloat(t.amount) || 0); }, 0); };
+  var sumE = function (types) { return sumOf(mtxExpense, types); };
+  var sumP = function (types) { return sumOf(mtxPersonal, types); };
+  // inversion NUNCA se filtra por hogar (ni aquí ni en totals()'s t.inversion
+  // -- inversión no es un "tipo de gasto" que ese motor sepa excluir por
+  // cuenta) -- se usa mtxAll, no mtxPersonal, para que una inversión
+  // marcada hogar cuente igual en los dos lados (revisión independiente,
+  // 29-sep-2026: antes personalAvailable() SÍ la excluía y totals() no,
+  // desalineando "Disponible del mes" con "Presupuesto restante").
+  return cheque * FT.personalPct() / 100 + extra - sumE(['gasto', 'suscripcion', 'hipoteca']) - sumP(['ahorro']) - sumOf(mtxAll, ['inversion']);
 };
 
 /* ─────────────────────────────────────────────────────────────────────────
@@ -1984,8 +2005,11 @@ FT.addEntry = function (o) {
   }
   // Un ingreso con cuenta destino (Fase 1: ya no hay "pool sin cuenta") la
   // acredita -- sigue contando contra el mes exactamente igual (esto solo
-  // agrega el efecto de saldo real, no cambia nada de lo que ya hacía
-  // `totals()`/`personalAvailable()`, que jamás leen FT.checking()).
+  // agrega el efecto de saldo real, no cambia el conteo del mes en sí).
+  // Nota (29-sep-2026): `totals()`/`FT.personalAvailable()` SÍ leen
+  // FT.checking() desde el fix de doble atribución de gasto de hogar --
+  // este comentario decía lo contrario y quedó obsoleto, corregido para no
+  // guiar a alguien de vuelta al bug ya cerrado.
   if (o.type === 'ingreso' && o.checkingAccountId) {
     FT.creditChecking(o.checkingAccountId, amount);
     entry.checkingAccountId = o.checkingAccountId;

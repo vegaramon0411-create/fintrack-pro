@@ -155,7 +155,15 @@ function patrimonio() {
   var cheque = inc.filter(function (t) { return t.incomeKind !== 'extra' && t.incomeKind !== 'cobertura'; }).reduce(function (s, t) { return s + (parseFloat(t.amount) || 0); }, 0);
   var extra = inc.filter(function (t) { return t.incomeKind === 'extra' || t.incomeKind === 'cobertura'; }).reduce(function (s, t) { return s + (parseFloat(t.amount) || 0); }, 0);
   var t = totals();
-  var disp = cheque * FT.personalPct() / 100 + extra - t.needs - t.wants - t.personalAhorro - t.inversion;
+  // QA 29-sep-2026: si adelantas un gasto de hogar con tu cuenta PERSONAL,
+  // ese dinero también sale de tu patrimonio -- no solo de tu presupuesto
+  // del mes (budgetLeft, dashboard.html arriba, ya incluye t.hogar desde
+  // el mismo fix). Antes disp nunca restaba t.hogar aquí, así que
+  // "Patrimonio personal" no bajaba aunque de verdad hubieras gastado ese
+  // dinero de tu bolsillo -- mismo criterio ahora en los dos lados: cuenta
+  // conjunta = no toca tu patrimonio ni tu presupuesto; tu cuenta = toca
+  // los dos.
+  var disp = cheque * FT.personalPct() / 100 + extra - t.needs - t.wants - t.hogar - t.personalAhorro - t.inversion;
   return {
     total: FT.savingsBalance() + FT.emergencyBalance() + invVal + (FT.hogarConnected() ? disp : Math.max(0, disp)),
     parts: [
