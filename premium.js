@@ -2143,12 +2143,32 @@ FT.openTransfer = function (opts) {
   function selHtml(id, chosenIdx) {
     return '<select id="' + id + '">' + eps.map(function (e, i) { return '<option value="' + i + '"' + (i === chosenIdx ? ' selected' : '') + '>' + e.label + ' (' + e.sub + ')</option>'; }).join('') + '</select>';
   }
+  // Fondos insuficientes en una cuenta (QA 30-sep-2026): se puede abrir ya
+  // con el destino pre-elegido (ej. "transferir aquí" desde el aviso de un
+  // gasto conjunto sin saldo) y el monto que falta precargado -- opts.toType/
+  // opts.toId/opts.amount, todos opcionales, sin cambiar el comportamiento
+  // normal (Destino en la 2da opción, monto vacío) cuando no se pasan.
+  var toIdx = eps.length > 1 ? 1 : 0;
+  if (opts.toType) {
+    var foundIdx = eps.findIndex(function (e) { return e.type === opts.toType && String(e.id) === String(opts.toId); });
+    if (foundIdx >= 0) toIdx = foundIdx;
+  }
+  // Revisión independiente: "Origen" siempre se asumía índice 0 -- si
+  // alguien no tiene NINGUNA cuenta personal (solo la conjunta), Destino
+  // pre-elegido también cae en 0 (la conjunta es lo único que hay antes de
+  // los fondos), dejando Origen=Destino. El guardado ya lo bloqueaba (no
+  // se perdía dinero), pero fallaba justo en el caso de uso para el que se
+  // construyó esto ("transferir aquí" con una sola cuenta). Si coinciden,
+  // Origen cae al siguiente disponible en vez de forzar al usuario a
+  // notarlo y corregirlo él mismo.
+  var fromIdx = 0;
+  if (fromIdx === toIdx) fromIdx = eps.length > 1 ? 1 : 0;
   FT.modal({
     title: '🔁 ' + (L ? 'Transferir' : 'Transfer'),
     html:
-      '<div class="ft-field"><label>' + (L ? 'Origen' : 'From') + '</label>' + selHtml('xfFrom', 0) + '</div>' +
-      '<div class="ft-field"><label>' + (L ? 'Destino' : 'To') + '</label>' + selHtml('xfTo', eps.length > 1 ? 1 : 0) + '</div>' +
-      '<div class="ft-field"><label>' + (L ? 'Monto' : 'Amount') + '</label><input id="xfAmt" inputmode="decimal" placeholder="$0"></div>' +
+      '<div class="ft-field"><label>' + (L ? 'Origen' : 'From') + '</label>' + selHtml('xfFrom', fromIdx) + '</div>' +
+      '<div class="ft-field"><label>' + (L ? 'Destino' : 'To') + '</label>' + selHtml('xfTo', toIdx) + '</div>' +
+      '<div class="ft-field"><label>' + (L ? 'Monto' : 'Amount') + '</label><input id="xfAmt" inputmode="decimal" placeholder="$0" value="' + (opts.amount ? (+opts.amount).toFixed(2) : '') + '"></div>' +
       '<div class="ft-field"><label>' + (L ? 'Fecha' : 'Date') + '</label><input id="xfDate" type="date" value="' + FT.todayISO() + '"></div>' +
       '<div class="ft-field"><label>' + (L ? 'Nota (opcional)' : 'Note (optional)') + '</label><input id="xfNote"></div>' +
       '<label style="display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600;margin-top:4px;cursor:pointer"><input type="checkbox" id="xfRec"> ' + (L ? 'Hacerla recurrente' : 'Make it recurring') + '</label>' +
