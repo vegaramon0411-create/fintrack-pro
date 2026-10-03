@@ -509,8 +509,8 @@ function openDetail(id) {
     (isSimpleM ? '<div style="background:var(--sunk);border-radius:10px;padding:10px 12px;font-size:11px;color:var(--text3);margin-bottom:14px">🧮 ' + (L ? 'Modo simple: cálculo aproximado, sin desglose mensual.' : 'Simple mode: approximate, no monthly breakdown.') + '</div>' : '') +
     (d.apr && !isSimpleM ? '<div style="background:var(--sunk);border-radius:12px;padding:13px;margin-bottom:14px"><div style="font-size:11px;font-weight:800;margin-bottom:9px">💸 ' + (L ? 'Desglose de tu pago mensual' : 'Monthly payment breakdown') + '</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:9px"><div style="background:#fff;border-radius:10px;padding:10px;text-align:center"><div style="font-weight:900;color:var(--g-main)">' + money(firstPrin, true) + '</div><div style="font-size:9.5px;color:var(--text3)">' + (L ? 'va al capital' : 'to principal') + '</div></div><div style="background:#fff;border-radius:10px;padding:10px;text-align:center"><div style="font-weight:900;color:var(--red)">' + money(firstInt, true) + '</div><div style="font-size:9.5px;color:var(--text3)">' + (L ? 'va al interés' : 'to interest') + '</div></div></div></div>' : '') +
     (d.abonos && d.abonos.length ? '<div class="ft-section-head" style="margin-top:0"><h3>🧾 ' + (L ? 'Historial de abonos' : 'Payment history') + '</h3></div>' + d.abonos.slice().reverse().map(function (a) {
-      return '<div class="dt-abrow" data-abdet="' + a.id + '"><div style="width:32px;height:32px;border-radius:9px;background:' + (a.pending ? 'var(--sunk)' : 'var(--g-light)') + ';display:grid;place-items:center;flex-shrink:0">' + (a.pending ? '📅' : '💳') + '</div>' +
-        '<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:700">' + (a.nota || (L ? 'Abono' : 'Payment')) + (a.pending ? ' <span style="font-size:9px;background:var(--chip);color:var(--text3);padding:2px 7px;border-radius:20px;font-weight:800">' + (L ? 'PROGRAMADO' : 'SCHEDULED') + '</span>' : '') + '</div><div style="font-size:10px;color:var(--text3)">' + FT.date(a.fecha) + (a.tipo === 'existente' ? ' · ' + (L ? 'Ya lo tenía' : 'Already had it') : '') + '</div></div>' +
+      return '<div class="dt-abrow" data-abdet="' + a.id + '"><div style="width:32px;height:32px;border-radius:9px;background:' + (a.pending ? 'var(--sunk)' : 'var(--g-light)') + ';display:grid;place-items:center;flex-shrink:0">' + (a.pendingApproval ? '🔔' : a.pending ? '📅' : '💳') + '</div>' +
+        '<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:700">' + (a.nota || (L ? 'Abono' : 'Payment')) + (a.pendingApproval ? ' <span style="font-size:9px;background:var(--chip);color:var(--text3);padding:2px 7px;border-radius:20px;font-weight:800">' + (L ? 'ESPERANDO APROBACIÓN' : 'AWAITING APPROVAL') + '</span>' : a.pending ? ' <span style="font-size:9px;background:var(--chip);color:var(--text3);padding:2px 7px;border-radius:20px;font-weight:800">' + (L ? 'PROGRAMADO' : 'SCHEDULED') + '</span>' : '') + '</div><div style="font-size:10px;color:var(--text3)">' + FT.date(a.fecha) + (a.tipo === 'existente' ? ' · ' + (L ? 'Ya lo tenía' : 'Already had it') : '') + '</div></div>' +
         '<div style="font-weight:800;color:' + (a.pending ? 'var(--text3)' : 'var(--g-main)') + '">-' + money(a.monto, true) + '</div></div>';
     }).join('') : '') +
     (costoTotalReal != null ? '<div class="dt-costbox"><div class="lab">' + (L ? 'Lo que realmente terminas pagando' : 'What you actually end up paying') + '</div><div class="big">' + money(costoTotalReal, true) + '</div>' +
@@ -538,7 +538,7 @@ function openAbonar(debtId) {
   var L = es();
   var recActivos = FT.recurList(function (r) { return r.kind === 'debt' && String(r.debtId) === String(d.id); });
   var isShared = d.type === 'hipoteca' || d.owner === 'both';
-  var st = { tipo: 'nuevo', rec: false, freq: 'monthly', who: 'me' };
+  var st = { tipo: 'nuevo', rec: false, freq: 'monthly', who: 'me', requireApproval: true };
   // Bug real de QA: el chip "Pago mínimo" mostraba d.payment (el pago
   // mensual normal) en vez de d.minPayment (el mínimo real, que solo se
   // captura para tarjetas) -- si la tarjeta no tiene minPayment guardado,
@@ -581,11 +581,27 @@ function openAbonar(debtId) {
       (abSrcOpts.length ? '<div class="ft-field" id="abAcctWrap"><label>' + (L ? '¿De dónde sale el pago? (opcional)' : 'Where does the payment come from? (optional)') + '</label><select id="abAcct"><option value="">' + (L ? 'Ninguna -- no descuenta nada' : "None -- doesn't deduct anything") + '</option>' + abSrcOpts.map(function (s) { return '<option value="' + s.kind + '|' + s.id + '">' + s.label + ' (' + money(s.amt) + ')</option>'; }).join('') + '</select></div>' : '') +
       '<label class="dt-preview" style="display:block;background:var(--sky-bg);cursor:pointer"><div style="display:flex;justify-content:space-between;align-items:center;font-weight:800;color:#2A4CC0"><span>🔄 ' + (L ? '¿Es recurrente?' : 'Recurring?') + '</span><input type="checkbox" id="abRecChk" style="width:18px;height:18px"></div>' +
         '<div id="abRecWrap" style="display:none;margin-top:9px"><div class="dt-seg" id="abFreqSeg"><button type="button" data-f="weekly">' + (L ? 'Semanal' : 'Weekly') + '</button><button type="button" data-f="biweekly">' + (L ? 'Quincenal' : 'Biweekly') + '</button><button type="button" data-f="monthly" class="on">' + (L ? 'Mensual' : 'Monthly') + '</button></div>' +
+          // Solo tiene sentido cuando el origen es un fondo/Emergencia -- un
+          // pago desde cuenta de cheques se queda automático como siempre
+          // (lo pidió Ramón explícito: ver y aceptar el movimiento de un
+          // fondo/vault, no de una cuenta). onOpen la muestra/esconde según
+          // el picker de origen.
+          '<div id="abApprovalWrap" style="display:none;margin-top:9px;padding-top:9px;border-top:1px dashed rgba(42,76,192,.25)"><label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer" onclick="event.stopPropagation()"><input type="checkbox" id="abApprovalChk" checked style="width:18px;height:18px;margin-top:1px;flex-shrink:0"><span style="font-size:10.5px;font-weight:700;color:#2A4CC0">' + (L ? 'Pedir mi aprobación antes de cada pago (recomendado) — si lo desactivas, se aplica solo como hasta ahora.' : "Ask for my approval before each payment (recommended) — turn it off and it applies on its own, like now.") + '</span></label></div>' +
           (isShared ? '<div style="font-size:10.5px;color:var(--text3);font-weight:700;margin-top:9px">' + (L ? 'Esta deuda es compartida — ¿quién va a hacer este pago cada vez?' : "This debt is shared — who's going to make this payment each time?") + '</div><div class="dt-seg" id="abWhoSeg" style="margin-top:4px"><button type="button" data-w="me" class="on">' + (L ? 'Tú' : 'You') + '</button><button type="button" data-w="partner">' + (L ? 'Tu pareja' : 'Your partner') + '</button></div>' : '') + '</div></label>',
     onOpen: function (body) {
       body.querySelectorAll('[data-chip]').forEach(function (b) { b.onclick = function () { body.querySelector('#abMonto').value = b.getAttribute('data-chip'); }; });
       var ts = body.querySelector('#abTipoSeg'); ts.querySelectorAll('button').forEach(function (b) { b.onclick = function () { st.tipo = b.getAttribute('data-t'); ts.querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', x === b); }); }; });
-      var rc = body.querySelector('#abRecChk'); rc.onchange = function () { st.rec = rc.checked; body.querySelector('#abRecWrap').style.display = rc.checked ? '' : 'none'; };
+      var rc = body.querySelector('#abRecChk');
+      var approvalWrap = body.querySelector('#abApprovalWrap'), approvalChk = body.querySelector('#abApprovalChk');
+      if (approvalChk) approvalChk.onchange = function () { st.requireApproval = approvalChk.checked; };
+      function syncApprovalVisibility() {
+        if (!approvalWrap) return;
+        var acctSel = body.querySelector('#abAcct'), raw = acctSel ? acctSel.value : '';
+        var isFundSrc = !!raw && raw.split('|')[0] !== 'account';
+        approvalWrap.style.display = (st.rec && isFundSrc) ? '' : 'none';
+      }
+      rc.onchange = function () { st.rec = rc.checked; body.querySelector('#abRecWrap').style.display = rc.checked ? '' : 'none'; syncApprovalVisibility(); };
+      var acctSelEl = body.querySelector('#abAcct'); if (acctSelEl) acctSelEl.addEventListener('change', syncApprovalVisibility);
       var fs = body.querySelector('#abFreqSeg'); if (fs) fs.querySelectorAll('button').forEach(function (b) { b.onclick = function () { st.freq = b.getAttribute('data-f'); fs.querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', x === b); }); }; });
       var ws = body.querySelector('#abWhoSeg'); if (ws) ws.querySelectorAll('button').forEach(function (b) { b.onclick = function () { st.who = b.getAttribute('data-w'); ws.querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', x === b); }); }; });
     },
@@ -615,21 +631,10 @@ function openAbonar(debtId) {
           fundSource = { type: srcKind, id: srcId || null };
         }
       }
-      // El motor de recurrentes (_applyRecDebt) todavía solo sabe descontar
-      // de una cuenta -- si se deja crear un recurrente con un fondo como
-      // origen, el primer abono sí saldría del fondo pero cada repetición
-      // después bajaría la deuda sin descontar nada de ningún lado
-      // (revisión independiente, 03-oct-2026). Se bloquea en vez de dejarlo
-      // a medias en silencio.
-      if (fundSource && st.rec) {
-        FT.toast(L ? 'Los abonos recurrentes todavía no pueden salir de un fondo -- elige una cuenta, o desactiva "¿Es recurrente?"' : 'Recurring payments can\'t come from a fund yet -- pick an account, or turn off "Recurring?"');
-        return true;
-      }
-
       function doSave() {
         if (window._savingAbono) return; // evita doble-submit (doble-tap duplicaba el abono)
         window._savingAbono = true;
-        guardarAbono(d.id, { monto: monto, fecha: fecha, nota: nota, tipo: st.tipo, rec: st.rec, freq: st.freq, who: st.who, isShared: isShared, existente: recActivos[0], checkingAccountId: checkingAccountId, fundSource: fundSource });
+        guardarAbono(d.id, { monto: monto, fecha: fecha, nota: nota, tipo: st.tipo, rec: st.rec, freq: st.freq, who: st.who, isShared: isShared, existente: recActivos[0], checkingAccountId: checkingAccountId, fundSource: fundSource, requireApproval: st.requireApproval });
         setTimeout(function () { window._savingAbono = false; }, 800);
         FT.closeTop(); // por si se llamó desde el flujo con confirmación (ese onSave ya dijo "keep" al wrapper)
       }
@@ -721,16 +726,14 @@ function guardarAbono(debtId, o) {
   if (o.existente && o.tipo === 'nuevo' && o.existente.nextDate && o.fecha >= o.existente.nextDate) {
     FT.recurUpdate(o.existente.id, { nextDate: FT._advanceRecDate(o.existente.freq, o.fecha) });
   }
-  // Defensa adicional (la UI de openAbonar ya bloquea esta combinación
-  // antes de llegar aquí, pero guardarAbono podría llamarse directo) --
-  // _applyRecDebt solo sabe descontar de checkingAccountId, así que un
-  // recurrente con fondo como origen pagaría la deuda de la nada en cada
-  // repetición después de la primera.
-  if (o.rec && !o.fundSource) {
+  // _applyRecDebt (premium.js) ya sabe descontar tanto de checkingAccountId
+  // como de fundSource (03-oct-2026) -- el recurrente guarda el que se
+  // haya elegido, nunca los dos a la vez (abAcct es un solo picker).
+  if (o.rec) {
     var hogar = FT.hogar();
     var payerLabel = o.who === 'partner' ? (hogar.partnerName || (L ? 'Tu pareja' : 'Partner')) : (FT.userName() || (L ? 'Tú' : 'You'));
     var rec = FT.recurring();
-    rec.push({ id: 'rec_' + Date.now(), kind: 'debt', debtId: d.id, desc: (L ? 'Abono a ' : 'Payment to ') + d.name, amount: o.monto, freq: o.freq, hogar: !!o.isShared, nextDate: FT._advanceRecDate(o.freq, o.fecha), active: true, createdBy: FT.userName(), payerLabel: payerLabel, payerRole: o.who, checkingAccountId: o.checkingAccountId });
+    rec.push({ id: 'rec_' + Date.now(), kind: 'debt', debtId: d.id, desc: (L ? 'Abono a ' : 'Payment to ') + d.name, amount: o.monto, freq: o.freq, hogar: !!o.isShared, nextDate: FT._advanceRecDate(o.freq, o.fecha), active: true, createdBy: FT.userName(), payerLabel: payerLabel, payerRole: o.who, checkingAccountId: o.checkingAccountId, fundSource: o.fundSource, requireApproval: o.fundSource ? !!o.requireApproval : undefined });
     FT.set(FT.K.recurring, rec);
   }
   if (document.getElementById('dtEdit')) openDetail(debtId); else render();
@@ -742,20 +745,39 @@ function openAbonoDetail(debtId, abonoId) {
   var a = (d.abonos || []).find(function (x) { return String(x.id) === String(abonoId); });
   if (!a) return;
   var L = es();
+  // a.pendingApproval (03-oct-2026): a diferencia de "programado" (solo
+  // falta la fecha), este abono YA llegó a su fecha y lo único que falta
+  // es que tú lo aceptes -- texto y acciones distintas del "programado" de
+  // siempre.
   FT.sheet({
     title: L ? 'Detalle del abono' : 'Payment detail',
     html: '<div style="text-align:center;margin-bottom:14px"><div style="font-family:var(--round-font);font-weight:900;font-size:24px;color:' + (a.pending ? 'var(--text3)' : 'var(--g-main)') + '">-' + money(a.monto, true) + '</div>' +
-      (a.pending ? '<span class="ft-pill" style="margin-top:6px;display:inline-block">📅 ' + (L ? 'Programado — aún no se descuenta' : "Scheduled — not deducted yet") + '</span>' : '') +
+      (a.pendingApproval ? '<span class="ft-pill" style="margin-top:6px;display:inline-block">🔔 ' + (L ? 'Esperando tu aprobación' : 'Awaiting your approval') + '</span>'
+        : a.pending ? '<span class="ft-pill" style="margin-top:6px;display:inline-block">📅 ' + (L ? 'Programado — aún no se descuenta' : "Scheduled — not deducted yet") + '</span>' : '') +
       (a.tipo === 'existente' ? '<span class="ft-pill" style="margin-top:6px;display:inline-block">📦 ' + (L ? 'Ya lo tenía' : 'Already had it') + '</span>' : '') + '</div>' +
       '<div class="ft-row"><span class="k">' + (L ? 'Fecha' : 'Date') + '</span><span class="v">' + FT.date(a.fecha) + '</span></div>' +
+      (a.pendingApproval ? '<div class="ft-row"><span class="k">' + (L ? 'Sale de' : 'Comes from') + '</span><span class="v">' + (FT.pendingDebtApprovals().find(function (p) { return p.abonoId === a.id; }) || {}).fundLabel + '</span></div>' : '') +
       '<div class="ft-row"><span class="k">' + (L ? 'Registrado por' : 'Recorded by') + '</span><span class="v">' + (a.createdBy || '—') + '</span></div>' +
-      (a.pending ? '<p style="font-size:11.5px;color:var(--text3);margin:10px 0">' + (L ? 'El saldo de la deuda se actualizará solo el día que llegue esta fecha.' : "The debt's balance will update on its own once this date arrives.") + '</p>' :
+      (a.pendingApproval ? '<p style="font-size:11.5px;color:var(--text3);margin:10px 0">' + (L ? 'Este pago recurrente ya está listo para aplicarse — acéptalo para mover el dinero del fondo, o sáltalo para esta vez.' : 'This recurring payment is ready to go through — accept it to move the money from the fund, or skip it just this once.') + '</p>'
+        : a.pending ? '<p style="font-size:11.5px;color:var(--text3);margin:10px 0">' + (L ? 'El saldo de la deuda se actualizará solo el día que llegue esta fecha.' : "The debt's balance will update on its own once this date arrives.") + '</p>' :
         '<div class="ft-row"><span class="k">' + (L ? 'Saldo antes' : 'Balance before') + '</span><span class="v">' + money(a.saldoAntes, true) + '</span></div>' +
         '<div class="ft-row"><span class="k">' + (L ? 'Saldo después' : 'Balance after') + '</span><span class="v">' + money(a.saldoDespues, true) + '</span></div>' +
         '<div class="ft-row"><span class="k">' + (L ? 'De ese pago, capital' : 'Of that, principal') + '</span><span class="v" style="color:var(--g-main)">' + money(a.capitalPagado, true) + '</span></div>' +
         '<div class="ft-row"><span class="k">' + (L ? 'De ese pago, interés' : 'Of that, interest') + '</span><span class="v" style="color:var(--red)">' + money(a.interesPagado, true) + '</span></div>') +
       (a.nota ? '<div class="ft-row"><span class="k">' + (L ? 'Nota' : 'Note') + '</span><span class="v">' + a.nota + '</span></div>' : ''),
-    actions: [
+    actions: a.pendingApproval ? [
+      { label: '✅ ' + (L ? 'Aceptar y mover el dinero' : 'Accept and move the money'), onClick: function () {
+          if (FT.resolveDebtApproval(debtId, abonoId, true)) { FT.toast(L ? '✅ Abono aplicado' : '✅ Payment applied'); FT.closeTop(); openDetail(debtId); }
+        } },
+      { label: '⏭️ ' + (L ? 'Saltar esta vez' : 'Skip this time'), onClick: function () {
+          FT.confirm(L ? '¿Saltar este pago? No se mueve nada y se vuelve a preguntar en el próximo periodo.' : "Skip this payment? Nothing moves, and you'll be asked again next period.").then(function (ok) {
+            if (!ok) return;
+            FT.resolveDebtApproval(debtId, abonoId, false);
+            FT.toast(L ? '⏭️ Pago saltado' : '⏭️ Payment skipped');
+            FT.closeTop(); openDetail(debtId);
+          });
+        } }
+    ] : [
       { label: '🗑️ ' + (L ? (a.pending ? 'Cancelar' : 'Eliminar') : (a.pending ? 'Cancel' : 'Delete')), onClick: function () {
           FT.confirm(a.pending ? (L ? '¿Cancelar este pago programado?' : 'Cancel this scheduled payment?') : (L ? '¿Eliminar este abono? El saldo se revierte.' : "Delete this payment? The balance will be reverted.")).then(function (ok) {
             if (!ok) return;
