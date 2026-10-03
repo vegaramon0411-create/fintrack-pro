@@ -624,7 +624,16 @@ function openAbonar(debtId) {
         if (srcKind === 'account') checkingAccountId = srcId;
         else {
           var srcOpt = abSrcOpts.find(function (s) { return s.kind === srcKind && String(s.id) === srcId; });
-          if (srcOpt && monto > srcOpt.amt + 0.005) {
+          // 03-oct-2026 (Ramón): este chequeo era contra el saldo de HOY, pero
+          // un abono con fecha futura ("se va ir depositando cada semana
+          // hasta alcanzar el total") no se cobra hoy -- se queda pending
+          // (guardarAbono) y FT.applyPendingDebtAbonos ya revalida el saldo
+          // FRESCO el día que de verdad llega la fecha, reintentando si
+          // todavía no alcanza. Bloquear aquí por el saldo de hoy le impedía
+          // a Ramón programar un pago que su propio fondo alcanzará a
+          // tiempo -- el chequeo solo tiene sentido para un abono inmediato
+          // (fecha de hoy o pasada), que si saca la plata ya mismo.
+          if (srcOpt && fecha <= FT.todayISO() && monto > srcOpt.amt + 0.005) {
             FT.toast(L ? 'No hay suficiente en «' + srcOpt.label + '» para este abono' : 'Not enough in "' + srcOpt.label + '" for this payment');
             return true;
           }
