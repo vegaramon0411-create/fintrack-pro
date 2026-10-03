@@ -552,6 +552,17 @@ function openAbonar(debtId) {
   // personales. Antes las deudas personales no podían elegir de dónde sale
   // el pago -- Ramón lo pidió para poder llevar el saldo real de su cuenta.
   var abHogarAccts = FT.checking().filter(function (a) { return !!a.hogar === isShared; });
+  // QA 03-oct-2026: también se puede pagar directo desde un fondo de
+  // Ahorro libre o Emergencia (un "vault"), no solo desde una cuenta --
+  // Ramón lo pidió explícito. Solo para deudas PERSONALES (los fondos son
+  // privados por diseño, igual que las cuentas personales ya eran
+  // "adelantar" dinero propio -- una deuda compartida sigue pagándose
+  // solo desde cuentas conjuntas, sin cambios ahí).
+  var abSrcOpts = abHogarAccts.map(function (a) { return { kind: 'account', id: a.id, label: a.name, amt: parseFloat(a.amount) || 0 }; });
+  if (!isShared) {
+    FT.savingsFunds().forEach(function (f) { abSrcOpts.push({ kind: 'fund', id: f.id, label: f.emoji + ' ' + f.name, amt: parseFloat(f.actual) || 0 }); });
+    abSrcOpts.push({ kind: 'emerg', id: '', label: '🛡️ ' + (L ? 'Emergencia' : 'Emergency'), amt: FT.emergencyBalance() });
+  }
 
   var ov = FT.modal({
     title: '💳 ' + (L ? 'Abonar a ' : 'Pay ') + d.name,
@@ -567,7 +578,7 @@ function openAbonar(debtId) {
       // pago se pagó en efectivo, por ejemplo). Ahora deudas personales
       // también pueden elegir cuenta (antes solo las compartidas), así que
       // forzar el descuento sin opción a saltarlo hubiera sido peor.
-      (abHogarAccts.length ? '<div class="ft-field" id="abAcctWrap"><label>' + (L ? '¿De qué cuenta se paga? (opcional)' : 'Paid from which account? (optional)') + '</label><select id="abAcct"><option value="">' + (L ? 'Ninguna -- no descuenta cuenta' : "None -- doesn't deduct an account") + '</option>' + abHogarAccts.map(function (a) { return '<option value="' + a.id + '">' + a.name + ' (' + money(a.amount) + ')</option>'; }).join('') + '</select></div>' : '') +
+      (abSrcOpts.length ? '<div class="ft-field" id="abAcctWrap"><label>' + (L ? '¿De dónde sale el pago? (opcional)' : 'Where does the payment come from? (optional)') + '</label><select id="abAcct"><option value="">' + (L ? 'Ninguna -- no descuenta nada' : "None -- doesn't deduct anything") + '</option>' + abSrcOpts.map(function (s) { return '<option value="' + s.kind + '|' + s.id + '">' + s.label + ' (' + money(s.amt) + ')</option>'; }).join('') + '</select></div>' : '') +
       '<label class="dt-preview" style="display:block;background:var(--sky-bg);cursor:pointer"><div style="display:flex;justify-content:space-between;align-items:center;font-weight:800;color:#2A4CC0"><span>🔄 ' + (L ? '¿Es recurrente?' : 'Recurring?') + '</span><input type="checkbox" id="abRecChk" style="width:18px;height:18px"></div>' +
         '<div id="abRecWrap" style="display:none;margin-top:9px"><div class="dt-seg" id="abFreqSeg"><button type="button" data-f="weekly">' + (L ? 'Semanal' : 'Weekly') + '</button><button type="button" data-f="biweekly">' + (L ? 'Quincenal' : 'Biweekly') + '</button><button type="button" data-f="monthly" class="on">' + (L ? 'Mensual' : 'Monthly') + '</button></div>' +
           (isShared ? '<div style="font-size:10.5px;color:var(--text3);font-weight:700;margin-top:9px">' + (L ? 'Esta deuda es compartida — ¿quién va a hacer este pago cada vez?' : "This debt is shared — who's going to make this payment each time?") + '</div><div class="dt-seg" id="abWhoSeg" style="margin-top:4px"><button type="button" data-w="me" class="on">' + (L ? 'Tú' : 'You') + '</button><button type="button" data-w="partner">' + (L ? 'Tu pareja' : 'Your partner') + '</button></div>' : '') + '</div></label>',
@@ -585,11 +596,40 @@ function openAbonar(debtId) {
       if (!monto || monto <= 0) { FT.toast(L ? 'Ingresa un monto válido' : 'Enter a valid amount'); return true; }
       if (!fecha) { FT.toast(L ? 'Selecciona una fecha' : 'Select a date'); return true; }
 
+      // El valor del picker combinado codifica "kind|id" (cuenta/fondo/
+      // emergencia) -- "" sigue siendo "ninguna". Un fondo/Emergencia nunca
+      // se sobregira (a diferencia de una cuenta): si no alcanza, se
+      // bloquea aquí con aviso en vez de dejarlo clampar en 0 en silencio
+      // (mismo criterio que FT.transfer/FT._xferBalance ya usan).
+      var rawSrc = body.querySelector('#abAcct') ? body.querySelector('#abAcct').value : '';
+      var checkingAccountId, fundSource;
+      if (rawSrc) {
+        var srcParts = rawSrc.split('|'), srcKind = srcParts[0], srcId = srcParts[1] || '';
+        if (srcKind === 'account') checkingAccountId = srcId;
+        else {
+          var srcOpt = abSrcOpts.find(function (s) { return s.kind === srcKind && String(s.id) === srcId; });
+          if (srcOpt && monto > srcOpt.amt + 0.005) {
+            FT.toast(L ? 'No hay suficiente en «' + srcOpt.label + '» para este abono' : 'Not enough in "' + srcOpt.label + '" for this payment');
+            return true;
+          }
+          fundSource = { type: srcKind, id: srcId || null };
+        }
+      }
+      // El motor de recurrentes (_applyRecDebt) todavía solo sabe descontar
+      // de una cuenta -- si se deja crear un recurrente con un fondo como
+      // origen, el primer abono sí saldría del fondo pero cada repetición
+      // después bajaría la deuda sin descontar nada de ningún lado
+      // (revisión independiente, 03-oct-2026). Se bloquea en vez de dejarlo
+      // a medias en silencio.
+      if (fundSource && st.rec) {
+        FT.toast(L ? 'Los abonos recurrentes todavía no pueden salir de un fondo -- elige una cuenta, o desactiva "¿Es recurrente?"' : 'Recurring payments can\'t come from a fund yet -- pick an account, or turn off "Recurring?"');
+        return true;
+      }
+
       function doSave() {
         if (window._savingAbono) return; // evita doble-submit (doble-tap duplicaba el abono)
         window._savingAbono = true;
-        var checkingAccountId = (body.querySelector('#abAcct') ? body.querySelector('#abAcct').value : '') || undefined;
-        guardarAbono(d.id, { monto: monto, fecha: fecha, nota: nota, tipo: st.tipo, rec: st.rec, freq: st.freq, who: st.who, isShared: isShared, existente: recActivos[0], checkingAccountId: checkingAccountId });
+        guardarAbono(d.id, { monto: monto, fecha: fecha, nota: nota, tipo: st.tipo, rec: st.rec, freq: st.freq, who: st.who, isShared: isShared, existente: recActivos[0], checkingAccountId: checkingAccountId, fundSource: fundSource });
         setTimeout(function () { window._savingAbono = false; }, 800);
         FT.closeTop(); // por si se llamó desde el flujo con confirmación (ese onSave ya dijo "keep" al wrapper)
       }
@@ -627,7 +667,7 @@ function guardarAbono(debtId, o) {
 
   if (isPending) {
     d.abonos = d.abonos || [];
-    d.abonos.push({ id: abonoId, monto: o.monto, fecha: o.fecha, nota: o.nota, tipo: o.tipo, createdBy: FT.userName(), txId: null, pending: true, checkingAccountId: o.checkingAccountId, hogarAbono: !!o.isShared });
+    d.abonos.push({ id: abonoId, monto: o.monto, fecha: o.fecha, nota: o.nota, tipo: o.tipo, createdBy: FT.userName(), txId: null, pending: true, checkingAccountId: o.checkingAccountId, fundSource: o.fundSource, hogarAbono: !!o.isShared });
     FT.saveDebts(debts);
     FT.toast((L ? '📅 Programado para el ' + FT.date(o.fecha) + ' — no se descuenta todavía' : '📅 Scheduled for ' + FT.date(o.fecha) + ' — not deducted yet') + (o.rec ? (L ? ' · 🔄 recurrente activado' : ' · 🔄 recurring on') : ''), { ms: 4500 });
   } else {
@@ -650,6 +690,24 @@ function guardarAbono(debtId, o) {
       linkedTxId = abonoId + 1;
       var linkedTx = { id: linkedTxId, type: 'gasto', desc: (L ? 'Abono a ' : 'Payment to ') + d.name, amount: o.monto, date: o.fecha, cat: '💳 Deudas', note: o.nota, hogar: !!o.isShared, createdBy: FT.userName() };
       if (o.checkingAccountId) { FT.deductChecking(o.checkingAccountId, o.monto, o.fecha); linkedTx.checkingAccountId = o.checkingAccountId; }
+      // Pagar desde un fondo de Ahorro libre/Emergencia (QA 03-oct-2026):
+      // mismo mecanismo que cualquier otro retiro de fondo (FT.addSavings/
+      // addEmergency, tipo:'retiro') -- se usa linkedTxId como id de la
+      // fila de historial del fondo, así FT.reverseSavings/reverseEmergency
+      // (via el fundSource genérico en FT.deleteTx) la encuentra y la
+      // revierte si se borra este abono.
+      if (o.fundSource) {
+        // Revisión independiente: sin _noAcctMove, si este fondo está
+        // vinculado a una cuenta (Fase 3), FT.addSavings/addEmergency
+        // ACREDITAN esa cuenta por el retiro (correcto para un retiro
+        // normal -- "el dinero se des-apartó, sigue en la cuenta"), pero
+        // aquí el dinero de verdad SALE del banco a pagar la deuda -- sin
+        // el flag, el total de la cuenta se quedaba igual aunque $300
+        // salieran de verdad (se "reacreditaban" solos).
+        var fsPayload = { id: linkedTxId, amount: o.monto, date: o.fecha, tipo: 'retiro', note: linkedTx.desc, cat: '💳 Deudas', fundId: o.fundSource.type === 'fund' ? o.fundSource.id : undefined, _noAcctMove: true };
+        if (o.fundSource.type === 'emerg') FT.addEmergency(fsPayload); else FT.addSavings(fsPayload);
+        linkedTx.fundSource = o.fundSource;
+      }
       data.transactions.push(linkedTx);
       FT.saveData(data);
     }
@@ -663,7 +721,12 @@ function guardarAbono(debtId, o) {
   if (o.existente && o.tipo === 'nuevo' && o.existente.nextDate && o.fecha >= o.existente.nextDate) {
     FT.recurUpdate(o.existente.id, { nextDate: FT._advanceRecDate(o.existente.freq, o.fecha) });
   }
-  if (o.rec) {
+  // Defensa adicional (la UI de openAbonar ya bloquea esta combinación
+  // antes de llegar aquí, pero guardarAbono podría llamarse directo) --
+  // _applyRecDebt solo sabe descontar de checkingAccountId, así que un
+  // recurrente con fondo como origen pagaría la deuda de la nada en cada
+  // repetición después de la primera.
+  if (o.rec && !o.fundSource) {
     var hogar = FT.hogar();
     var payerLabel = o.who === 'partner' ? (hogar.partnerName || (L ? 'Tu pareja' : 'Partner')) : (FT.userName() || (L ? 'Tú' : 'You'));
     var rec = FT.recurring();

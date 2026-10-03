@@ -54,14 +54,27 @@ function render() {
     ? (pp.data.transactions || []).filter(function (t) { return (t.isHogar || t.hogar === true) && (t.date || '').startsWith(selectedMonth); })
     : [];
 
-  var pIncome = 0, pExpense = 0, pInvest = 0, hAportado = 0, hGastado = 0, hIngreso = 0;
+  // QA 03-oct-2026: "Ingresos" bajo Personal mostraba el monto COMPLETO de
+  // cada cheque -- ningún ingreso de tipo 'ingreso' (ni el cheque
+  // recibido, ni la cobertura) lleva nunca hogar:true (confirmado en todo
+  // el repo), así que el 100% del cheque caía aquí aunque el 60%/lo que
+  // sea esté destinado a hogar. Ramón pidió que esto sea solo lo que de
+  // verdad es suyo: tu % personal del cheque + todo el ingreso extra (ya
+  // 100% tuyo por definición) -- misma fórmula que limits()/
+  // FT.personalAvailable() ya usan en el resto de la app.
+  var pIncomeCheque = 0, pIncomeExtra = 0, pExpense = 0, pInvest = 0, hAportado = 0, hGastado = 0, hIngreso = 0;
   txs.forEach(function (t) {
     var a = parseFloat(t.amount) || 0, esHogarTx = t.isHogar || t.hogar === true;
-    if (t.type === 'ingreso') { if (esHogarTx) hIngreso += a; else pIncome += a; }
+    if (t.type === 'ingreso') {
+      if (esHogarTx) hIngreso += a;
+      else if (t.incomeKind === 'extra' || t.incomeKind === 'cobertura') pIncomeExtra += a;
+      else pIncomeCheque += a;
+    }
     else if (t.type === 'inversion') { pInvest += a; }
     else if (t.type === 'ahorro') { if (esHogarTx) hAportado += a; }
     else if (t.type === 'gasto' || t.type === 'suscripcion' || t.type === 'hipoteca') { if (esHogarTx) hGastado += a; else pExpense += a; }
   });
+  var pIncome = pIncomeCheque * FT.personalPct() / 100 + pIncomeExtra;
   partnerHogarTxs.forEach(function (t) {
     var a = parseFloat(t.amount) || 0;
     if (t.type === 'ingreso') hIngreso += a;
