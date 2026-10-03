@@ -1682,7 +1682,16 @@ function _applyRecDebt(rec, hoy, nextId) {
     var i = debts.findIndex(function (d) { return String(d.id) === String(rec.debtId); });
     if (i < 0) return 'broken';
     var d = debts[i];
-    if ((d.abonos || []).some(function (a) { return a.fecha === hoy && (a.recId === rec.id || !a.recId); })) return 'already';
+    var alreadyAbono = (d.abonos || []).find(function (a) { return a.fecha === hoy && (a.recId === rec.id || !a.recId); });
+    if (alreadyAbono) {
+      // Un abono que ya quedó esperando MI aprobación (ver más abajo) para
+      // este mismo recurrente no cuenta como "ya aplicado" -- si contara, el
+      // bucle en FT.applyDueRecurring avanzaría rec.nextDate solo, sin que
+      // el usuario haya aceptado ni rechazado nada, y la tarjeta de
+      // pendientes quedaría huérfana de su recurrente real.
+      if (alreadyAbono.pendingApproval && alreadyAbono.recId === rec.id) return 'awaiting_approval';
+      return 'already';
+    }
     // Igual que con servicios: si esta deuda es compartida y mi pareja abrió
     // su app primero, es posible que ya haya aplicado este mismo abono
     // automático antes de que la sincronización me avisara -- reviso su
@@ -1691,6 +1700,32 @@ function _applyRecDebt(rec, hoy, nextId) {
       var pp2 = FT.partnerProfile();
       var partnerDebt = pp2 && pp2.data && pp2.data.sharedDebts && pp2.data.sharedDebts.find(function (pd) { return String(pd.id) === String(rec.debtId); });
       if (partnerDebt && (partnerDebt.abonos || []).some(function (a) { return a.fecha === hoy && a.recId === rec.id; })) return 'already';
+    }
+    // Abono recurrente sacado de un fondo/Emergencia (03-oct-2026): a
+    // diferencia de una cuenta de cheques (que se puede sobregirar con
+    // aviso), un fondo/Emergencia NUNCA se sobregira -- mismo criterio que
+    // _applyRecTransferencia ya usa. Si no alcanza TODAVÍA, 'insufficient'
+    // deja el recurrente activo sin avanzar su fecha, para reintentar en la
+    // próxima corrida en vez de fabricar el pago o matar la regla.
+    if (rec.fundSource) {
+      var availFund = rec.fundSource.type === 'emerg' ? FT.emergencyBalance()
+        : (function () { var f = FT.savingsFunds().find(function (x) { return x.id === rec.fundSource.id; }); return f ? parseFloat(f.actual) || 0 : 0; })();
+      if (rec.amount > availFund + 0.005) return 'insufficient';
+    }
+    // Pedir aprobación antes de mover el fondo (03-oct-2026, a petición de
+    // Ramón: "debemos aceptar el movimiento" -- un pago desde cuenta de
+    // cheques se queda automático como siempre, pero sacar de un
+    // fondo/vault privado no debe aplicarse solo sin que lo veas primero,
+    // salvo que tú mismo hayas elegido "automático" al crear el
+    // recurrente). No se toca ni la deuda ni el fondo todavía -- solo se
+    // deja un abono "esperando aprobación" visible en la tarjeta de
+    // pendientes; FT.resolveDebtApproval() es quien de verdad mueve el
+    // dinero cuando tú lo aceptas.
+    if (rec.fundSource && rec.requireApproval) {
+      d.abonos = d.abonos || [];
+      d.abonos.push({ id: nextId(), monto: rec.amount, fecha: hoy, nota: '', tipo: 'nuevo', createdBy: FT.userName(), txId: null, pending: true, pendingApproval: true, recId: rec.id, fundSource: rec.fundSource, hogarAbono: false });
+      FT.set(K.debts, debts);
+      return 'awaiting_approval';
     }
     // Igual que un abono manual (deudas.html/guardarAbono): el saldo baja
     // por el CAPITAL del pago, no por el monto completo -- primero se
@@ -1711,6 +1746,17 @@ function _applyRecDebt(rec, hoy, nextId) {
     // cheques conjunta, descontarla igual que un abono manual -- si no, el
     // saldo de la cuenta se queda sin actualizar cada vez que corre solo.
     if (rec.checkingAccountId) { FT.deductChecking(rec.checkingAccountId, rec.amount, hoy); autoTx.checkingAccountId = rec.checkingAccountId; }
+    // Igual que el abono manual con fondo (deudas.html/guardarAbono):
+    // retiro real con _noAcctMove (el dinero sale del banco de verdad, no
+    // es un movimiento interno) y cat:'💳 Deudas' para que borrar esta
+    // transacción (FT.deleteTx's rama fundSource) y borrar el movimiento
+    // desde la propia pantalla del fondo (FT.balanceScreen's openDetail)
+    // reviertan los dos lados correctamente.
+    else if (rec.fundSource) {
+      var fsPayloadRec = { id: txId, amount: rec.amount, date: hoy, tipo: 'retiro', note: autoTx.desc, cat: '💳 Deudas', fundId: rec.fundSource.type === 'fund' ? rec.fundSource.id : undefined, _noAcctMove: true };
+      if (rec.fundSource.type === 'emerg') FT.addEmergency(fsPayloadRec); else FT.addSavings(fsPayloadRec);
+      autoTx.fundSource = rec.fundSource;
+    }
     dt.transactions.push(autoTx);
     FT.set(K.data, dt);
     d.abonos.push({ id: abonoId, monto: rec.amount, fecha: hoy, nota: '', saldoAntes: old, saldoDespues: nu, tipo: 'nuevo', createdBy: FT.userName(), txId: txId, interesPagado: interes, capitalPagado: capital, auto: true, recId: rec.id });
@@ -1780,12 +1826,18 @@ FT.applyDueRecurring = function () {
       else if (r.kind === 'metapersonal') st = _applyRecMetaPersonal(r, r.nextDate, nextId);
       else if (r.kind === 'transferencia') st = _applyRecTransferencia(r, r.nextDate, nextId);
       if (st === 'broken') { r.active = false; break; }
-      // 'insufficient' (solo _applyRecTransferencia): un fondo/Emergencia
-      // origen no alcanza TODAVÍA -- a diferencia de 'broken', no se
-      // desactiva ni se avanza r.nextDate, para poder reintentarlo en la
-      // próxima corrida en vez de que el recurrente desaparezca para
-      // siempre por un mes corto de fondos.
+      // 'insufficient' (_applyRecTransferencia/_applyRecDebt): un
+      // fondo/Emergencia origen no alcanza TODAVÍA -- a diferencia de
+      // 'broken', no se desactiva ni se avanza r.nextDate, para poder
+      // reintentarlo en la próxima corrida en vez de que el recurrente
+      // desaparezca para siempre por un mes corto de fondos.
       if (st === 'insufficient') break;
+      // 'awaiting_approval' (solo _applyRecDebt con fundSource+
+      // requireApproval): ya se dejó un abono pendiente visible en la
+      // tarjeta de aprobaciones -- tampoco se avanza r.nextDate hasta que
+      // FT.resolveDebtApproval() lo resuelva (aceptar o saltar), para que
+      // el recurrente y el pendiente nunca queden desincronizados.
+      if (st === 'awaiting_approval') break;
       if (st === 'applied') applied++;
       r.nextDate = _advanceRecDate(r.freq, r.nextDate);
       guard++;
@@ -1872,7 +1924,14 @@ FT.applyPendingDebtAbonos = function () {
   debts.forEach(function (d) {
     if (!d || !Array.isArray(d.abonos)) return;
     d.abonos.forEach(function (a) {
-      if (!a || !a.pending || a.fecha > today) return;
+      // a.pendingApproval (03-oct-2026): un abono recurrente esperando que
+      // TÚ lo aceptes -- a diferencia de un abono programado a futuro
+      // (donde solo falta que llegue la fecha), este YA llegó a su fecha a
+      // propósito y espera una acción explícita en la tarjeta de
+      // pendientes. Sin este chequeo, esta misma función lo aplicaría solo
+      // en el siguiente arranque (su fecha ya es <= hoy), moviendo el fondo
+      // sin que nadie lo haya aprobado -- justo lo que se pidió evitar.
+      if (!a || !a.pending || a.pendingApproval || a.fecha > today) return;
       // try/catch por CADA abono (no uno solo para todo el lote): si algo
       // truena en un abono, el resto de deudas/abonos de este mismo run
       // igual se procesan, en vez de que un solo dato corrupto tire todo el
@@ -1947,6 +2006,68 @@ FT.applyPendingDebtAbonos = function () {
     });
   });
   return n;
+};
+/** Lista para la tarjeta "Pagos pendientes de tu aprobación" (dashboard) --
+ *  todo abono de deuda que ya llegó a su fecha pero está esperando que el
+ *  usuario lo acepte antes de mover su fondo/Emergencia privado. */
+FT.pendingDebtApprovals = function () {
+  var out = [];
+  FT.debts().forEach(function (d) {
+    (d.abonos || []).forEach(function (a) {
+      if (!a || !a.pendingApproval) return;
+      var fundLabel = '';
+      if (a.fundSource && a.fundSource.type === 'emerg') fundLabel = '🛡️ ' + (FT.lang === 'es' ? 'Emergencia' : 'Emergency');
+      else if (a.fundSource) { var f = FT.savingsFunds().find(function (x) { return x.id === a.fundSource.id; }); fundLabel = f ? (f.emoji + ' ' + f.name) : (FT.lang === 'es' ? 'Fondo eliminado' : 'Deleted fund'); }
+      out.push({ debtId: d.id, debtName: d.name, abonoId: a.id, monto: a.monto, fecha: a.fecha, fundSource: a.fundSource, fundLabel: fundLabel });
+    });
+  });
+  out.sort(function (a, b) { return a.fecha < b.fecha ? -1 : 1; });
+  return out;
+};
+/** Resuelve un abono "esperando aprobación": approve=true mueve el dinero
+ *  de verdad (mismo cálculo capital/interés y mismo retiro _noAcctMove que
+ *  _applyRecDebt ya usa) y avanza el recurrente a su próximo periodo;
+ *  approve=false descarta SOLO este periodo (no toca ningún saldo) y
+ *  también avanza el recurrente, para que vuelva a preguntar en el
+ *  siguiente. Revalida el saldo del fondo fresco al aceptar -- pudo pasar
+ *  tiempo, o el fondo pudo gastarse en otra cosa mientras esperaba. */
+FT.resolveDebtApproval = function (debtId, abonoId, approve) {
+  var debts = FT.debts();
+  var d = debts.find(function (x) { return String(x.id) === String(debtId); });
+  if (!d) return false;
+  var a = (d.abonos || []).find(function (x) { return String(x.id) === String(abonoId) && x.pendingApproval; });
+  if (!a) return false;
+  var rec = FT.recurring().find(function (r) { return String(r.id) === String(a.recId); });
+  if (approve) {
+    var availFund = a.fundSource.type === 'emerg' ? FT.emergencyBalance()
+      : (function () { var f = FT.savingsFunds().find(function (x) { return x.id === a.fundSource.id; }); return f ? parseFloat(f.actual) || 0 : 0; })();
+    if ((parseFloat(a.monto) || 0) > availFund + 0.005) { if (FT.toast) FT.toast(FT.lang === 'es' ? 'Ya no alcanza en ese fondo -- se queda pendiente' : "That fund doesn't have enough anymore -- staying pending"); return false; }
+    var old = parseFloat(d.balance) || 0;
+    var apr = parseFloat(d.apr) || 0;
+    var interes = apr > 0 ? +(old * (apr / 100 / 12)).toFixed(2) : 0;
+    var capital = +Math.max(0, (parseFloat(a.monto) || 0) - interes).toFixed(2);
+    var nu = Math.max(0, +(old - capital).toFixed(2));
+    d.balance = nu; d.updatedAt = new Date().toISOString();
+    d.paidMonths = d.paidMonths || {}; d.paidMonths[String(a.fecha).slice(0, 7)] = true;
+    var txId = Date.now();
+    var dt = FT.data();
+    var tx = { id: txId, type: 'gasto', desc: (FT.lang === 'es' ? 'Abono a ' : 'Payment to ') + d.name, amount: a.monto, date: a.fecha, cat: '💳 Deudas', createdBy: FT.userName(), auto: true, recId: a.recId, fundSource: a.fundSource };
+    var fsPayload = { id: txId, amount: a.monto, date: a.fecha, tipo: 'retiro', note: tx.desc, cat: '💳 Deudas', fundId: a.fundSource.type === 'fund' ? a.fundSource.id : undefined, _noAcctMove: true };
+    if (a.fundSource.type === 'emerg') FT.addEmergency(fsPayload); else FT.addSavings(fsPayload);
+    dt.transactions.push(tx);
+    FT.set(K.data, dt);
+    a.pending = false; a.pendingApproval = false; a.txId = txId;
+    a.saldoAntes = old; a.saldoDespues = nu; a.interesPagado = interes; a.capitalPagado = capital;
+  } else {
+    // Saltar esta vez: se quita el abono pendiente sin tocar ningún saldo
+    // -- el recurrente sigue activo y volverá a preguntar en su siguiente
+    // fecha.
+    d.abonos = (d.abonos || []).filter(function (x) { return x !== a; });
+  }
+  FT.saveDebts(debts);
+  if (rec) { FT.recurUpdate(rec.id, { nextDate: FT._advanceRecDate(rec.freq, a.fecha) }); }
+  FT._changed();
+  return true;
 };
 FT.runAutomations = function () {
   var n = 0;
@@ -2433,7 +2554,15 @@ FT.getNotifications = function () {
     }
   });
 
-  // 3 · Dinero movido hoy a ahorro / emergencia (entradas automáticas)
+  // 3 · Abonos recurrentes de deuda esperando tu aprobación (03-oct-2026,
+  // a petición de Ramón: "debe de ver una notificación" antes de que se
+  // mueva el dinero de un fondo/vault privado).
+  FT.pendingDebtApprovals().forEach(function (p) {
+    out.push({ icon: '🔔', tone: 'blue', url: 'deudas.html',
+      text: (es ? 'Abono a ' + p.debtName + ' listo — acéptalo para mover ' : 'Payment to ' + p.debtName + ' ready — accept to move ') + FT.money(p.monto) + (es ? ' de ' : ' from ') + p.fundLabel });
+  });
+
+  // 4 · Dinero movido hoy a ahorro / emergencia (entradas automáticas)
   var moved = FT.txs().filter(function (t) { return t.date === FT.todayISO() && t.type === 'ahorro' && t.auto; });
   moved.forEach(function (t) {
     var toEmerg = t.cat === '🛡️ Emergencia' || t.dest === 'emergencia';
@@ -2626,7 +2755,11 @@ function _mergeSharedDebtsIntoMine(partnerSharedDebts) {
 /** Fusiona recurrentes de deuda compartida — sin pisar mi copia si ya avanzó más
  *  su nextDate (evita duplicar un pago que aquí ya se aplicó). */
 function _mergeSharedRecurringIntoMine(partnerSharedRecurring) {
-  partnerSharedRecurring = partnerSharedRecurring || [];
+  // Defensa adicional (FT.pushProfileToGAS ya no sube nada con fundSource,
+  // pero una caché vieja en GAS de antes de ese fix podría seguir
+  // trayéndolo) -- un recurrente con fondo/Emergencia como origen es
+  // siempre privado del dispositivo que lo creó, nunca debe fusionarse.
+  partnerSharedRecurring = (partnerSharedRecurring || []).filter(function (r) { return !r.fundSource; });
   var mine = FT.recurring(), byId = {};
   mine.forEach(function (r) { byId[r.id] = r; });
   var partnerIds = {};
@@ -2736,7 +2869,15 @@ FT.pushProfileToGAS = function () {
     var sharedDebts = myDebts.filter(function (d) { return d.owner === 'both' || d.type === 'hipoteca' || d.type === 'hogar'; })
       .map(function (d) { return { id: d.id, name: d.name, balance: d.balance, original: d.original, type: d.type, payment: d.payment, payDay: d.payDay, owner: d.owner, abonos: (d.abonos || []).slice(-30), updatedAt: d.updatedAt }; });
     var sharedDebtIds = {}; sharedDebts.forEach(function (d) { sharedDebtIds[String(d.id)] = true; });
-    var sharedRecurring = FT.recurring().filter(function (r) { return r.kind === 'debt' && sharedDebtIds[String(r.debtId)]; });
+    // Revisión independiente (03-oct-2026, abono recurrente desde fondo):
+    // esta deuda puede empezar PERSONAL con un recurrente que saca de mi
+    // fondo/Emergencia privado, y luego pasar a "compartida" con un simple
+    // cambio en Editar deuda -- sin el filtro `!r.fundSource`, este bloque
+    // la subiría igual (ya solo mira `sharedDebtIds`, no de dónde sale el
+    // dinero), y la pareja la fusionaría y la correría sola contra SU PROPIO
+    // fondo/Emergencia (son siempre locales por dispositivo, nunca por
+    // usuario) -- plata ajena desapareciendo sin que ella lo supiera.
+    var sharedRecurring = FT.recurring().filter(function (r) { return r.kind === 'debt' && sharedDebtIds[String(r.debtId)] && !r.fundSource; });
     var hogarInv = FT.investments('hogar');
     var thisMonth = FT.todayISO().slice(0, 7);
     var personalSpentThisMonth = (data.transactions || []).filter(function (t) { return String(t.date || '').startsWith(thisMonth) && t.hogar !== true && (t.type === 'gasto' || t.type === 'suscripcion' || t.type === 'hipoteca'); })

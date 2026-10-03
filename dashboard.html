@@ -330,6 +330,7 @@ function render() {
       '<button type="button" class="tap" onclick="FT.go(\'midinero.html\')" style="margin-top:9px;width:100%;display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-radius:10px;border:1.5px solid var(--hair);background:#fff;color:var(--text2);font-family:var(--ui-font);font-weight:800;font-size:12px;cursor:pointer"><span>🏦 ' + (es ? 'Mi dinero' : 'My money') + '</span><span>' + FT.money(myPersonalAccts, { cents: true }) + ' ›</span></button>' +
     '</div>' +
 
+    pendingApprovalsCardHTML(es) +
     recurCardHTML(es);
 
   requestAnimationFrame(function () {
@@ -365,6 +366,31 @@ function mrow(label, key, spent, limit, pct, color) {
 /* Extracto de "Recurrentes" (♻️) — los 3 más próximos de cualquier categoría,
    con botón a la lista completa. Resuelve la duda de que el hub central sea
    difícil de encontrar si solo vive detrás del menú "Más". */
+// 03-oct-2026, a petición de Ramón: los abonos recurrentes de deuda
+// sacados de un fondo/vault ya no se aplican solos -- esta tarjeta (visible
+// solo si hay al menos uno esperando) es el "revisar rápido" que pidió,
+// con Aceptar/Saltar sin salir del dashboard. El bell del shell (arriba)
+// también los lista vía FT.getNotifications(), como notificación.
+function pendingApprovalsCardHTML(es) {
+  var items; try { items = FT.pendingDebtApprovals(); } catch (e) { items = []; }
+  if (!items.length) return '';
+  return '<div class="ft-card" style="border:1.5px solid #BFD7FF;background:#F0F6FF">' +
+    '<div class="ft-section-head" style="margin:0 0 4px"><h3>🔔 ' + (es ? 'Pagos pendientes de tu aprobación' : 'Payments awaiting your approval') + '</h3></div>' +
+    items.map(function (p) {
+      return '<div class="ft-mv" style="align-items:center">' +
+        '<div class="ic rec">💳</div>' +
+        '<div class="m"><div class="n">' + p.debtName + '</div><div class="d">' + p.fundLabel + ' · ' + FT.date(p.fecha) + '</div></div>' +
+        '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px">' +
+          '<div class="amt in">' + FT.money(p.monto, { cents: true }) + '</div>' +
+          '<div style="display:flex;gap:6px">' +
+            '<button type="button" class="tap" data-appr-accept="' + p.debtId + '|' + p.abonoId + '" style="font-size:10px;font-weight:800;padding:4px 10px;border-radius:20px;border:none;background:var(--g-main);color:#fff">' + (es ? 'Aceptar' : 'Accept') + '</button>' +
+            '<button type="button" class="tap" data-appr-skip="' + p.debtId + '|' + p.abonoId + '" style="font-size:10px;font-weight:800;padding:4px 10px;border-radius:20px;border:1px solid var(--hair);background:#fff;color:var(--text3)">' + (es ? 'Saltar' : 'Skip') + '</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    }).join('') +
+  '</div>';
+}
 function recurCardHTML(es) {
   var all;
   try { all = (FT.recurAllList() || []).filter(function (i) { return !i.paused; }); } catch (e) { all = []; }
@@ -831,7 +857,23 @@ document.addEventListener('ft:ready', function () {
   // Tocar una fila de movimiento → hoja de detalle (§6: ninguna fila muerta)
   document.getElementById('dashRoot').addEventListener('click', function (e) {
     var row = e.target.closest('.ft-tx[data-txid]');
-    if (row) FT.openTxDetail(row.getAttribute('data-txid'));
+    if (row) { FT.openTxDetail(row.getAttribute('data-txid')); return; }
+    var es = FT.lang === 'es';
+    var accept = e.target.closest('[data-appr-accept]');
+    if (accept) {
+      var ap = accept.getAttribute('data-appr-accept').split('|');
+      if (FT.resolveDebtApproval(ap[0], ap[1], true)) FT.toast(es ? '✅ Abono aplicado' : '✅ Payment applied');
+      return;
+    }
+    var skip = e.target.closest('[data-appr-skip]');
+    if (skip) {
+      var sp = skip.getAttribute('data-appr-skip').split('|');
+      FT.confirm(es ? '¿Saltar este pago? No se mueve nada y se vuelve a preguntar en el próximo periodo.' : "Skip this payment? Nothing moves, and you'll be asked again next period.").then(function (ok) {
+        if (!ok) return;
+        FT.resolveDebtApproval(sp[0], sp[1], false);
+        FT.toast(es ? '⏭️ Pago saltado' : '⏭️ Payment skipped');
+      });
+    }
   });
   render();
 });
