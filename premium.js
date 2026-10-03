@@ -481,7 +481,18 @@ FT.emergencyHist = function () {
     return { id: h.id, amount: h.amount, note: h.note, date: h.date, tipo: h.tipo || (h.type === 'retiro' ? 'retiro' : 'deposito') };
   });
   var seen = {}, out = [];
-  a.concat(b).forEach(function (h) { var id = h.id != null ? String(h.id) : (h.date + '|' + h.amount); if (!seen[id]) { seen[id] = 1; out.push(h); } });
+  // Revisión independiente (03-oct-2026): la llave de dedup no normalizaba
+  // el prefijo "tx_" -- ft_emerg_hist guarda "777002" y la proyección
+  // legada de ft_emergency_history guarda "tx_777002" para EL MISMO
+  // movimiento, así que nunca se reconocían como duplicados: la pantalla
+  // de Emergencia mostraba cada movimiento DOS veces. La copia legada
+  // además pierde cat/monthTx/cobId (la proyección de abajo solo copia
+  // id/amount/note/date/tipo) -- si alguien tocaba esa fila "de más" para
+  // un retiro que en realidad pagó una deuda, se colaba del chequeo nuevo
+  // de openDetail (cat==='💳 Deudas') y revertía solo el fondo, dejando la
+  // deuda pagada "de la nada". a.concat(b) prioriza la fila rica
+  // (ft_emerg_hist) sobre la legada para la misma llave.
+  a.concat(b).forEach(function (h) { var id = h.id != null ? String(h.id).replace(/^tx_/, '') : (h.date + '|' + h.amount); if (!seen[id]) { seen[id] = 1; out.push(h); } });
   return out;
 };
 FT.addEmergency = function (entry) {
@@ -494,7 +505,12 @@ FT.addEmergency = function (entry) {
   if (acctId) FT[tipo === 'retiro' ? 'creditChecking' : 'deductChecking'](acctId, amt, entry.date);
   d.emergency = Math.max(0, (d.emergency || 0) + (tipo === 'retiro' ? -amt : amt));
   FT.set(K.data, d);
-  var row = { id: entry.id != null ? String(entry.id) : ('e_' + Date.now()), amount: amt, note: entry.note || '', date: entry.date || FT.todayISO(), tipo: tipo, recId: entry.recId || null, cobId: entry.cobId || null, cobFor: entry.cobFor || null, monthTx: entry.monthTx || null, acctMoved: acctId };
+  // `cat` agregado (antes faltaba aquí, FT.addSavings ya lo tenía) para que
+  // openDetail (FT.balanceScreen) pueda distinguir un retiro que en
+  // realidad pagó una deuda (ver ahí abajo, QA 03-oct-2026) -- sin esto,
+  // borrar ese movimiento desde Emergencia solo revertía el fondo y
+  // dejaba la deuda y la transacción vinculada intactas.
+  var row = { id: entry.id != null ? String(entry.id) : ('e_' + Date.now()), amount: amt, note: entry.note || '', date: entry.date || FT.todayISO(), tipo: tipo, cat: entry.cat || '', recId: entry.recId || null, cobId: entry.cobId || null, cobFor: entry.cobFor || null, monthTx: entry.monthTx || null, acctMoved: acctId };
   var h1 = FT.get(K.emergHist, []) || []; h1.push(row); FT.set(K.emergHist, h1);
   var h2 = FT.get(K.emergHistLegacy, []) || []; h2.push({ id: 'tx_' + row.id, amount: amt, date: row.date, type: tipo, note: row.note }); FT.set(K.emergHistLegacy, h2);
   FT._changed();
@@ -1187,6 +1203,17 @@ FT.deleteTx = function (id) {
     if (t.acctCredited) FT.deductChecking(t.checkingAccountId, t.amount);
     else FT.creditChecking(t.checkingAccountId, t.amount);
   }
+  // Abono a deuda pagado desde un fondo de Ahorro libre o Emergencia en vez
+  // de una cuenta (QA 03-oct-2026) -- mismo patrón genérico que
+  // checkingAccountId arriba, reutilizando FT.reverseSavings/
+  // reverseEmergency (ya revisadas, mismo mecanismo que usa cualquier otro
+  // retiro de fondo). Independiente de la rama "💳 Deudas" de abajo: esa
+  // restaura el saldo de la DEUDA, esto restaura el saldo del FONDO -- los
+  // dos tienen que pasar juntos al borrar el abono.
+  if (t.fundSource) {
+    if (t.fundSource.type === 'fund') FT.reverseSavings(t.id);
+    else if (t.fundSource.type === 'emerg') FT.reverseEmergency(t.id);
+  }
 
   // Fuente vinculada
   if (t.type === 'ahorro' && (t.dest === 'libre' || t.cat === '💰 Ahorro')) {
@@ -1851,6 +1878,27 @@ FT.applyPendingDebtAbonos = function () {
       // igual se procesan, en vez de que un solo dato corrupto tire todo el
       // lote y nada se guarde.
       try {
+        // Revisión independiente: un abono programado con origen fondo/
+        // Emergencia se validaba contra el saldo del DÍA EN QUE SE
+        // PROGRAMÓ, no el día en que esto por fin corre (pudo pasar
+        // tiempo, o el fondo pudo gastarse en otra cosa mientras tanto).
+        // FT.addSavings/addEmergency clampan en 0 en vez de rechazar --
+        // sin este chequeo ANTES de tocar el saldo de la deuda, la deuda
+        // bajaba el capital completo mientras el fondo solo daba lo que
+        // de verdad tenía, fabricando la diferencia de la nada (mismo
+        // patrón que ya se blinda en la cobertura de gasto y en la
+        // reversa de transferencias). Si no alcanza, se deja pending para
+        // reintentar en el próximo arranque -- no se aplica a medias.
+        // Solo "nuevo" de verdad toca el fondo (ver el if (a.tipo==='nuevo')
+        // de abajo, igual que checkingAccountId) -- un "existente" con
+        // fondo elegido nunca iba a descontar nada, así que no tiene
+        // sentido bloquearlo aquí por falta de saldo (quedaría pending
+        // para siempre sin motivo).
+        if (a.fundSource && a.tipo === 'nuevo') {
+          var availFund = a.fundSource.type === 'emerg' ? FT.emergencyBalance()
+            : (function () { var f = FT.savingsFunds().find(function (x) { return x.id === a.fundSource.id; }); return f ? parseFloat(f.actual) || 0 : 0; })();
+          if ((parseFloat(a.monto) || 0) > availFund + 0.005) return;
+        }
         // Mismo bug real de QA que en el abono manual/recurrente: el saldo
         // baja por el CAPITAL del pago, no por el monto completo.
         var oldBalance = parseFloat(d.balance) || 0;
@@ -1877,6 +1925,18 @@ FT.applyPendingDebtAbonos = function () {
           var dt = FT.data();
           var linkedTx = { id: txId, type: 'gasto', desc: (es ? 'Abono a ' : 'Payment to ') + d.name, amount: parseFloat(a.monto) || 0, date: a.fecha, cat: '💳 Deudas', note: a.nota, hogar: a.hogarAbono, createdBy: a.createdBy, auto: true };
           if (a.checkingAccountId) { FT.deductChecking(a.checkingAccountId, a.monto, a.fecha); linkedTx.checkingAccountId = a.checkingAccountId; }
+          // Abono programado pagado desde un fondo/Emergencia (QA
+          // 03-oct-2026) -- mismo mecanismo que el abono inmediato en
+          // deudas.html, aplicado aquí cuando por fin llega la fecha.
+          if (a.fundSource) {
+            // _noAcctMove: igual que en deudas.html -- el dinero sale del
+            // banco a pagar la deuda, no se "des-aparta" dentro de la
+            // misma cuenta vinculada (sin esto, una cuenta vinculada se
+            // re-acreditaba sola por el monto que de verdad salió).
+            var fsPayload2 = { id: txId, amount: a.monto, date: a.fecha, tipo: 'retiro', note: linkedTx.desc, cat: '💳 Deudas', fundId: a.fundSource.type === 'fund' ? a.fundSource.id : undefined, _noAcctMove: true };
+            if (a.fundSource.type === 'emerg') FT.addEmergency(fsPayload2); else FT.addSavings(fsPayload2);
+            linkedTx.fundSource = a.fundSource;
+          }
           dt.transactions.push(linkedTx);
           FT.set(K.data, dt);
           a.txId = txId;
@@ -3923,8 +3983,15 @@ FT.balanceScreen = function (opts) {
           onClick: function () {
             FT.confirm(cob ? (L ? '¿Deshacer la cobertura? El dinero vuelve al pozo y el gasto vuelve a contar contra tu disponible.' : 'Undo coverage? Money returns to the fund and the expense counts again.') : (L ? '¿Eliminar este movimiento? Se revierte el saldo.' : 'Delete this movement? The balance is reverted.')).then(function (ok) {
               if (!ok) return;
+              // h.cat==='💳 Deudas' (QA 03-oct-2026): este "retiro" en
+              // realidad pagó una deuda -- borrarlo debe revertir el fondo
+              // Y la deuda Y quitar la transacción vinculada juntos, no
+              // solo el fondo (eso dejaba la deuda pagada "de la nada").
+              // FT.deleteTx ya sabe hacer las tres cosas (su propia rama
+              // fundSource + la rama "💳 Deudas"), igual que ya hace para
+              // un retiro marcado monthTx.
               if (cob) FT.undoCobertura(h.cobId);
-              else if (h.monthTx) FT.deleteTx(String(h.id).replace(/^tx_/, ''));
+              else if (h.monthTx || h.cat === '💳 Deudas') FT.deleteTx(String(h.id).replace(/^tx_/, ''));
               else if (E) FT.reverseEmergency(h.id);
               else FT.reverseSavings(h.id);
               FT.toast(L ? 'Listo' : 'Done'); render();
