@@ -580,7 +580,13 @@ function openAbonar(debtId) {
       // forzar el descuento sin opción a saltarlo hubiera sido peor.
       (abSrcOpts.length ? '<div class="ft-field" id="abAcctWrap"><label>' + (L ? '¿De dónde sale el pago? (opcional)' : 'Where does the payment come from? (optional)') + '</label><select id="abAcct"><option value="">' + (L ? 'Ninguna -- no descuenta nada' : "None -- doesn't deduct anything") + '</option>' + abSrcOpts.map(function (s) { return '<option value="' + s.kind + '|' + s.id + '">' + s.label + ' (' + money(s.amt) + ')</option>'; }).join('') + '</select></div>' : '') +
       '<label class="dt-preview" style="display:block;background:var(--sky-bg);cursor:pointer"><div style="display:flex;justify-content:space-between;align-items:center;font-weight:800;color:#2A4CC0"><span>🔄 ' + (L ? '¿Es recurrente?' : 'Recurring?') + '</span><input type="checkbox" id="abRecChk" style="width:18px;height:18px"></div>' +
-        '<div id="abRecWrap" style="display:none;margin-top:9px"><div class="dt-seg" id="abFreqSeg"><button type="button" data-f="weekly">' + (L ? 'Semanal' : 'Weekly') + '</button><button type="button" data-f="biweekly">' + (L ? 'Quincenal' : 'Biweekly') + '</button><button type="button" data-f="monthly" class="on">' + (L ? 'Mensual' : 'Monthly') + '</button></div>' +
+        '<div id="abRecWrap" style="display:none;margin-top:9px"><div class="dt-seg" id="abFreqSeg"><button type="button" data-f="weekly">' + (L ? 'Semanal' : 'Weekly') + '</button><button type="button" data-f="biweekly">' + (L ? 'Quincenal' : 'Biweekly') + '</button><button type="button" data-f="monthly" class="on">' + (L ? 'Mensual' : 'Monthly') + '</button><button type="button" data-f="custom">' + (L ? 'Personalizado' : 'Custom') + '</button></div>' +
+          // 12-oct-2026, a petición de Ramón: "un pago de la basura que se
+          // cobra cada 4 meses" -- esta deuda no es el caso que pidió
+          // (dijo que era un servicio), pero el abono recurrente de deuda
+          // comparte el mismo problema (solo semanal/quincenal/mensual), así
+          // que se extiende aquí también.
+          FT.customFreqSubFormHTML('ab') +
           // Solo tiene sentido cuando el origen es un fondo/Emergencia -- un
           // pago desde cuenta de cheques se queda automático como siempre
           // (lo pidió Ramón explícito: ver y aceptar el movimiento de un
@@ -602,7 +608,8 @@ function openAbonar(debtId) {
       }
       rc.onchange = function () { st.rec = rc.checked; body.querySelector('#abRecWrap').style.display = rc.checked ? '' : 'none'; syncApprovalVisibility(); };
       var acctSelEl = body.querySelector('#abAcct'); if (acctSelEl) acctSelEl.addEventListener('change', syncApprovalVisibility);
-      var fs = body.querySelector('#abFreqSeg'); if (fs) fs.querySelectorAll('button').forEach(function (b) { b.onclick = function () { st.freq = b.getAttribute('data-f'); fs.querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', x === b); }); }; });
+      var customFreqUI = FT.wireCustomFreqSubForm(body, 'ab');
+      var fs = body.querySelector('#abFreqSeg'); if (fs) fs.querySelectorAll('button').forEach(function (b) { b.onclick = function () { st.freq = b.getAttribute('data-f'); fs.querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', x === b); }); customFreqUI.show(st.freq === 'custom'); }; });
       var ws = body.querySelector('#abWhoSeg'); if (ws) ws.querySelectorAll('button').forEach(function (b) { b.onclick = function () { st.who = b.getAttribute('data-w'); ws.querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', x === b); }); }; });
     },
     onSave: function (body) {
@@ -643,7 +650,8 @@ function openAbonar(debtId) {
       function doSave() {
         if (window._savingAbono) return; // evita doble-submit (doble-tap duplicaba el abono)
         window._savingAbono = true;
-        guardarAbono(d.id, { monto: monto, fecha: fecha, nota: nota, tipo: st.tipo, rec: st.rec, freq: st.freq, who: st.who, isShared: isShared, existente: recActivos[0], checkingAccountId: checkingAccountId, fundSource: fundSource, requireApproval: st.requireApproval });
+        var freq = st.freq === 'custom' ? FT.wireCustomFreqSubForm(body, 'ab').getFreq() : st.freq;
+        guardarAbono(d.id, { monto: monto, fecha: fecha, nota: nota, tipo: st.tipo, rec: st.rec, freq: freq, who: st.who, isShared: isShared, existente: recActivos[0], checkingAccountId: checkingAccountId, fundSource: fundSource, requireApproval: st.requireApproval });
         setTimeout(function () { window._savingAbono = false; }, 800);
         FT.closeTop(); // por si se llamó desde el flujo con confirmación (ese onSave ya dijo "keep" al wrapper)
       }
