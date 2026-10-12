@@ -330,6 +330,7 @@ function render() {
       '<button type="button" class="tap" onclick="FT.go(\'midinero.html\')" style="margin-top:9px;width:100%;display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-radius:10px;border:1.5px solid var(--hair);background:#fff;color:var(--text2);font-family:var(--ui-font);font-weight:800;font-size:12px;cursor:pointer"><span>🏦 ' + (es ? 'Mi dinero' : 'My money') + '</span><span>' + FT.money(myPersonalAccts, { cents: true }) + ' ›</span></button>' +
     '</div>' +
 
+    stuckDebtsCardHTML(es) +
     pendingApprovalsCardHTML(es) +
     recurCardHTML(es);
 
@@ -387,6 +388,27 @@ function pendingApprovalsCardHTML(es) {
             '<button type="button" class="tap" data-appr-skip="' + p.debtId + '|' + p.abonoId + '" style="font-size:10px;font-weight:800;padding:4px 10px;border-radius:20px;border:1px solid var(--hair);background:#fff;color:var(--text3)">' + (es ? 'Saltar' : 'Skip') + '</button>' +
           '</div>' +
         '</div>' +
+      '</div>';
+    }).join('') +
+  '</div>';
+}
+// 12-oct-2026, caso real de Ramón: "SOFI CREDIT CARD" llevaba 5 días sin
+// poder cobrarse porque su fondo "Tarjeta de crédito" estaba en $0 el día
+// que tocaba -- 'insufficient' (premium.js, _applyRecDebt) no deja NINGÚN
+// rastro visible a propósito (evita fabricar o bloquear para siempre), pero
+// eso también significa que sin esta tarjeta el usuario no tenía forma de
+// enterarse de que algo estaba atorado. Distinta de la de arriba: aquí no
+// hay nada que aceptar/saltar todavía, solo falta dinero en el fondo.
+function stuckDebtsCardHTML(es) {
+  var items; try { items = FT.stuckFundedRecurringDebts(); } catch (e) { items = []; }
+  if (!items.length) return '';
+  return '<div class="ft-card" style="border:1.5px solid #F5C2C2;background:#FDF2F2">' +
+    '<div class="ft-section-head" style="margin:0 0 4px"><h3>⚠️ ' + (es ? 'Pagos atorados por falta de fondos' : 'Payments stuck for lack of funds') + '</h3></div>' +
+    items.map(function (s) {
+      return '<div class="ft-mv" style="align-items:center">' +
+        '<div class="ic rec">💳</div>' +
+        '<div class="m"><div class="n">' + s.debtName + '</div><div class="d">' + (es ? 'desde el ' : 'since ') + FT.date(s.nextDate) + ' · ' + (es ? 'falta ' : 'short ') + FT.money(s.shortfall) + '</div></div>' +
+        '<button type="button" class="tap" onclick="FT.go(\'' + (s.fundSource.type === 'emerg' ? 'emergencia.html' : 'ahorro.html') + '\')" style="font-size:10px;font-weight:800;padding:6px 11px;border-radius:20px;border:none;background:#C0392B;color:#fff;flex-shrink:0">' + (es ? 'Depositar' : 'Deposit') + '</button>' +
       '</div>';
     }).join('') +
   '</div>';
