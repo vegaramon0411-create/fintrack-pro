@@ -2701,8 +2701,13 @@ FT.getNotifications = function () {
     var paid = !!(d.paidMonths && d.paidMonths[mk]);
     var hidden = FT.getRaw('ft_notif_hidden_' + d.id + '_' + mk) === '1';
     if (!paid && !hidden && diff <= 5) {
+      // 12-oct-2026 (Ramón): mostraba d.balance (el saldo TOTAL de la
+      // deuda, ej. $230,000 de una hipoteca) en vez de lo que de verdad
+      // toca pagar este periodo -- d.payment es el campo que ya se usa en
+      // toda la app como "pago/mes" (la tarjeta de la deuda, el modal de
+      // abono, etc.), así que es el correcto aquí también.
       out.push({ icon: '💳', tone: 'red', url: 'deudas.html',
-        text: (es ? d.name + ' vence ' + (diff <= 0 ? 'hoy' : 'en ' + diff + ' día' + (diff > 1 ? 's' : '')) : d.name + ' due ' + (diff <= 0 ? 'today' : 'in ' + diff + ' day' + (diff > 1 ? 's' : ''))) + ' · ' + FT.money(d.balance) });
+        text: (es ? d.name + ' vence ' + (diff <= 0 ? 'hoy' : 'en ' + diff + ' día' + (diff > 1 ? 's' : '')) : d.name + ' due ' + (diff <= 0 ? 'today' : 'in ' + diff + ' day' + (diff > 1 ? 's' : ''))) + ' · ' + FT.money(d.payment) });
     }
   });
 
