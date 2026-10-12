@@ -2024,6 +2024,31 @@ FT.pendingDebtApprovals = function () {
   out.sort(function (a, b) { return a.fecha < b.fecha ? -1 : 1; });
   return out;
 };
+/** Recurrentes de deuda sacados de un fondo que llevan su fecha vencida sin
+ *  poder aplicarse por falta de saldo -- a diferencia de 'awaiting_approval'
+ *  (que sí deja un abono pendiente visible), 'insufficient' no persiste
+ *  nada en ningún lado -- así que sin esta función el usuario no tenía
+ *  NINGUNA forma de enterarse de que un pago automático lleva días atorado
+ *  por falta de fondos (caso real de Ramón, 12-oct-2026: "Abono a SOFI
+ *  CREDIT CARD" con next 07/10 congelado, fondo en $0, cero aviso en
+ *  ningún lado -- diagnosticado leyendo el código, confirma su propia
+ *  sospecha "no tengo dinero en mi fondo"). */
+FT.stuckFundedRecurringDebts = function () {
+  var out = [], today = FT.todayISO();
+  FT.recurring().forEach(function (r) {
+    if (r.kind !== 'debt' || !r.active || r.paused || !r.fundSource || !r.nextDate || r.nextDate > today) return;
+    var availFund = r.fundSource.type === 'emerg' ? FT.emergencyBalance()
+      : (function () { var f = FT.savingsFunds().find(function (x) { return x.id === r.fundSource.id; }); return f ? parseFloat(f.actual) || 0 : 0; })();
+    if ((parseFloat(r.amount) || 0) <= availFund + 0.005) return;
+    var d = FT.debts().find(function (x) { return String(x.id) === String(r.debtId); });
+    if (!d) return;
+    var fundLabel = r.fundSource.type === 'emerg' ? '🛡️ ' + (FT.lang === 'es' ? 'Emergencia' : 'Emergency')
+      : (function () { var f = FT.savingsFunds().find(function (x) { return x.id === r.fundSource.id; }); return f ? (f.emoji + ' ' + f.name) : (FT.lang === 'es' ? 'Fondo eliminado' : 'Deleted fund'); })();
+    out.push({ debtId: d.id, debtName: d.name, recId: r.id, amount: r.amount, nextDate: r.nextDate, fundSource: r.fundSource, fundLabel: fundLabel, shortfall: +((parseFloat(r.amount) || 0) - availFund).toFixed(2) });
+  });
+  out.sort(function (a, b) { return a.nextDate < b.nextDate ? -1 : 1; });
+  return out;
+};
 /** Resuelve un abono "esperando aprobación": approve=true mueve el dinero
  *  de verdad (mismo cálculo capital/interés y mismo retiro _noAcctMove que
  *  _applyRecDebt ya usa) y avanza el recurrente a su próximo periodo;
@@ -2560,6 +2585,15 @@ FT.getNotifications = function () {
   FT.pendingDebtApprovals().forEach(function (p) {
     out.push({ icon: '🔔', tone: 'blue', url: 'deudas.html',
       text: (es ? 'Abono a ' + p.debtName + ' listo — acéptalo para mover ' : 'Payment to ' + p.debtName + ' ready — accept to move ') + FT.money(p.monto) + (es ? ' de ' : ' from ') + p.fundLabel });
+  });
+
+  // 3b · Abonos recurrentes de deuda ATORADOS por falta de saldo en su
+  // fondo (12-oct-2026, caso real de Ramón: SOFI CREDIT CARD llevaba 5 días
+  // sin poder cobrarse y no había NINGÚN aviso en ningún lado -- 'insufficient'
+  // no deja rastro persistido, así que esto se recalcula fresco cada vez).
+  FT.stuckFundedRecurringDebts().forEach(function (s) {
+    out.push({ icon: '⚠️', tone: 'red', url: 'deudas.html',
+      text: (es ? 'Abono a ' + s.debtName + ' atorado desde el ' + FT.date(s.nextDate) + ' — falta ' : 'Payment to ' + s.debtName + ' stuck since ' + FT.date(s.nextDate) + ' — short ') + FT.money(s.shortfall) + (es ? ' en ' : ' in ') + s.fundLabel });
   });
 
   // 4 · Dinero movido hoy a ahorro / emergencia (entradas automáticas)
