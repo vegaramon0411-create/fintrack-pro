@@ -142,6 +142,16 @@ function rowHtml(t) {
   var tagLabel, tagBg, tagColor;
   if (t.type === 'ingreso') {
     if (t.incomeKind === 'extra') { tagLabel = L ? '🎁 Extra (100% tuyo)' : '🎁 Extra (100% yours)'; tagBg = 'var(--g-light)'; tagColor = 'var(--g-dark)'; }
+    // 12-oct-2026 (Ramón, capturas): un ingreso de cobertura (FT.addEntry's
+    // o.cobertura -- cubre un gasto PERSONAL sacando de tu propio Ahorro
+    // libre/Emergencia) caía en el `else` de abajo y se mostraba con el
+    // reparto %hogar/%personal del CHEQUE, como "🏠 $47 + 👤 $31" -- un
+    // rótulo falso, nunca se tocó ni un centavo de hogar (FT.addEntry solo
+    // retira de un pozo 100% personal, confirmado leyendo el código; el
+    // total de "Ingresos personales" de arriba YA trataba cobertura como
+    // 100% personal desde la parte 24 -- solo esta etiqueta por fila no se
+    // había corregido igual). Mismo tratamiento que 'extra'.
+    else if (t.incomeKind === 'cobertura') { tagLabel = L ? '💵 Cobertura (100% tuyo)' : '💵 Coverage (100% yours)'; tagBg = 'var(--g-light)'; tagColor = 'var(--g-dark)'; }
     else {
       var hc = FT.hogar(), pct = (parseFloat(hc.payPctHogar) || 50) + (parseFloat(hc.saveHogarPct) || 10);
       var amt = parseFloat(t.amount) || 0, hp = amt * pct / 100, pp2 = amt - hp;
