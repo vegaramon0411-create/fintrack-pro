@@ -822,6 +822,56 @@ function _openReglaCuenta(acct) {
     }
   });
 }
+/** Resumen de reparto. 12-oct-2026, a petición de Ramón: "busco la parte
+ *  de repartos... no encuentro" -- la regla de cada fondo de Ahorro libre
+ *  vive dentro de "Editar fondo" en esa pantalla, y la regla de cada
+ *  cuenta conjunta vive dentro de "Cuentas" en Hogar -- dos pantallas sin
+ *  ningún lugar que las junte. Esta hoja solo LISTA y enlaza, no reinventa
+ *  la edición: una cuenta conjunta abre _openReglaCuenta aquí mismo
+ *  (apilada); un fondo navega a Ahorro libre ya con "Editar fondo"
+ *  abierto solo (openFundForm vive dentro del closure de esa pantalla, no
+ *  se puede abrir desde aquí directamente). */
+FT.openRepartoResumen = function () {
+  var L = FT.lang === 'es';
+  function ruleLbl(rule) { return rule ? (rule.type === 'pct' ? rule.value + '%' : FT.money(rule.value)) : null; }
+  function rowHtmlR(attr, id, name, rule) {
+    var lbl = ruleLbl(rule);
+    return '<div class="tap" data-' + attr + '="' + id + '" style="display:flex;align-items:center;gap:8px;padding:9px;background:var(--sunk);border-radius:10px;margin-bottom:6px;cursor:pointer">' +
+      '<div style="flex:1;min-width:0;font-size:12.5px;font-weight:700">' + name + '</div>' +
+      '<div style="font-size:10.5px;font-weight:800;color:' + (lbl ? 'var(--g-dark)' : 'var(--text3)') + '">' + (lbl ? lbl : (L ? 'Sin regla ›' : 'No rule ›')) + '</div>' +
+    '</div>';
+  }
+  var funds = FT.savingsFunds();
+  var fundRows = funds.map(function (f) { return rowHtmlR('goto-fund', f.id, f.emoji + ' ' + f.name, f.rule); }).join('');
+  var hogarConn = FT.hogarConnected();
+  var jointAccts = hogarConn ? FT.checking().filter(function (c) { return !!c.hogar; }) : [];
+  var acctRows = jointAccts.map(function (c) { return rowHtmlR('edit-acct', c.id, '🏦 ' + (c.name || (L ? 'Cuenta' : 'Account')), c.rule); }).join('');
+  FT.sheet({
+    title: '💰 ' + (L ? 'Cómo se reparte tu cheque' : 'How your paycheck gets split'),
+    html:
+      '<div style="background:var(--sky-bg);color:#2A4CC0;border-radius:10px;padding:9px 11px;font-size:11px;font-weight:600;margin-bottom:12px">' + (L ? 'Toca cualquiera para ponerle o cambiarle su regla (monto fijo o %). Lo que no tenga regla no se reparte solo -- tú lo decides cada vez que llega un cheque.' : "Tap any one to set or change its rule (fixed $ or %). Anything without a rule doesn't split on its own -- you decide each time a paycheck comes in.") + '</div>' +
+      (funds.length ? '<div style="font-size:10.5px;font-weight:800;color:var(--text3);text-transform:uppercase;margin-bottom:6px">' + (L ? 'Fondos de Ahorro libre' : 'Free savings funds') + '</div>' + fundRows : '') +
+      (hogarConn ? '<div style="font-size:10.5px;font-weight:800;color:var(--text3);text-transform:uppercase;margin:' + (funds.length ? '14px' : '0') + ' 0 6px">' + (L ? 'Cuentas conjuntas de hogar' : 'Joint household accounts') + '</div>' + (acctRows || '<div style="font-size:11.5px;color:var(--text3)">' + (L ? 'Aún no tienes ninguna cuenta conjunta.' : "You don't have a joint account yet.") + '</div>') : '') +
+      (!funds.length && !hogarConn ? '<div style="font-size:11.5px;color:var(--text3)">' + (L ? 'Todavía no tienes fondos ni cuentas conjuntas configuradas.' : "You don't have funds or joint accounts set up yet.") + '</div>' : ''),
+    onOpen: function (body) {
+      body.querySelectorAll('[data-goto-fund]').forEach(function (b) {
+        b.onclick = function () {
+          FT.setRaw('ft_open_fund', b.getAttribute('data-goto-fund'));
+          FT.setRaw('ft_open_fund_edit', '1');
+          FT.closeTop();
+          FT.go('ahorro.html');
+        };
+      });
+      body.querySelectorAll('[data-edit-acct]').forEach(function (b) {
+        b.onclick = function () {
+          var id = b.getAttribute('data-edit-acct');
+          var acct = FT.checking().find(function (a) { return String(a.id) === id; });
+          if (acct) _openReglaCuenta(acct);
+        };
+      });
+    }
+  });
+};
 /** Corrige a mano el saldo de una cuenta -- para cuando el depósito
  *  automático no aplicó (ej. cheques registrados antes de configurar la
  *  regla, o antes de que este feature existiera) y quieres que el número
@@ -979,7 +1029,24 @@ function _openVincularFondo(acct, isHogar) {
           var freshAcct = FT.checking().find(function (a) { return a.id === acct.id; });
           var actual = currentActual(kind, id);
           if (freshAcct && actual > (parseFloat(freshAcct.amount) || 0) + 0.005) {
-            FT.toast(L ? 'La cuenta no tiene registrado suficiente saldo para absorber este fondo sin quedar en negativo -- ajusta su saldo primero (✏️) para que incluya este dinero.' : "The account doesn't have enough recorded balance to absorb this fund without going negative -- adjust its balance first (✏️) to include this money.", { ms: 5000 });
+            // 12-oct-2026 (Ramón: "esta parte también es confusa"): el toast
+            // de antes solo DECÍA "ajusta su saldo primero (✏️)" sin llevar
+            // a ningún lado -- el usuario tenía que cerrar este sheet,
+            // encontrar la cuenta en Mis cuentas, ajustarla, y volver a
+            // entrar a Vincular desde cero. Ahora ofrece abrir el mismo
+            // ajuste de saldo (_openAjusteSaldoCuenta) apilado encima, y al
+            // guardar refresca este sheet en su lugar (sigue abierto
+            // debajo) para que el fondo ya se pueda vincular sin volver a
+            // navegar.
+            FT.confirm(L
+              ? 'La cuenta no tiene registrado suficiente saldo para absorber este fondo sin quedar en negativo. ¿Ajustar su saldo ahora?'
+              : "The account doesn't have enough recorded balance to absorb this fund without going negative. Adjust its balance now?"
+            ).then(function (ok) {
+              if (!ok) return;
+              _openAjusteSaldoCuenta(freshAcct);
+              var reRender = function () { body.innerHTML = buildHtml(); wire(body); document.removeEventListener('ft:datachanged', reRender); };
+              document.addEventListener('ft:datachanged', reRender);
+            });
             return;
           }
         }
@@ -3847,6 +3914,16 @@ FT.balanceScreen = function (opts) {
   function refreshFunds() {
     if (E) { funds = []; return; }
     funds = FT.savingsFunds();
+    // Deep-link (12-oct-2026, a petición de Ramón: "que el depósito se
+    // vaya directo a donde tiene que ser" -- el botón "Depositar" de un
+    // pago atorado/pendiente de aprobación por falta de fondos antes
+    // siempre caía en el primer fondo ("General"), obligando a buscar a
+    // mano cuál era el correcto). Solo se consume una vez, al primer
+    // refreshFunds() de esta pantalla.
+    if (!activeFundId) {
+      var deepLink = FT.getRaw('ft_open_fund');
+      if (deepLink) { FT.del('ft_open_fund'); if (funds.some(function (f) { return f.id === deepLink; })) activeFundId = deepLink; }
+    }
     if (!activeFundId || !funds.some(function (f) { return f.id === activeFundId; })) activeFundId = funds[0] && funds[0].id;
   }
   function activeFund() { return funds.find(function (f) { return f.id === activeFundId; }); }
@@ -4251,6 +4328,16 @@ FT.balanceScreen = function (opts) {
   document.addEventListener('ft:datachanged', render);
   document.addEventListener('ft:langchange', render);
   render();
+  // Deep-link opcional (12-oct-2026, "Cómo se reparte tu cheque"): además
+  // de caer ya en el fondo correcto (ft_open_fund, en refreshFunds), si
+  // viene con ft_open_fund_edit abre de una vez "Editar fondo" -- sin
+  // esto, el usuario llegaba al fondo correcto pero igual tenía que buscar
+  // el botón de editar por su cuenta.
+  if (!E && FT.getRaw('ft_open_fund_edit') === '1') {
+    FT.del('ft_open_fund_edit');
+    var fEdit = activeFund();
+    if (fEdit) setTimeout(function () { openFundForm(fEdit); }, 250);
+  }
   return { render: render };
 };
 
