@@ -326,6 +326,11 @@ function render() {
       '<div class="ft-section-head" style="margin:0"><h3>' + (es ? 'Mi cheque' : 'My paycheck') + '</h3><button class="link" onclick="FT.go(\'historial.html\')">' + (es ? 'Ver historial' : 'History') + '</button></div>' +
       '<div class="sub">' + chequeSub() + '</div>' +
       '<button class="ft-btn ft-btn-primary tap" onclick="openCheque()">＋ ' + (es ? 'Recibí mi cheque' : 'I got paid') + '</button>' +
+      // 12-oct-2026, a petición de Ramón: "busco la parte de repartos...
+      // no encuentro" -- antes la regla de cada fondo/cuenta solo se veía
+      // entrando una por una a cada pantalla; este botón junta todo en un
+      // solo lugar (FT.openRepartoResumen, premium.js).
+      '<button type="button" class="tap" onclick="FT.openRepartoResumen()" style="margin-top:9px;width:100%;display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-radius:10px;border:1.5px solid var(--hair);background:#fff;color:var(--text2);font-family:var(--ui-font);font-weight:800;font-size:12px;cursor:pointer"><span>⚙️ ' + (es ? 'Cómo se reparte mi cheque' : 'How my paycheck gets split') + '</span><span>›</span></button>' +
       (pendingReparto > 0.005 ? '<button type="button" class="tap" onclick="openReparto()" style="margin-top:9px;width:100%;display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-radius:10px;border:1.5px dashed var(--g-main);background:var(--g-light);color:var(--g-dark);font-family:var(--ui-font);font-weight:800;font-size:12px;cursor:pointer"><span>💰 ' + (es ? 'Sin repartir a tus fondos' : 'Unassigned to your funds') + '</span><span>' + FT.money(pendingReparto) + ' ›</span></button>' : '') +
       '<button type="button" class="tap" onclick="FT.go(\'midinero.html\')" style="margin-top:9px;width:100%;display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-radius:10px;border:1.5px solid var(--hair);background:#fff;color:var(--text2);font-family:var(--ui-font);font-weight:800;font-size:12px;cursor:pointer"><span>🏦 ' + (es ? 'Mi dinero' : 'My money') + '</span><span>' + FT.money(myPersonalAccts, { cents: true }) + ' ›</span></button>' +
     '</div>' +
@@ -408,7 +413,7 @@ function stuckDebtsCardHTML(es) {
       return '<div class="ft-mv" style="align-items:center">' +
         '<div class="ic rec">💳</div>' +
         '<div class="m"><div class="n">' + s.debtName + '</div><div class="d">' + (es ? 'desde el ' : 'since ') + FT.date(s.nextDate) + ' · ' + (es ? 'falta ' : 'short ') + FT.money(s.shortfall) + '</div></div>' +
-        '<button type="button" class="tap" onclick="FT.go(\'' + (s.fundSource.type === 'emerg' ? 'emergencia.html' : 'ahorro.html') + '\')" style="font-size:10px;font-weight:800;padding:6px 11px;border-radius:20px;border:none;background:#C0392B;color:#fff;flex-shrink:0">' + (es ? 'Depositar' : 'Deposit') + '</button>' +
+        '<button type="button" class="tap" onclick="' + (s.fundSource.type === 'fund' ? "FT.setRaw('ft_open_fund','" + s.fundSource.id + "');" : '') + 'FT.go(\'' + (s.fundSource.type === 'emerg' ? 'emergencia.html' : 'ahorro.html') + '\')" style="font-size:10px;font-weight:800;padding:6px 11px;border-radius:20px;border:none;background:#C0392B;color:#fff;flex-shrink:0">' + (es ? 'Depositar' : 'Deposit') + '</button>' +
       '</div>';
     }).join('') +
   '</div>';
