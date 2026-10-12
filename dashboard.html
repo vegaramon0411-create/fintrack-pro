@@ -174,13 +174,28 @@ function patrimonio() {
     ]
   };
 }
-/** promedio mensual de gasto por categoría en los 3 meses previos → contorno punteado */
+// 12-oct-2026, a petición de Ramón: "necesito que todo esté registrado
+// para poder analizar cuánto se va de mi presupuesto" -- esta función y
+// catItems() más abajo (el "Resumen" del dashboard) solo contaban
+// type:'gasto', dejando afuera suscripciones/hipoteca (mismo tipo de
+// salida personal, solo con otro `type`) y TODO lo que se va a ahorro/
+// inversión (reparto automático a fondos, aportes recurrentes) -- ese
+// dinero sí sale de tu disponible del mes, solo no es "gasto" en el
+// sentido de un gusto/necesidad. _CAT_EXPENSE_TYPES son los que ya tenían
+// `cat` propio (se agrupan por categoría real, igual que siempre);
+// ahorro/inversión no tienen una categoría granular así que se juntan en
+// dos barras nuevas fijas.
+var _CAT_EXPENSE_TYPES = { gasto: 1, suscripcion: 1, hipoteca: 1 };
 function catBudgets() {
   var acc = {}, seen = {};
   for (var k = 1; k <= 3; k++) {
     monthTxs(MONTH_OFF - k).forEach(function (x) {
-      if (x.type !== 'gasto' || x.hogar === true) return;
-      var l = catLabel(x.cat);
+      if (x.hogar === true) return;
+      var l;
+      if (_CAT_EXPENSE_TYPES[x.type]) l = catLabel(x.cat);
+      else if (x.type === 'ahorro') l = FT.lang === 'es' ? 'Ahorro' : 'Savings';
+      else if (x.type === 'inversion') l = FT.lang === 'es' ? 'Inversión' : 'Investment';
+      else return;
       acc[l] = (acc[l] || 0) + (parseFloat(x.amount) || 0);
     });
     var mk = monthKey(MONTH_OFF - k); seen[mk] = 1;
@@ -265,17 +280,29 @@ function render() {
   var budPerDay = showHogarBudget ? (hogarBudget > 0 && dl > 0 ? Math.max(0, hogarBudgetLeft / dl) : 0) : perDay;
   var budExplainKind = showHogarBudget ? 'presupuestoHogar' : 'presupuesto';
 
-  // CATEGORY BARS
+  // CATEGORY BARS -- 12-oct-2026: antes solo 'gasto', dejando afuera
+  // suscripciones/hipoteca (mismo tipo de salida, otro `type`) y lo que se
+  // va a ahorro/inversión (reparto automático, aportes recurrentes) --
+  // Ramón: "necesito que todo esté registrado para analizar cuánto se va
+  // de mi presupuesto". _CAT_EXPENSE_TYPES se agrupan por su categoría
+  // real; ahorro/inversión no tienen categoría granular, se juntan en dos
+  // barras fijas (mismas etiquetas que catBudgets() usa para el contorno).
   var budgets = catBudgets();
-  var byCat = {};
-  t.txs.filter(function (x) { return x.type === 'gasto' && x.hogar !== true; }).forEach(function (x) {
-    var l = catLabel(x.cat); byCat[l] = (byCat[l] || 0) + (parseFloat(x.amount) || 0);
+  var byCat = {}, ahorroThis = 0, invThis = 0;
+  t.txs.forEach(function (x) {
+    if (x.hogar === true) return;
+    if (_CAT_EXPENSE_TYPES[x.type]) { var l = catLabel(x.cat); byCat[l] = (byCat[l] || 0) + (parseFloat(x.amount) || 0); }
+    else if (x.type === 'ahorro') ahorroThis += parseFloat(x.amount) || 0;
+    else if (x.type === 'inversion') invThis += parseFloat(x.amount) || 0;
   });
   var catItems = Object.keys(byCat).map(function (l) {
-    var emojiMatch = t.txs.find(function (x) { return catLabel(x.cat) === l; });
+    var emojiMatch = t.txs.find(function (x) { return _CAT_EXPENSE_TYPES[x.type] && catLabel(x.cat) === l; });
     var em = emojiMatch ? (String(emojiMatch.cat).match(/^(\S+)/) || [''])[0] : '';
     return { cat: (em ? em + ' ' : '') + l, spent: byCat[l], budget: budgets[l] || 0 };
   });
+  var ahorroLbl = es ? 'Ahorro' : 'Savings', invLbl = es ? 'Inversión' : 'Investment';
+  if (ahorroThis > 0.005) catItems.push({ cat: '💰 ' + ahorroLbl, spent: ahorroThis, budget: budgets[ahorroLbl] || 0 });
+  if (invThis > 0.005) catItems.push({ cat: '📈 ' + invLbl, spent: invThis, budget: budgets[invLbl] || 0 });
 
   // MÉTODO
   var nP = L.needs > 0 ? Math.min(100, t.needs / L.needs * 100) : 0;
@@ -309,7 +336,11 @@ function render() {
       '</div>' +
 
       '<div class="ft-pane" id="pResumen" ' + (TAB === 'resumen' ? '' : 'hidden') + '>' +
-        (catItems.length ? FT.catBars(catItems) + '<div class="d-legend"><i></i> ' + (es ? 'contorno = tu promedio de 3 meses' : 'outline = your 3-month average') + '</div>' : '<div class="d-empty">' + (es ? 'Sin gastos personales este mes' : 'No personal spending this month') + '</div>') +
+        // max:6 (antes el default de 4) -- con ahorro/inversión sumados
+        // arriba puede haber hasta 6 barras reales; con el tope viejo, dos
+        // categorías de gasto genuinas se habrían quedado afuera por estas
+        // dos nuevas.
+        (catItems.length ? FT.catBars(catItems, { max: 6 }) + '<div class="d-legend"><i></i> ' + (es ? 'contorno = tu promedio de 3 meses' : 'outline = your 3-month average') + '</div>' : '<div class="d-empty">' + (es ? 'Sin gastos personales este mes' : 'No personal spending this month') + '</div>') +
         '<div class="ft-section"><div class="ft-section-head"><h3>' + (es ? 'Últimos movimientos' : 'Recent activity') + '</h3><button class="link" onclick="FT.go(\'historial.html\')">' + (es ? 'Ver todos' : 'See all') + '</button></div>' +
           (lastTxs.length ? lastTxs.map(function (x, i) { return FT.txRow(x, i); }).join('') : '<div class="d-empty">' + (es ? 'Aún no hay movimientos' : 'No activity yet') + '</div>') + '</div>' +
       '</div>' +
