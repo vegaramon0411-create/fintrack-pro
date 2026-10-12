@@ -251,7 +251,7 @@ FT.recurLabel = function (r) {
     else if (r.kind === 'inversion') name = es ? 'Inversión recurrente' : 'Recurring investment';
     else if (r.kind === 'metapersonal') { var _g = FT.goals().find(function (x) { return String(x.id) === String(r.goalId); }); name = (_g && _g.name) || (es ? 'Aporte a meta' : 'Goal contribution'); }
   }
-  var freq = { weekly: es ? 'cada semana' : 'weekly', biweekly: es ? 'cada quincena' : 'biweekly', monthly: es ? 'cada mes' : 'monthly' }[r.freq] || r.freq;
+  var freq = { weekly: es ? 'cada semana' : 'weekly', biweekly: es ? 'cada quincena' : 'biweekly', monthly: es ? 'cada mes' : 'monthly' }[r.freq] || FT.customFreqLabel(r.freq) || r.freq;
   var sub = freq + ' · ' + (es ? 'próximo ' : 'next ') + FT.date(r.nextDate) + (r.paused ? (es ? ' · pausado' : ' · paused') : '');
   return { name: name, sub: sub };
 };
@@ -1576,11 +1576,81 @@ FT.catchUpCheques = function () {
   return missing.length;
 };
 
+// Recurrente "libre" (12-oct-2026, a petición de Ramón: "un pago de la
+// basura que se cobra cada 4 meses" -- no entraba en semanal/quincenal/
+// mensual). `freq` sigue siendo un string en todo el código (clave de
+// lookup en varios `{weekly:...,...}[freq]`) -- se extiende con el formato
+// 'custom:N:unidad' (unidad: days|weeks|months|years) en vez de inventar
+// un segundo campo, así todo lo que ya trata `freq` como string sigue
+// funcionando sin tocarlo. FT.advanceByFreq centraliza la matemática de
+// fechas -- antes vivía duplicada en _advanceRecDate (familia FT.recurring)
+// Y en _applyDueList/recurringItemsScreen (familia aparte de Suscripciones/
+// Servicios, que nunca compartió código con la primera) -- una sola función
+// evita que las dos familias se desincronicen si esto se toca de nuevo.
+FT.advanceByFreq = function (dt, freq) {
+  if (typeof freq === 'string' && freq.indexOf('custom:') === 0) {
+    var parts = freq.split(':'), n = parseInt(parts[1], 10) || 1, unit = parts[2];
+    if (unit === 'days') dt.setDate(dt.getDate() + n);
+    else if (unit === 'weeks') dt.setDate(dt.getDate() + n * 7);
+    else if (unit === 'years') dt.setFullYear(dt.getFullYear() + n);
+    else dt.setMonth(dt.getMonth() + n); // 'months' (default dentro de custom)
+  }
+  else if (freq === 'weekly') dt.setDate(dt.getDate() + 7);
+  else if (freq === 'biweekly') dt.setDate(dt.getDate() + 14);
+  else if (freq === 'annual') dt.setFullYear(dt.getFullYear() + 1);
+  else dt.setMonth(dt.getMonth() + 1); // 'monthly' y cualquier otro caso
+  return dt;
+};
+/** "cada 4 meses" / "every 4 months" -- null si freq no es formato custom,
+ *  para que el que llama pueda hacer `MAPA[freq] || FT.customFreqLabel(freq) || freq`. */
+FT.customFreqLabel = function (freq) {
+  if (typeof freq !== 'string' || freq.indexOf('custom:') !== 0) return null;
+  var parts = freq.split(':'), n = parseInt(parts[1], 10) || 1, unit = parts[2];
+  var L = FT.lang === 'es';
+  var unitLabel = ({
+    days: L ? (n === 1 ? 'día' : 'días') : (n === 1 ? 'day' : 'days'),
+    weeks: L ? (n === 1 ? 'semana' : 'semanas') : (n === 1 ? 'week' : 'weeks'),
+    months: L ? (n === 1 ? 'mes' : 'meses') : (n === 1 ? 'month' : 'months'),
+    years: L ? (n === 1 ? 'año' : 'años') : (n === 1 ? 'year' : 'years')
+  })[unit] || unit;
+  return (L ? 'cada ' : 'every ') + n + ' ' + unitLabel;
+};
+/** Sub-formulario compartido "Cada [N] [días/semanas/meses/años]" para
+ *  cuando el usuario elige "Personalizado" en cualquier selector de
+ *  frecuencia -- cada pantalla sigue dibujando su propio botón
+ *  "Personalizado" dentro de su segmented-control (el markup de esos ya
+ *  difiere un poco entre pantallas), pero el sub-form y su lectura son uno
+ *  solo para que el formato 'custom:N:unidad' nunca se arme distinto en
+ *  dos lados. */
+FT.customFreqSubFormHTML = function (idPrefix, initFreq) {
+  var L = FT.lang === 'es';
+  var n = 4, unit = 'months';
+  if (typeof initFreq === 'string' && initFreq.indexOf('custom:') === 0) {
+    var parts = initFreq.split(':'); n = parseInt(parts[1], 10) || 4; unit = parts[2] || 'months';
+  }
+  var units = [['days', L ? 'Días' : 'Days'], ['weeks', L ? 'Semanas' : 'Weeks'], ['months', L ? 'Meses' : 'Months'], ['years', L ? 'Años' : 'Years']];
+  return '<div id="' + idPrefix + 'CustomWrap" style="display:none;margin-top:8px;align-items:center;gap:8px"><span style="font-size:11.5px;font-weight:700;color:var(--text2)">' + (L ? 'Cada' : 'Every') + '</span>' +
+    '<input type="number" min="1" id="' + idPrefix + 'CustomN" value="' + n + '" style="width:60px;padding:8px;border-radius:9px;border:1.5px solid var(--hair);text-align:center;font-family:var(--ui-font);font-weight:700">' +
+    '<select id="' + idPrefix + 'CustomUnit" style="flex:1;padding:8px;border-radius:9px;border:1.5px solid var(--hair);font-family:var(--ui-font);font-weight:700">' +
+    units.map(function (u) { return '<option value="' + u[0] + '"' + (u[0] === unit ? ' selected' : '') + '>' + u[1] + '</option>'; }).join('') +
+    '</select></div>';
+};
+/** wire(body, idPrefix) -- conecta el sub-form ya insertado con
+ *  customFreqSubFormHTML. Devuelve {show(on), getFreq()}. */
+FT.wireCustomFreqSubForm = function (body, idPrefix) {
+  var wrap = body.querySelector('#' + idPrefix + 'CustomWrap');
+  return {
+    show: function (on) { if (wrap) wrap.style.display = on ? 'flex' : 'none'; },
+    getFreq: function () {
+      var n = parseInt((body.querySelector('#' + idPrefix + 'CustomN') || {}).value, 10) || 1;
+      var unit = (body.querySelector('#' + idPrefix + 'CustomUnit') || {}).value || 'months';
+      return 'custom:' + Math.max(1, n) + ':' + unit;
+    }
+  };
+};
 function _advanceRecDate(freq, fromStr) {
   var dt = new Date(fromStr + 'T00:00:00');
-  if (freq === 'weekly') dt.setDate(dt.getDate() + 7);
-  else if (freq === 'biweekly') dt.setDate(dt.getDate() + 14);
-  else dt.setMonth(dt.getMonth() + 1);
+  FT.advanceByFreq(dt, freq);
   return FT.date(dt, 'ISO');
 }
 FT._advanceRecDate = _advanceRecDate;
@@ -1892,9 +1962,7 @@ function _applyDueList(key, defCat) {
           d.transactions.push({ id: Date.now() + guard, type: 'suscripcion', desc: s.name, amount: parseFloat(s.amount) || 0, date: s.date, cat: s.cat || defCat, hogar: s.hogar === true, createdBy: name, auto: true, servId: s.id });
           applied++; dataChanged = true;
         }
-        if (s.freq === 'annual') dd.setFullYear(dd.getFullYear() + 1);
-        else if (s.freq === 'weekly') dd.setDate(dd.getDate() + 7);
-        else dd.setMonth(dd.getMonth() + 1);
+        FT.advanceByFreq(dd, s.freq);
         s.date = FT.date(dd, 'ISO');
         listChanged = true;
         guard++;
@@ -3965,7 +4033,7 @@ FT.balanceScreen = function (opts) {
 
   function openRec() {
     var L = es(), st = { freq: 'monthly' };
-    var seg = ['weekly:' + (L ? 'Semanal' : 'Weekly'), 'biweekly:' + (L ? 'Quincenal' : 'Biweekly'), 'monthly:' + (L ? 'Mensual' : 'Monthly')];
+    var seg = ['weekly:' + (L ? 'Semanal' : 'Weekly'), 'biweekly:' + (L ? 'Quincenal' : 'Biweekly'), 'monthly:' + (L ? 'Mensual' : 'Monthly'), 'custom:' + (L ? 'Personalizado' : 'Custom')];
     // De qué cuenta PERSONAL sale (opcional) -- para que el saldo de esa
     // cuenta también baje solo cada vez que este recurrente se aplique,
     // igual que ya pasa con las deudas. Revisión independiente: si el fondo
@@ -3979,29 +4047,33 @@ FT.balanceScreen = function (opts) {
     FT.modal({
       title: L ? 'Depósito recurrente' : 'Recurring deposit',
       html: '<div class="ft-field"><label>' + (L ? 'Monto' : 'Amount') + '</label><input id="rAmt" inputmode="decimal" placeholder="$0"></div>' +
-        '<div class="ft-field"><label>' + (L ? 'Frecuencia' : 'Frequency') + '</label><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px" id="rFreq">' +
-        seg.map(function (o) { var v = o.split(':')[0], on = v === 'monthly'; return '<button type="button" data-f="' + v + '" style="padding:8px;border-radius:9px;border:1.5px solid ' + (on ? 'var(--g-main)' : 'var(--hair)') + ';background:' + (on ? 'var(--g-light)' : 'var(--sunk)') + ';font-family:var(--ui-font);font-size:11.5px;font-weight:800;color:' + (on ? 'var(--g-dark)' : 'var(--text2)') + ';cursor:pointer">' + o.split(':')[1] + '</button>'; }).join('') + '</div></div>' +
+        '<div class="ft-field"><label>' + (L ? 'Frecuencia' : 'Frequency') + '</label><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px" id="rFreq">' +
+        seg.map(function (o) { var v = o.split(':')[0], on = v === 'monthly'; return '<button type="button" data-f="' + v + '" style="padding:8px;border-radius:9px;border:1.5px solid ' + (on ? 'var(--g-main)' : 'var(--hair)') + ';background:' + (on ? 'var(--g-light)' : 'var(--sunk)') + ';font-family:var(--ui-font);font-size:11.5px;font-weight:800;color:' + (on ? 'var(--g-dark)' : 'var(--text2)') + ';cursor:pointer">' + o.split(':')[1] + '</button>'; }).join('') + '</div>' +
+          FT.customFreqSubFormHTML('r') + '</div>' +
         '<div class="ft-field"><label>' + (L ? 'Primera fecha' : 'First date') + '</label><input id="rDate" type="date" value="' + FT.todayISO() + '"></div>' +
         (myAccts.length ? '<div class="ft-field"><label>' + (L ? '¿De qué cuenta sale? (opcional)' : 'Which account is this from? (optional)') + '</label><select id="rAcct"><option value="">' + (L ? 'Ninguna -- no descuenta cuenta' : "None -- doesn't deduct an account") + '</option>' + myAccts.map(function (a) { return '<option value="' + a.id + '">' + a.name + ' (' + FT.money(a.amount) + ')</option>'; }).join('') + '</select></div>' : '') +
         '<div style="background:var(--sky-bg);color:#2A4CC0;border-radius:10px;padding:9px 11px;font-size:11px;font-weight:600">' + (L ? 'Aparecerá en Recurrentes, donde podrás editar la fecha, pausarlo o eliminarlo.' : 'It will appear in Recurring for editing, pausing or deleting.') + '</div>',
       saveLabel: L ? 'Activar recurrente' : 'Activate',
       onOpen: function (body) {
+        var cf = FT.wireCustomFreqSubForm(body, 'r');
         body.querySelectorAll('#rFreq button').forEach(function (b) {
           b.onclick = function () {
             st.freq = b.getAttribute('data-f');
             body.querySelectorAll('#rFreq button').forEach(function (x) { var on = x === b; x.style.borderColor = on ? 'var(--g-main)' : 'var(--hair)'; x.style.background = on ? 'var(--g-light)' : 'var(--sunk)'; x.style.color = on ? 'var(--g-dark)' : 'var(--text2)'; });
+            cf.show(st.freq === 'custom');
           };
         });
       },
       onSave: function (body) {
         var amt = parseFloat(body.querySelector('#rAmt').value) || 0;
         if (!amt || amt <= 0) { FT.toast(es() ? 'Ingresa un monto' : 'Enter an amount'); return true; }
+        var freq = st.freq === 'custom' ? FT.wireCustomFreqSubForm(body, 'r').getFreq() : st.freq;
         var rec = FT.recurring();
         var af0 = !E && activeFund();
         var acctEl = body.querySelector('#rAcct');
         rec.push({ id: 'rec_' + Date.now(), kind: 'ahorro', dest: E ? 'emergencia' : 'libre', fundId: E ? undefined : activeFundId,
           desc: E ? (es() ? 'Aporte a Emergencia' : 'To Emergency') : (es() ? 'Aporte a ' + (af0 ? af0.name : 'Ahorro libre') : 'To ' + (af0 ? af0.name : 'Free savings')),
-          amount: amt, freq: st.freq, hogar: false, nextDate: body.querySelector('#rDate').value || FT.todayISO(), active: true, createdBy: FT.userName(),
+          amount: amt, freq: freq, hogar: false, nextDate: body.querySelector('#rDate').value || FT.todayISO(), active: true, createdBy: FT.userName(),
           checkingAccountId: (acctEl && acctEl.value) || undefined });
         FT.set(K.recurring, rec);
         FT.toast(es() ? '🔄 Recurrente activado' : '🔄 Recurring activated');
@@ -4208,17 +4280,30 @@ FT.recurringItemsScreen = function (opts) {
   function list() { return FT.get(key, []) || []; }
   function saveList(l) { FT.set(key, l); FT._changed(); }
   function es() { return FT.lang === 'es'; }
-  function toMonthly(s) { if (s.freq === 'annual') return (parseFloat(s.amount) || 0) / 12; if (s.freq === 'weekly') return (parseFloat(s.amount) || 0) * 4.33; return parseFloat(s.amount) || 0; }
-  function freqLbl(f) { var L = es(); return { monthly: L ? 'Mensual' : 'Monthly', annual: L ? 'Anual' : 'Annual', weekly: L ? 'Semanal' : 'Weekly' }[f] || f; }
+  // Personalizado (12-oct-2026): equivalente mensual aproximado a partir de
+  // cuántos días en promedio pasan entre cobros (30.44 = 365.25/12, mismo
+  // criterio que ya usaba 4.33 semanas/mes para 'weekly') -- así el total
+  // "gasto mensual en servicios" sigue siendo comparable sin importar la
+  // frecuencia real de cada uno.
+  function toMonthly(s) {
+    var amt = parseFloat(s.amount) || 0;
+    if (s.freq === 'annual') return amt / 12;
+    if (s.freq === 'weekly') return amt * 4.33;
+    if (typeof s.freq === 'string' && s.freq.indexOf('custom:') === 0) {
+      var parts = s.freq.split(':'), n = parseInt(parts[1], 10) || 1, unit = parts[2];
+      var daysPer = unit === 'days' ? n : unit === 'weeks' ? n * 7 : unit === 'years' ? n * 365.25 : n * 30.44;
+      return daysPer > 0 ? amt * (30.44 / daysPer) : amt;
+    }
+    return amt;
+  }
+  function freqLbl(f) { var L = es(); return { monthly: L ? 'Mensual' : 'Monthly', annual: L ? 'Anual' : 'Annual', weekly: L ? 'Semanal' : 'Weekly' }[f] || FT.customFreqLabel(f) || f; }
   function nextBillingDate(s) {
     if (!s.date) return null;
     var p = s.date.split('-').map(Number), d = new Date(p[0], p[1] - 1, p[2]);
     var today = new Date(); today.setHours(0, 0, 0, 0);
     var guard = 0;
     while (d < today && guard < 1000) {
-      if (s.freq === 'annual') d.setFullYear(d.getFullYear() + 1);
-      else if (s.freq === 'weekly') d.setDate(d.getDate() + 7);
-      else d.setMonth(d.getMonth() + 1);
+      FT.advanceByFreq(d, s.freq);
       guard++;
     }
     return d;
@@ -4367,8 +4452,14 @@ FT.recurringItemsScreen = function (opts) {
     var L = es();
     return '<div class="ft-field"><label>' + (L ? 'Nombre' : 'Name') + '</label><input id="siName" value="' + (s ? s.name || '' : '') + '" placeholder="' + (isSub ? 'Netflix, Spotify...' : (L ? 'Luz, Agua, Internet...' : 'Power, Water, Internet...')) + '"></div>' +
       '<div class="ft-field"><label>' + (L ? 'Monto' : 'Amount') + ' ($)</label><input id="siAmount" type="number" step="0.01" min="0" value="' + (s ? s.amount : '') + '"></div>' +
+      // Personalizado (12-oct-2026, a petición de Ramón: "un pago de la
+      // basura que se cobra cada 4 meses" -- no entra en mensual/anual/
+      // semanal). Marcado "selected" si ya es custom al editar, para que
+      // el <select> arranque mostrando la opción correcta.
       '<div class="ft-field"><label>' + (L ? 'Frecuencia' : 'Frequency') + '</label><select id="siFreq">' +
-        ['monthly', 'annual', 'weekly'].map(function (f) { return '<option value="' + f + '" ' + (s && s.freq === f ? 'selected' : '') + '>' + freqLbl(f) + '</option>'; }).join('') + '</select></div>' +
+        ['monthly', 'annual', 'weekly'].map(function (f) { return '<option value="' + f + '" ' + (s && s.freq === f ? 'selected' : '') + '>' + freqLbl(f) + '</option>'; }).join('') +
+        '<option value="custom"' + (s && typeof s.freq === 'string' && s.freq.indexOf('custom:') === 0 ? ' selected' : '') + '>' + (L ? 'Personalizado' : 'Custom') + '</option></select>' +
+        FT.customFreqSubFormHTML('si', s && s.freq) + '</div>' +
       '<div class="ft-field"><label>' + (L ? 'Fecha de cobro' : 'Billing date') + '</label><input id="siDate" type="date" value="' + (s ? s.date : FT.todayISO()) + '"></div>' +
       '<div class="ft-field"><label>' + (L ? 'Categoría' : 'Category') + '</label><select id="siCat">' +
         CATS.map(function (c) { return '<option ' + (s && s.cat === c ? 'selected' : '') + '>' + c + '</option>'; }).join('') + '</select></div>';
@@ -4379,6 +4470,12 @@ FT.recurringItemsScreen = function (opts) {
     FT.modal({
       title: s ? (L ? 'Editar' : 'Edit') : (isSub ? (L ? 'Nueva suscripción' : 'New subscription') : (L ? 'Nuevo servicio' : 'New service')),
       html: formFields(s),
+      onOpen: function (body) {
+        var cf = FT.wireCustomFreqSubForm(body, 'si');
+        var sel = body.querySelector('#siFreq');
+        cf.show(sel.value === 'custom');
+        sel.addEventListener('change', function () { cf.show(sel.value === 'custom'); });
+      },
       onSave: function (body) {
         // Doble-tap en "Guardar" podía crear dos suscripciones/servicios
         // idénticos -- luego cada uno acumula sus propios cargos por
@@ -4390,7 +4487,9 @@ FT.recurringItemsScreen = function (opts) {
         var name = body.querySelector('#siName').value.trim();
         var amount = parseFloat(body.querySelector('#siAmount').value) || 0;
         if (!name || !amount) { FT.toast(L ? '⚠️ Llena todos los campos' : '⚠️ Fill all fields'); window._savingSubServ = false; return true; }
-        var freq = body.querySelector('#siFreq').value, date = body.querySelector('#siDate').value, cat = body.querySelector('#siCat').value;
+        var freq = body.querySelector('#siFreq').value;
+        if (freq === 'custom') freq = FT.wireCustomFreqSubForm(body, 'si').getFreq();
+        var date = body.querySelector('#siDate').value, cat = body.querySelector('#siCat').value;
 
         function doSave() {
           var l = list();

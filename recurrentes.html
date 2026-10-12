@@ -29,8 +29,21 @@ var PASTEL_TX = { debt: 'var(--coral-tx)', ahorro: 'var(--mint-tx)', emerg: 'var
 var PAGE_LABEL = { debt: ['Deudas', 'Debts'], ahorro: ['Ahorro libre', 'Free savings'], emerg: ['Emergencia', 'Emergency'], inversion: ['Inversiones', 'Investments'], hogar: ['Hogar', 'Household'], metapersonal: ['Metas', 'Goals'], sub: ['Suscripciones', 'Subscriptions'], serv: ['Servicios', 'Services'], transferencia: ['Mi dinero', 'My money'] };
 
 function es() { return FT.lang === 'es'; }
-function toMonthly(i) { if (i.freq === 'annual') return i.amount / 12; if (i.freq === 'weekly') return i.amount * 4.33; if (i.freq === 'biweekly') return i.amount * 2.17; return i.amount; }
-function freqLbl(f) { var L = es(); return { weekly: L ? 'Semanal' : 'Weekly', biweekly: L ? 'Quincenal' : 'Biweekly', monthly: L ? 'Mensual' : 'Monthly', annual: L ? 'Anual' : 'Annual' }[f] || f; }
+// Personalizado (12-oct-2026, a petición de Ramón): mismo criterio de
+// equivalente-mensual-aproximado que ya usa FT.recurringItemsScreen para
+// subs/servicios -- 30.44 días/mes promedio.
+function toMonthly(i) {
+  if (i.freq === 'annual') return i.amount / 12;
+  if (i.freq === 'weekly') return i.amount * 4.33;
+  if (i.freq === 'biweekly') return i.amount * 2.17;
+  if (typeof i.freq === 'string' && i.freq.indexOf('custom:') === 0) {
+    var parts = i.freq.split(':'), n = parseInt(parts[1], 10) || 1, unit = parts[2];
+    var daysPer = unit === 'days' ? n : unit === 'weeks' ? n * 7 : unit === 'years' ? n * 365.25 : n * 30.44;
+    return daysPer > 0 ? i.amount * (30.44 / daysPer) : i.amount;
+  }
+  return i.amount;
+}
+function freqLbl(f) { var L = es(); return { weekly: L ? 'Semanal' : 'Weekly', biweekly: L ? 'Quincenal' : 'Biweekly', monthly: L ? 'Mensual' : 'Monthly', annual: L ? 'Anual' : 'Annual' }[f] || FT.customFreqLabel(f) || f; }
 
 function render() {
   var L = es(), root = document.getElementById('root');
@@ -104,7 +117,9 @@ function openManage(uid) {
         '<div style="font-size:11.5px;color:var(--text3);margin-top:2px">' + i.typeLabel + '</div></div>' +
       '<div class="ft-field"><label>' + (L ? 'Monto' : 'Amount') + ' ($)</label><input id="mgAmount" type="number" step="0.01" min="0" value="' + i.amount + '"></div>' +
       '<div class="ft-field"><label>' + (L ? 'Frecuencia' : 'Frequency') + '</label><select id="mgFreq">' +
-        ['weekly', 'biweekly', 'monthly', 'annual'].map(function (f) { return '<option value="' + f + '" ' + (f === i.freq ? 'selected' : '') + '>' + freqLbl(f) + '</option>'; }).join('') + '</select></div>' +
+        ['weekly', 'biweekly', 'monthly', 'annual'].map(function (f) { return '<option value="' + f + '" ' + (f === i.freq ? 'selected' : '') + '>' + freqLbl(f) + '</option>'; }).join('') +
+        '<option value="custom"' + (typeof i.freq === 'string' && i.freq.indexOf('custom:') === 0 ? ' selected' : '') + '>' + (L ? 'Personalizado' : 'Custom') + '</option></select>' +
+        FT.customFreqSubFormHTML('mg', i.freq) + '</div>' +
       '<div class="ft-field"><label>' + (L ? 'Próxima fecha' : 'Next date') + '</label><input id="mgDate" type="date" value="' + (i.nextDate || FT.todayISO()) + '"></div>' +
       '<div id="mgSwRow" style="display:flex;align-items:center;justify-content:space-between;background:var(--sunk);border:1.5px solid var(--hair);border-radius:13px;padding:12px 14px;margin-bottom:6px">' +
         '<div style="font-size:12.5px;font-weight:700" id="mgSwTxt">' + (i.paused ? (L ? 'Pausado' : 'Paused') : (L ? 'Activo' : 'Active')) + '<small style="display:block;font-weight:500;color:var(--text3);font-size:10.5px;margin-top:1px" id="mgSwSub">' + (i.paused ? (L ? 'No se aplicará hasta reanudar' : "Won't apply until resumed") : (L ? 'Se aplica automáticamente cada periodo' : 'Applies automatically every period')) + '</small></div>' +
@@ -114,6 +129,10 @@ function openManage(uid) {
       '<div class="tap" id="mgDel" style="font-size:12.5px;font-weight:700;color:var(--red);text-align:center;padding:10px 0 4px;border-top:1px solid var(--hair);margin-top:6px">🗑️ ' + (L ? 'Eliminar recurrente' : 'Delete recurring item') + '</div>',
     saveLabel: L ? 'Guardar cambios' : 'Save changes',
     onOpen: function (body) {
+      var cf = FT.wireCustomFreqSubForm(body, 'mg');
+      var freqSel = body.querySelector('#mgFreq');
+      cf.show(freqSel.value === 'custom');
+      freqSel.addEventListener('change', function () { cf.show(freqSel.value === 'custom'); });
       var paused = i.paused;
       var sw = body.querySelector('#mgSw'), txt = body.querySelector('#mgSwTxt'), sub = body.querySelector('#mgSwSub');
       sw.onclick = function () {
@@ -139,6 +158,7 @@ function openManage(uid) {
     onSave: function (body) {
       var amount = parseFloat(body.querySelector('#mgAmount').value) || i.amount;
       var freq = body.querySelector('#mgFreq').value;
+      if (freq === 'custom') freq = FT.wireCustomFreqSubForm(body, 'mg').getFreq();
       var nextDate = body.querySelector('#mgDate').value;
       var paused = body.querySelector('#mgSw').dataset.paused === '1';
       FT.recurAllUpdate(uid, { amount: amount, freq: freq, nextDate: nextDate });
