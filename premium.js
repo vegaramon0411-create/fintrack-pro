@@ -1479,10 +1479,36 @@ FT.recordCheque = function (o) {
       FT.set(K.data, d2);
     }
     chequeRow.autoSaved = autoSaved;
-    // Si ya no queda nada de la parte personal sin repartir (todo se lo
-    // llevó el ahorro automático), no tiene caso mostrar el recuadro de
-    // reparto por $0 -- se marca repartido de una vez.
-    if (personalAmt - autoSaved <= 0.005) chequeRow.repartido = true;
+    // Reparto a fondos de Ahorro libre AHORA automático (15-oct-2026, a
+    // petición de Ramón: "se debe de dejar de manera autónoma" -- revierte
+    // la decisión original de Etapa 2, "el reparto nunca es silencioso").
+    // Mismo criterio que YA usaba el lado de hogar unas líneas abajo desde
+    // Etapa 3: una regla (monto fijo o %) que tú configuraste de antemano
+    // en un fondo no necesita que la confirmes cada vez que llega un
+    // cheque -- ya decidiste. Lo que ningún fondo cubre con su regla se
+    // queda simplemente disponible (mismo resultado que elegir "Dejar todo
+    // disponible" en el reparto manual de antes), visible en
+    // chequeRow.fondoSinAsignar para un aviso aparte, igual que
+    // hogarSinAsignar ya hace para el lado de hogar.
+    var remainingForFunds = +(personalAmt - autoSaved).toFixed(2);
+    if (remainingForFunds > 0.005) {
+      var fundAlloc = FT.suggestFundAllocation(remainingForFunds);
+      var fundsAll = FT.savingsFunds();
+      var fundAllocated = 0;
+      Object.keys(fundAlloc).forEach(function (fundId) {
+        var amt = fundAlloc[fundId];
+        if (amt <= 0) return;
+        var f = fundsAll.find(function (x) { return x.id === fundId; });
+        var repId = nextId();
+        FT.addSavings({ id: repId, amount: amt, date: fecha, tipo: 'deposito', note: (es ? 'Reparto de cheque — ' : 'Paycheck allocation — ') + (f ? f.name : ''), monthTx: true, fundId: fundId });
+        var dF = FT.data();
+        dF.transactions.push({ id: repId, type: 'ahorro', desc: (es ? 'Reparto de cheque — ' : 'Paycheck allocation — ') + (f ? f.name : ''), amount: amt, date: fecha, cat: '💵 Ahorro', dest: 'libre', createdBy: FT.userName() });
+        FT.set(K.data, dF);
+        fundAllocated += amt;
+      });
+      chequeRow.fondoSinAsignar = +(remainingForFunds - fundAllocated).toFixed(2);
+    }
+    chequeRow.repartido = true;
 
     // Etapa 3 (+ extensión 2026-09-25): si configuraste una regla (monto fijo
     // o %) en una o más cuentas de cheques conjuntas (hogar.html → Cuentas),
@@ -1533,7 +1559,7 @@ FT.recordCheque = function (o) {
   }
   FT.set(K.cheques, cheques);
   FT._changed();
-  return { monto: monto, hogarAmt: hogarAmt, personalAmt: personalAmt, autoSaved: autoSaved, hogarSinAsignar: chequeRow.hogarSinAsignar || 0 };
+  return { monto: monto, hogarAmt: hogarAmt, personalAmt: personalAmt, autoSaved: autoSaved, hogarSinAsignar: chequeRow.hogarSinAsignar || 0, fondoSinAsignar: chequeRow.fondoSinAsignar || 0 };
 };
 
 /* ── Reparto de cheque a fondos de Ahorro libre (2026-09-23, etapa 2) ──────
