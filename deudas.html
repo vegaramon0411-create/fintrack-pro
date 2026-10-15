@@ -842,7 +842,13 @@ document.addEventListener('ft:ready', function () {
   var sh = FT.shell({ active: '', title: t(), onPlus: openTypePicker });
   // Deep-link desde el Dashboard ("Registrar abono" en una deuda por vencer)
   var pending = FT.getRaw('ft_open_abonar');
+  // 15-oct-2026: deep-link equivalente pero hacia el DETALLE de la deuda
+  // (no un formulario de pago nuevo) -- usado por los avisos de "abono
+  // esperando tu aprobación" (FT.getNotifications), donde lo que hay que
+  // ver es la fila pendiente, no abrir otro abono encima.
+  var pendingDetail = FT.getRaw('ft_open_debt');
   if (pending) { FT.del('ft_open_abonar'); render(); setTimeout(function () { openAbonar(pending === '__selector__' ? (FT.debts()[0] || {}).id : pending); }, 300); }
+  else if (pendingDetail) { FT.del('ft_open_debt'); render(); setTimeout(function () { openDetail(pendingDetail); }, 300); }
   else render();
   document.addEventListener('ft:datachanged', function () { if (!document.getElementById('dtBack')) render(); });
   document.addEventListener('ft:langchange', function () { sh.setTitle(t()); render(); });

@@ -1010,6 +1010,12 @@ function _openVincularFondo(acct, isHogar) {
     }
     return '<div style="background:var(--sky-bg);color:#2A4CC0;border-radius:10px;padding:9px 11px;font-size:11px;font-weight:600;margin-bottom:10px">' +
         (L ? 'Vincular no cambia tu TOTAL: el saldo libre de la cuenta baja lo mismo que sube el apartado (el dinero del fondo pasa a considerarse parte de esta cuenta).' : "Linking doesn't change your TOTAL: the account's free balance goes down by exactly what the set-aside goes up (the fund's money is now considered part of this account).") + '</div>' +
+      // 15-oct-2026, a petición de Ramón: "Vincular" ya explicaba qué pasa
+      // con el saldo, pero "Desvincular" (el botón justo abajo de esta
+      // nota, en cada fila "Ya vinculado") no decía nada -- mismo
+      // movimiento, sentido contrario, mismo derecho a una explicación.
+      (linked.length ? '<div style="background:var(--sunk);color:var(--text2);border-radius:10px;padding:9px 11px;font-size:10.5px;font-weight:600;margin-bottom:10px">' +
+        (L ? 'Desvincular hace lo opuesto: ese dinero deja de estar "apartado" y vuelve a contar como libre dentro de esta misma cuenta -- tampoco cambia tu TOTAL.' : "Unlinking does the opposite: that money stops being \"set aside\" and goes back to counting as free within this same account -- it doesn't change your TOTAL either.") + '</div>' : '') +
       (linked.length ? '<div style="font-size:10.5px;font-weight:800;color:var(--text3);text-transform:uppercase;margin-bottom:6px">' + (L ? 'Ya vinculados' : 'Already linked') + '</div>' + linked.map(function (v) { return rowHtml(v, true); }).join('') : '') +
       (options.length ? '<div style="font-size:10.5px;font-weight:800;color:var(--text3);text-transform:uppercase;margin:10px 0 6px">' + (L ? 'Disponibles para vincular' : 'Available to link') + '</div>' + options.map(function (v) { return rowHtml(v, false); }).join('') : '<div style="font-size:11.5px;color:var(--text3)">' + (L ? 'No hay más fondos sin vincular.' : 'No more unlinked funds.') + '</div>');
   }
@@ -2732,7 +2738,11 @@ FT.getNotifications = function () {
       // toca pagar este periodo -- d.payment es el campo que ya se usa en
       // toda la app como "pago/mes" (la tarjeta de la deuda, el modal de
       // abono, etc.), así que es el correcto aquí también.
-      out.push({ icon: '💳', tone: 'red', url: 'deudas.html',
+      // debtId + debtOpenMode:'abonar' (15-oct-2026) -- al tocar este aviso,
+      // FT.openNotifications deja el deep-link de deudas.html apuntando
+      // directo a ESTA deuda con el modal de pago ya abierto, en vez de
+      // dejarte en la lista general a buscarla.
+      out.push({ icon: '💳', tone: 'red', url: 'deudas.html', debtId: d.id, debtOpenMode: 'abonar',
         text: (es ? d.name + ' vence ' + (diff <= 0 ? 'hoy' : 'en ' + diff + ' día' + (diff > 1 ? 's' : '')) : d.name + ' due ' + (diff <= 0 ? 'today' : 'in ' + diff + ' day' + (diff > 1 ? 's' : ''))) + ' · ' + FT.money(d.payment) });
     }
   });
@@ -2749,7 +2759,11 @@ FT.getNotifications = function () {
   // a petición de Ramón: "debe de ver una notificación" antes de que se
   // mueva el dinero de un fondo/vault privado).
   FT.pendingDebtApprovals().forEach(function (p) {
-    out.push({ icon: '🔔', tone: 'blue', url: 'deudas.html',
+    // debtOpenMode por default ('detail', ver FT.openNotifications) -- aquí
+    // ya existe un abono esperando, así que se abre el detalle de la deuda
+    // (donde está la fila "esperando aprobación" con Aceptar/Saltar), no un
+    // formulario de pago nuevo.
+    out.push({ icon: '🔔', tone: 'blue', url: 'deudas.html', debtId: p.debtId,
       text: (es ? 'Abono a ' + p.debtName + ' listo — acéptalo para mover ' : 'Payment to ' + p.debtName + ' ready — accept to move ') + FT.money(p.monto) + (es ? ' de ' : ' from ') + p.fundLabel });
   });
 
@@ -2757,8 +2771,14 @@ FT.getNotifications = function () {
   // fondo (12-oct-2026, caso real de Ramón: SOFI CREDIT CARD llevaba 5 días
   // sin poder cobrarse y no había NINGÚN aviso en ningún lado -- 'insufficient'
   // no deja rastro persistido, así que esto se recalcula fresco cada vez).
+  // 15-oct-2026: lo que de verdad falta aquí es dinero en el fondo, no
+  // algo que resolver en la deuda -- igual que el botón "Depositar" de la
+  // tarjeta roja del Dashboard, lleva directo al fondo/Emergencia
+  // correspondiente (mismo deep-link ft_open_fund que ya usa esa tarjeta).
   FT.stuckFundedRecurringDebts().forEach(function (s) {
-    out.push({ icon: '⚠️', tone: 'red', url: 'deudas.html',
+    var toEmerg = s.fundSource && s.fundSource.type === 'emerg';
+    out.push({ icon: '⚠️', tone: 'red', url: toEmerg ? 'emergencia.html' : 'ahorro.html',
+      fundId: toEmerg ? null : (s.fundSource && s.fundSource.id),
       text: (es ? 'Abono a ' + s.debtName + ' atorado desde el ' + FT.date(s.nextDate) + ' — falta ' : 'Payment to ' + s.debtName + ' stuck since ' + FT.date(s.nextDate) + ' — short ') + FT.money(s.shortfall) + (es ? ' en ' : ' in ') + s.fundLabel });
   });
 
@@ -3750,15 +3770,26 @@ FT.openMore = function () {
 
 FT.openNotifications = function () {
   var items = (FT._notifProvider ? FT._notifProvider() : FT.getNotifications()) || [];
+  // data-go-idx (no data-go con la url) -- 15-oct-2026, a petición de
+  // Ramón: antes tocar cualquier aviso de deuda siempre caía en la lista
+  // general de deudas.html, obligando a buscar cuál era. Indexar contra el
+  // array original (en vez de leer solo la url del atributo) permite
+  // llevar también el debtId/modo al deep-link antes de navegar.
   var html = items.length
-    ? items.map(function (n) {
-        return '<button class="ft-row tap" style="width:100%;text-align:left;background:none;border:none;border-bottom:1px solid var(--hair)" data-go="' + (n.url || '') + '">' +
+    ? items.map(function (n, i) {
+        return '<button class="ft-row tap" style="width:100%;text-align:left;background:none;border:none;border-bottom:1px solid var(--hair)" data-go-idx="' + i + '">' +
           '<span class="k">' + (n.icon || '🔔') + ' ' + n.text + '</span>' + (n.amount != null ? '<span class="v">' + FT.money(n.amount) + '</span>' : '') + '</button>';
       }).join('')
     : '<p style="font-size:13px;color:var(--text3);text-align:center;padding:20px 0">' + FT.t('notif_empty') + '</p>';
   var ov = FT.sheet({ title: FT.t('notif_title'), html: html });
-  ov.querySelectorAll('[data-go]').forEach(function (b) {
-    b.addEventListener('click', function () { var u = b.getAttribute('data-go'); if (u) FT.go(u); });
+  ov.querySelectorAll('[data-go-idx]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var n = items[parseInt(b.getAttribute('data-go-idx'), 10)];
+      if (!n || !n.url) return;
+      if (n.debtId) FT.setRaw(n.debtOpenMode === 'abonar' ? 'ft_open_abonar' : 'ft_open_debt', n.debtId);
+      if (n.fundId) FT.setRaw('ft_open_fund', n.fundId);
+      FT.go(n.url);
+    });
   });
 };
 /** Una pantalla registra su lista de notificaciones: FT.setNotifications(fn) */

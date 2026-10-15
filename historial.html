@@ -163,8 +163,20 @@ function rowHtml(t) {
     tagLabel = (t.fromLabel || '?') + ' → ' + (t.toLabel || '?'); tagBg = 'var(--sky-bg)'; tagColor = 'var(--sky-tx)';
   } else if (t.type === 'ajuste') {
     tagLabel = L ? '⚖️ Ajuste manual' : '⚖️ Manual adjustment'; tagBg = 'var(--peach-bg,#FBEFE8)'; tagColor = 'var(--peach-tx)';
+  // 15-oct-2026 (Ramón): "Ahorro libre" tuyo, "Aporte a hogar" y "Ahorro
+  // automático del cheque" compartían la misma etiqueta genérica "👤
+  // Personal"/"🏠 Hogar" -- costaba distinguir cuál era cuál de un
+  // vistazo. No hay un campo dedicado para esto (ninguno de los 3 pone
+  // auto:true), así que se distingue por el `desc` fijo que cada uno ya
+  // usa siempre (constantes del código, no texto libre del usuario) --
+  // solo cambia la ETIQUETA mostrada, cero cambio de dinero/datos.
+  } else if (t.type === 'ahorro' && !esHogarTx) {
+    var descStr = String(t.desc || '');
+    if (/autom[aá]tic/i.test(descStr)) { tagLabel = L ? '⭐ Ahorro automático' : '⭐ Automatic savings'; tagBg = 'var(--g-light)'; tagColor = 'var(--g-dark)'; }
+    else if (descStr.indexOf('Reparto de cheque') === 0 || descStr.indexOf('Paycheck allocation') === 0) { tagLabel = L ? '💵 A tu fondo' : '💵 To your fund'; tagBg = 'var(--sky-bg)'; tagColor = 'var(--blue)'; }
+    else { tagLabel = L ? '👤 Personal' : '👤 Personal'; tagBg = 'var(--chip)'; tagColor = 'var(--text3)'; }
   } else {
-    tagLabel = esHogarTx ? (L ? '🏠 Hogar' : '🏠 Household') : (L ? '👤 Personal' : '👤 Personal');
+    tagLabel = esHogarTx ? (t.type === 'ahorro' ? (L ? '🏠 Aporte a hogar' : '🏠 Household contribution') : (L ? '🏠 Hogar' : '🏠 Household')) : (L ? '👤 Personal' : '👤 Personal');
     tagBg = esHogarTx ? 'var(--g-light)' : 'var(--chip)'; tagColor = esHogarTx ? 'var(--g-dark)' : 'var(--text3)';
   }
   if (esDePareja && t.createdBy) tagLabel += ' · ' + t.createdBy;
