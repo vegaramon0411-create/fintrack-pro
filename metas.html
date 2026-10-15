@@ -66,7 +66,7 @@ function openForm(id) {
     title: g ? (L ? 'Editar meta' : 'Edit goal') : (L ? 'Nueva meta' : 'New goal'),
     html:
       '<div class="ft-field"><label>' + (L ? 'Nombre de la meta' : 'Goal name') + '</label><input id="gName" value="' + (g ? g.name : '') + '" placeholder="' + (L ? 'ej. Vacaciones, Auto nuevo...' : 'e.g. Vacation, New car...') + '"></div>' +
-      '<div class="ft-field"><label>' + (L ? 'Meta total' : 'Target amount') + ' ($)</label><input id="gTarget" type="number" step="0.01" min="0" value="' + (g ? g.target : '') + '"></div>' +
+      '<div class="ft-field"><label>' + (L ? 'Meta total' : 'Goal') + ' ($)</label><input id="gTarget" type="number" step="0.01" min="0" value="' + (g ? g.target : '') + '"></div>' +
       '<div class="ft-field"><label>' + (L ? 'Ahorrado hasta ahora' : 'Saved so far') + ' ($)</label><input id="gSaved" type="number" step="0.01" min="0" value="' + (g ? g.saved : 0) + '"></div>' +
       '<div class="ft-field"><label>' + (L ? 'Fecha límite (opcional)' : 'Deadline (optional)') + '</label><input id="gDeadline" type="date" value="' + (g ? g.deadline || '' : '') + '"></div>' +
       '<div class="ft-field"><label>' + (L ? 'Ícono' : 'Icon') + '</label><select id="gIcon">' + ICONS.map(function (i) { return '<option ' + (g && g.icon === i ? 'selected' : '') + '>' + i + '</option>'; }).join('') + '</select></div>' +

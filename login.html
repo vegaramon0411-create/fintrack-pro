@@ -196,9 +196,9 @@
           <select id="wDay"></select>
         </div>
         <div class="fld" id="wAnchorWrap" style="display:none">
-          <label data-es="Un pago reciente que sí recibiste" data-en="A recent payday you actually got paid">Un pago reciente que sí recibiste</label>
+          <label data-es="Un pago reciente que sí recibiste" data-en="A recent date you were actually paid">Un pago reciente que sí recibiste</label>
           <input type="date" id="wAnchor" onchange="W.payAnchor=this.value; document.getElementById('wAnchorWrap').style.outline='';">
-          <div style="font-size:11px;color:var(--text3);margin-top:4px" data-es="Quincenal es cada 14 días exactos, no cada semana en ese día -- con esta fecha sabemos cuál semana sí te toca." data-en="Biweekly is exactly every 14 days, not every week on that day -- this date tells us which week is actually yours.">Quincenal es cada 14 días exactos, no cada semana en ese día -- con esta fecha sabemos cuál semana sí te toca.</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:4px" data-es="Quincenal es cada 14 días exactos, no cada semana en ese día -- con esta fecha sabemos cuál semana sí te toca." data-en="Biweekly is exactly every 14 days, not every week on that day -- this date tells us which week you're actually due to be paid.">Quincenal es cada 14 días exactos, no cada semana en ese día -- con esta fecha sabemos cuál semana sí te toca.</div>
         </div>
         <div class="tgl on" id="wAuto" onclick="toggle('wAuto','payAuto')">
           <div class="bx">✓</div>
@@ -233,10 +233,10 @@
         </div>
         <div class="fld"><label data-es="Moneda" data-en="Currency">Moneda</label>
           <select id="wCurrency">
-            <option value="MXN">MXN — Peso mexicano</option>
-            <option value="COP">COP — Peso colombiano</option>
-            <option value="USD">USD — Dólar</option>
-            <option value="EUR">EUR — Euro</option>
+            <option value="MXN">MXN ($)</option>
+            <option value="COP">COP ($)</option>
+            <option value="USD">USD ($)</option>
+            <option value="EUR">EUR (€)</option>
           </select>
         </div>
         <div class="tgl on" id="wReport" onclick="toggle('wReport','report')">
