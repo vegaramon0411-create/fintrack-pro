@@ -362,7 +362,7 @@ FT.recurAllList = function () {
       amount: parseFloat(s.amount) || 0, freq: s.freq, nextDate: s.date, paused: !!s.paused, autopay: !!s.autopay, page: 'suscripciones.html', lastApplied: null });
   });
   FT.servicios().forEach(function (s) {
-    items.push({ uid: 'servicios:' + s.id, kind: 'serv', pk: 'serv', name: s.name, icon: '🏠', typeLabel: es ? 'Servicio de casa' : 'Household service',
+    items.push({ uid: 'servicios:' + s.id, kind: 'serv', pk: 'serv', name: s.name, icon: '🏠', typeLabel: es ? 'Servicio de casa' : 'Utility bill',
       amount: parseFloat(s.amount) || 0, freq: s.freq, nextDate: s.date, paused: !!s.paused, autopay: !!s.autopay, page: 'servicios.html', lastApplied: null });
   });
   return items.sort(function (a, b) { return String(a.nextDate || '').localeCompare(String(b.nextDate || '')); });
@@ -3268,7 +3268,7 @@ var I18N = {
     money_group_your: 'Your money', money_group_debts: 'Debts & payments', money_group_input: 'Data entry',
     money_group_analysis: 'Analysis', money_group_account: 'Account',
     l_ahorro: 'Free savings', l_emergencia: 'Emergency fund', l_inversiones: 'Investments', l_metas: 'Goals', l_midinero: 'My money',
-    l_deudas: 'Debts', l_suscripciones: 'Subscriptions', l_servicios: 'Services', l_recurrentes: 'Recurring',
+    l_deudas: 'Debts', l_suscripciones: 'Subscriptions', l_servicios: 'Utilities', l_recurrentes: 'Recurring',
     l_scanner: 'Scan receipt', l_importar: 'Import', l_analisis: 'Analysis', l_reporte: 'Monthly report',
     l_asistente: 'AI Assistant',
     l_perfil: 'My profile', l_config: 'Settings', l_saldos: 'Starting balances',
@@ -4144,7 +4144,7 @@ FT.balanceScreen = function (opts) {
       var g = goal(), pct = g > 0 ? Math.min(100, Math.round(b / g * 100)) : 0;
       hero += '<button class="cap" data-x="goal" style="margin-top:4px">' + (L ? 'Meta: ' : 'Goal: ') + FT.money(g) + ' (' + (L ? '3 meses de ingreso' : '3 months income') + ') <span class="ft-info">i</span></button>' +
         '<div class="ft-bs-gtrack"><div class="ft-bs-gfill" id="ftbsGf" style="width:0"></div></div>' +
-        '<div class="ft-bs-grow"><span>' + pct + '% ' + (L ? 'completado' : 'complete') + '</span><span>' + (L ? 'Faltan ' : 'Missing ') + FT.money(Math.max(0, g - b)) + '</span></div>';
+        '<div class="ft-bs-grow"><span>' + pct + '% ' + (L ? 'completado' : 'complete') + '</span><span>' + (L ? 'Faltan ' + FT.money(Math.max(0, g - b)) : FT.money(Math.max(0, g - b)) + ' remaining') + '</span></div>';
     } else if (af && af.meta > 0) {
       var pctF = Math.min(100, Math.round(b / af.meta * 100));
       hero += '<div class="sub">' + (L ? 'Meta de este fondo: ' : 'This fund\'s goal: ') + FT.money(af.meta) + ' · ' + pctF + '% ' + (L ? 'completado' : 'complete') + '</div>';
@@ -4203,7 +4203,7 @@ FT.balanceScreen = function (opts) {
       [L ? 'Tu ingreso mensual' : 'Your monthly income', FT.money(FT.user().income || 0)],
       ['× 3 ' + (L ? 'meses (colchón estándar)' : 'months (standard cushion)'), FT.money(g)],
       [L ? 'Tienes hoy' : 'You have today', FT.money(b)],
-      [L ? 'Falta' : 'Missing', FT.money(Math.max(0, g - b))]
+      [L ? 'Falta' : 'Remaining', FT.money(Math.max(0, g - b))]
     ].map(function (r) { return '<div class="ft-row"><span class="k">' + r[0] + '</span><span class="v">' + r[1] + '</span></div>'; }).join('') });
   }
 
@@ -4224,7 +4224,7 @@ FT.balanceScreen = function (opts) {
       '<div class="ft-field"><label>' + (L ? '¿De dónde sale este dinero?' : 'Where does this money come from?') + '</label>' +
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px" id="mOrig">' +
         '<button type="button" data-o="previo" style="padding:9px 6px;border-radius:10px;border:1.5px solid var(--g-main);background:var(--g-light);color:var(--g-dark);font-family:var(--ui-font);font-size:11px;font-weight:800;cursor:pointer;line-height:1.35">' + (L ? 'Ya lo tenía' : 'I already had it') + '<br><span style="font-weight:600;font-size:9.5px;opacity:.8">' + (L ? 'no afecta tu mes' : "doesn't affect your month") + '</span></button>' +
-        '<button type="button" data-o="mes" style="padding:9px 6px;border-radius:10px;border:1.5px solid var(--hair);background:var(--sunk);color:var(--text2);font-family:var(--ui-font);font-size:11px;font-weight:800;cursor:pointer;line-height:1.35">' + (L ? 'De mi disponible del mes' : "From this month's available") + '<br><span style="font-weight:600;font-size:9.5px;opacity:.8">' + (L ? 'cuenta como ahorro del mes' : 'counts as this-month saving') + '</span></button>' +
+        '<button type="button" data-o="mes" style="padding:9px 6px;border-radius:10px;border:1.5px solid var(--hair);background:var(--sunk);color:var(--text2);font-family:var(--ui-font);font-size:11px;font-weight:800;cursor:pointer;line-height:1.35">' + (L ? 'De mi disponible del mes' : "From this month's available") + '<br><span style="font-weight:600;font-size:9.5px;opacity:.8">' + (L ? 'cuenta como ahorro del mes' : "counts toward this month's savings") + '</span></button>' +
       '</div></div>';
     // Cuenta de origen (opcional, solo depósitos "de mi disponible del mes"
     // -- si "ya lo tenía", ese dinero no está saliendo de ninguna cuenta
@@ -4359,8 +4359,8 @@ FT.balanceScreen = function (opts) {
             // haciendo cálculos") -- se lleva lo que sobre después de
             // aplicar las reglas fijas/% de TODOS los fondos, sin que el
             // usuario tenga que calcular a mano cuánto le queda al cheque.
-            ['none:' + (L ? 'Ninguna' : 'None'), 'fixed:' + (L ? 'Monto fijo' : 'Fixed $'), 'pct:' + (L ? '% del cheque' : '% of check'), 'remainder:' + (L ? 'Lo que sobre' : "What's left")].map(function (o) { var v = o.split(':')[0], on = v === chosenRule; return '<button type="button" data-r="' + v + '" style="padding:8px 4px;border-radius:9px;border:1.5px solid ' + (on ? 'var(--g-main)' : 'var(--hair)') + ';background:' + (on ? 'var(--g-light)' : 'var(--sunk)') + ';font-family:var(--ui-font);font-size:10px;font-weight:800;color:' + (on ? 'var(--g-dark)' : 'var(--text2)') + ';cursor:pointer">' + o.split(':')[1] + '</button>'; }).join('') + '</div>' +
-          '<input id="fdRuleVal" inputmode="decimal" style="margin-top:8px;display:' + (chosenRule === 'none' || chosenRule === 'remainder' ? 'none' : 'block') + '" placeholder="' + (chosenRule === 'pct' ? (L ? '% del cheque' : '% of check') : '$') + '" value="' + (fund && fund.rule ? (fund.rule.value || '') : '') + '">' +
+            ['none:' + (L ? 'Ninguna' : 'None'), 'fixed:' + (L ? 'Monto fijo' : 'Fixed $'), 'pct:' + (L ? '% del cheque' : '% of paycheck'), 'remainder:' + (L ? 'Lo que sobre' : "What's left")].map(function (o) { var v = o.split(':')[0], on = v === chosenRule; return '<button type="button" data-r="' + v + '" style="padding:8px 4px;border-radius:9px;border:1.5px solid ' + (on ? 'var(--g-main)' : 'var(--hair)') + ';background:' + (on ? 'var(--g-light)' : 'var(--sunk)') + ';font-family:var(--ui-font);font-size:10px;font-weight:800;color:' + (on ? 'var(--g-dark)' : 'var(--text2)') + ';cursor:pointer">' + o.split(':')[1] + '</button>'; }).join('') + '</div>' +
+          '<input id="fdRuleVal" inputmode="decimal" style="margin-top:8px;display:' + (chosenRule === 'none' || chosenRule === 'remainder' ? 'none' : 'block') + '" placeholder="' + (chosenRule === 'pct' ? (L ? '% del cheque' : '% of paycheck') : '$') + '" value="' + (fund && fund.rule ? (fund.rule.value || '') : '') + '">' +
           '<p id="fdRemainderNote" style="font-size:10.5px;color:var(--text3);margin-top:6px;display:' + (chosenRule === 'remainder' ? 'block' : 'none') + '">' + (L ? 'Se lleva lo que quede del cheque después de aplicar las demás reglas fijas/% -- si hay más de un fondo con esta regla, se reparte en partes iguales.' : "Gets whatever's left of the paycheck after the other fixed/% rules -- if more than one fund has this rule, it's split evenly.") + '</p>' +
         '</div>' +
         '<div style="background:var(--sky-bg);color:#2A4CC0;border-radius:10px;padding:9px 11px;font-size:11px;font-weight:600">' + (L ? 'La regla es una sugerencia: cuando llegue un cheque tú decides si aplicarla, ajustarla o dejar el dinero sin repartir.' : 'The rule is only a suggestion: when a paycheck arrives you decide whether to apply it, adjust it, or leave the money unassigned.') + '</div>',
@@ -4376,7 +4376,7 @@ FT.balanceScreen = function (opts) {
             chosenRule = b.getAttribute('data-r');
             body.querySelectorAll('#fdRuleSeg button').forEach(function (x) { var on = x === b; x.style.borderColor = on ? 'var(--g-main)' : 'var(--hair)'; x.style.background = on ? 'var(--g-light)' : 'var(--sunk)'; x.style.color = on ? 'var(--g-dark)' : 'var(--text2)'; });
             ruleValInput.style.display = (chosenRule === 'none' || chosenRule === 'remainder') ? 'none' : 'block';
-            ruleValInput.placeholder = chosenRule === 'pct' ? (L ? '% del cheque' : '% of check') : '$';
+            ruleValInput.placeholder = chosenRule === 'pct' ? (L ? '% del cheque' : '% of paycheck') : '$';
             if (remainderNote) remainderNote.style.display = chosenRule === 'remainder' ? 'block' : 'none';
           };
         });
@@ -4431,7 +4431,7 @@ FT.balanceScreen = function (opts) {
         var orphanRecs = FT.recurring().filter(function (r) { return r.kind === 'ahorro' && r.fundId === fund.id; });
         if (orphanRecs.length) {
           FT.set(K.recurring, FT.recurring().filter(function (r) { return !(r.kind === 'ahorro' && r.fundId === fund.id); }));
-          FT.toast(L ? 'Eliminado — también se apagó ' + orphanRecs.length + ' recurrente(s) que apuntaban a este fondo' : 'Deleted — also turned off ' + orphanRecs.length + ' recurring item(s) pointing at this fund');
+          FT.toast(L ? 'Eliminado — también se apagó ' + orphanRecs.length + ' recurrente(s) que apuntaban a este fondo' : 'Deleted — also turned off ' + orphanRecs.length + ' recurring ' + (orphanRecs.length === 1 ? 'item' : 'items') + ' pointing at this fund');
         } else {
           FT.toast(L ? 'Eliminado' : 'Deleted');
         }
@@ -4544,9 +4544,13 @@ FT.recurringItemsScreen = function (opts) {
   var icon = isSub ? '🔄' : '🏠';
   var pastel = isSub ? 'pink' : 'coral';
   var pastelTx = isSub ? 'var(--pink-tx)' : 'var(--coral-tx)';
-  var CATS = isSub
-    ? ['Entretenimiento', 'Música', 'Trabajo', 'Salud', 'Fitness', 'Cloud/Tech', 'Otro']
-    : ['💡 Luz', '💧 Agua', '🔥 Gas', '📶 Internet', '🧹 Mantenimiento', 'Otro'];
+  // 15-oct-2026: estas categorías no tenían rama de idioma -- un usuario en
+  // inglés veía "Entretenimiento"/"Luz"/"Agua" sin importar FT.lang. Mismo
+  // vocabulario que ya usa el placeholder en inglés del formulario más abajo
+  // ("Power, Water, Internet...").
+  var CATS = FT.lang === 'es'
+    ? (isSub ? ['Entretenimiento', 'Música', 'Trabajo', 'Salud', 'Fitness', 'Cloud/Tech', 'Otro'] : ['💡 Luz', '💧 Agua', '🔥 Gas', '📶 Internet', '🧹 Mantenimiento', 'Otro'])
+    : (isSub ? ['Entertainment', 'Music', 'Work', 'Health', 'Fitness', 'Cloud/Tech', 'Other'] : ['💡 Power', '💧 Water', '🔥 Gas', '📶 Internet', '🧹 Maintenance', 'Other']);
   var idPrefix = isSub ? 's_' : 'sv_';
 
   function list() { return FT.get(key, []) || []; }
@@ -4569,6 +4573,15 @@ FT.recurringItemsScreen = function (opts) {
     return amt;
   }
   function freqLbl(f) { var L = es(); return { monthly: L ? 'Mensual' : 'Monthly', annual: L ? 'Anual' : 'Annual', weekly: L ? 'Semanal' : 'Weekly' }[f] || FT.customFreqLabel(f) || f; }
+  // 15-oct-2026: el filtro de abajo pegaba una 's'/'es' a lo bruto sobre
+  // freqLbl() para pluralizar -- producía "Monthlys"/"Annuales", que no son
+  // palabras reales en ningún idioma (y en español real "Mensual"+'s' da
+  // "Mensuals" en vez de "Mensuales"). En inglés un adjetivo de frecuencia
+  // como "Monthly"/"Annual" no necesita plural -- se deja tal cual.
+  function freqLblPlural(f) { var L = es(); return { monthly: L ? 'Mensuales' : 'Monthly', annual: L ? 'Anuales' : 'Annual' }[f] || freqLbl(f); }
+  // Nombre de unidad para "$10/mes" en inglés ("$10/month", no "$10/monthly"
+  // -- freqLbl() es un adjetivo, no sirve como unidad después de "/").
+  function freqUnitEn(f) { return { monthly: 'month', annual: 'year', weekly: 'week' }[f] || freqLbl(f).toLowerCase(); }
   function nextBillingDate(s) {
     if (!s.date) return null;
     var p = s.date.split('-').map(Number), d = new Date(p[0], p[1] - 1, p[2]);
@@ -4642,14 +4655,14 @@ FT.recurringItemsScreen = function (opts) {
     var L = es(), dups = findDuplicateGroups();
     if (!dups.length) return '';
     return '<div class="ft-card" style="border:1.5px solid var(--red)">' +
-      '<div style="font-size:12.5px;font-weight:800;color:var(--red);margin-bottom:8px">⚠️ ' + (L ? dups.length + ' posible(s) duplicado(s) -- cada copia cobra por separado' : dups.length + ' possible duplicate(s) -- each copy charges separately') + '</div>' +
+      '<div style="font-size:12.5px;font-weight:800;color:var(--red);margin-bottom:8px">⚠️ ' + (L ? dups.length + ' posible(s) duplicado(s) -- cada copia cobra por separado' : dups.length + ' possible ' + (dups.length === 1 ? 'duplicate' : 'duplicates') + ' -- each copy charges separately') + '</div>' +
       dups.map(function (g) {
         return '<div style="background:var(--sunk);border-radius:10px;padding:8px 10px;margin-bottom:8px">' +
           '<div style="font-size:11.5px;font-weight:700;margin-bottom:6px">' + g[0].name + ' · ' + FT.money(parseFloat(g[0].amount) || 0) + ' × ' + g.length + '</div>' +
           g.map(function (s) { return '<div style="display:flex;align-items:center;justify-content:space-between;padding:3px 0"><span style="font-size:10.5px;color:var(--text3)">' + freqLbl(s.freq) + ' · ' + FT.date(s.date) + (s.paused ? ' · ' + (L ? 'pausada' : 'paused') : '') + '</span><button type="button" class="tap" data-deldup="' + s.id + '" style="background:var(--red-dim);color:var(--red);border:none;border-radius:8px;padding:5px 9px;font-size:10.5px;font-weight:700;cursor:pointer;font-family:inherit">🗑️ ' + (L ? 'Borrar esta' : 'Delete this') + '</button></div>'; }).join('') +
         '</div>';
       }).join('') +
-      '<div style="font-size:10.5px;color:var(--text3)">' + (L ? 'Deja solo una copia de cada una -- los cargos ya cobrados no se borran solos, revísalos en Historial.' : "Keep only one copy of each -- charges already billed don't delete themselves, check Historial.") + '</div>' +
+      '<div style="font-size:10.5px;color:var(--text3)">' + (L ? 'Deja solo una copia de cada una -- los cargos ya cobrados no se borran solos, revísalos en Historial.' : "Keep only one copy of each -- charges already billed don't delete themselves, check History.") + '</div>' +
     '</div>';
   }
 
@@ -4683,7 +4696,7 @@ FT.recurringItemsScreen = function (opts) {
 
     h += '<div class="ft-chip-row" style="display:flex;gap:6px;overflow-x:auto;margin-bottom:12px">' +
       ['all', 'monthly', 'annual'].map(function (f) {
-        var lbl = f === 'all' ? (L ? 'Todas' : 'All') : freqLbl(f) + (f === 'monthly' ? 's' : 'es');
+        var lbl = f === 'all' ? (L ? 'Todas' : 'All') : freqLblPlural(f);
         return '<button class="ft-chip tap' + (filterMode === f ? ' on' : '') + '" data-f="' + f + '" style="flex-shrink:0;background:' + (filterMode === f ? 'var(--ink)' : 'var(--sunk)') + ';border:1.5px solid ' + (filterMode === f ? 'var(--ink)' : 'var(--hair)') + ';color:' + (filterMode === f ? '#fff' : 'var(--text2)') + ';border-radius:99px;padding:6px 13px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer">' + lbl + '</button>';
       }).join('') + '</div>';
 
@@ -4710,7 +4723,7 @@ FT.recurringItemsScreen = function (opts) {
     mount.querySelectorAll('[data-deldup]').forEach(function (b) {
       b.onclick = function () {
         var id = b.getAttribute('data-deldup'), L2 = es();
-        FT.confirm(L2 ? '¿Eliminar esta copia? Esto NO borra los cargos que ya se cobraron -- revísalos en Historial.' : "Delete this copy? This does NOT delete charges already billed -- check Historial.").then(function (ok) {
+        FT.confirm(L2 ? '¿Eliminar esta copia? Esto NO borra los cargos que ya se cobraron -- revísalos en Historial.' : "Delete this copy? This does NOT delete charges already billed -- check History.").then(function (ok) {
           if (!ok) return;
           saveList(list().filter(function (x) { return String(x.id) !== id; }));
           FT.toast(L2 ? '🗑️ Copia eliminada' : '🗑️ Copy deleted');
@@ -4733,7 +4746,18 @@ FT.recurringItemsScreen = function (opts) {
         '<option value="custom"' + (s && typeof s.freq === 'string' && s.freq.indexOf('custom:') === 0 ? ' selected' : '') + '>' + (L ? 'Personalizado' : 'Custom') + '</option></select>' +
         FT.customFreqSubFormHTML('si', s && s.freq) + '</div>' +
       '<div class="ft-field"><label>' + (L ? 'Fecha de cobro' : 'Billing date') + '</label><input id="siDate" type="date" value="' + (s ? s.date : FT.todayISO()) + '"></div>' +
+      // 15-oct-2026: CATS ahora varía según FT.lang (antes era un único
+      // arreglo en español sin importar el idioma -- fuga de texto en
+      // español para usuarios en inglés, ver la traducción de arriba). Pero
+      // si editas un artículo guardado en el OTRO idioma, su s.cat guardado
+      // ya no aparece en CATS del idioma actual -- sin esto, el <select> no
+      // seleccionaba nada (el navegador cae en la primera opción) y GUARDAR
+      // sin tocar la categoría la sobreescribía en silencio. Si s.cat no
+      // está en CATS, se agrega como su propia opción extra para que se
+      // mantenga seleccionada y no se pierda sin que el usuario la cambie
+      // a propósito (revisión independiente encontró este caso).
       '<div class="ft-field"><label>' + (L ? 'Categoría' : 'Category') + '</label><select id="siCat">' +
+        (s && s.cat && CATS.indexOf(s.cat) === -1 ? '<option selected>' + s.cat + '</option>' : '') +
         CATS.map(function (c) { return '<option ' + (s && s.cat === c ? 'selected' : '') + '>' + c + '</option>'; }).join('') + '</select></div>' +
       // Autopay (15-oct-2026, a petición de Ramón): si el banco/proveedor
       // ya lo cobra solo, un recordatorio es solo informativo; si NO, el
@@ -4741,7 +4765,7 @@ FT.recurringItemsScreen = function (opts) {
       // relación con "recurrente" de la app (eso es si ESTA app genera el
       // cargo sola en Historial) -- autopay es si quien de verdad cobra
       // (tu banco, Netflix, etc.) lo hace solo, fuera de la app.
-      '<label class="ft-field" style="display:flex;align-items:center;gap:9px;cursor:pointer;background:var(--sunk);border-radius:10px;padding:10px 12px"><input type="checkbox" id="siAutopay" ' + (s && s.autopay ? 'checked' : '') + ' style="width:18px;height:18px;flex-shrink:0"><span style="font-size:12px;font-weight:700">' + (L ? 'Se cobra solo (autopay con el banco/proveedor)' : "Charges itself (autopay with the bank/provider)") + '</span></label>';
+      '<label class="ft-field" style="display:flex;align-items:center;gap:9px;cursor:pointer;background:var(--sunk);border-radius:10px;padding:10px 12px"><input type="checkbox" id="siAutopay" ' + (s && s.autopay ? 'checked' : '') + ' style="width:18px;height:18px;flex-shrink:0"><span style="font-size:12px;font-weight:700">' + (L ? 'Se cobra solo (autopay con el banco/proveedor)' : "Charged automatically (autopay with the bank/provider)") + '</span></label>';
   }
 
   function openForm(id) {
@@ -4803,7 +4827,7 @@ FT.recurringItemsScreen = function (opts) {
             var partnerName = (FT.hogar().partnerName || (L ? 'tu pareja' : 'your partner'));
             FT.confirm(L
               ? partnerName + ' ya tiene "' + dup.name + '" (' + FT.money(parseFloat(dup.amount) || 0) + '/' + freqLbl(dup.freq).toLowerCase() + ') — si es el mismo gasto real, se van a cobrar el doble cada mes. ¿Aun así quieres agregar la tuya?'
-              : partnerName + ' already has "' + dup.name + '" (' + FT.money(parseFloat(dup.amount) || 0) + '/' + freqLbl(dup.freq).toLowerCase() + ') — if it\'s the same real expense, you\'ll both get charged for it every month. Add yours anyway?'
+              : partnerName + ' already has "' + dup.name + '" (' + FT.money(parseFloat(dup.amount) || 0) + '/' + freqUnitEn(dup.freq) + ') — if it\'s the same real expense, you\'ll both get charged for it every month. Add yours anyway?'
             ).then(function (ok) { if (ok) doSave(); });
             return true; // el modal se queda abierto -- se cierra dentro de doSave() si confirman
           }

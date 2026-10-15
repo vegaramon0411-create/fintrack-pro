@@ -278,9 +278,13 @@ function render() {
     var pat = patrimonio();
     heroCap = es ? 'Patrimonio personal' : 'Personal net worth'; heroAmt = pat.total; heroSign = 'pos';
   } else if (HERO_VIEW === 1) {
-    heroCap = es ? 'Gasto del hogar en ' + MES[FT.lang][viewDate().getMonth()].toLowerCase() : 'Household spending'; heroAmt = hogarCombined; heroSign = 'neg';
+    // 15-oct-2026: el inglés se quedaba fijo en "Household spending" sin el
+    // mes, mientras el español sí navegaba con las flechas de mes del shell
+    // (viewDate()/MONTH_OFF) y lo mostraba -- un usuario en inglés que
+    // retrocedía de mes veía el mismo texto sin importar qué mes miraba.
+    heroCap = es ? 'Gasto del hogar en ' + MES[FT.lang][viewDate().getMonth()].toLowerCase() : 'Household spending in ' + MES.en[viewDate().getMonth()]; heroAmt = hogarCombined; heroSign = 'neg';
   } else {
-    heroCap = es ? 'Gastado en ' + MES[FT.lang][viewDate().getMonth()].toLowerCase() : 'Spent this month'; heroAmt = t.spent; heroSign = 'neg';
+    heroCap = es ? 'Gastado en ' + MES[FT.lang][viewDate().getMonth()].toLowerCase() : 'Spent in ' + MES.en[viewDate().getMonth()]; heroAmt = t.spent; heroSign = 'neg';
     splitHTML =
       '<div class="d-split">' +
         '<button class="c" onclick="explain(\'ingreso\')"><span class="m pos">+</span>' + FT.money(t.ingreso, { cents: true }) + ' <small>' + (es ? 'ingreso' : 'income') + '</small></button>' +
@@ -555,7 +559,7 @@ function explain(kind) {
     title = es ? 'Presupuesto del mes' : 'Monthly budget';
     // L.base = tu % personal del cheque (40% en su caso) cuando hay hogar
     // conectado; sin hogar, L.base === L.income (limits() ya lo resuelve).
-    rows = [[es ? (FT.hogarConnected() ? 'Tu presupuesto (' + Math.round(FT.personalPct()) + '% de tu cheque)' : 'Ingreso del mes') : (FT.hogarConnected() ? 'Your budget (' + Math.round(FT.personalPct()) + '% of your check)' : 'Monthly income'), FT.money(L.base)], [es ? '− Gastado' : '− Spent', FT.money(t.spent)], [es ? '= Restante' : '= Left', FT.money(L.base - t.spent)]];
+    rows = [[es ? (FT.hogarConnected() ? 'Tu presupuesto (' + Math.round(FT.personalPct()) + '% de tu cheque)' : 'Ingreso del mes') : (FT.hogarConnected() ? 'Your budget (' + Math.round(FT.personalPct()) + '% of your paycheck)' : 'Monthly income'), FT.money(L.base)], [es ? '− Gastado' : '− Spent', FT.money(t.spent)], [es ? '= Restante' : '= Left', FT.money(L.base - t.spent)]];
   } else if (kind === 'presupuestoHogar') {
     // Presupuesto del HOGAR (QA 29-sep-2026): la tarjeta debajo del hero
     // cambia a esto cuando la vista del hero está en "Hogar" -- mismo
@@ -607,7 +611,7 @@ function openPicker() {
   var opts = [
     ['gasto', '💸', es ? 'Gasto' : 'Expense'], ['ingreso', '💰', es ? 'Ingreso' : 'Income'],
     ['ahorro', '💵', es ? 'Ahorro' : 'Savings'], ['inversion', '📈', es ? 'Inversión' : 'Investment'],
-    ['suscripcion', '🔄', es ? 'Suscripción' : 'Subscription'], ['servicio', '🏠', es ? 'Servicio hogar' : 'Household service']
+    ['suscripcion', '🔄', es ? 'Suscripción' : 'Subscription'], ['servicio', '🏠', es ? 'Servicio hogar' : 'Utility bill']
   ];
   var ov = FT.sheet({
     title: es ? '¿Qué quieres registrar?' : 'What do you want to log?',
@@ -679,7 +683,7 @@ function openEntry(type) {
     extra += '<label class="tap" style="display:flex;gap:9px;align-items:flex-start;background:var(--sunk);border:1px solid var(--hair);border-radius:11px;padding:10px 12px;cursor:pointer;font-size:11.5px;color:var(--text2)"><input type="checkbox" id="eDist" style="width:17px;height:17px;margin-top:1px;accent-color:var(--g-main)"><span>' + (es ? 'Repartir automáticamente a ahorro / emergencia / inversión según mis %.' : 'Auto-distribute to savings / emergency / investing by my %.') + '</span></label>';
 
   var state = { hogar: false, dest: 'libre' };
-  var titles = { gasto: es ? 'Gasto' : 'Expense', ingreso: es ? 'Ingreso' : 'Income', ahorro: es ? 'Ahorro' : 'Savings', inversion: es ? 'Inversión' : 'Investment', suscripcion: es ? 'Suscripción' : 'Subscription', servicio: es ? 'Servicio del hogar' : 'Household service' };
+  var titles = { gasto: es ? 'Gasto' : 'Expense', ingreso: es ? 'Ingreso' : 'Income', ahorro: es ? 'Ahorro' : 'Savings', inversion: es ? 'Inversión' : 'Investment', suscripcion: es ? 'Suscripción' : 'Subscription', servicio: es ? 'Servicio del hogar' : 'Utility bill' };
 
   var ov = FT.modal({
     title: (es ? 'Nuevo: ' : 'New: ') + titles[type],

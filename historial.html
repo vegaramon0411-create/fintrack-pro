@@ -117,7 +117,7 @@ function render() {
     '</div></div>';
 
   h += '<div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;margin-bottom:14px">' +
-    [['all', L ? 'Todos' : 'All'], ['gasto', '💸 ' + (L ? 'Gastos' : 'Expenses')], ['ingreso', '💰 ' + (L ? 'Ingresos' : 'Income')], ['inversion', '📈 ' + (L ? 'Inversiones' : 'Investments')], ['hogar', '🏠 ' + (L ? 'Hogar' : 'Home')]]
+    [['all', L ? 'Todos' : 'All'], ['gasto', '💸 ' + (L ? 'Gastos' : 'Expenses')], ['ingreso', '💰 ' + (L ? 'Ingresos' : 'Income')], ['inversion', '📈 ' + (L ? 'Inversiones' : 'Investments')], ['hogar', '🏠 ' + (L ? 'Hogar' : 'Household')]]
       .map(function (f) { var on = activeFilter === f[0]; return '<button class="tap" data-f="' + f[0] + '" style="flex-shrink:0;background:' + (on ? 'var(--ink)' : 'var(--sunk)') + ';border:1.5px solid ' + (on ? 'var(--ink)' : 'var(--hair)') + ';color:' + (on ? '#fff' : 'var(--text2)') + ';border-radius:99px;padding:6px 14px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;white-space:nowrap">' + f[1] + '</button>'; }).join('') +
   '</div>';
 
@@ -270,7 +270,7 @@ function buscarDuplicados() {
   var sospechosos = Object.keys(groups).map(function (k) { return groups[k]; }).filter(function (g) { return g.length >= 2; });
   var el = document.getElementById('dupResults');
   el.style.display = 'block';
-  if (!sospechosos.length) { el.innerHTML = '<div class="ft-empty">✅ ' + (L ? 'No encontré nada que parezca duplicado' : "Nothing that looks duplicated") + '</div>'; return; }
+  if (!sospechosos.length) { el.innerHTML = '<div class="ft-empty">✅ ' + (L ? 'No encontré nada que parezca duplicado' : "No duplicates found") + '</div>'; return; }
   el.innerHTML = '<div style="font-size:12px;font-weight:700;color:#8A5A00;margin-bottom:10px">⚠️ ' + (L ? sospechosos.length + ' grupo(s) con posibles duplicados — revisa y borra los que no debieran estar' : sospechosos.length + " group(s) with possible duplicates — review and delete the ones that shouldn't be there") + '</div>' +
     sospechosos.map(function (g) {
       var mismaFecha = new Set(g.map(function (t) { return t.date; })).size === 1;

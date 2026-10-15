@@ -91,7 +91,7 @@ function getAchievements(stats) {
     { ico: '💰', name: L ? 'Ahorrador' : 'Saver', desc: L ? 'Ahorraste $500+' : 'Saved $500+', unlocked: stats.totalSaved >= 500 },
     { ico: '📈', name: L ? 'Inversionista' : 'Investor', desc: L ? 'Tu primera inversión' : 'Your first investment', unlocked: stats.totalInvested > 0 },
     { ico: '🛡️', name: L ? 'Protegido' : 'Protected', desc: L ? '1 mes de fondo emergencia' : '1 month emergency fund', unlocked: stats.efPct >= 33 },
-    { ico: '🏆', name: L ? 'Blindado' : 'Armored', desc: L ? 'Meta de 3 meses lograda' : '3-month goal reached', unlocked: stats.efPct >= 100 },
+    { ico: '🏆', name: L ? 'Blindado' : 'Fortified', desc: L ? 'Meta de 3 meses lograda' : '3-month goal reached', unlocked: stats.efPct >= 100 },
     { ico: '📊', name: L ? 'Organizado' : 'Organized', desc: L ? '30+ registros realizados' : '30+ entries recorded', unlocked: stats.totalTx >= 30 },
     { ico: '⭐', name: L ? 'Veterano' : 'Veteran', desc: L ? '3+ meses usando la app' : '3+ months using the app', unlocked: stats.monthsActive >= 3 }
   ];
@@ -329,7 +329,7 @@ function render() {
   var totHogarPct = payPct + savPct, persPct = 100 - totHogarPct;
   var checks = freq === 'weekly' ? 4 : freq === 'biweekly' ? 2 : 1;
   var perCheck = inc * totHogarPct / 100 / checks, personal = inc * persPct / 100 / checks;
-  var freqLabel = L ? { weekly: 'Semanal', biweekly: 'Quincenal', monthly: 'Mensual' }[freq] : { weekly: 'Weekly', biweekly: 'Bi-weekly', monthly: 'Monthly' }[freq];
+  var freqLabel = L ? { weekly: 'Semanal', biweekly: 'Quincenal', monthly: 'Mensual' }[freq] : { weekly: 'Weekly', biweekly: 'Biweekly', monthly: 'Monthly' }[freq];
   // Quincenal usa el MISMO selector de día de la semana que semanal -- un
   // sueldo "cada 2 semanas" se paga un día fijo de la semana (ej. cada
   // martes de por medio), no un día fijo del MES (eso sería "los días 1 y
@@ -347,11 +347,11 @@ function render() {
     '</div>' +
     '<div style="margin-bottom:10px"><label style="font-size:11px;font-weight:700;color:var(--g-dark);display:block;margin-bottom:6px">' + (freq === 'monthly' ? (L ? 'Día del mes' : 'Day of month') : (L ? 'Día de la semana' : 'Day of week')) + '</label>' +
     '<select id="payDaySel" onchange="savePayDay(this.value)" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;background:white">' + dayOpts.map(function (d) { return '<option value="' + d.v + '" ' + (String(payDay) === d.v ? 'selected' : '') + '>' + d.l + '</option>'; }).join('') + '</select></div>' +
-    (freq === 'biweekly' ? '<div style="margin-bottom:10px"><label style="font-size:11px;font-weight:700;color:var(--g-dark);display:block;margin-bottom:6px">' + (L ? 'Un pago reciente que sí recibiste' : 'A recent payday you actually got paid') + '</label>' +
+    (freq === 'biweekly' ? '<div style="margin-bottom:10px"><label style="font-size:11px;font-weight:700;color:var(--g-dark);display:block;margin-bottom:6px">' + (L ? 'Un pago reciente que sí recibiste' : 'A recent date you were actually paid') + '</label>' +
       '<input type="date" id="payAnchorSel" value="' + (u.payAnchor || '') + '" onchange="savePayAnchor(this.value)" style="width:100%;padding:10px;border:1.5px solid ' + (payAuto && !u.payAnchor ? 'var(--red,#E14B4F)' : 'var(--border)') + ';border-radius:8px;font-family:inherit;background:white">' +
       (payAuto && !u.payAnchor
         ? '<div style="font-size:10.5px;color:var(--red,#E14B4F);margin-top:4px">⚠️ ' + (L ? 'Falta esta fecha — sin ella, el registro automático no va a detectar tus pagos quincenales.' : "This date is missing — without it, auto-register won't detect your biweekly paydays.") + '</div>'
-        : '<div style="font-size:10.5px;color:var(--text3);margin-top:4px">' + (L ? 'Quincenal es cada 14 días exactos, no cada semana en ese día — con esta fecha sabemos cuál semana sí te toca.' : "Biweekly is exactly every 14 days, not every week — this date tells us which week is actually yours.") + '</div>') + '</div>' : '') +
+        : '<div style="font-size:10.5px;color:var(--text3);margin-top:4px">' + (L ? 'Quincenal es cada 14 días exactos, no cada semana en ese día — con esta fecha sabemos cuál semana sí te toca.' : "Biweekly is exactly every 14 days, not every week — this date tells us which week you're actually due to be paid.") + '</div>') + '</div>' : '') +
     '<label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px;background:white;border-radius:8px"><input type="checkbox" id="payAutoCheck" ' + (payAuto ? 'checked' : '') + ' onchange="savePayAuto(this.checked)" style="width:18px;height:18px;cursor:pointer">' +
     '<div><div style="font-size:12px;font-weight:700;color:var(--g-dark)">' + (L ? 'Registro automático' : 'Auto-register') + '</div><div style="font-size:10px;color:var(--text3)">' + (L ? 'El app registra tu cheque en el día configurado' : 'App registers your paycheck on the configured day') + '</div></div></label></div>';
 
@@ -431,7 +431,7 @@ function render() {
   '<div class="card"><div class="card-hd">💵 ' + (L ? 'Frecuencia de pago' : 'Pay frequency') + '</div>' +
     '<div style="font-size:12px;color:var(--text3);margin-bottom:12px">' + (L ? 'Configura cuándo recibes tu sueldo para calcular cuánto depositar al hogar cada cheque.' : 'Configure your pay schedule to calculate how much to deposit per paycheck.') + '</div>' +
     '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">' + ['weekly', 'biweekly', 'monthly'].map(function (f) {
-      var lbl = L ? { weekly: 'Semanal', biweekly: 'Quincenal', monthly: 'Mensual' }[f] : { weekly: 'Weekly', biweekly: 'Bi-weekly', monthly: 'Monthly' }[f];
+      var lbl = L ? { weekly: 'Semanal', biweekly: 'Quincenal', monthly: 'Mensual' }[f] : { weekly: 'Weekly', biweekly: 'Biweekly', monthly: 'Monthly' }[f];
       var sel = freq === f;
       return '<button class="tap" onclick="setPayFreq(\'' + f + '\')" style="padding:10px 6px;border-radius:10px;border:2px solid ' + (sel ? 'var(--g-main)' : 'var(--border)') + ';background:' + (sel ? 'var(--g-light)' : 'var(--off)') + ';color:' + (sel ? 'var(--g-dark)' : 'var(--text2)') + ';font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">' + lbl + '</button>';
     }).join('') + '</div>' + freqHtml + '</div>' +

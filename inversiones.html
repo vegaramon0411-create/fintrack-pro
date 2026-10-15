@@ -88,7 +88,7 @@ function render() {
     var tk = String(i.ticker || '?').slice(0, 5);
     return '<div class="iv-pos" data-pos="' + i.id + '"><div class="tk">' + tk + '</div>' +
       '<div class="m"><div class="n">' + tk + (i.recId ? '<span class="iv-recb">🔄</span>' : '') + '</div>' +
-      '<div class="d">' + (i.platform && i.platform !== 'Importado' ? i.platform + ' · ' : '') + (parseFloat(i.shares) || 1) + ' u · $' + (parseFloat(i.avgPrice) || parseFloat(i.amount) || 0) + ' avg' + ((parseFloat(i.curPrice) && parseFloat(i.curPrice) !== parseFloat(i.avgPrice)) ? ' → $' + i.curPrice : '') + '</div></div>' +
+      '<div class="d">' + (i.platform && i.platform !== 'Importado' ? i.platform + ' · ' : '') + (parseFloat(i.shares) || 1) + (es ? ' u · $' : ' units · $') + (parseFloat(i.avgPrice) || parseFloat(i.amount) || 0) + (es ? ' prom' : ' avg') + ((parseFloat(i.curPrice) && parseFloat(i.curPrice) !== parseFloat(i.avgPrice)) ? ' → $' + i.curPrice : '') + '</div></div>' +
       '<div class="r"><div class="v">' + money(v) + '</div><div class="g" style="color:' + (pg >= 0 ? 'var(--g-main)' : 'var(--red)') + '">' + (pg >= 0 ? '+' : '−') + money(pg) + '</div></div></div>';
   }).join('') : '<div class="iv-empty">' + (es ? 'Sin inversiones aún — toca ＋ para agregar' : 'No investments yet — tap ＋ to add') + '</div>';
 
@@ -131,7 +131,7 @@ function addFormHTML() {
     : '';
   var typeOpts = TYPES.map(function (t) { return '<option value="' + t[0] + '">' + t[1] + '</option>'; }).join('');
   return '<div class="ft-field"><label>' + (es ? 'Tipo de registro' : 'Entry type') + '</label><div class="iv-seg" data-g="modo">' +
-      '<button data-o="nueva" class="' + (s.modo === 'nueva' ? 'on' : '') + '">' + (es ? 'Nueva' : 'New') + '<small>' + (es ? 'sale de tu disponible del mes' : 'from this month') + '</small></button>' +
+      '<button data-o="nueva" class="' + (s.modo === 'nueva' ? 'on' : '') + '">' + (es ? 'Nueva' : 'New') + '<small>' + (es ? 'sale de tu disponible del mes' : "counts against this month's budget") + '</small></button>' +
       '<button data-o="existente" class="' + (s.modo === 'existente' ? 'on' : '') + '">' + (es ? 'Ya la tenía' : 'Already had it') + '<small>' + (es ? 'solo capturar' : 'just capture') + '</small></button></div></div>' +
     scopeSeg +
     '<div class="ft-field"><label>' + (es ? 'Datos' : 'Detail') + '</label><div class="iv-seg" data-g="complexity">' +
@@ -234,7 +234,7 @@ function posDetail(id) {
     [es ? 'Fecha' : 'Date', FT.date(i.fecha || (i.addedAt || '').slice(0, 10))]
   ];
   if (i.recId) rows.push(['🔄 ' + (es ? 'Recurrente' : 'Recurring'), es ? 'activo' : 'active']);
-  if (i.modo === 'yaLaTenia') rows.push([es ? 'Origen' : 'Source', es ? 'Ya la tenía (no contó al mes)' : 'Pre-owned (not counted)']);
+  if (i.modo === 'yaLaTenia') rows.push([es ? 'Origen' : 'Source', es ? 'Ya la tenía (no contó al mes)' : 'Already had it (not counted)']);
   FT.sheet({
     title: i.ticker,
     html: '<div style="text-align:center;margin-bottom:12px"><div style="font-family:var(--round-font);font-weight:900;font-size:26px">' + money(v) + '</div>' +

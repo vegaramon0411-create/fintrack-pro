@@ -521,7 +521,7 @@ function fondosCards(modo) {
     var rec = FT.recurList(function (r) { return r.kind === 'meta' && r.metaTipo === 'meta' && (r.metaId != null ? r.metaId === m.id : r.metaIdx === idx); })[0];
     return '<div class="ft-card">' +
       '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;gap:8px">' +
-        '<div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:800">🎯 ' + (m.nombre || 'Meta') + '</div>' +
+        '<div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:800">🎯 ' + (m.nombre || (L ? 'Meta' : 'Goal')) + '</div>' +
         '<div style="font-size:11px;color:var(--text3)">' + (m.meta > 0 ? FT.money(m.meta) + ' ' + (L ? 'objetivo' : 'target') : (L ? 'Sin monto objetivo' : 'No target amount')) + (m.fecha ? ' · ' + m.fecha : '') + '</div></div>' +
         '<div style="display:flex;gap:6px;flex-shrink:0">' +
         '<button class="tap" style="background:var(--sunk);border:1.5px solid var(--hair);border-radius:10px;padding:6px 9px;font-size:12px;cursor:pointer;font-family:inherit" onclick="configMeta(' + idx + ')">⚙️</button>' +
@@ -566,11 +566,11 @@ function configMeta(idx) {
   FT.modal({
     title: L ? 'Configurar meta' : 'Configure goal',
     html: '<div class="ft-field"><label>' + (L ? 'Nombre' : 'Name') + '</label><input id="cmName" value="' + (m.nombre || '') + '"></div>' +
-      '<div class="ft-field"><label>' + (L ? 'Monto objetivo' : 'Target amount') + ' ($)</label><input id="cmMeta" type="number" value="' + (m.meta || '') + '" placeholder="' + (L ? '0 = libre' : '0 = open-ended') + '"></div>' +
+      '<div class="ft-field"><label>' + (L ? 'Monto objetivo' : 'Goal') + ' ($)</label><input id="cmMeta" type="number" value="' + (m.meta || '') + '" placeholder="' + (L ? '0 = libre' : '0 = open-ended') + '"></div>' +
       '<div class="ft-field"><label>' + (L ? 'Fecha objetivo (opcional)' : 'Target date (optional)') + '</label><input id="cmFecha" type="date" value="' + (m.fecha || '') + '"></div>',
     onSave: function (body) {
       var f = FT.hogarFondos();
-      f.metas[idx].nombre = body.querySelector('#cmName').value.trim() || 'Meta';
+      f.metas[idx].nombre = body.querySelector('#cmName').value.trim() || (L ? 'Meta' : 'Goal');
       f.metas[idx].meta = parseFloat(body.querySelector('#cmMeta').value) || 0;
       f.metas[idx].fecha = body.querySelector('#cmFecha').value || '';
       FT.saveHogarFondos(f);
@@ -660,12 +660,12 @@ function abrirAporteModal(tipo, idx, montoSugerido) {
         var f = FT.hogarFondos();
         var entry = { id: 'd_' + Date.now(), monto: monto, fecha: fecha, desdePres: origen === 'nuevo' };
         if (tipo === 'emerg') { f.emerg.hist = f.emerg.hist || []; f.emerg.hist.push(entry); f.emerg.actual = f.emerg.hist.reduce(function (a, h) { return a + (h.monto || 0); }, 0); if (origen === 'nuevo') registrarEnPresupuesto(monto, L ? 'Fondo emergencia hogar' : 'Household emergency fund', checkingAccountId); }
-        else { var meta = f.metas[idx]; if (meta) { meta.hist = meta.hist || []; meta.hist.push(entry); meta.actual = meta.hist.reduce(function (a, h) { return a + (h.monto || 0); }, 0); if (origen === 'nuevo') registrarEnPresupuesto(monto, meta.nombre || 'Meta hogar', checkingAccountId); } }
+        else { var meta = f.metas[idx]; if (meta) { meta.hist = meta.hist || []; meta.hist.push(entry); meta.actual = meta.hist.reduce(function (a, h) { return a + (h.monto || 0); }, 0); if (origen === 'nuevo') registrarEnPresupuesto(monto, meta.nombre || (L ? 'Meta hogar' : 'Household goal'), checkingAccountId); } }
         FT.saveHogarFondos(f);
 
         if (wantsRec) {
           var freq = b.querySelector('#apRecFreq').value;
-          var descRec = tipo === 'emerg' ? (L ? 'Fondo emergencia hogar' : 'Household emergency fund') : ((f.metas[idx] && f.metas[idx].nombre) || 'Meta hogar');
+          var descRec = tipo === 'emerg' ? (L ? 'Fondo emergencia hogar' : 'Household emergency fund') : ((f.metas[idx] && f.metas[idx].nombre) || (L ? 'Meta hogar' : 'Household goal'));
           var nextDate = FT._advanceRecDate(freq, fecha);
           var recurring = FT.recurring();
           var metaIdRec = tipo === 'meta' && f.metas[idx] ? f.metas[idx].id : null;
@@ -769,7 +769,7 @@ function tabDistribucion(calc, partnerName) {
   var L = es(), hogar = FT.hogar();
   var payPct = parseFloat(hogar.payPctHogar) || 50, savePct = parseFloat(hogar.saveHogarPct) || 10, personalPct = 100 - payPct - savePct;
   var myFreq = FT.user().payFreq || hogar.myPayFreq || 'weekly', partFreq = hogar.partPayFreq || 'biweekly';
-  var freqLabel = { weekly: L ? 'Semanal' : 'Weekly', biweekly: L ? 'Quincenal' : 'Bi-weekly', monthly: L ? 'Mensual' : 'Monthly' };
+  var freqLabel = { weekly: L ? 'Semanal' : 'Weekly', biweekly: L ? 'Quincenal' : 'Biweekly', monthly: L ? 'Mensual' : 'Monthly' };
   var checksPerMonth = function (f) { return f === 'weekly' ? 4 : f === 'biweekly' ? 2 : 1; };
   var myPerCheck = calc.myIncome > 0 ? (calc.myIncome * payPct / 100) / checksPerMonth(myFreq) : 0;
   var partPerCheck = calc.partnerIncome > 0 ? (calc.partnerIncome * payPct / 100) / checksPerMonth(partFreq) : 0;
@@ -1018,7 +1018,7 @@ function tabGuia(calc, partnerName) {
         '✅ ' + (L ? 'Al registrar un gasto → marca si es 🏠 Del hogar o 👤 Personal' : 'When logging an expense → tag it 🏠 Household or 👤 Personal') + '<br>' +
         '✅ ' + (L ? 'Al depositar en una meta elige "Nuevo depósito" para descontar del mes' : 'When depositing to a goal choose "New deposit" to deduct from month') + '<br>' +
         '✅ ' + (L ? 'Los gastos personales de cada quien son privados' : "Each person's personal expenses are private") + '<br>' +
-        '🔒 ' + (L ? 'Tu ahorro y patrimonio personal nunca son visibles para tu pareja' : 'Your personal savings are never visible to your partner') +
+        '🔒 ' + (L ? 'Tu ahorro y patrimonio personal nunca son visibles para tu pareja' : 'Your personal savings and net worth are never visible to your partner') +
       '</div></div>' +
   '</div>' +
   '<button class="ft-btn ft-btn-ghost tap" onclick="changeMode()">🔄 ' + (L ? 'Cambiar modo de finanzas' : 'Change finance mode') + '</button>';

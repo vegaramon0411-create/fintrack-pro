@@ -21,12 +21,12 @@ var FILTERS = [
   ['metapersonal', '🎯', 'Mis metas', 'My goals'],
   ['hogar', '🏠', 'Aportes hogar', 'Household deposits'],
   ['sub', '🔄', 'Suscripciones', 'Subscriptions'],
-  ['serv', '🏠', 'Servicios', 'Services'],
+  ['serv', '🏠', 'Servicios', 'Utilities'],
   ['transferencia', '🔁', 'Transferencias', 'Transfers']
 ];
 var PASTEL = { debt: 'coral', ahorro: 'mint', emerg: 'sky', inversion: 'peach', hogar: 'pink', metapersonal: 'peach', sub: 'pink', serv: 'coral', transferencia: 'sky' };
 var PASTEL_TX = { debt: 'var(--coral-tx)', ahorro: 'var(--mint-tx)', emerg: 'var(--sky-tx)', inversion: 'var(--peach-tx)', hogar: 'var(--pink-tx)', metapersonal: 'var(--peach-tx)', sub: 'var(--pink-tx)', serv: 'var(--coral-tx)', transferencia: 'var(--sky-tx)' };
-var PAGE_LABEL = { debt: ['Deudas', 'Debts'], ahorro: ['Ahorro libre', 'Free savings'], emerg: ['Emergencia', 'Emergency'], inversion: ['Inversiones', 'Investments'], hogar: ['Hogar', 'Household'], metapersonal: ['Metas', 'Goals'], sub: ['Suscripciones', 'Subscriptions'], serv: ['Servicios', 'Services'], transferencia: ['Mi dinero', 'My money'] };
+var PAGE_LABEL = { debt: ['Deudas', 'Debts'], ahorro: ['Ahorro libre', 'Free savings'], emerg: ['Emergencia', 'Emergency'], inversion: ['Inversiones', 'Investments'], hogar: ['Hogar', 'Household'], metapersonal: ['Metas', 'Goals'], sub: ['Suscripciones', 'Subscriptions'], serv: ['Servicios', 'Utilities'], transferencia: ['Mi dinero', 'My money'] };
 
 function es() { return FT.lang === 'es'; }
 // Personalizado (12-oct-2026, a petición de Ramón): mismo criterio de
@@ -56,9 +56,9 @@ function render() {
   var items = filterMode === 'all' ? all : all.filter(function (i) { return i.pk === filterMode; });
 
   var h = '<div class="ft-card">' +
-    '<div style="font-size:11px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">' + (L ? 'Total recurrente activo' : 'Total active recurring') + '</div>' +
+    '<div style="font-size:11px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">' + (L ? 'Total recurrente activo' : 'Total active recurring payments') + '</div>' +
     '<div class="ft-num" style="font-size:30px">' + FT.money(total) + '<span style="font-size:13px;color:var(--text3);font-weight:600">/' + (L ? 'mes' : 'mo') + '</span></div>' +
-    '<div style="font-size:11px;color:var(--text3);margin-top:4px">' + all.length + ' ' + (L ? 'recurrente(s) en total · ' : 'recurring item(s) total · ') + active.length + ' ' + (L ? 'activo(s)' : 'active') + '</div></div>';
+    '<div style="font-size:11px;color:var(--text3);margin-top:4px">' + all.length + ' ' + (L ? 'recurrente(s) en total · ' : ('recurring ' + (all.length === 1 ? 'item' : 'items') + ' total · ')) + active.length + ' ' + (L ? 'activo(s)' : 'active') + '</div></div>';
 
   h += '<div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;margin-bottom:14px">' +
     FILTERS.map(function (f) {
@@ -127,12 +127,12 @@ function openManage(uid) {
       // autopay es si quien de verdad cobra (tu banco, el proveedor) ya lo
       // hace solo, fuera de la app. Sirve para que un recordatorio por
       // correo sepa si debe avisar "nomás FYI" o "tienes que pagarlo tú".
-      '<label class="ft-field" style="display:flex;align-items:center;gap:9px;cursor:pointer;background:var(--sunk);border-radius:10px;padding:10px 12px"><input type="checkbox" id="mgAutopay" ' + (i.autopay ? 'checked' : '') + ' style="width:18px;height:18px;flex-shrink:0"><span style="font-size:12px;font-weight:700">' + (L ? 'Se cobra solo (autopay con el banco/proveedor)' : "Charges itself (autopay with the bank/provider)") + '</span></label>' +
+      '<label class="ft-field" style="display:flex;align-items:center;gap:9px;cursor:pointer;background:var(--sunk);border-radius:10px;padding:10px 12px"><input type="checkbox" id="mgAutopay" ' + (i.autopay ? 'checked' : '') + ' style="width:18px;height:18px;flex-shrink:0"><span style="font-size:12px;font-weight:700">' + (L ? 'Se cobra solo (autopay con el banco/proveedor)' : "Charged automatically (autopay with the bank/provider)") + '</span></label>' +
       '<div id="mgSwRow" style="display:flex;align-items:center;justify-content:space-between;background:var(--sunk);border:1.5px solid var(--hair);border-radius:13px;padding:12px 14px;margin-bottom:6px">' +
         '<div style="font-size:12.5px;font-weight:700" id="mgSwTxt">' + (i.paused ? (L ? 'Pausado' : 'Paused') : (L ? 'Activo' : 'Active')) + '<small style="display:block;font-weight:500;color:var(--text3);font-size:10.5px;margin-top:1px" id="mgSwSub">' + (i.paused ? (L ? 'No se aplicará hasta reanudar' : "Won't apply until resumed") : (L ? 'Se aplica automáticamente cada periodo' : 'Applies automatically every period')) + '</small></div>' +
         '<div class="tap" id="mgSw" style="width:42px;height:24px;border-radius:99px;position:relative;cursor:pointer;flex-shrink:0;background:' + (i.paused ? 'var(--hair)' : 'var(--g-main)') + '"><i style="position:absolute;top:3px;left:' + (i.paused ? '3px' : '21px') + ';width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2)"></i></div>' +
       '</div>' +
-      '<div class="tap" id="mgGo" style="font-size:12px;font-weight:700;color:var(--blue);text-align:center;padding:10px 0 4px">' + (L ? 'Ver detalle completo en ' + pageLabel : 'See full detail in ' + pageLabel) + ' →</div>' +
+      '<div class="tap" id="mgGo" style="font-size:12px;font-weight:700;color:var(--blue);text-align:center;padding:10px 0 4px">' + (L ? 'Ver detalle completo en ' + pageLabel : 'See full details in ' + pageLabel) + ' →</div>' +
       '<div class="tap" id="mgDel" style="font-size:12.5px;font-weight:700;color:var(--red);text-align:center;padding:10px 0 4px;border-top:1px solid var(--hair);margin-top:6px">🗑️ ' + (L ? 'Eliminar recurrente' : 'Delete recurring item') + '</div>',
     saveLabel: L ? 'Guardar cambios' : 'Save changes',
     onOpen: function (body) {

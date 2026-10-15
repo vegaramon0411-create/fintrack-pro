@@ -482,7 +482,7 @@ function parseManual(header, lines) {
     return { date: parseDate(c[idx.date] || ''), desc: c[idx.desc] || '', cat: c[idx.cat] || '', amount: parseAmount(c[idx.amount] || '0') };
   }).filter(function (r) { return r.desc; });
 
-  reviewRows = parsedRows.map(function (r) { return Object.assign({}, r, { status: 'include', type: 'gasto', ftCat: mapManualCategory(r.cat), zelleType: null, isDuplicate: checkDuplicate(r.date, Math.abs(r.amount), r.desc), selected: true }); });
+  reviewRows = parsedRows.map(function (r) { return Object.assign({}, r, { status: 'include', type: 'gasto', ftCat: mapManualCategory(r.cat), zelleType: null, isDuplicate: checkDuplicate(r.date, Math.abs(r.amount), r.desc), selected: true }); }); /* mapManualCategory ya traduce via catImport() */
   renderStep3();
 }
 
@@ -543,7 +543,7 @@ function classifyBrokerRows() {
     else if (action.indexOf('sold') > -1 || action.indexOf('sell') > -1 || action.indexOf('redemption') > -1) { status = 'pending'; type = 'venta'; selected = true; }
     else if (action.indexOf('dividend') > -1 || action.indexOf('cdiv') > -1) { status = 'include'; type = 'ingreso'; selected = true; }
     else { status = 'decide'; type = 'otro'; selected = false; }
-    return Object.assign({}, r, { status: status, type: type, selected: selected, ftCat: '📈 Inversión', isDuplicate: false, isFZILX: r.symbol === 'FZILX', sellDisposition: null });
+    return Object.assign({}, r, { status: status, type: type, selected: selected, ftCat: catImport('inversion'), isDuplicate: false, isFZILX: r.symbol === 'FZILX', sellDisposition: null });
   });
   renderStep3();
 }
@@ -568,7 +568,7 @@ function parseGeneric(header, lines) {
     return { date: parseDate(c[dateIdx >= 0 ? dateIdx : 0] || ''), desc: c[descIdx] || '', cat: '', amount: parseAmount(c[amtIdx] || '0') };
   }).filter(function (r) { return r.desc && r.amount !== 0; });
 
-  reviewRows = parsedRows.map(function (r) { return Object.assign({}, r, { status: r.amount < 0 ? 'include' : 'decide', type: r.amount < 0 ? 'gasto' : 'ingreso', ftCat: '📦 Otros', zelleType: null, isDuplicate: checkDuplicate(r.date, Math.abs(r.amount), r.desc), selected: r.amount < 0 }); });
+  reviewRows = parsedRows.map(function (r) { return Object.assign({}, r, { status: r.amount < 0 ? 'include' : 'decide', type: r.amount < 0 ? 'gasto' : 'ingreso', ftCat: catImport('otros'), zelleType: null, isDuplicate: checkDuplicate(r.date, Math.abs(r.amount), r.desc), selected: r.amount < 0 }); });
   renderStep3();
 }
 
@@ -638,27 +638,52 @@ function forceInclude(idx) {
   renderTxList();
   FT.toast(es() ? '✅ Transacción incluida' : '✅ Transaction included');
 }
+// 15-oct-2026: estas categorías se generan por código (no vienen de un
+// <select> con data-es/data-en como scanner.html's cfCat), así que nunca
+// seguían el idioma -- un usuario en inglés siempre veía las etiquetas en
+// español. CAT_IMPORT usa exactamente las mismas etiquetas en inglés que ya
+// usa scanner.html's cfCat, para no inventar una tercera traducción.
+var CAT_IMPORT = {
+  restaurantes: { es: '🍔 Restaurantes', en: '🍔 Restaurants' },
+  supermercado: { es: '🛒 Supermercado', en: '🛒 Grocery' },
+  gasolina: { es: '⛽ Gasolina', en: '⛽ Gas' },
+  salud: { es: '💊 Salud', en: '💊 Health' },
+  entretenimiento: { es: '🎬 Entretenimiento', en: '🎬 Entertainment' },
+  ropa: { es: '👕 Ropa', en: '👕 Clothing' },
+  telInternet: { es: '📱 Teléfono/Internet', en: '📱 Phone/Internet' },
+  renta: { es: '🏠 Renta / Hipoteca', en: '🏠 Rent / Mortgage' },
+  otros: { es: '📦 Otros', en: '📦 Other' },
+  inversion: { es: '📈 Inversión', en: '📈 Investment' },
+  servicios: { es: '🧾 Servicios', en: '🧾 Services' },
+  ingreso: { es: '💰 Ingreso', en: '💰 Income' }
+};
+function catImport(key) { return CAT_IMPORT[key][es() ? 'es' : 'en']; }
+// Nombre crudo que devuelve la IA (siempre en español, ver el prompt de
+// processAIFile) -> llave de CAT_IMPORT, para traducir su categoría igual
+// que las demás fuentes de importación.
+var AI_CAT_KEY = { 'Restaurantes': 'restaurantes', 'Supermercado': 'supermercado', 'Gasolina': 'gasolina', 'Salud': 'salud', 'Entretenimiento': 'entretenimiento', 'Ropa': 'ropa', 'Servicios': 'servicios', 'Inversión': 'inversion', 'Ingreso': 'ingreso', 'Otros': 'otros' };
+function catImportFromAI(name) { var k = AI_CAT_KEY[name] || 'otros'; return catImport(k); }
 function mapBankCategory(cat, detcat, desc) {
   var c = (cat + ' ' + detcat + ' ' + desc).toLowerCase();
-  if (c.indexOf('food') > -1 || c.indexOf('restaurant') > -1 || c.indexOf('bar') > -1 || c.indexOf('dunkin') > -1 || c.indexOf('mcdonald') > -1 || c.indexOf('taco') > -1 || c.indexOf('pizza') > -1) return '🍔 Restaurantes';
-  if (c.indexOf('grocery') > -1 || c.indexOf('supermarket') > -1 || c.indexOf('walmart') > -1 || c.indexOf('target') > -1 || c.indexOf('costco') > -1 || c.indexOf('cermak') > -1 || c.indexOf('aldi') > -1) return '🛒 Supermercado';
-  if (c.indexOf('gas') > -1 || c.indexOf('fuel') > -1 || c.indexOf('gasoline') > -1 || c.indexOf('exxon') > -1 || c.indexOf('shell') > -1 || c.indexOf('bp') > -1) return '⛽ Gasolina';
-  if (c.indexOf('transport') > -1 || c.indexOf('uber') > -1 || c.indexOf('lyft') > -1 || c.indexOf('transit') > -1 || c.indexOf('cta') > -1) return '⛽ Gasolina';
-  if (c.indexOf('health') > -1 || c.indexOf('medical') > -1 || c.indexOf('pharmacy') > -1 || c.indexOf('doctor') > -1 || c.indexOf('gym') > -1 || c.indexOf('fitness') > -1) return '💊 Salud';
-  if (c.indexOf('entertain') > -1 || c.indexOf('movie') > -1 || c.indexOf('netflix') > -1 || c.indexOf('spotify') > -1 || c.indexOf('amazon prime') > -1 || c.indexOf('disney') > -1) return '🎬 Entretenimiento';
-  if (c.indexOf('shop') > -1 || c.indexOf('amazon') > -1 || c.indexOf('clothing') > -1 || c.indexOf('apparel') > -1 || c.indexOf('fashion') > -1) return '👕 Ropa';
-  if (c.indexOf('utility') > -1 || c.indexOf('electric') > -1 || c.indexOf('peoples gas') > -1 || c.indexOf('water') > -1 || c.indexOf('internet') > -1 || c.indexOf('phone') > -1 || c.indexOf('comcast') > -1 || c.indexOf('att') > -1) return '📱 Teléfono/Internet';
-  if (c.indexOf('rent') > -1 || c.indexOf('mortgage') > -1 || c.indexOf('housing') > -1) return '🏠 Renta / Hipoteca';
-  return '📦 Otros';
+  if (c.indexOf('food') > -1 || c.indexOf('restaurant') > -1 || c.indexOf('bar') > -1 || c.indexOf('dunkin') > -1 || c.indexOf('mcdonald') > -1 || c.indexOf('taco') > -1 || c.indexOf('pizza') > -1) return catImport('restaurantes');
+  if (c.indexOf('grocery') > -1 || c.indexOf('supermarket') > -1 || c.indexOf('walmart') > -1 || c.indexOf('target') > -1 || c.indexOf('costco') > -1 || c.indexOf('cermak') > -1 || c.indexOf('aldi') > -1) return catImport('supermercado');
+  if (c.indexOf('gas') > -1 || c.indexOf('fuel') > -1 || c.indexOf('gasoline') > -1 || c.indexOf('exxon') > -1 || c.indexOf('shell') > -1 || c.indexOf('bp') > -1) return catImport('gasolina');
+  if (c.indexOf('transport') > -1 || c.indexOf('uber') > -1 || c.indexOf('lyft') > -1 || c.indexOf('transit') > -1 || c.indexOf('cta') > -1) return catImport('gasolina');
+  if (c.indexOf('health') > -1 || c.indexOf('medical') > -1 || c.indexOf('pharmacy') > -1 || c.indexOf('doctor') > -1 || c.indexOf('gym') > -1 || c.indexOf('fitness') > -1) return catImport('salud');
+  if (c.indexOf('entertain') > -1 || c.indexOf('movie') > -1 || c.indexOf('netflix') > -1 || c.indexOf('spotify') > -1 || c.indexOf('amazon prime') > -1 || c.indexOf('disney') > -1) return catImport('entretenimiento');
+  if (c.indexOf('shop') > -1 || c.indexOf('amazon') > -1 || c.indexOf('clothing') > -1 || c.indexOf('apparel') > -1 || c.indexOf('fashion') > -1) return catImport('ropa');
+  if (c.indexOf('utility') > -1 || c.indexOf('electric') > -1 || c.indexOf('peoples gas') > -1 || c.indexOf('water') > -1 || c.indexOf('internet') > -1 || c.indexOf('phone') > -1 || c.indexOf('comcast') > -1 || c.indexOf('att') > -1) return catImport('telInternet');
+  if (c.indexOf('rent') > -1 || c.indexOf('mortgage') > -1 || c.indexOf('housing') > -1) return catImport('renta');
+  return catImport('otros');
 }
 function mapManualCategory(cat) {
   var c = (cat || '').toLowerCase();
-  if (c.indexOf('food') > -1) return '🍔 Restaurantes';
-  if (c.indexOf('transport') > -1 || (c.indexOf('car') > -1 && c.indexOf('carwash') === -1)) return '⛽ Gasolina';
-  if (c.indexOf('health') > -1 || c.indexOf('beauty') > -1) return '💊 Salud';
-  if (c.indexOf('cloth') > -1 || c.indexOf('shop') > -1) return '👕 Ropa';
-  if (c.indexOf('entertain') > -1) return '🎬 Entretenimiento';
-  return '📦 Otros';
+  if (c.indexOf('food') > -1) return catImport('restaurantes');
+  if (c.indexOf('transport') > -1 || (c.indexOf('car') > -1 && c.indexOf('carwash') === -1)) return catImport('gasolina');
+  if (c.indexOf('health') > -1 || c.indexOf('beauty') > -1) return catImport('salud');
+  if (c.indexOf('cloth') > -1 || c.indexOf('shop') > -1) return catImport('ropa');
+  if (c.indexOf('entertain') > -1) return catImport('entretenimiento');
+  return catImport('otros');
 }
 
 /* ══════════════════════════════════════
@@ -759,12 +784,12 @@ function renderTxList() {
     var statusColor = { include: '#1A7A4A', exclude: '#E14B4F', decide: '#E0952E', pending: '#4361E0' }[r.status] || '#A0A3AF';
     var isPos = isFid ? (r.type === 'venta' || r.type === 'ingreso') : r.amount > 0;
     var amtColor = isPos ? 'var(--g-main)' : 'var(--red)';
-    var amtStr = isFid ? (r.amount !== 0 ? FT.money(Math.abs(r.amount), { cents: true }) : r.qty + ' acc × $' + r.price) : FT.money(Math.abs(r.amount), { cents: true });
+    var amtStr = isFid ? (r.amount !== 0 ? FT.money(Math.abs(r.amount), { cents: true }) : r.qty + (L ? ' acc × $' : ' sh × $') + r.price) : FT.money(Math.abs(r.amount), { cents: true });
     var sign = isPos ? '+' : '-';
     var extraHtml = '';
 
     if (r.status === 'decide' && !isFid && isZelle(r)) {
-      extraHtml = '<div class="zelle-opts"><span style="font-size:10px;color:var(--text3);margin-right:4px">¿Qué fue?</span>' +
+      extraHtml = '<div class="zelle-opts"><span style="font-size:10px;color:var(--text3);margin-right:4px">' + (L ? '¿Qué fue?' : 'What was it?') + '</span>' +
         '<button class="zo-btn ' + (r.zelleType === 'gasto' ? 'on' : '') + '" onclick="setZelle(' + globalIdx + ",'gasto')\">💸 " + (L ? 'Pago' : 'Payment') + '</button>' +
         '<button class="zo-btn ' + (r.zelleType === 'ingreso' ? 'on' : '') + '" onclick="setZelle(' + globalIdx + ",'ingreso')\">💰 " + (L ? 'Cobro' : 'Income') + '</button>' +
         '<button class="zo-btn ' + (r.zelleType === 'ignore' ? 'on' : '') + '" onclick="setZelle(' + globalIdx + ",'ignore')\">🎁 " + (L ? 'Ignorar' : 'Ignore') + '</button></div>';
@@ -781,7 +806,7 @@ function renderTxList() {
     return '<div class="tx-review-row" style="' + (r.status === 'exclude' ? 'opacity:.5' : '') + '">' +
       '<div class="trr-check ' + (r.selected ? 'on' : '') + '" onclick="toggleRow(' + globalIdx + ')">' + (r.selected ? '<span style="color:white;font-size:12px;line-height:1">✓</span>' : '') + '</div>' +
       '<div class="trr-status" style="background:' + statusColor + '"></div>' +
-      '<div class="trr-info"><div class="trr-name">' + (isFid && r.symbol ? '<strong>' + r.symbol + '</strong> · ' : '') + (r.desc || r.action || '—') + (r.status === 'pending' ? '<span style="font-size:9px;font-weight:700;background:var(--blu-dim);color:var(--blue);padding:1px 6px;border-radius:20px;margin-left:4px">PENDIENTE</span>' : '') + '</div>' +
+      '<div class="trr-info"><div class="trr-name">' + (isFid && r.symbol ? '<strong>' + r.symbol + '</strong> · ' : '') + (r.desc || r.action || '—') + (r.status === 'pending' ? '<span style="font-size:9px;font-weight:700;background:var(--blu-dim);color:var(--blue);padding:1px 6px;border-radius:20px;margin-left:4px">' + (L ? 'PENDIENTE' : 'PENDING') + '</span>' : '') + '</div>' +
       '<div class="trr-meta">' + r.date + (r.account ? ' · ' + r.account : '') + (r.status === 'exclude' ? ' · <span style="color:var(--red);cursor:pointer;text-decoration:underline;font-weight:600" onclick="showExclusionReason(' + globalIdx + ')">' + (L ? '¿Por qué? →' : 'Why? →') + '</span>' : '') + '</div>' +
       extraHtml + '</div>' +
       '<div style="text-align:right;flex-shrink:0"><div class="trr-amt" style="color:' + amtColor + '">' + sign + amtStr + '</div><div class="trr-cat" style="background:var(--off);color:var(--text3)">' + r.ftCat + '</div></div></div>';
@@ -940,7 +965,12 @@ async function processAIFile(file, forcedMediaType, csvText) {
     if (!rows || !rows.length) throw new Error(L ? 'No se encontraron transacciones en el documento' : 'No transactions found in document');
 
     parsedRows = rows.map(function (r) { return { date: parseDate(r.date || ''), desc: r.description || '', cat: r.category || 'Otros', amount: parseFloat(r.amount) || 0, isTransfer: r.is_transfer || false, ticker: r.ticker || '', type: r.type || 'gasto' }; });
-    reviewRows = parsedRows.map(function (r) { return Object.assign({}, r, { status: r.isTransfer ? 'exclude' : 'include', type: r.type || (r.amount < 0 ? 'gasto' : 'ingreso'), ftCat: r.cat, zelleType: null, isDuplicate: checkDuplicate(r.date, Math.abs(r.amount), r.desc), selected: !r.isTransfer }); });
+    // La IA siempre responde la categoría en español (ver el prompt arriba,
+    // basePrompt pide un nombre fijo en español) -- catImportFromAI() la
+    // traduce al idioma actual y le agrega su emoji, igual que las demás
+    // fuentes de importación (antes se usaba r.cat crudo, sin emoji y
+    // siempre en español sin importar el idioma).
+    reviewRows = parsedRows.map(function (r) { return Object.assign({}, r, { status: r.isTransfer ? 'exclude' : 'include', type: r.type || (r.amount < 0 ? 'gasto' : 'ingreso'), ftCat: catImportFromAI(r.cat), zelleType: null, isDuplicate: checkDuplicate(r.date, Math.abs(r.amount), r.desc), selected: !r.isTransfer }); });
     renderStep3();
   } catch (err) {
     var zone2 = document.getElementById('dropZone');
