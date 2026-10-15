@@ -222,6 +222,7 @@ FT.recurUpdate = function (id, patch) {
   if (patch.amount != null) r.amount = parseFloat(patch.amount) || r.amount;
   if (patch.nextDate) r.nextDate = patch.nextDate;
   if (patch.freq) r.freq = patch.freq;
+  if (patch.autopay != null) r.autopay = !!patch.autopay;
   FT.set(K.recurring, l);
 };
 FT.recurPause = function (id, paused) {
@@ -325,18 +326,18 @@ FT.recurAllList = function () {
     } else return;
     items.push({
       uid: 'recurring:' + r.id, kind: r.kind, pk: pk, name: name, icon: icon, typeLabel: typeLabel,
-      amount: parseFloat(r.amount) || 0, freq: r.freq, nextDate: r.nextDate, paused: !!r.paused,
+      amount: parseFloat(r.amount) || 0, freq: r.freq, nextDate: r.nextDate, paused: !!r.paused, autopay: !!r.autopay,
       page: { debt: 'deudas.html', ahorro: (r.dest === 'emergencia' ? 'emergencia.html' : 'ahorro.html'), inversion: 'inversiones.html', meta: 'hogar.html', metapersonal: 'metas.html', transferencia: 'midinero.html' }[r.kind],
       lastApplied: _recurLastApplied(r.kind, r)
     });
   });
   FT.subs().forEach(function (s) {
     items.push({ uid: 'subs:' + s.id, kind: 'sub', pk: 'sub', name: s.name, icon: '🔄', typeLabel: es ? 'Suscripción' : 'Subscription',
-      amount: parseFloat(s.amount) || 0, freq: s.freq, nextDate: s.date, paused: !!s.paused, page: 'suscripciones.html', lastApplied: null });
+      amount: parseFloat(s.amount) || 0, freq: s.freq, nextDate: s.date, paused: !!s.paused, autopay: !!s.autopay, page: 'suscripciones.html', lastApplied: null });
   });
   FT.servicios().forEach(function (s) {
     items.push({ uid: 'servicios:' + s.id, kind: 'serv', pk: 'serv', name: s.name, icon: '🏠', typeLabel: es ? 'Servicio de casa' : 'Household service',
-      amount: parseFloat(s.amount) || 0, freq: s.freq, nextDate: s.date, paused: !!s.paused, page: 'servicios.html', lastApplied: null });
+      amount: parseFloat(s.amount) || 0, freq: s.freq, nextDate: s.date, paused: !!s.paused, autopay: !!s.autopay, page: 'servicios.html', lastApplied: null });
   });
   return items.sort(function (a, b) { return String(a.nextDate || '').localeCompare(String(b.nextDate || '')); });
 };
@@ -359,6 +360,7 @@ FT.recurAllUpdate = function (uid, patch) {
   if (patch.amount != null) s.amount = parseFloat(patch.amount) || s.amount;
   if (patch.freq) s.freq = patch.freq;
   if (patch.nextDate) s.date = patch.nextDate;
+  if (patch.autopay != null) s.autopay = !!patch.autopay;
   FT.set(key, l); FT._changed();
 };
 FT.recurAllDelete = function (uid) {
@@ -3126,25 +3128,42 @@ FT.pushProfileToGAS = function () {
   });
 })();
 /** Recordatorios por correo (15-oct-2026, a petición de Ramón: "mandar un
- *  email que diga qué pago se viene, cuándo, y el monto, 1-2 días antes").
- *  Esta app no tiene servidor propio -- el único backend capaz de correr
- *  SIN que abras la app es tu Google Apps Script (ya usado para
- *  saveProfile/sync de hogar). Esta función solo junta y SUBE la lista
- *  (acción `saveReminders`, nueva, aparte de `saveProfile` -- nunca se
- *  mezcla con el perfil que comparte tu pareja); quien de verdad revisa
- *  fechas y manda el correo es un trigger de tiempo en el lado de GAS
- *  (código y pasos para activarlo, fuera de este repo, entregados aparte
- *  a Ramón). A diferencia de FT.pushProfileToGAS, esto NO depende de
- *  tener hogar conectado -- cualquier cuenta con correo debe poder recibir
- *  sus propios recordatorios, tenga pareja o no.
+ *  email que diga qué pago se viene, cuándo, y el monto, 1-2 días antes" +
+ *  "que no dependa de abrir la app"). Esta app no tiene servidor propio --
+ *  el único backend capaz de correr SIN que abras la app es tu Google
+ *  Apps Script (ya usado para saveProfile/sync de hogar). Esta función
+ *  solo junta y SUBE la lista (acción `saveReminders`, nueva, aparte de
+ *  `saveProfile` -- nunca se mezcla con el perfil que comparte tu
+ *  pareja); quien de verdad revisa fechas y manda el correo es un trigger
+ *  de tiempo en el lado de GAS (código y pasos para activarlo, fuera de
+ *  este repo, entregados aparte a Ramón). A diferencia de
+ *  FT.pushProfileToGAS, esto NO depende de tener hogar conectado --
+ *  cualquier cuenta con correo debe poder recibir sus propios
+ *  recordatorios, tenga pareja o no.
+ *
+ *  Horizonte de 90 días / hasta 12 ocurrencias por recurrente (lo que
+ *  llegue primero), no solo la próxima fecha -- así el trigger diario de
+ *  GAS tiene margen de sobra para avisar semanas o meses sin que vuelvas
+ *  a abrir la app antes de cada vencimiento puntual. No es 100%
+ *  independiente para siempre (la lista sigue viniendo de este
+ *  dispositivo, no hay otro lugar que la genere) -- pero mientras abras
+ *  la app al menos una vez dentro de esos 90 días, el trigger ya tiene
+ *  todo lo que necesita sin depender de que coincida justo con la fecha
+ *  de cada pago.
  */
 FT.pushReminders = function () {
   try {
     var u = FT.user();
     if (!u || !u.email) return;
-    var items = (FT.recurAllList() || [])
-      .filter(function (i) { return !i.paused && i.nextDate; })
-      .map(function (i) { return { name: i.name, amount: i.amount, dueDate: i.nextDate }; });
+    var items = [], horizon = new Date(); horizon.setDate(horizon.getDate() + 90);
+    (FT.recurAllList() || []).filter(function (i) { return !i.paused && i.nextDate; }).forEach(function (i) {
+      var d = new Date(i.nextDate + 'T00:00:00'), guard = 0;
+      while (d <= horizon && guard < 12) {
+        items.push({ name: i.name, amount: i.amount, dueDate: FT.date(d, 'ISO'), autopay: !!i.autopay });
+        FT.advanceByFreq(d, i.freq);
+        guard++;
+      }
+    });
     var params = new URLSearchParams({ action: 'saveReminders', email: u.email, dataJson: JSON.stringify(items) });
     fetch(FT.GAS_URL + '?' + params.toString()).catch(function () {});
   } catch (e) {}
@@ -4602,7 +4621,7 @@ FT.recurringItemsScreen = function (opts) {
       h += filtered.map(function (s) {
         return '<div class="tap" data-open="' + s.id + '" style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--hair);cursor:pointer;' + (s.paused ? 'opacity:.55' : '') + '">' +
           '<div class="ft-tx-ico ' + pastel + '" style="width:42px;height:42px;font-size:19px;display:grid;place-items:center;border-radius:13px;flex-shrink:0">' + icon + '</div>' +
-          '<div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:800">' + s.name + (s.paused ? ' <span style="font-size:9px;background:var(--chip);color:var(--text3);padding:2px 7px;border-radius:20px;font-weight:800">' + (L ? 'PAUSADA' : 'PAUSED') + '</span>' : '') + '</div>' +
+          '<div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:800">' + s.name + (s.paused ? ' <span style="font-size:9px;background:var(--chip);color:var(--text3);padding:2px 7px;border-radius:20px;font-weight:800">' + (L ? 'PAUSADA' : 'PAUSED') + '</span>' : '') + (s.autopay ? ' <span style="font-size:9px;background:var(--g-light);color:var(--g-dark);padding:2px 7px;border-radius:20px;font-weight:800">' + (L ? '🔁 AUTOPAY' : '🔁 AUTOPAY') + '</span>' : ' <span style="font-size:9px;background:var(--amber-bg,#FBF0DD);color:var(--amber,#8A5A12);padding:2px 7px;border-radius:20px;font-weight:800">' + (L ? '✋ MANUAL' : '✋ MANUAL') + '</span>') + '</div>' +
           '<div style="font-size:11px;color:var(--text3)">' + freqLbl(s.freq) + ' · ' + (s.cat || '') + ' · ' + FT.date(s.date) + '</div></div>' +
           '<div style="font-size:14px;font-weight:800;color:' + pastelTx + '">' + FT.money(parseFloat(s.amount) || 0) + '</div></div>';
       }).join('');
@@ -4642,7 +4661,14 @@ FT.recurringItemsScreen = function (opts) {
         FT.customFreqSubFormHTML('si', s && s.freq) + '</div>' +
       '<div class="ft-field"><label>' + (L ? 'Fecha de cobro' : 'Billing date') + '</label><input id="siDate" type="date" value="' + (s ? s.date : FT.todayISO()) + '"></div>' +
       '<div class="ft-field"><label>' + (L ? 'Categoría' : 'Category') + '</label><select id="siCat">' +
-        CATS.map(function (c) { return '<option ' + (s && s.cat === c ? 'selected' : '') + '>' + c + '</option>'; }).join('') + '</select></div>';
+        CATS.map(function (c) { return '<option ' + (s && s.cat === c ? 'selected' : '') + '>' + c + '</option>'; }).join('') + '</select></div>' +
+      // Autopay (15-oct-2026, a petición de Ramón): si el banco/proveedor
+      // ya lo cobra solo, un recordatorio es solo informativo; si NO, el
+      // recordatorio debe dejar claro que hay que pagarlo a mano. No tiene
+      // relación con "recurrente" de la app (eso es si ESTA app genera el
+      // cargo sola en Historial) -- autopay es si quien de verdad cobra
+      // (tu banco, Netflix, etc.) lo hace solo, fuera de la app.
+      '<label class="ft-field" style="display:flex;align-items:center;gap:9px;cursor:pointer;background:var(--sunk);border-radius:10px;padding:10px 12px"><input type="checkbox" id="siAutopay" ' + (s && s.autopay ? 'checked' : '') + ' style="width:18px;height:18px;flex-shrink:0"><span style="font-size:12px;font-weight:700">' + (L ? 'Se cobra solo (autopay con el banco/proveedor)' : "Charges itself (autopay with the bank/provider)") + '</span></label>';
   }
 
   function openForm(id) {
@@ -4670,17 +4696,18 @@ FT.recurringItemsScreen = function (opts) {
         var freq = body.querySelector('#siFreq').value;
         if (freq === 'custom') freq = FT.wireCustomFreqSubForm(body, 'si').getFreq();
         var date = body.querySelector('#siDate').value, cat = body.querySelector('#siCat').value;
+        var autopay = !!(body.querySelector('#siAutopay') && body.querySelector('#siAutopay').checked);
 
         function doSave() {
           var l = list();
           if (s) {
             var i = l.findIndex(function (x) { return String(x.id) === String(id); });
-            l[i] = isSub ? Object.assign({}, l[i], { name: name, amount: amount, freq: freq, date: date, cat: cat })
-                         : Object.assign({}, l[i], { name: name, amount: amount, freq: freq, date: date, cat: cat, hogar: true });
+            l[i] = isSub ? Object.assign({}, l[i], { name: name, amount: amount, freq: freq, date: date, cat: cat, autopay: autopay })
+                         : Object.assign({}, l[i], { name: name, amount: amount, freq: freq, date: date, cat: cat, autopay: autopay, hogar: true });
           } else {
             l.push(isSub
-              ? { id: idPrefix + Date.now(), name: name, amount: amount, freq: freq, date: date, cat: cat, paused: false }
-              : { id: idPrefix + Date.now(), name: name, amount: amount, freq: freq, date: date, cat: cat, paused: false, hogar: true, createdBy: FT.userName() });
+              ? { id: idPrefix + Date.now(), name: name, amount: amount, freq: freq, date: date, cat: cat, autopay: autopay, paused: false }
+              : { id: idPrefix + Date.now(), name: name, amount: amount, freq: freq, date: date, cat: cat, autopay: autopay, paused: false, hogar: true, createdBy: FT.userName() });
           }
           saveList(l);
           FT.toast(L ? '✅ Guardado' : '✅ Saved');
