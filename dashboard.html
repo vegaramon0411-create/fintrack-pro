@@ -206,6 +206,41 @@ function catBudgets() {
   return out;
 }
 function catLabel(cat) { var m = String(cat || '').match(/^(\S+)\s+(.*)$/); return m ? m[2] : String(cat || ''); }
+// 15-oct-2026, a petición de Ramón (con capturas): "cuando cambiamos de
+// pantalla de personal a hogar se tiene que ver sus gastos" -- las barras
+// de categoría de abajo del hero NUNCA cambiaban según la vista (siempre
+// mostraban tus categorías PERSONALES, incluso viendo "Gasto del hogar").
+// Mismo alcance que hogarCombined ya usa para el número de arriba (gasto/
+// suscripción/hipoteca marcados hogar:true, tuyos + de tu pareja) -- así
+// el número de la tarjeta y las barras de abajo cuentan exactamente lo
+// mismo. Sin contorno de promedio-3-meses aquí: el perfil sincronizado de
+// tu pareja solo trae SU mes actual (FT.pushProfileToGAS limita a
+// thisMonth a propósito, nunca guarda su historial), no hay forma
+// honesta de calcular un promedio de 3 meses que incluya su parte.
+function hogarCatItems() {
+  var byCat = {}, mk = monthKey();
+  var h = FT.hogar(), partnerTxs = [];
+  if (h.connected && h.partnerEmail) {
+    var pp = FT.get('profile_' + h.partnerEmail.replace(/[^a-z0-9]/gi, '_'), null);
+    partnerTxs = (pp && pp.data && pp.data.transactions) || [];
+  }
+  function add(list) {
+    list.forEach(function (x) {
+      if (x.hogar !== true || String(x.date || '').slice(0, 7) !== mk) return;
+      if (['gasto', 'suscripcion', 'hipoteca'].indexOf(x.type) === -1) return;
+      var l = catLabel(x.cat);
+      byCat[l] = (byCat[l] || 0) + (parseFloat(x.amount) || 0);
+    });
+  }
+  add(monthTxs());
+  add(partnerTxs);
+  var all = monthTxs().concat(partnerTxs);
+  return Object.keys(byCat).map(function (l) {
+    var emojiMatch = all.find(function (x) { return x.hogar === true && catLabel(x.cat) === l; });
+    var em = emojiMatch ? (String(emojiMatch.cat).match(/^(\S+)/) || [''])[0] : '';
+    return { cat: (em ? em + ' ' : '') + l, spent: byCat[l] };
+  });
+}
 
 /* ── render ── */
 function render() {
@@ -287,22 +322,31 @@ function render() {
   // de mi presupuesto". _CAT_EXPENSE_TYPES se agrupan por su categoría
   // real; ahorro/inversión no tienen categoría granular, se juntan en dos
   // barras fijas (mismas etiquetas que catBudgets() usa para el contorno).
-  var budgets = catBudgets();
-  var byCat = {}, ahorroThis = 0, invThis = 0;
-  t.txs.forEach(function (x) {
-    if (x.hogar === true) return;
-    if (_CAT_EXPENSE_TYPES[x.type]) { var l = catLabel(x.cat); byCat[l] = (byCat[l] || 0) + (parseFloat(x.amount) || 0); }
-    else if (x.type === 'ahorro') ahorroThis += parseFloat(x.amount) || 0;
-    else if (x.type === 'inversion') invThis += parseFloat(x.amount) || 0;
-  });
-  var catItems = Object.keys(byCat).map(function (l) {
-    var emojiMatch = t.txs.find(function (x) { return _CAT_EXPENSE_TYPES[x.type] && catLabel(x.cat) === l; });
-    var em = emojiMatch ? (String(emojiMatch.cat).match(/^(\S+)/) || [''])[0] : '';
-    return { cat: (em ? em + ' ' : '') + l, spent: byCat[l], budget: budgets[l] || 0 };
-  });
-  var ahorroLbl = es ? 'Ahorro' : 'Savings', invLbl = es ? 'Inversión' : 'Investment';
-  if (ahorroThis > 0.005) catItems.push({ cat: '💰 ' + ahorroLbl, spent: ahorroThis, budget: budgets[ahorroLbl] || 0 });
-  if (invThis > 0.005) catItems.push({ cat: '📈 ' + invLbl, spent: invThis, budget: budgets[invLbl] || 0 });
+  // showHogarBudget (ver arriba): las barras de categoría siguen a la
+  // MISMA vista que ya sigue la tarjeta de presupuesto -- Hogar muestra
+  // SOLO gasto de hogar (hogarCatItems, tuyo + de tu pareja), Personal
+  // sigue mostrando solo lo tuyo, igual que siempre.
+  var catItems;
+  if (showHogarBudget) {
+    catItems = hogarCatItems();
+  } else {
+    var budgets = catBudgets();
+    var byCat = {}, ahorroThis = 0, invThis = 0;
+    t.txs.forEach(function (x) {
+      if (x.hogar === true) return;
+      if (_CAT_EXPENSE_TYPES[x.type]) { var l = catLabel(x.cat); byCat[l] = (byCat[l] || 0) + (parseFloat(x.amount) || 0); }
+      else if (x.type === 'ahorro') ahorroThis += parseFloat(x.amount) || 0;
+      else if (x.type === 'inversion') invThis += parseFloat(x.amount) || 0;
+    });
+    catItems = Object.keys(byCat).map(function (l) {
+      var emojiMatch = t.txs.find(function (x) { return _CAT_EXPENSE_TYPES[x.type] && catLabel(x.cat) === l; });
+      var em = emojiMatch ? (String(emojiMatch.cat).match(/^(\S+)/) || [''])[0] : '';
+      return { cat: (em ? em + ' ' : '') + l, spent: byCat[l], budget: budgets[l] || 0 };
+    });
+    var ahorroLbl = es ? 'Ahorro' : 'Savings', invLbl = es ? 'Inversión' : 'Investment';
+    if (ahorroThis > 0.005) catItems.push({ cat: '💰 ' + ahorroLbl, spent: ahorroThis, budget: budgets[ahorroLbl] || 0 });
+    if (invThis > 0.005) catItems.push({ cat: '📈 ' + invLbl, spent: invThis, budget: budgets[invLbl] || 0 });
+  }
 
   // MÉTODO
   var nP = L.needs > 0 ? Math.min(100, t.needs / L.needs * 100) : 0;
@@ -340,7 +384,7 @@ function render() {
         // arriba puede haber hasta 6 barras reales; con el tope viejo, dos
         // categorías de gasto genuinas se habrían quedado afuera por estas
         // dos nuevas.
-        (catItems.length ? FT.catBars(catItems, { max: 6 }) + '<div class="d-legend"><i></i> ' + (es ? 'contorno = tu promedio de 3 meses' : 'outline = your 3-month average') + '</div>' : '<div class="d-empty">' + (es ? 'Sin gastos personales este mes' : 'No personal spending this month') + '</div>') +
+        (catItems.length ? FT.catBars(catItems, { max: 6 }) + (showHogarBudget ? '' : '<div class="d-legend"><i></i> ' + (es ? 'contorno = tu promedio de 3 meses' : 'outline = your 3-month average') + '</div>') : '<div class="d-empty">' + (showHogarBudget ? (es ? 'Sin gastos de hogar este mes' : 'No household spending this month') : (es ? 'Sin gastos personales este mes' : 'No personal spending this month')) + '</div>') +
         '<div class="ft-section"><div class="ft-section-head"><h3>' + (es ? 'Últimos movimientos' : 'Recent activity') + '</h3><button class="link" onclick="FT.go(\'historial.html\')">' + (es ? 'Ver todos' : 'See all') + '</button></div>' +
           (lastTxs.length ? lastTxs.map(function (x, i) { return FT.txRow(x, i); }).join('') : '<div class="d-empty">' + (es ? 'Aún no hay movimientos' : 'No activity yet') + '</div>') + '</div>' +
       '</div>' +
@@ -862,7 +906,7 @@ function openReparto() {
     return funds.map(function (f) {
       var v = alloc[f.id] || 0;
       return '<div class="ft-field" style="margin-bottom:8px"><label>' + f.emoji + ' ' + f.name +
-        (f.rule ? ' <span style="font-weight:600;color:var(--text3)">(' + (f.rule.type === 'pct' ? f.rule.value + '%' : FT.money(f.rule.value)) + ')</span>' : '') +
+        (f.rule ? ' <span style="font-weight:600;color:var(--text3)">(' + (f.rule.type === 'remainder' ? (es ? 'lo que sobre' : "what's left") : f.rule.type === 'pct' ? f.rule.value + '%' : FT.money(f.rule.value)) + ')</span>' : '') +
         '</label><input data-fund-amt="' + f.id + '" inputmode="decimal" value="' + (v > 0 ? v.toFixed(2) : '') + '" placeholder="$0"></div>';
     }).join('');
   }

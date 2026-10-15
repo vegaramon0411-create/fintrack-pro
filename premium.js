@@ -663,7 +663,7 @@ FT.checkingAccountsScreen = function (isHogar) {
   var L = FT.lang === 'es';
   var mine = FT.checking().filter(function (c) { return !!c.hogar === !!isHogar; });
   var rows = mine.length ? mine.map(function (c) {
-    var ruleLbl = isHogar ? (c.rule ? (c.rule.type === 'pct' ? c.rule.value + '%' : FT.money(c.rule.value)) : (c.autoDeposit ? (L ? '100% (config. anterior)' : '100% (old setting)') : null)) : null;
+    var ruleLbl = isHogar ? (c.rule ? (c.rule.type === 'remainder' ? (L ? 'Lo que sobre' : "What's left") : c.rule.type === 'pct' ? c.rule.value + '%' : FT.money(c.rule.value)) : (c.autoDeposit ? (L ? '100% (config. anterior)' : '100% (old setting)') : null)) : null;
     // Cuentas como base (Fase 1/3): si esta cuenta tiene fondos vinculados
     // (apartados), se muestra el desglose Total → Apartado → Libre en vez
     // de solo el saldo -- espejo del modelo SoFi. Sin vínculos, se ve
@@ -794,20 +794,23 @@ function _openReglaCuenta(acct) {
     title: (L ? 'Regla para ' : 'Rule for ') + acct.name,
     html:
       '<div class="ft-field"><label>' + (L ? 'Tipo de regla' : 'Rule type') + '</label>' +
-        '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px" id="crSeg">' +
-          ['none:' + (L ? 'Ninguna' : 'None'), 'fixed:' + (L ? 'Monto fijo' : 'Fixed $'), 'pct:' + (L ? '% del aporte' : '% of share')].map(function (o) { var v = o.split(':')[0], on = v === chosenRule; return '<button type="button" data-r="' + v + '" style="padding:8px 4px;border-radius:9px;border:1.5px solid ' + (on ? 'var(--g-main)' : 'var(--hair)') + ';background:' + (on ? 'var(--g-light)' : 'var(--sunk)') + ';font-family:inherit;font-size:10px;font-weight:800;color:' + (on ? 'var(--g-dark)' : 'var(--text2)') + ';cursor:pointer">' + o.split(':')[1] + '</button>'; }).join('') + '</div>' +
-        '<input id="crVal" inputmode="decimal" style="margin-top:8px;display:' + (chosenRule === 'none' ? 'none' : 'block') + '" placeholder="' + (chosenRule === 'pct' ? (L ? '% de tu aporte hogar' : '% of your household share') : '$') + '" value="' + (chosenVal || '') + '">' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px" id="crSeg">' +
+          ['none:' + (L ? 'Ninguna' : 'None'), 'fixed:' + (L ? 'Monto fijo' : 'Fixed $'), 'pct:' + (L ? '% del aporte' : '% of share'), 'remainder:' + (L ? 'Lo que sobre' : "What's left")].map(function (o) { var v = o.split(':')[0], on = v === chosenRule; return '<button type="button" data-r="' + v + '" style="padding:8px 4px;border-radius:9px;border:1.5px solid ' + (on ? 'var(--g-main)' : 'var(--hair)') + ';background:' + (on ? 'var(--g-light)' : 'var(--sunk)') + ';font-family:inherit;font-size:10px;font-weight:800;color:' + (on ? 'var(--g-dark)' : 'var(--text2)') + ';cursor:pointer">' + o.split(':')[1] + '</button>'; }).join('') + '</div>' +
+        '<input id="crVal" inputmode="decimal" style="margin-top:8px;display:' + (chosenRule === 'none' || chosenRule === 'remainder' ? 'none' : 'block') + '" placeholder="' + (chosenRule === 'pct' ? (L ? '% de tu aporte hogar' : '% of your household share') : '$') + '" value="' + (chosenVal || '') + '">' +
+        '<p id="crRemainderNote" style="font-size:10.5px;color:var(--text3);margin-top:6px;display:' + (chosenRule === 'remainder' ? 'block' : 'none') + '">' + (L ? 'Se lleva lo que quede de tu aporte de hogar después de aplicar las demás reglas fijas/% -- si hay más de una cuenta con esta regla, se reparte en partes iguales.' : "Gets whatever's left of your household share after the other fixed/% rules -- if more than one account has this rule, it's split evenly.") + '</p>' +
       '</div>' +
       '<div style="background:var(--sky-bg);color:#2A4CC0;border-radius:10px;padding:9px 11px;font-size:11px;font-weight:600">' + (L ? 'Se aplica solo, sin preguntar cada vez -- es una regla que tú configuras de antemano, no un reparto que haya que confirmar cada cheque.' : "Applies automatically, no need to confirm each time -- it's a rule you set in advance, not something to confirm every paycheck.") + '</div>',
     saveLabel: L ? 'Guardar regla' : 'Save rule',
     onOpen: function (body) {
       var valInput = body.querySelector('#crVal');
+      var remainderNote = body.querySelector('#crRemainderNote');
       body.querySelectorAll('#crSeg button').forEach(function (b) {
         b.onclick = function () {
           chosenRule = b.getAttribute('data-r');
           body.querySelectorAll('#crSeg button').forEach(function (x) { var on = x === b; x.style.borderColor = on ? 'var(--g-main)' : 'var(--hair)'; x.style.background = on ? 'var(--g-light)' : 'var(--sunk)'; x.style.color = on ? 'var(--g-dark)' : 'var(--text2)'; });
-          valInput.style.display = chosenRule === 'none' ? 'none' : 'block';
+          valInput.style.display = (chosenRule === 'none' || chosenRule === 'remainder') ? 'none' : 'block';
           valInput.placeholder = chosenRule === 'pct' ? (L ? '% de tu aporte hogar' : '% of your household share') : '$';
+          if (remainderNote) remainderNote.style.display = chosenRule === 'remainder' ? 'block' : 'none';
         };
       });
     },
@@ -816,7 +819,7 @@ function _openReglaCuenta(acct) {
       var accts = FT.checking();
       var a = accts.find(function (x) { return String(x.id) === String(acct.id); });
       if (!a) return;
-      a.rule = (chosenRule !== 'none' && val > 0) ? { type: chosenRule, value: val } : null;
+      a.rule = chosenRule === 'remainder' ? { type: 'remainder' } : (chosenRule !== 'none' && val > 0) ? { type: chosenRule, value: val } : null;
       a.autoDeposit = false; // ya no se usa el toggle viejo -- todo pasa por `rule` de aquí en adelante
       FT.saveChecking(accts);
       FT.toast(L ? '✅ Regla guardada' : '✅ Rule saved');
@@ -835,7 +838,7 @@ function _openReglaCuenta(acct) {
  *  se puede abrir desde aquí directamente). */
 FT.openRepartoResumen = function () {
   var L = FT.lang === 'es';
-  function ruleLbl(rule) { return rule ? (rule.type === 'pct' ? rule.value + '%' : FT.money(rule.value)) : null; }
+  function ruleLbl(rule) { return rule ? (rule.type === 'remainder' ? (L ? 'Lo que sobre' : "What's left") : rule.type === 'pct' ? rule.value + '%' : FT.money(rule.value)) : null; }
   function rowHtmlR(attr, id, name, rule) {
     var lbl = ruleLbl(rule);
     return '<div class="tap" data-' + attr + '="' + id + '" style="display:flex;align-items:center;gap:8px;padding:9px;background:var(--sunk);border-radius:10px;margin-bottom:6px;cursor:pointer">' +
@@ -2625,12 +2628,19 @@ FT.openTransfer = function (opts) {
  *  usen exactamente la misma regla y nunca diverjan entre sí.
  *  Devuelve {fundId: monto, ...} -- solo fondos con monto > 0. */
 /** Motor compartido: reparte `pool` entre `items` ([{id, rule}]) según cada
- *  `rule` ({type:'fixed'|'pct', value}) -- reglas fijas primero (en el
- *  orden de la lista), luego reglas de % (sobre el total `pool`, no sobre
- *  lo que quede después de las fijas). Devuelve {id: monto, ...}, solo
- *  ids con monto > 0. Usado tanto por fondos de Ahorro libre como por
- *  cuentas de cheques conjuntas -- mismo criterio en los dos lados para
- *  que nunca diverjan entre sí. */
+ *  `rule` ({type:'fixed'|'pct'|'remainder', value}) -- reglas fijas
+ *  primero (en el orden de la lista), luego reglas de % (sobre el total
+ *  `pool`, no sobre lo que quede después de las fijas), y al final
+ *  'remainder' (15-oct-2026, a petición de Ramón: "debe de haber una
+ *  regla en mis cuentas que pueda meter lo restante... para que no esté
+ *  haciendo cálculos" -- antes, un fondo sin regla fija/% se quedaba sin
+ *  nada, obligándolo a calcular a mano cuánto le sobraba al cheque cada
+ *  vez). Si hay más de un fondo/cuenta marcado 'remainder', el restante
+ *  se reparte en partes iguales entre ellos (el último se lleva el
+ *  centavo de redondeo, para que la suma siga cuadrando exacto con
+ *  `pool`). Devuelve {id: monto, ...}, solo ids con monto > 0. Usado
+ *  tanto por fondos de Ahorro libre como por cuentas de cheques conjuntas
+ *  -- mismo criterio en los dos lados para que nunca diverjan entre sí. */
 function _allocateByRules(pool, items) {
   pool = parseFloat(pool) || 0;
   var out = {};
@@ -2644,6 +2654,26 @@ function _allocateByRules(pool, items) {
     var amt = Math.min(remaining, pool * it.rule.value / 100);
     if (amt > 0) { out[it.id] = +((out[it.id] || 0) + amt).toFixed(2); remaining -= amt; }
   });
+  var remainderItems = items.filter(function (it) { return it.rule && it.rule.type === 'remainder'; });
+  if (remainderItems.length && remaining > 0.005) {
+    // Revisión independiente (15-oct-2026): redondear `share` hacia el más
+    // cercano podía SUBIR cada una de las primeras n-1 partes lo
+    // suficiente para que su suma ya superara `remaining` -- con 4+
+    // fondos marcados "lo que sobre" y un resto chico (ej. 7 fondos,
+    // $0.11 restantes), eso fabricaba centavos de la nada (confirmado
+    // ejecutando la función real: $0.12 repartidos contra $0.11
+    // disponibles). Fix: redondear cada parte hacia ABAJO (floor, nunca
+    // hacia arriba) -- así ninguna combinación de partes puede sumar más
+    // de lo que hay, y el último fondo se lleva el sobrante exacto
+    // (incluye el centavo que el floor dejó sin repartir en los demás).
+    var share = Math.floor(remaining / remainderItems.length * 100) / 100;
+    var used = 0;
+    remainderItems.forEach(function (it, idx) {
+      var amt = idx === remainderItems.length - 1 ? +(remaining - used).toFixed(2) : share;
+      if (amt > 0) { out[it.id] = +((out[it.id] || 0) + amt).toFixed(2); used += amt; }
+    });
+    remaining = 0;
+  }
   return out;
 }
 FT.suggestFundAllocation = function (pool) {
@@ -4288,9 +4318,15 @@ FT.balanceScreen = function (opts) {
           emojiOpts.map(function (e) { var on = e === chosenEmoji; return '<button type="button" data-e="' + e + '" style="width:34px;height:34px;border-radius:10px;border:1.5px solid ' + (on ? 'var(--g-main)' : 'var(--hair)') + ';background:' + (on ? 'var(--g-light)' : '#fff') + ';font-size:16px;cursor:pointer">' + e + '</button>'; }).join('') + '</div></div>' +
         '<div class="ft-field"><label>' + (L ? 'Meta (opcional)' : 'Goal (optional)') + '</label><input id="fdMeta" inputmode="decimal" placeholder="$0" value="' + (fund && fund.meta ? fund.meta : '') + '"></div>' +
         '<div class="ft-field"><label>' + (L ? 'Regla de reparto automático (opcional)' : 'Automatic deposit rule (optional)') + '</label>' +
-          '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px" id="fdRuleSeg">' +
-            ['none:' + (L ? 'Ninguna' : 'None'), 'fixed:' + (L ? 'Monto fijo' : 'Fixed $'), 'pct:' + (L ? '% del cheque' : '% of check')].map(function (o) { var v = o.split(':')[0], on = v === chosenRule; return '<button type="button" data-r="' + v + '" style="padding:8px 4px;border-radius:9px;border:1.5px solid ' + (on ? 'var(--g-main)' : 'var(--hair)') + ';background:' + (on ? 'var(--g-light)' : 'var(--sunk)') + ';font-family:var(--ui-font);font-size:10px;font-weight:800;color:' + (on ? 'var(--g-dark)' : 'var(--text2)') + ';cursor:pointer">' + o.split(':')[1] + '</button>'; }).join('') + '</div>' +
-          '<input id="fdRuleVal" inputmode="decimal" style="margin-top:8px;display:' + (chosenRule === 'none' ? 'none' : 'block') + '" placeholder="' + (chosenRule === 'pct' ? (L ? '% del cheque' : '% of check') : '$') + '" value="' + (fund && fund.rule ? fund.rule.value : '') + '">' +
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px" id="fdRuleSeg">' +
+            // 'remainder' (15-oct-2026, a petición de Ramón: "debe de haber
+            // una regla... que pueda meter lo restante, para no estar
+            // haciendo cálculos") -- se lleva lo que sobre después de
+            // aplicar las reglas fijas/% de TODOS los fondos, sin que el
+            // usuario tenga que calcular a mano cuánto le queda al cheque.
+            ['none:' + (L ? 'Ninguna' : 'None'), 'fixed:' + (L ? 'Monto fijo' : 'Fixed $'), 'pct:' + (L ? '% del cheque' : '% of check'), 'remainder:' + (L ? 'Lo que sobre' : "What's left")].map(function (o) { var v = o.split(':')[0], on = v === chosenRule; return '<button type="button" data-r="' + v + '" style="padding:8px 4px;border-radius:9px;border:1.5px solid ' + (on ? 'var(--g-main)' : 'var(--hair)') + ';background:' + (on ? 'var(--g-light)' : 'var(--sunk)') + ';font-family:var(--ui-font);font-size:10px;font-weight:800;color:' + (on ? 'var(--g-dark)' : 'var(--text2)') + ';cursor:pointer">' + o.split(':')[1] + '</button>'; }).join('') + '</div>' +
+          '<input id="fdRuleVal" inputmode="decimal" style="margin-top:8px;display:' + (chosenRule === 'none' || chosenRule === 'remainder' ? 'none' : 'block') + '" placeholder="' + (chosenRule === 'pct' ? (L ? '% del cheque' : '% of check') : '$') + '" value="' + (fund && fund.rule ? (fund.rule.value || '') : '') + '">' +
+          '<p id="fdRemainderNote" style="font-size:10.5px;color:var(--text3);margin-top:6px;display:' + (chosenRule === 'remainder' ? 'block' : 'none') + '">' + (L ? 'Se lleva lo que quede del cheque después de aplicar las demás reglas fijas/% -- si hay más de un fondo con esta regla, se reparte en partes iguales.' : "Gets whatever's left of the paycheck after the other fixed/% rules -- if more than one fund has this rule, it's split evenly.") + '</p>' +
         '</div>' +
         '<div style="background:var(--sky-bg);color:#2A4CC0;border-radius:10px;padding:9px 11px;font-size:11px;font-weight:600">' + (L ? 'La regla es una sugerencia: cuando llegue un cheque tú decides si aplicarla, ajustarla o dejar el dinero sin repartir.' : 'The rule is only a suggestion: when a paycheck arrives you decide whether to apply it, adjust it, or leave the money unassigned.') + '</div>',
       saveLabel: editing ? (L ? 'Guardar cambios' : 'Save changes') : (L ? 'Crear fondo' : 'Create fund'),
@@ -4299,12 +4335,14 @@ FT.balanceScreen = function (opts) {
           b.onclick = function () { chosenEmoji = b.getAttribute('data-e'); body.querySelectorAll('#fdEmoji button').forEach(function (x) { var on = x === b; x.style.borderColor = on ? 'var(--g-main)' : 'var(--hair)'; x.style.background = on ? 'var(--g-light)' : '#fff'; }); };
         });
         var ruleValInput = body.querySelector('#fdRuleVal');
+        var remainderNote = body.querySelector('#fdRemainderNote');
         body.querySelectorAll('#fdRuleSeg button').forEach(function (b) {
           b.onclick = function () {
             chosenRule = b.getAttribute('data-r');
             body.querySelectorAll('#fdRuleSeg button').forEach(function (x) { var on = x === b; x.style.borderColor = on ? 'var(--g-main)' : 'var(--hair)'; x.style.background = on ? 'var(--g-light)' : 'var(--sunk)'; x.style.color = on ? 'var(--g-dark)' : 'var(--text2)'; });
-            ruleValInput.style.display = chosenRule === 'none' ? 'none' : 'block';
+            ruleValInput.style.display = (chosenRule === 'none' || chosenRule === 'remainder') ? 'none' : 'block';
             ruleValInput.placeholder = chosenRule === 'pct' ? (L ? '% del cheque' : '% of check') : '$';
+            if (remainderNote) remainderNote.style.display = chosenRule === 'remainder' ? 'block' : 'none';
           };
         });
       },
@@ -4313,7 +4351,7 @@ FT.balanceScreen = function (opts) {
         if (!name) { FT.toast(L ? 'Ingresa un nombre' : 'Enter a name'); return true; }
         var metaVal = parseFloat((body.querySelector('#fdMeta').value || '').replace(/,/g, '')) || 0;
         var ruleVal = parseFloat((body.querySelector('#fdRuleVal').value || '').replace(/,/g, '')) || 0;
-        var rule = (chosenRule !== 'none' && ruleVal > 0) ? { type: chosenRule, value: ruleVal } : null;
+        var rule = chosenRule === 'remainder' ? { type: 'remainder' } : (chosenRule !== 'none' && ruleVal > 0) ? { type: chosenRule, value: ruleVal } : null;
         var funds2 = FT.savingsFunds();
         if (editing) {
           var f = funds2.find(function (x) { return x.id === fund.id; });
@@ -4369,7 +4407,7 @@ FT.balanceScreen = function (opts) {
       title: fund.emoji + ' ' + fund.name,
       html: '<div class="ft-row"><span class="k">' + (L ? 'Saldo' : 'Balance') + '</span><span class="v">' + FT.money(fund.actual || 0) + '</span></div>' +
         (fund.meta > 0 ? '<div class="ft-row"><span class="k">' + (L ? 'Meta' : 'Goal') + '</span><span class="v">' + FT.money(fund.meta) + '</span></div>' : '') +
-        (fund.rule ? '<div class="ft-row"><span class="k">' + (L ? 'Regla de reparto' : 'Deposit rule') + '</span><span class="v">' + (fund.rule.type === 'pct' ? fund.rule.value + '%' : FT.money(fund.rule.value)) + '</span></div>' : '') +
+        (fund.rule ? '<div class="ft-row"><span class="k">' + (L ? 'Regla de reparto' : 'Deposit rule') + '</span><span class="v">' + (fund.rule.type === 'remainder' ? (L ? 'Lo que sobre' : "What's left") : fund.rule.type === 'pct' ? fund.rule.value + '%' : FT.money(fund.rule.value)) + '</span></div>' : '') +
         (!canDelete && fund.id !== 'fund_general' ? '<p style="font-size:10.5px;color:var(--text3);margin-top:6px">' + (L ? 'Vacía este fondo (retira todo) para poder eliminarlo.' : 'Empty this fund (withdraw everything) to delete it.') + '</p>' : '') +
         (fund.id === 'fund_general' ? '<p style="font-size:10.5px;color:var(--text3);margin-top:6px">' + (L ? 'El fondo General no se puede eliminar.' : 'The General fund can\'t be deleted.') + '</p>' : ''),
       actions: actions
