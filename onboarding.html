@@ -14,6 +14,18 @@
   .ob-top p{font-size:12.5px;color:var(--text3);line-height:1.5;margin-top:6px;}
   .ob-page{padding:8px 18px 130px;}
 
+  /* 15-oct-2026, a petición de Ramón: "Saldos iniciales" se sentía como
+     una pantalla sorpresa después del "¡Todo listo!" del registro -- este
+     tracker es el mismo .wz-steps de login.html (copiado, no importado --
+     son archivos independientes) para que se sienta como el paso 5 del
+     mismo recorrido, no como algo aparte. */
+  .ob-steps{display:flex;align-items:center;padding:0 20px;margin-bottom:4px;}
+  .ob-steps .st{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;position:relative;}
+  .ob-steps .st:not(:last-child)::after{content:"";position:absolute;top:11px;left:60%;width:80%;height:2px;background:var(--g-main);}
+  .ob-steps .st .n{width:22px;height:22px;border-radius:50%;background:var(--g-main);color:#fff;font-family:var(--round-font);font-weight:900;font-size:9.5px;display:grid;place-items:center;position:relative;z-index:1;}
+  .ob-steps .st.on .n{box-shadow:0 0 0 4px var(--g-light);}
+  .ob-steps .st .l{font-size:7.5px;font-weight:700;color:var(--g-main);}
+
   .ob-card{border:1px solid var(--hair);border-radius:16px;padding:15px;margin-bottom:12px;box-shadow:0 2px 10px -5px rgba(20,20,30,.06);}
   .ob-card .ch{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
   .ob-card .ch .ci{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;font-size:17px;flex-shrink:0;}
@@ -43,12 +55,26 @@
 <body>
 <div class="ft-app">
 
+  <div class="ob-steps">
+    <div class="st done"><div class="n">1</div><div class="l" data-es="Perfil" data-en="Profile">Perfil</div></div>
+    <div class="st done"><div class="n">2</div><div class="l" data-es="Pago" data-en="Pay">Pago</div></div>
+    <div class="st done"><div class="n">3</div><div class="l" data-es="Método" data-en="Method">Método</div></div>
+    <div class="st done"><div class="n">4</div><div class="l" data-es="Prefs" data-en="Prefs">Prefs</div></div>
+    <div class="st on"><div class="n">5</div><div class="l" data-es="Saldos" data-en="Balances">Saldos</div></div>
+  </div>
   <div class="ob-top">
     <h1 data-es="💰 ¿Con qué arrancas?" data-en="💰 What are you starting with?">💰 ¿Con qué arrancas?</h1>
-    <p data-es="Pon lo que ya tienes hoy en cada lugar — así tus números salen exactos desde el día 1. Editable después desde Configuración → Saldos iniciales." data-en="Enter what you have today in each place — so your numbers are exact from day 1. Editable later from Settings → Starting balances.">Pon lo que ya tienes hoy en cada lugar — así tus números salen exactos desde el día 1. Editable después desde Configuración → Saldos iniciales.</p>
+    <p data-es="Paso 5 de 5 — pon lo que ya tienes hoy en cada lugar, así tus números salen exactos desde el día 1. Editable después desde Configuración → Saldos iniciales." data-en="Step 5 of 5 — enter what you have today in each place, so your numbers are exact from day 1. Editable later from Settings → Starting balances.">Paso 5 de 5 — pon lo que ya tienes hoy en cada lugar, así tus números salen exactos desde el día 1. Editable después desde Configuración → Saldos iniciales.</p>
   </div>
 
   <div class="ob-page">
+
+    <!-- 15-oct-2026, a petición de Ramón: poder conectar Hogar desde aquí
+         mismo (no solo mencionarlo), con detección automática si ya tenía
+         uno de antes -- reutiliza exactamente el mismo mecanismo de
+         hogar.html (FT.createInvite/acceptInvite/checkPartner, FT.hogar()),
+         no una versión aparte. -->
+    <div class="ob-card" id="hogarCard"></div>
 
     <div class="ob-card">
       <div class="ch"><div class="ci" style="background:var(--sky-bg)">🏦</div>
@@ -100,9 +126,16 @@ function addCuenta(nombre, tipo, monto, hogar) {
   var opts = CUENTA_TIPOS.map(function (t) {
     return '<option value="' + t.v + '"' + (tipo === t.v ? ' selected' : '') + '>' + (es ? t.es : t.en) + '</option>';
   }).join('');
+  // 15-oct-2026 (hallazgo real, revisión): antes "Conjunta" aparecía
+  // SIEMPRE aquí aunque todavía no existiera ningún hogar conectado -- un
+  // toque sin querer creaba un dato de hogar huérfano, sin pareja con
+  // quien compartirlo. Ahora, sin hogar conectado, no se ofrece el botón
+  // (la cuenta solo puede ser personal) -- en cuanto conectas Hogar con
+  // la tarjeta de arriba, las cuentas que agregues DESPUÉS ya lo ofrecen.
+  var hogarOn = FT.hogarConnected();
   var div = document.createElement('div');
   div.className = 'acct'; div.id = id;
-  div.dataset.hogar = hogar ? '1' : '0';
+  div.dataset.hogar = (hogar && hogarOn) ? '1' : '0';
   div.innerHTML =
     '<div class="top">' +
       '<input class="nm" type="text" placeholder="' + (es ? 'Nombre (ej. Cuenta conjunta)' : 'Name (e.g. Joint account)') + '" value="' + (nombre || '') + '">' +
@@ -110,12 +143,16 @@ function addCuenta(nombre, tipo, monto, hogar) {
       '<input class="mo" type="number" inputmode="decimal" step="0.01" min="0" placeholder="$0" value="' + (monto || '') + '">' +
     '</div>' +
     '<div class="dest">' +
-      '<button type="button" data-p class="' + (!hogar ? 'on' : '') + '">👤 ' + (es ? 'Personal' : 'Personal') + '</button>' +
-      '<button type="button" data-h class="' + (hogar ? 'on' : '') + '">🏠 ' + (es ? 'Conjunta' : 'Joint') + '</button>' +
+      (hogarOn
+        ? '<button type="button" data-p class="' + (!hogar ? 'on' : '') + '">👤 ' + (es ? 'Personal' : 'Personal') + '</button>' +
+          '<button type="button" data-h class="' + (hogar ? 'on' : '') + '">🏠 ' + (es ? 'Conjunta' : 'Joint') + '</button>'
+        : '<button type="button" class="on" style="grid-column:span 2;cursor:default">👤 ' + (es ? 'Personal' : 'Personal') + '</button>') +
       '<button type="button" class="rm" aria-label="' + (es ? 'Quitar' : 'Remove') + '">✕</button>' +
     '</div>';
-  div.querySelector('[data-p]').onclick = function () { setDest(id, false); };
-  div.querySelector('[data-h]').onclick = function () { setDest(id, true); };
+  if (hogarOn) {
+    div.querySelector('[data-p]').onclick = function () { setDest(id, false); };
+    div.querySelector('[data-h]').onclick = function () { setDest(id, true); };
+  }
   div.querySelector('.rm').onclick = function () { div.remove(); };
   document.getElementById('cuentasList').appendChild(div);
 }
@@ -137,6 +174,152 @@ function addMeta(nombre, monto) {
     '<button type="button" class="rm" style="background:none;border:none;color:var(--text3);font-size:15px;cursor:pointer">✕</button>';
   div.querySelector('.rm').onclick = function () { div.remove(); };
   document.getElementById('metasList').appendChild(div);
+}
+
+/* ─── HOGAR (opcional, 15-oct-2026, a petición de Ramón) ───
+   Mismo mecanismo que hogar.html (FT.createInvite/acceptInvite/
+   checkPartner/saveHogar/FT.hogar()) -- no una versión aparte, así lo que
+   se arranque aquí se sigue viendo y gestionando normal después desde
+   Hogar. */
+var _obPollTimer = null;
+function renderHogarCard() {
+  var L = FT.lang === 'es';
+  var h = FT.hogar();
+  var el = document.getElementById('hogarCard');
+  if (!el) return;
+  if (h.connected) {
+    el.innerHTML =
+      '<div class="ch"><div class="ci" style="background:var(--g-light)">🏠</div>' +
+        '<div><b>' + (L ? 'Hogar conectado' : 'Household connected') + '</b>' +
+        '<small>' + (L ? 'Con ' : 'With ') + (h.partnerName || (L ? 'tu pareja' : 'your partner')) + '</small></div></div>' +
+      '<div class="mini-note">' + (L ? 'Ya puedes marcar cuentas como "Conjunta" abajo.' : 'You can now mark accounts as "Joint" below.') + '</div>';
+    return;
+  }
+  if (h.pendingInvite) {
+    el.innerHTML =
+      '<div class="ch"><div class="ci" style="background:var(--sky-bg)">🏠</div>' +
+        '<div><b>' + (L ? 'Invitación enviada' : 'Invitation sent') + '</b>' +
+        '<small>' + (L ? 'Comparte este código con tu pareja' : 'Share this code with your partner') + '</small></div></div>' +
+      '<div style="background:var(--sunk);border:2px dashed var(--hair);border-radius:14px;padding:16px;text-align:center;margin-bottom:10px">' +
+        '<div class="ft-num" style="font-size:22px;letter-spacing:3px;color:var(--g-main)">' + (h.inviteCode || '—') + '</div></div>' +
+      '<div style="display:flex;gap:8px">' +
+        '<button type="button" class="add-row" style="flex:1;border-style:solid;color:var(--g-dark);border-color:var(--g-main)" onclick="obCopyCode(\'' + (h.inviteCode || '') + '\')">📋 ' + (L ? 'Copiar código' : 'Copy code') + '</button>' +
+        '<button type="button" class="add-row" style="flex:0 0 100px;color:var(--red)" onclick="obCancelInvite()">' + (L ? 'Cancelar' : 'Cancel') + '</button>' +
+      '</div>';
+    startObPolling();
+    return;
+  }
+  el.innerHTML =
+    '<div class="ch"><div class="ci" style="background:var(--pink-bg,#FDEAF1)">🏠</div>' +
+      '<div><b>' + (L ? 'Hogar' : 'Household') + '</b>' +
+      '<small>' + (L ? 'Comparte gastos e ingresos con tu pareja (opcional)' : 'Share expenses and income with your partner (optional)') + '</small></div></div>' +
+    '<div style="display:flex;gap:8px">' +
+      '<button type="button" class="add-row" style="flex:1" onclick="obStartInvite()">+ ' + (L ? 'Invitar a mi hogar' : 'Invite to my home') + '</button>' +
+      '<button type="button" class="add-row" style="flex:1" onclick="obShowAcceptCode()">' + (L ? 'Ya tengo un código' : 'I have a code') + '</button>' +
+    '</div>';
+}
+function obStartInvite() {
+  var code = 'FT-' + Math.random().toString(36).substring(2, 6).toUpperCase();
+  FT.saveHogar({ connected: false, pendingInvite: true, inviteCode: code, myEmail: FT.user().email, myName: FT.userName() });
+  FT.createInvite(FT.user().email, FT.userName(), code).catch(function () {});
+  renderHogarCard();
+}
+function obCopyCode(code) { navigator.clipboard && navigator.clipboard.writeText(code).catch(function () {}); FT.toast(FT.lang === 'es' ? '📋 Código copiado' : '📋 Code copied'); }
+function obCancelInvite() {
+  if (_obPollTimer) { clearInterval(_obPollTimer); _obPollTimer = null; }
+  FT.saveHogar({ connected: false, pendingInvite: false, manuallyLeft: false });
+  renderHogarCard();
+}
+function startObPolling() {
+  if (_obPollTimer) clearInterval(_obPollTimer);
+  _obPollTimer = setInterval(function () {
+    var h = FT.hogar();
+    if (!h.pendingInvite) { clearInterval(_obPollTimer); _obPollTimer = null; return; }
+    FT.checkPartner(FT.user().email).then(function (data) {
+      if (data && data.connected && data.partnerEmail) {
+        clearInterval(_obPollTimer); _obPollTimer = null;
+        var h2 = FT.hogar();
+        h2.connected = true; h2.pendingInvite = false; h2.partnerEmail = data.partnerEmail; h2.partnerName = data.partnerName || h2.partnerName;
+        h2.connectedAt = new Date().toISOString();
+        FT.saveHogar(h2);
+        FT.toast('🏠 ' + (FT.lang === 'es' ? '¡Conectado! ' : 'Connected! ') + (data.partnerName || (FT.lang === 'es' ? 'tu pareja' : 'your partner')));
+        FT.syncPartner();
+        renderHogarCard();
+        refreshCuentasToggles();
+      }
+    }).catch(function () {});
+  }, 4000);
+}
+var _obAcceptingCode = false;
+function obShowAcceptCode() {
+  var L = FT.lang === 'es';
+  FT.modal({
+    title: L ? 'Ingresar código' : 'Enter code',
+    html: '<p style="font-size:12px;color:var(--text3);margin:0 0 14px">' + (L ? 'Pide el código a quien te invitó' : 'Ask the person who invited you for their code') + '</p>' +
+      '<div class="ft-field"><input id="obCodeInput" style="text-align:center;font-size:20px;font-weight:800;letter-spacing:3px" placeholder="FT-XXXX" oninput="this.value=this.value.toUpperCase()"></div>',
+    saveLabel: L ? 'Unirme al hogar' : 'Join household',
+    onSave: function (body) { return obAcceptCode(body.querySelector('#obCodeInput').value); }
+  });
+}
+function obAcceptCode(raw) {
+  var L = FT.lang === 'es', code = (raw || '').trim().toUpperCase();
+  if (!code) { FT.toast(L ? '⚠️ Ingresa el código' : '⚠️ Enter the code'); return true; }
+  if (_obAcceptingCode) return true;
+  _obAcceptingCode = true;
+  FT.acceptInvite(code, FT.user().email, FT.userName()).then(function (data) {
+    _obAcceptingCode = false;
+    if (data.error) {
+      var msgs = { code_not_found: L ? '❌ Código no encontrado. Pide uno nuevo.' : '❌ Code not found. Ask for a new one.', code_already_used: L ? '❌ Código ya usado' : '❌ Code already used' };
+      FT.toast(msgs[data.error] || '❌ ' + data.error);
+      return;
+    }
+    var hg = { connected: true, pendingInvite: false, inviteCode: code, myEmail: FT.user().email, myName: FT.userName(),
+      partnerName: data.partnerName || (L ? 'Tu pareja' : 'Your partner'), partnerEmail: data.partnerEmail || '', connectedAt: new Date().toISOString() };
+    FT.saveHogar(hg);
+    FT.toast('🏠 ' + (L ? '¡Conectado! ' : 'Connected! ') + (data.partnerName || (L ? 'tu pareja' : 'your partner')));
+    FT.syncPartner();
+    renderHogarCard();
+    refreshCuentasToggles();
+  }).catch(function () { _obAcceptingCode = false; FT.toast(L ? '❌ Error de conexión — intenta de nuevo' : '❌ Connection error — try again'); });
+  return false;
+}
+/** Vuelve a dibujar las filas de cuentas ya agregadas, ahora que hay hogar
+ *  conectado (antes no ofrecían "Conjunta") -- conserva lo que ya se
+ *  había escrito en cada fila. */
+function refreshCuentasToggles() {
+  var rows = Array.prototype.slice.call(document.querySelectorAll('#cuentasList .acct')).map(function (row) {
+    return { nombre: row.querySelector('.nm').value, tipo: row.querySelector('.ty').value, monto: row.querySelector('.mo').value, hogar: row.dataset.hogar === '1' };
+  });
+  document.getElementById('cuentasList').innerHTML = '';
+  rows.forEach(function (r) { addCuenta(r.nombre, r.tipo, r.monto, r.hogar); });
+}
+/** Detecta, al llegar aquí, si este correo ya tenía un hogar conectado de
+ *  antes (otro dispositivo, o se registró de nuevo) -- mismo patrón ya
+ *  usado y revisado en hogar.html: nunca reconecta en silencio, siempre
+ *  pregunta primero. */
+function obDetectExisting() {
+  if (!FT.user().email) return;
+  var h = FT.hogar();
+  if (h.manuallyLeft || h.connected || h.pendingInvite) return;
+  FT.checkPartner(FT.user().email).then(function (data) {
+    if (!data || !data.connected || !data.partnerEmail) return;
+    var h2 = FT.hogar();
+    if (h2.connected || h2.pendingInvite || h2.manuallyLeft) return;
+    var pname = data.partnerName || data.partnerEmail;
+    FT.confirm(FT.lang === 'es'
+      ? 'Detectamos que ya tenías un hogar conectado con ' + pname + '. ¿Reconectar y traer sus deudas/recurrentes compartidos?'
+      : 'We found you already had a household connected with ' + pname + '. Reconnect and bring in their shared debts/recurring items?'
+    ).then(function (ok) {
+      var h3 = FT.hogar();
+      if (!ok) { h3.manuallyLeft = true; FT.saveHogar(h3); return; }
+      h3.connected = true; h3.pendingInvite = false; h3.manuallyLeft = false; h3.partnerEmail = data.partnerEmail;
+      h3.partnerName = pname; h3.connectedAt = new Date().toISOString();
+      FT.saveHogar(h3);
+      FT.syncPartner();
+      renderHogarCard();
+      refreshCuentasToggles();
+    });
+  }).catch(function () {});
 }
 
 function skipOnboarding() {
@@ -204,6 +387,9 @@ function saveOnboarding() {
 /* ─── INIT ─── */
 (function initOnboarding() {
   FT.applyLang(document);
+
+  renderHogarCard();
+  obDetectExisting();
 
   // Re-edición desde Configuración: precargar las cuentas de cheques ya guardadas
   var existing = FT.checking();
