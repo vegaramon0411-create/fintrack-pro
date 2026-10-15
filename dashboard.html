@@ -832,6 +832,15 @@ function openCheque() {
             FT.toast((es ? '🏠 ' + FT.money(r.hogarSinAsignar) + ' de tu aporte hogar sin asignar a ninguna cuenta' : '🏠 ' + FT.money(r.hogarSinAsignar) + " of your household share isn't assigned to any account"), { ms: 4500 });
           }, 3200);
         }
+        // 15-oct-2026: el reparto a fondos de Ahorro libre ahora se aplica
+        // solo (ver FT.recordCheque) -- este aviso es el equivalente al de
+        // arriba, para que no se sienta silencioso solo porque ya no pide
+        // confirmar.
+        if (r.fondoSinAsignar > 0.5) {
+          setTimeout(function () {
+            FT.toast((es ? '💵 ' + FT.money(r.fondoSinAsignar) + ' sin repartir a ningún fondo -- sigue disponible en tu presupuesto' : '💵 ' + FT.money(r.fondoSinAsignar) + " not assigned to any fund -- still available in your budget"), { ms: 4500 });
+          }, 5700);
+        }
       }
       render();
     }
