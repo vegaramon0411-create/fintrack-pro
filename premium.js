@@ -98,6 +98,32 @@ FT.money = function (n, opts) {
   return pfx + sym + groupInt(parts[0]) + (dec ? ',' + parts[1] : '');
 };
 
+/** Interpreta un monto escrito a mano en CUALQUIER convención de separador
+ *  (punto de millar + coma decimal estilo LatAm, o coma de millar + punto
+ *  decimal estilo EEUU) sin depender del idioma de la app -- detecta por
+ *  la forma del número (17-sep-2026, construida originalmente para
+ *  deudas.html's numMoney tras el bug real de "toco Guardar y no pasa
+ *  nada" en montos grandes; promovida aquí el 15-oct-2026 para que
+ *  cualquier pantalla con un campo de dinero en texto libre la use, en
+ *  vez de reinventar un parseo frágil que solo asume un formato). */
+FT.numMoney = function (v) {
+  v = String(v == null ? '' : v).trim();
+  if (!v) return 0;
+  v = v.replace(/[^\d.,-]/g, '');
+  var hasComma = v.indexOf(',') > -1, hasDot = v.indexOf('.') > -1;
+  if (hasComma && hasDot) {
+    if (v.lastIndexOf(',') > v.lastIndexOf('.')) v = v.replace(/\./g, '').replace(',', '.');
+    else v = v.replace(/,/g, '');
+  } else if (hasComma || hasDot) {
+    var sep = hasComma ? ',' : '.';
+    var parts = v.split(sep);
+    var looksGrouped = parts.length > 1 && parts.slice(1).every(function (p) { return p.length === 3; }) && parts[0].length <= 3;
+    v = looksGrouped ? parts.join('') : parts.join('.');
+  }
+  var n = parseFloat(v);
+  return isNaN(n) ? 0 : n;
+};
+
 /** Partes del monto para render custom (hero con "$" chico al final). */
 FT.moneyParts = function (n, opts) {
   opts = opts || {};

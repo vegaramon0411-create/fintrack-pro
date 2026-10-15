@@ -278,11 +278,18 @@ var W = {
 };
 var googleUser = {};
 
+// 15-oct-2026, a petición de Ramón: antes solo se veían los números
+// crudos (50/30/20) sin explicar qué significa cada uno a menos que
+// abrieras "Modo detallado" -- se agrega una descripción corta por
+// método, visible siempre. No son copia literal de las de Perfil (ahí
+// los mismos ratios representan otra cosa -- needs/wants/savings en vez
+// de spend/savings/deuda o spend/savings/inversión -- texto nuevo, fiel
+// a lo que cada método de ESTE wizard de verdad reparte).
 var METHODS = [
-  { id:'50/30/20', parts:[['needs',50],['wants',30],['savings',20]] },
-  { id:'70/20/10', parts:[['spend',70],['savings',20],['debt',10]] },
-  { id:'60/20/20', parts:[['spend',60],['savings',20],['invest',20]] },
-  { id:'80/20',    parts:[['spend',80],['savings',20]] }
+  { id:'50/30/20', parts:[['needs',50],['wants',30],['savings',20]], descEs:'El más estudiado. Buen punto de partida si no sabes por dónde empezar.', descEn:"The most studied. Good starting point if you're not sure." },
+  { id:'70/20/10', parts:[['spend',70],['savings',20],['debt',10]], descEs:'Aparta un 10% fijo para pagar deudas más rápido, además de tu ahorro normal.', descEn:"Sets aside a fixed 10% to pay off debt faster, on top of your regular savings." },
+  { id:'60/20/20', parts:[['spend',60],['savings',20],['invest',20]], descEs:'Mitad para gastar, la otra mitad repartida en partes iguales entre ahorro e inversión.', descEn:'Half to spend, the other half split evenly between savings and investing.' },
+  { id:'80/20',    parts:[['spend',80],['savings',20]], descEs:'El más simple: solo separas el 20% de ahorro, el resto lo gastas sin dividir por categoría.', descEn:"The simplest: just set aside 20% savings, spend the rest without splitting into categories." }
 ];
 var PART_LABEL = {
   needs:{es:'Necesidades',en:'Needs'}, wants:{es:'Gustos',en:'Wants'}, savings:{es:'Ahorro',en:'Savings'},
@@ -453,7 +460,9 @@ function renderMethods() {
       return '<div class="r"><div class="v">' + FT.money(W.income * p[1] / 100) + '</div><div class="k">' + PART_LABEL[p[0]][W.lang] + ' · ' + p[1] + '%</div></div>';
     }).join('');
     var rec = (W.detail && m.id === recommendMethod()) ? '<span class="rec">' + (es ? 'Recomendado' : 'Suggested') + '</span>' : '';
-    return '<div class="mc' + (W.method === m.id ? ' on' : '') + '" data-m="' + m.id + '"><div class="h"><b>' + m.id + '</b>' + rec + '</div><div class="rows">' + rows + '</div></div>';
+    return '<div class="mc' + (W.method === m.id ? ' on' : '') + '" data-m="' + m.id + '"><div class="h"><b>' + m.id + '</b>' + rec + '</div>' +
+      '<div style="font-size:10.5px;color:var(--text3);line-height:1.4;margin:2px 0 8px">' + (es ? m.descEs : m.descEn) + '</div>' +
+      '<div class="rows">' + rows + '</div></div>';
   }).join('');
   document.querySelectorAll('#wMethods .mc').forEach(function (c) {
     c.onclick = function () { W.method = c.dataset.m; renderMethods(); };
@@ -467,7 +476,12 @@ function toggleDetail() {
 }
 function detailVerdictHTML() {
   var es = W.lang === 'es';
-  var totFixed = W.fixed.reduce(function (a, f) { return a + (parseFloat(String(f.amt).replace(/\./g, '').replace(',', '.')) || 0); }, 0);
+  // 15-oct-2026 (revisión de auditoría): el parseo viejo asumía SIEMPRE
+  // formato LatAm (punto de millar, coma decimal) -- un usuario en inglés
+  // escribiendo "1,800.50" se leía como $1.80, dañando en silencio la
+  // recomendación de método que ve. FT.numMoney detecta el formato por la
+  // forma del número, sin depender del idioma.
+  var totFixed = W.fixed.reduce(function (a, f) { return a + FT.numMoney(f.amt); }, 0);
   return totFixed > 0
     ? '<div class="verdict">' + (es
         ? 'Con ' + FT.money(totFixed) + ' en fijos (' + Math.round(totFixed / (W.income || 1) * 100) + '% de tu ingreso), el método <b>' + recommendMethod() + '</b> deja el gasto variable más realista.'
@@ -504,7 +518,7 @@ function renderDetail() {
 }
 function addFixed() { W.fixed.push({ name: '', amt: '' }); renderDetail(); }
 function recommendMethod() {
-  var totFixed = W.fixed.reduce(function (a, f) { return a + (parseFloat(String(f.amt).replace(/\./g, '').replace(',', '.')) || 0); }, 0);
+  var totFixed = W.fixed.reduce(function (a, f) { return a + FT.numMoney(f.amt); }, 0);
   var ratio = totFixed / (W.income || 1);
   if (ratio >= 0.65) return '80/20';
   if (ratio >= 0.5) return '60/20/20';
