@@ -81,53 +81,39 @@ function monthTxs(off) {
 }
 function totals() {
   var txs = monthTxs();
-  var t = { gasto: 0, ingreso: 0, ahorro: 0, inversion: 0, suscripcion: 0, hipoteca: 0, needs: 0, wants: 0, hogar: 0, hogarTotal: 0, txs: txs };
-  var conn = FT.hogarConnected();
-  // Cuentas como base (Fase 1): un gasto de hogar puede pagarse desde una
-  // cuenta CONJUNTA -- ese dinero ya se reflejó en el saldo real de esa
-  // cuenta (FT.deductChecking en FT.addEntry), así que no debe ADEMÁS
-  // restarse de tu disponible PERSONAL del mes. Bug real reportado por QA
-  // (29-sep-2026, "Abono a Burbank" $2,200): la cuenta House bajaba a $0
-  // correctamente Y ADEMÁS "Gasto del hogar (tu parte)" subía por el mismo
-  // monto -- doble atribución del mismo dinero. `t.hogarTotal` sigue
-  // sumando TODO el gasto marcado de hogar sin importar de dónde salió
-  // (para la vista combinada "Gasto del hogar en [mes]", hogarCombined
-  // abajo, que sí debe reflejar el gasto real de la casa completo);
-  // `t.hogar` (y por lo tanto `t.spent`/tu disponible) solo suma lo que de
-  // verdad salió de TU lado -- pagado desde tu cuenta personal, o sin
-  // cuenta elegida (el comportamiento de siempre para quien no usa cuentas).
-  var hogarAcctIds = {};
-  FT.checking().forEach(function (a) { if (a.hogar) hogarAcctIds[a.id] = 1; });
+  var t = { gasto: 0, ingreso: 0, ahorro: 0, inversion: 0, suscripcion: 0, hipoteca: 0, needs: 0, wants: 0, hogarTotal: 0, txs: txs };
+  // 15-oct-2026, a petición EXPLÍCITA de Ramón (confirmado vía pregunta
+  // directa, tras idas y vueltas en esta misma sesión -- las partes 18-22
+  // habían llegado a que un gasto de hogar pagado con TU cuenta personal
+  // sí contaba contra tu presupuesto personal; Ramón pidió revertir eso a
+  // separación TOTAL por etiqueta): cualquier movimiento marcado
+  // hogar:true (gasto, ahorro, inversión) NUNCA cuenta hacia tu lado
+  // personal, sin importar con qué cuenta se pagó NI si el hogar sigue
+  // conectado ahora mismo -- la etiqueta de la transacción decide sola.
+  // (Revisión encontró que condicionar esto a FT.hogarConnected() creaba
+  // un desacuerdo real con FT.personalAvailable(), que nunca filtró por
+  // conexión: si desconectas el hogar a medio mes con transacciones
+  // hogar:true ya guardadas -- la etiqueta nunca se borra sola --, antes
+  // esas transacciones volvían a contar aquí pero no en personalAvailable().
+  // `t.hogarTotal` sigue sumando TODO el gasto marcado de hogar (para la
+  // vista combinada "Gasto del hogar en [mes]", hogarCombined, más abajo;
+  // esa vista ya está oculta cuando el hogar no está conectado, así que
+  // sumar aquí sin condicionar a `conn` no cambia nada visible).
   txs.forEach(function (x) {
     var a = parseFloat(x.amount) || 0;
     var isExpenseType = x.type === 'gasto' || x.type === 'suscripcion' || x.type === 'hipoteca';
-    var isHogarTx = conn && isExpenseType && x.hogar === true;
-    var paidFromHogarAcct = isHogarTx && x.checkingAccountId && hogarAcctIds[x.checkingAccountId];
-    if (isHogarTx) t.hogarTotal += a;
-    if (paidFromHogarAcct) return; // ya se contabilizó en el saldo de la cuenta conjunta -- no toca tu presupuesto personal
+    if (x.hogar === true) {
+      if (isExpenseType) t.hogarTotal += a;
+      return; // separación total por etiqueta -- nunca toca tu lado personal
+    }
     t[x.type] = (t[x.type] || 0) + a;
     if (isExpenseType) {
-      if (isHogarTx) { t.hogar += a; }
-      else {
-        var kind = x.type === 'hipoteca' ? 'needs' : FT.entryCategoryType(x.cat);
-        if (kind === 'needs') t.needs += a; else t.wants += a;
-      }
+      var kind = x.type === 'hipoteca' ? 'needs' : FT.entryCategoryType(x.cat);
+      if (kind === 'needs') t.needs += a; else t.wants += a;
     }
   });
-  t.personalAhorro = txs.filter(function (x) { return x.type === 'ahorro' && x.hogar !== true; }).reduce(function (s, x) { return s + (parseFloat(x.amount) || 0); }, 0);
-  // "Presupuesto"/"Gastado este mes" es personal -- el aporte automático a
-  // hogar (60% en su caso, type:'ahorro' cat:'🏠 Hogar') NUNCA salió de tu
-  // % personal para empezar, así que t.personalAhorro (ya lo excluye)
-  // reemplaza al t.ahorro genérico aquí. PERO un gasto marcado "hogar" SÍ
-  // cuenta contra tu presupuesto cuando tú decides pagarlo con tu PROPIA
-  // cuenta (adelantarlo) -- t.hogar ya excluye únicamente lo pagado desde
-  // la cuenta CONJUNTA (default, no toca tu presupuesto); lo que pagas con
-  // tu cuenta personal sigue siendo, con toda razón, gasto tuyo. Aclarado
-  // por Ramón (29-sep-2026): "para eso implementamos lo de las cuentas,
-  // para que el usuario escoja... si escojo la mía se restará de mi
-  // presupuesto aunque sea un gasto del hogar". Revertido de la versión
-  // anterior (que excluía TODO gasto de hogar sin importar la cuenta).
-  t.spent = t.needs + t.wants + t.hogar + t.personalAhorro + t.inversion;
+  t.personalAhorro = t.ahorro;
+  t.spent = t.needs + t.wants + t.personalAhorro + t.inversion;
   return t;
 }
 function partnerHogarSpent() {
@@ -166,13 +152,12 @@ function patrimonio() {
   var t = totals();
   // QA 29-sep-2026: si adelantas un gasto de hogar con tu cuenta PERSONAL,
   // ese dinero también sale de tu patrimonio -- no solo de tu presupuesto
-  // del mes (budgetLeft, dashboard.html arriba, ya incluye t.hogar desde
-  // el mismo fix). Antes disp nunca restaba t.hogar aquí, así que
-  // "Patrimonio personal" no bajaba aunque de verdad hubieras gastado ese
-  // dinero de tu bolsillo -- mismo criterio ahora en los dos lados: cuenta
-  // conjunta = no toca tu patrimonio ni tu presupuesto; tu cuenta = toca
-  // los dos.
-  var disp = cheque * FT.personalPct() / 100 + extra - t.needs - t.wants - t.hogar - t.personalAhorro - t.inversion;
+  // 15-oct-2026: mismo criterio de separación total por etiqueta que
+  // totals() ya usa -- ningún gasto/ahorro/inversión marcado hogar:true
+  // toca tu patrimonio personal, sin importar con qué cuenta se pagó
+  // (t.needs/t.wants/t.personalAhorro/t.inversion ya lo excluyen por
+  // completo desde totals()).
+  var disp = cheque * FT.personalPct() / 100 + extra - t.needs - t.wants - t.personalAhorro - t.inversion;
   return {
     total: FT.savingsBalance() + FT.emergencyBalance() + invVal + (FT.hogarConnected() ? disp : Math.max(0, disp)),
     parts: [
@@ -256,9 +241,10 @@ function render() {
   var es = FT.lang === 'es';
   var u = FT.user(), t = totals(), L = limits();
   // hogarCombined = gasto REAL de la casa (mío + de mi pareja), sin
-  // importar de qué cuenta salió cada quien -- por eso usa t.hogarTotal,
-  // no t.hogar (que ahora excluye a propósito lo pagado desde una cuenta
-  // conjunta, ver comentario en totals()).
+  // importar de qué cuenta salió cada quien -- t.hogarTotal siempre sumó
+  // todo lo marcado hogar:true sin importar la cuenta (totals() ya no
+  // tiene un campo separado t.hogar desde el 15-oct-2026 -- separación
+  // total por etiqueta, ver comentario en totals()).
   var hogarCombined = t.hogarTotal + partnerHogarSpent();
   // Presupuesto del hogar (QA 29-sep-2026): mismo cálculo que ya usa
   // hogar.html (hogarBudgetHero) -- % combinado (pago + ahorro de casa)
@@ -538,12 +524,12 @@ function explain(kind) {
   var es = FT.lang === 'es', t = totals(), L = limits(), rows, title;
   if (kind === 'gasto') {
     title = es ? 'Gastado este mes' : 'Spent this month';
-    // "Gasto del hogar (tu parte)" -- restaurada (ver totals()): vuelve a
-    // sumar al total cuando adelantas un gasto de hogar con tu cuenta
-    // personal en vez de la conjunta.
+    // 15-oct-2026: "Gasto del hogar que adelantaste" quitada de este
+    // desglose -- Ramón pidió separación total por etiqueta (t.hogar ya
+    // no existe en totals(), ningún gasto marcado hogar:true cuenta aquí
+    // sin importar la cuenta con que se pagó).
     rows = [
       [(es ? 'Gastos (necesidades + gustos)' : 'Expenses'), '−' + FT.money(t.needs + t.wants)],
-      [(es ? 'Gasto del hogar que adelantaste' : 'Household expenses you fronted'), '−' + FT.money(t.hogar)],
       [(es ? 'Ahorro apartado' : 'Saved'), '−' + FT.money(t.personalAhorro)],
       [(es ? 'Invertido' : 'Invested'), '−' + FT.money(t.inversion)],
       [(es ? '= Total del mes' : '= Month total'), FT.money(t.spent)]

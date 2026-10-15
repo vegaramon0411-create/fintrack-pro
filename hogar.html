@@ -46,9 +46,16 @@ function go(url) { FT.go(url); }
 /* ── CÁLCULOS ── */
 function getSharedExpenses() {
   var d = FT.data(), thisMonth = FT.todayISO().slice(0, 7);
+  // 15-oct-2026: 'ahorro' (aportes a metas/fondo de emergencia del hogar)
+  // quitado de este filtro -- esto es "gastos del hogar" (lo que de verdad
+  // se gastó), no aportes a fondos. Antes un aporte a una meta aparecía
+  // como categoría "🏠 Hogar" en el desglose de gastos, inflando el total
+  // y desalineando este número con el de Dashboard ("Gasto del hogar en
+  // [mes]", que solo cuenta gasto/suscripcion/hipoteca -- ver totals() en
+  // dashboard.html).
   return (d.transactions || []).filter(function (t) {
     return t.date && String(t.date).startsWith(thisMonth) &&
-      (t.type === 'gasto' || t.type === 'ahorro' || t.type === 'suscripcion' || t.type === 'hipoteca') && t.hogar === true;
+      (t.type === 'gasto' || t.type === 'suscripcion' || t.type === 'hipoteca') && t.hogar === true;
   });
 }
 function getPersonalExpenses() {
@@ -67,7 +74,7 @@ function partnerSharedTxs() {
   return pp && pp.data && pp.data.transactions
     ? (pp.data.transactions || []).filter(function (t) {
         if (!t.date || t.hogar !== true) return false;
-        if (!(t.type === 'gasto' || t.type === 'ahorro' || t.type === 'suscripcion' || t.type === 'hipoteca')) return false;
+        if (!(t.type === 'gasto' || t.type === 'suscripcion' || t.type === 'hipoteca')) return false; // mismo criterio que getSharedExpenses() -- sin 'ahorro'
         var p = String(t.date).split(/[-T]/);
         return parseInt(p[0], 10) === y && parseInt(p[1], 10) - 1 === m;
       })
@@ -83,8 +90,16 @@ function calcHogar() {
   var shared = getSharedExpenses(), pShared = partnerSharedTxs();
   var sharedTotal = shared.reduce(function (a, t) { return a + (t.amount || 0); }, 0) + pShared.reduce(function (a, t) { return a + (t.amount || 0); }, 0);
   var mySharedPart = sharedTotal * myPct / 100, partnerSharedPart = sharedTotal * partnerPct / 100;
+  // fondoAportado = dinero REAL que ya entró a la cuenta conjunta este mes
+  // (reparto de cheque, campo hogarAmt) -- fuente única para "cuánto está
+  // sobrando del hogar", compartida con fondosCards() más abajo, para que
+  // los dos lean el mismo número.
+  var _mesKey = FT.todayISO().slice(0, 7), chequesDelMes = [];
+  try { chequesDelMes = (FT.cheques() || []).filter(function (c) { return c.mes === _mesKey; }); } catch (e) {}
+  var fondoAportado = chequesDelMes.reduce(function (a, c) { return a + (c.hogarAmt || 0); }, 0);
   return { myIncome: myIncome, partnerIncome: partnerIncome, total: total, myPct: myPct, partnerPct: partnerPct,
-    shared: shared, pShared: pShared, sharedTotal: sharedTotal, mySharedPart: mySharedPart, partnerSharedPart: partnerSharedPart };
+    shared: shared, pShared: pShared, sharedTotal: sharedTotal, mySharedPart: mySharedPart, partnerSharedPart: partnerSharedPart,
+    fondoAportado: fondoAportado };
 }
 function incomeReceivedThisMonth() {
   var mesKey = FT.todayISO().slice(0, 7);
@@ -404,7 +419,26 @@ function tabResumen(calc) {
   }).join('');
   var biggest = catKeys[0];
   var tip = biggest && calc.total > 0 ? '💡 ' + biggest + ' ' + (L ? 'representa el' : 'represents') + ' ' + Math.round(byCat[biggest].amt / calc.total * 100) + '% ' + (L ? 'del ingreso combinado.' : 'of combined income.') : '';
-  var sobrante = calc.mySharedPart + calc.partnerSharedPart - calc.sharedTotal;
+  // 15-oct-2026: esto era calc.mySharedPart + calc.partnerSharedPart -
+  // calc.sharedTotal -- mySharedPart/partnerSharedPart son ESE MISMO
+  // sharedTotal repartido por % de ingreso (myPct+partnerPct siempre suman
+  // 100), así que la resta daba ~0 siempre sin importar el gasto real
+  // (el card mostraba "-$0" sin importar nada -- bug real, no decoración).
+  // El primer intento de arreglo comparaba calc.fondoAportado (SOLO mi
+  // aporte real -- FT.cheques() nunca sincroniza al otro lado, confirmado
+  // por revisión: FT.pushProfileToGAS nunca manda cheques) contra
+  // calc.sharedTotal (gasto COMBINADO de los dos) -- mezclaba una cifra
+  // "solo mía" con una "de los dos", dando un número negativo de más cada
+  // vez que la pareja paga una parte normal del gasto del hogar, sin que
+  // eso signifique nada malo de verdad (mismo tipo de "ruido" que el bug
+  // original, por otra razón). Ahora compara mi aporte real contra lo que
+  // a MÍ me toca según mi % de ingreso (calc.mySharedPart, la misma cifra
+  // que ya se muestra arriba como "Aporte hogar" tuyo) -- las dos cifras
+  // son "de mi lado", así que sí puede leerse: ¿deposité ya mi parte justa
+  // de lo gastado este mes, o voy corto? Puede ir negativo (vas corto),
+  // que es justo lo que el color rojo/verde del card de abajo espera poder
+  // mostrar.
+  var sobrante = calc.fondoAportado - calc.mySharedPart;
   var sharedPct = calc.total > 0 ? Math.round(calc.sharedTotal / calc.total * 100) : 0;
 
   return '<div class="ft-card">' +
@@ -424,9 +458,9 @@ function tabResumen(calc) {
     '<div style="display:flex;justify-content:space-between;font-size:11px"><span style="color:var(--text3)">' + (L ? 'Aporte hogar' : 'Household share') + '</span><span style="font-weight:700">' + FT.money(calc.partnerSharedPart) + '</span></div></div>' +
   '</div>' +
   '<div class="ft-card" style="text-align:center;background:' + (sobrante < 0 ? 'var(--red-dim)' : 'var(--g-light)') + '">' +
-    '<div style="font-size:11px;color:var(--text3);margin-bottom:2px">' + (L ? 'Cuánto está sobrando del hogar' : 'How much is left over for the household') + '</div>' +
+    '<div style="font-size:11px;color:var(--text3);margin-bottom:2px">' + (L ? 'Cuánto te está sobrando a ti' : 'How much you have left over') + '</div>' +
     '<div class="ft-num" style="font-size:24px;color:' + (sobrante < 0 ? 'var(--red)' : 'var(--g-main)') + '">' + FT.money(sobrante) + '</div>' +
-    '<div style="font-size:10px;color:var(--text3);margin-top:2px">' + (L ? 'Aportado' : 'Contributed') + ' ' + FT.money(calc.mySharedPart + calc.partnerSharedPart) + ' − ' + (L ? 'Gastado' : 'Spent') + ' ' + FT.money(calc.sharedTotal) + '</div>' +
+    '<div style="font-size:10px;color:var(--text3);margin-top:2px">' + (L ? 'Tu aporte' : 'You contributed') + ' ' + FT.money(calc.fondoAportado) + ' − ' + (L ? 'Tu parte del gasto' : 'Your share of the spending') + ' ' + FT.money(calc.mySharedPart) + '</div>' +
   '</div>' +
   fondosCards('emerg');
 }
@@ -451,11 +485,13 @@ function proyHtml(avg, actual, meta, fecha) {
 }
 function fondosCards(modo) {
   var L = es(), fondos = FT.hogarFondos();
-  var _mesKey = FT.todayISO().slice(0, 7);
-  var chequesDelMes = []; try { chequesDelMes = (FT.cheques() || []).filter(function (c) { return c.mes === _mesKey; }); } catch (e) {}
-  var fondoAportado = chequesDelMes.reduce(function (a, c) { return a + (c.hogarAmt || 0); }, 0);
   var calc = calcHogar();
-  var sobrante = fondoAportado > 0 ? Math.max(0, fondoAportado - calc.sharedTotal) : 0;
+  var fondoAportado = calc.fondoAportado;
+  // mismo criterio que tabResumen() -- fondoAportado es SOLO mi aporte real
+  // (FT.cheques() nunca se sincroniza con la pareja), así que se compara
+  // contra calc.mySharedPart (mi parte del gasto, no el gasto combinado de
+  // los dos) para no mezclar una cifra "solo mía" con una "de los dos".
+  var sobrante = fondoAportado > 0 ? Math.max(0, fondoAportado - calc.mySharedPart) : 0;
 
   if (modo === 'emerg') {
     var e = fondos.emerg, avg = calcAvgAporte(e.hist);
@@ -700,7 +736,9 @@ function deleteMyIncomeTx(id) {
   FT.confirm(L ? '¿Eliminar este depósito?' : 'Delete this deposit?').then(function (ok) {
     if (!ok) return;
     var d = FT.data(); d.transactions = (d.transactions || []).filter(function (t) { return String(t.id) !== String(id); }); FT.saveData(d);
-    var cheques = FT.cheques().filter(function (c) { return String(c.id) !== String(id); }); FT.set(FT.K.cheques, cheques);
+    // chequeRow.id NUNCA fue el id de esta transacción (cada uno se genera
+    // por separado) -- el campo que de verdad los liga es txId.
+    var cheques = FT.cheques().filter(function (c) { return String(c.txId) !== String(id); }); FT.set(FT.K.cheques, cheques);
     switchTab('depositos');
   });
 }
