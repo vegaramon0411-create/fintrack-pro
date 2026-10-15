@@ -3125,6 +3125,37 @@ FT.pushProfileToGAS = function () {
     t = setTimeout(function () { FT.pushProfileToGAS(); }, 2500); // debounce -- no un fetch por cada tecla
   });
 })();
+/** Recordatorios por correo (15-oct-2026, a petición de Ramón: "mandar un
+ *  email que diga qué pago se viene, cuándo, y el monto, 1-2 días antes").
+ *  Esta app no tiene servidor propio -- el único backend capaz de correr
+ *  SIN que abras la app es tu Google Apps Script (ya usado para
+ *  saveProfile/sync de hogar). Esta función solo junta y SUBE la lista
+ *  (acción `saveReminders`, nueva, aparte de `saveProfile` -- nunca se
+ *  mezcla con el perfil que comparte tu pareja); quien de verdad revisa
+ *  fechas y manda el correo es un trigger de tiempo en el lado de GAS
+ *  (código y pasos para activarlo, fuera de este repo, entregados aparte
+ *  a Ramón). A diferencia de FT.pushProfileToGAS, esto NO depende de
+ *  tener hogar conectado -- cualquier cuenta con correo debe poder recibir
+ *  sus propios recordatorios, tenga pareja o no.
+ */
+FT.pushReminders = function () {
+  try {
+    var u = FT.user();
+    if (!u || !u.email) return;
+    var items = (FT.recurAllList() || [])
+      .filter(function (i) { return !i.paused && i.nextDate; })
+      .map(function (i) { return { name: i.name, amount: i.amount, dueDate: i.nextDate }; });
+    var params = new URLSearchParams({ action: 'saveReminders', email: u.email, dataJson: JSON.stringify(items) });
+    fetch(FT.GAS_URL + '?' + params.toString()).catch(function () {});
+  } catch (e) {}
+};
+(function () {
+  var t = null;
+  document.addEventListener('ft:datachanged', function () {
+    clearTimeout(t);
+    t = setTimeout(function () { FT.pushReminders(); }, 2500);
+  });
+})();
 
 /* ─────────────────────────────────────────────────────────────────────────
    9 · i18n
@@ -4847,10 +4878,12 @@ FT.boot = function () {
         // haya quedado viejo antes de este fix (deudas/recurrentes ya
         // borrados que mi pareja seguía jalando).
         try { FT.pushProfileToGAS(); } catch (e) {}
+        try { FT.pushReminders(); } catch (e) {}
       }).catch(function () {});
     } else {
       try { FT.runAutomations(); } catch (e) {}
       try { FT.pushProfileToGAS(); } catch (e) {}
+      try { FT.pushReminders(); } catch (e) {}
     }
   }
   // ft:ready se dispara de inmediato SIEMPRE (no espera la sincronización de
