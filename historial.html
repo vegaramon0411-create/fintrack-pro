@@ -62,7 +62,18 @@ function render() {
   // verdad es suyo: tu % personal del cheque + todo el ingreso extra (ya
   // 100% tuyo por definición) -- misma fórmula que limits()/
   // FT.personalAvailable() ya usan en el resto de la app.
-  var pIncomeCheque = 0, pIncomeExtra = 0, pExpense = 0, pInvest = 0, hAportado = 0, hGastado = 0, hIngreso = 0;
+  // 15-oct-2026 (Ramón, capturas): el Dashboard cuenta tu ahorro personal
+  // (reparto a fondos, ahorro automático del cheque -- type:'ahorro' sin
+  // hogar) dentro de "Gastado del mes" (totals()'s t.spent ya lo incluye,
+  // confirmado desde las partes 19-22), pero aquí nunca se acumulaba a
+  // NINGÚN lado cuando no era de hogar -- se perdía del todo, el resumen
+  // "Personal" de Historial no tenía forma de mostrarlo. Nueva variable
+  // pAhorro + su propia fila, igual que "Aportado" ya existe del lado de
+  // Hogar. No se suma a totalExpense (ver abajo) -- "Gastos" se queda
+  // significando spending (necesidades/gustos), igual que su etiqueta
+  // dice; el ahorro ya tiene su propia fila visible, que es lo que
+  // faltaba.
+  var pIncomeCheque = 0, pIncomeExtra = 0, pExpense = 0, pInvest = 0, pAhorro = 0, hAportado = 0, hGastado = 0, hIngreso = 0;
   txs.forEach(function (t) {
     var a = parseFloat(t.amount) || 0, esHogarTx = t.isHogar || t.hogar === true;
     if (t.type === 'ingreso') {
@@ -71,7 +82,7 @@ function render() {
       else pIncomeCheque += a;
     }
     else if (t.type === 'inversion') { pInvest += a; }
-    else if (t.type === 'ahorro') { if (esHogarTx) hAportado += a; }
+    else if (t.type === 'ahorro') { if (esHogarTx) hAportado += a; else pAhorro += a; }
     else if (t.type === 'gasto' || t.type === 'suscripcion' || t.type === 'hipoteca') { if (esHogarTx) hGastado += a; else pExpense += a; }
   });
   var pIncome = pIncomeCheque * FT.personalPct() / 100 + pIncomeExtra;
@@ -87,6 +98,7 @@ function render() {
     '<div style="font-size:11px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">👤 ' + (L ? 'Personal' : 'Personal') + '</div>' +
     '<div class="ft-row"><span class="k">💰 ' + (L ? 'Ingresos' : 'Income') + '</span><span class="v" style="color:var(--g-main)">' + FT.money(pIncome, { cents: true }) + '</span></div>' +
     '<div class="ft-row"><span class="k">💸 ' + (L ? 'Gastos' : 'Expenses') + '</span><span class="v" style="color:var(--red)">' + FT.money(pExpense, { cents: true }) + '</span></div>' +
+    '<div class="ft-row"><span class="k">💰 ' + (L ? 'Ahorro' : 'Savings') + '</span><span class="v" style="color:var(--g-main)">' + FT.money(pAhorro, { cents: true }) + '</span></div>' +
     '<div class="ft-row"><span class="k">📈 ' + (L ? 'Inversiones' : 'Investments') + '</span><span class="v" style="color:var(--blue)">' + FT.money(pInvest, { cents: true }) + '</span></div>' +
   '</div>' +
   '<div class="ft-card">' +
