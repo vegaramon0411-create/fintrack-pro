@@ -140,13 +140,22 @@ function partnerHogarSpent() {
     return t.hogar === true && String(t.date || '').slice(0, 7) === mk && ['gasto', 'suscripcion', 'hipoteca'].indexOf(t.type) > -1;
   }).reduce(function (s, t) { return s + (parseFloat(t.amount) || 0); }, 0);
 }
+// 15-oct-2026, a petición de Ramón: antes, en cuanto había hogar
+// conectado, esto IGNORABA por completo el plan que hubieras elegido en
+// Perfil (ej. 70/20/10) y forzaba 50/30/20 de fábrica -- los montos en $
+// se recalculaban bien contra tu % personal nuevo, pero el plan
+// desaparecía en silencio. Ahora se usan SIEMPRE needsPct/wantsPct/
+// savingsPct guardados (50/30/20 solo como default si nunca elegiste
+// nada) aplicados sobre `base` -- con hogar o sin él, el plan se respeta
+// y los montos en $ nunca quedan desfasados si el ingreso cambia después.
 function limits() {
   var u = FT.user(), income = u.income || 0;
   var conn = FT.hogarConnected();
   var base = conn ? income * FT.personalPct() / 100 : income;
-  return conn
-    ? { base: base, needs: base * 0.5, wants: base * 0.3, savings: base * 0.2, income: income }
-    : { base: base, needs: u.needs || base * 0.5, wants: u.wants || base * 0.3, savings: u.savings || base * 0.2, income: income };
+  var needsPct = u.needsPct != null ? u.needsPct : 50;
+  var wantsPct = u.wantsPct != null ? u.wantsPct : 30;
+  var savingsPct = u.savingsPct != null ? u.savingsPct : 20;
+  return { base: base, needs: base * needsPct / 100, wants: base * wantsPct / 100, savings: base * savingsPct / 100, income: income };
 }
 function patrimonio() {
   var invVal = FT.investments().reduce(function (s, i) { return s + FT.investmentValue(i); }, 0);

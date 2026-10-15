@@ -532,7 +532,14 @@ function finishSetup() {
     name: name, email: W.email || googleUser.email || '', photo: W.avatar || '',
     income: W.income, currency: W.currency, lang: W.lang, report: W.report,
     payFreq: W.freq, payDay: W.payDay, payAuto: W.payAuto, payAnchor: W.freq === 'biweekly' ? (W.payAnchor || '') : '',
-    method: W.method, savingsPct: 20,
+    // 15-oct-2026: antes guardaba savingsPct:20 fijo (ignorando el metodo
+    // que de verdad elegiste en el wizard) y nunca guardaba needsPct/
+    // wantsPct -- savingsPct en particular no es solo cosmetico, lo usa
+    // FT.recordCheque para el deposito automatico "pagate primero" de
+    // cada cheque (dinero real, sin confirmar), asi que con un metodo
+    // distinto al 50/30/20 clasico se estaba ahorrando de mas o de menos
+    // desde el primer cheque sin que tu lo pidieras.
+    method: W.method, needsPct: needsPct, wantsPct: wantsPct, savingsPct: savingsPct,
     needs: Math.round(W.income * needsPct / 100),
     wants: Math.round(W.income * wantsPct / 100),
     savings: Math.round(W.income * savingsPct / 100),
