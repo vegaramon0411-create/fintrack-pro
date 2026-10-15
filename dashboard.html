@@ -113,7 +113,16 @@ function totals() {
     }
   });
   t.personalAhorro = t.ahorro;
-  t.spent = t.needs + t.wants + t.personalAhorro + t.inversion;
+  // 15-oct-2026, a petición de Ramón: el ahorro apartado a un fondo sigue
+  // siendo tuyo mientras no lo retires ni lo uses -- no es un gasto, así
+  // que no debe restar de "Presupuesto restante"/"Gastado este mes". La
+  // inversión sí sigue restando ("no está en mi cuenta"). Nota: esto es
+  // DISTINTO de patrimonio().disp (más abajo), que sigue restando ahorro a
+  // propósito -- ahí el ahorro se suma de vuelta via FT.savingsBalance(),
+  // así que la resta ahí es necesaria para no contarlo dos veces en el
+  // patrimonio total. t.spent es solo para presupuesto/gasto del mes, no
+  // para patrimonio.
+  t.spent = t.needs + t.wants + t.inversion;
   return t;
 }
 function partnerHogarSpent() {
@@ -528,11 +537,16 @@ function explain(kind) {
     // desglose -- Ramón pidió separación total por etiqueta (t.hogar ya
     // no existe en totals(), ningún gasto marcado hogar:true cuenta aquí
     // sin importar la cuenta con que se pagó).
+    // 15-oct-2026 (2): "Ahorro apartado" ya NO se resta del total -- a
+    // petición de Ramón, el ahorro sigue siendo tuyo mientras no lo
+    // retires, así que no cuenta como gasto (t.spent ya no lo incluye,
+    // ver totals()). Se deja la fila como informativa (sin signo −, fuera
+    // de la suma) para que siga siendo visible cuánto apartaste.
     rows = [
       [(es ? 'Gastos (necesidades + gustos)' : 'Expenses'), '−' + FT.money(t.needs + t.wants)],
-      [(es ? 'Ahorro apartado' : 'Saved'), '−' + FT.money(t.personalAhorro)],
       [(es ? 'Invertido' : 'Invested'), '−' + FT.money(t.inversion)],
-      [(es ? '= Total del mes' : '= Month total'), FT.money(t.spent)]
+      [(es ? '= Total del mes' : '= Month total'), FT.money(t.spent)],
+      [(es ? 'Ahorro apartado (no cuenta como gasto)' : 'Saved (not counted as spent)'), FT.money(t.personalAhorro)]
     ];
   } else if (kind === 'patrimonio') {
     var pat = patrimonio(); title = es ? 'Patrimonio personal' : 'Personal net worth';

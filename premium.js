@@ -1459,7 +1459,12 @@ FT.personalAvailable = function () {
   var mtxAll = txs.filter(function (t) { return String(t.date || '').slice(0, 7) === mk; });
   var mtxPersonal = mtxAll.filter(function (t) { return t.hogar !== true; });
   var sumP = function (types) { return mtxPersonal.filter(function (t) { return types.indexOf(t.type) > -1; }).reduce(function (s, t) { return s + (parseFloat(t.amount) || 0); }, 0); };
-  return cheque * FT.personalPct() / 100 + extra - sumP(['gasto', 'suscripcion', 'hipoteca']) - sumP(['ahorro']) - sumP(['inversion']);
+  // 15-oct-2026 (2), a petición de Ramón: el ahorro apartado a un fondo
+  // sigue siendo tuyo mientras no lo retires ni lo uses -- no se resta de
+  // "disponible" (mismo criterio que totals().t.spent en dashboard.html,
+  // los dos tienen que seguir de acuerdo). La inversión sí sigue restando
+  // ("no está en mi cuenta").
+  return cheque * FT.personalPct() / 100 + extra - sumP(['gasto', 'suscripcion', 'hipoteca']) - sumP(['inversion']);
 };
 
 /* ─────────────────────────────────────────────────────────────────────────
