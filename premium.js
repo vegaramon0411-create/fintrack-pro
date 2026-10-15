@@ -1368,6 +1368,15 @@ FT.deleteTx = function (id) {
       if (f.length !== list.length) FT.saveInvestments(f, sc);
     });
     recIdsToClean.filter(function (v, i, arr) { return arr.indexOf(v) === i; }).forEach(FT.recurDelete);
+  } else if (t.incomeKind === 'cheque') {
+    // Borrar el ingreso de un cheque también debe quitar su fila ligada en
+    // ft_cheques -- si no, queda huérfana sumando hogarAmt para siempre en
+    // calcHogar().fondoAportado (revisión independiente, 15-oct-2026; antes
+    // ningún caso de borrado -- ni el de Hogar, ni este genérico -- tenía
+    // esta limpieza, porque chequeRow.id nunca fue igual al id de la
+    // transacción y nada más las ligaba).
+    var cheques2 = FT.cheques().filter(function (c) { return String(c.txId) !== String(t.id); });
+    FT.set(K.cheques, cheques2);
   } else if (t.cat === '💳 Deudas') {
     var debts = FT.debts(), touched = false;
     debts.forEach(function (deb) {
@@ -1440,30 +1449,17 @@ FT.personalAvailable = function () {
   var inc = txs.filter(function (t) { return t.type === 'ingreso' && String(t.date || '').slice(0, 7) === mk; });
   var cheque = inc.filter(function (t) { return t.incomeKind !== 'extra' && t.incomeKind !== 'cobertura'; }).reduce(function (s, t) { return s + (parseFloat(t.amount) || 0); }, 0);
   var extra = inc.filter(function (t) { return t.incomeKind === 'extra' || t.incomeKind === 'cobertura'; }).reduce(function (s, t) { return s + (parseFloat(t.amount) || 0); }, 0);
-  // Mismo criterio que dashboard.html's totals()/budgetLeft (QA 29-sep-2026):
-  // un gasto de hogar pagado con cuenta CONJUNTA no toca tu disponible
-  // personal; pagado con tu propia cuenta (o sin elegir cuenta) sí -- antes
-  // esta función excluía CUALQUIER transacción hogar:true sin importar la
-  // cuenta, dejando "Disponible del mes" (Mi dinero) y el umbral de
-  // cobertura de gasto desincronizados de "Presupuesto restante" del
-  // dashboard, que ya aplicaba este criterio. El aporte automático a hogar
-  // (ahorro) sigue sin contar nunca, sin importar la cuenta -- esa plata
-  // nunca fue tuya para empezar (mismo criterio que t.personalAhorro).
-  var hogarAcctIds = {};
-  FT.checking().forEach(function (a) { if (a.hogar) hogarAcctIds[a.id] = 1; });
+  // 15-oct-2026, a petición EXPLÍCITA de Ramón (confirmado vía pregunta
+  // directa -- revierte el criterio de "cuenta como factor" de QA
+  // 29-sep-2026 citado abajo): separación TOTAL por etiqueta. Cualquier
+  // transacción marcada hogar:true (gasto, ahorro, inversión) nunca
+  // cuenta hacia tu disponible personal, sin importar con qué cuenta se
+  // pagó -- mismo criterio exacto que totals() usa en dashboard.html, los
+  // dos leen la misma regla para no volver a desincronizarse.
   var mtxAll = txs.filter(function (t) { return String(t.date || '').slice(0, 7) === mk; });
-  var mtxExpense = mtxAll.filter(function (t) { return t.hogar !== true || !(t.checkingAccountId && hogarAcctIds[t.checkingAccountId]); });
   var mtxPersonal = mtxAll.filter(function (t) { return t.hogar !== true; });
-  var sumOf = function (list, types) { return list.filter(function (t) { return types.indexOf(t.type) > -1; }).reduce(function (s, t) { return s + (parseFloat(t.amount) || 0); }, 0); };
-  var sumE = function (types) { return sumOf(mtxExpense, types); };
-  var sumP = function (types) { return sumOf(mtxPersonal, types); };
-  // inversion NUNCA se filtra por hogar (ni aquí ni en totals()'s t.inversion
-  // -- inversión no es un "tipo de gasto" que ese motor sepa excluir por
-  // cuenta) -- se usa mtxAll, no mtxPersonal, para que una inversión
-  // marcada hogar cuente igual en los dos lados (revisión independiente,
-  // 29-sep-2026: antes personalAvailable() SÍ la excluía y totals() no,
-  // desalineando "Disponible del mes" con "Presupuesto restante").
-  return cheque * FT.personalPct() / 100 + extra - sumE(['gasto', 'suscripcion', 'hipoteca']) - sumP(['ahorro']) - sumOf(mtxAll, ['inversion']);
+  var sumP = function (types) { return mtxPersonal.filter(function (t) { return types.indexOf(t.type) > -1; }).reduce(function (s, t) { return s + (parseFloat(t.amount) || 0); }, 0); };
+  return cheque * FT.personalPct() / 100 + extra - sumP(['gasto', 'suscripcion', 'hipoteca']) - sumP(['ahorro']) - sumP(['inversion']);
 };
 
 /* ─────────────────────────────────────────────────────────────────────────
@@ -1502,7 +1498,15 @@ FT.recordCheque = function (o) {
   var autoSaved = 0;
   if (tipo === 'nuevo') {
     var d = FT.data();
-    d.transactions.push({ id: nextId(), type: 'ingreso', desc: es ? 'Cheque recibido' : 'Paycheck received', amount: monto, date: fecha, cat: '💰 Ingreso', incomeKind: 'cheque', createdBy: FT.userName() });
+    // txId liga esta fila de ft_cheques con la transacción de ingreso que
+    // acaba de crear -- antes nada las ligaba, así que borrar el depósito
+    // (desde Hogar o desde el buscador de duplicados en Historial) dejaba
+    // esta fila huérfana sumando para siempre en fondoAportado (revisión
+    // independiente, 15-oct-2026). chequeRow.id NUNCA fue ese id -- se
+    // genera con su propio Date.now()+random por separado.
+    var incomeTxId = nextId();
+    chequeRow.txId = incomeTxId;
+    d.transactions.push({ id: incomeTxId, type: 'ingreso', desc: es ? 'Cheque recibido' : 'Paycheck received', amount: monto, date: fecha, cat: '💰 Ingreso', incomeKind: 'cheque', createdBy: FT.userName() });
     FT.set(K.data, d);
 
     var u = FT._user || FT.loadUser() || {};
