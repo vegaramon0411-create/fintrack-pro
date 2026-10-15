@@ -81,7 +81,11 @@ function render() {
   var persPct = hogarConn ? (100 - hogarPct) : 100;
   var monthlyIncome = FT.user().income || 0;
   var personalBudget = hogarConn ? (chequeIncome * persPct / 100 + extraIncome) : monthlyIncome;
-  var personalLeft = personalBudget - expenses - personalAhorro - invested;
+  // 15-oct-2026: el ahorro apartado a un fondo sigue siendo tuyo mientras
+  // no lo retires, así que ya no se resta aquí -- mismo criterio que
+  // totals().t.spent (dashboard.html) y FT.personalAvailable() (premium.js),
+  // los tres tienen que seguir de acuerdo. La inversión sí sigue restando.
+  var personalLeft = personalBudget - expenses - invested;
 
   var dayOfMonth = now.getDate(), daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   var dailyRate = dayOfMonth > 0 ? expenses / dayOfMonth : 0;
