@@ -47,7 +47,7 @@ function render() {
       var libre = FT.accountFree(a), apartado = FT.accountEarmarked(a.id), total = libre + apartado;
       return '<div class="md-acct" data-acct="' + a.id + '">' +
         '<div style="flex:1;min-width:0"><div class="name">' + a.name + (a.id === FT.user().defaultAccountId ? ' ⭐' : '') + '</div>' +
-        (vaults.length ? '<div class="sub">' + (L ? 'Libre ' : 'Free ') + FT.money(libre, { cents: true }) + ' + ' + (L ? 'Apartado ' : 'Set aside ') + FT.money(apartado, { cents: true }) + '</div>' : '<div class="sub">' + (L ? 'Libre' : 'Free') + '</div>') +
+        (vaults.length ? '<div class="sub">' + (L ? 'Disponible ' : 'Available ') + FT.money(libre, { cents: true }) + ' + ' + (L ? 'Apartado ' : 'Set aside ') + FT.money(apartado, { cents: true }) + '</div>' : '<div class="sub">' + (L ? 'Disponible' : 'Available') + '</div>') +
         '</div><div class="total">' + FT.money(total, { cents: true }) + '</div></div>';
     }).join('') : '<div class="d-empty">' + (L ? 'Aún no tienes ninguna cuenta personal.' : "You don't have any personal account yet.") + '</div>') +
   '</div>';
