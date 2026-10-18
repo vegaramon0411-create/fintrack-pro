@@ -625,6 +625,57 @@ function openPicker() {
   });
 }
 
+// 15-oct-2026 (aprobado vía simulación): antes el selector solo decía "(X libre)"
+// y escondía lo apartado en fondos -- una cuenta con $165 en un fondo y
+// disponible negativo se veía como "no tengo nada". Ahora muestra las dos
+// partes; "libre" se llama "Disponible" porque "Ahorro libre" (el fondo) y el
+// libre de la cuenta eran dos cosas distintas con el mismo nombre.
+function acctOptLabel(a) {
+  var es = FT.lang === 'es', ap = FT.accountEarmarked(a.id);
+  return a.name + ' · ' + (es ? 'Disponible ' : 'Available ') + FT.money(FT.accountFree(a), { cents: true }) + (ap > 0.004 ? ' · ' + (es ? 'Apartado ' : 'Set aside ') + FT.money(ap, { cents: true }) : '');
+}
+
+// Aviso en vivo bajo "¿De qué cuenta se paga?": solo aparece si el disponible no
+// alcanza. Ofrece pasar lo necesario de los fondos vinculados al disponible en
+// un toque (FT.coverFromFunds); si ni con los fondos alcanza, lo dice claro.
+function renderAcctStatus(body, getAmount, onMoved) {
+  var box = body.querySelector('#eAcctStatus'), sel = body.querySelector('#eAcctPers');
+  if (!box) return;
+  var es = FT.lang === 'es', wrap = body.querySelector('#eAcctPersWrap');
+  box.innerHTML = '';
+  if (!sel || !sel.value || (wrap && wrap.style.display === 'none')) return;
+  var amt = parseFloat(String(getAmount()).replace(/,/g, '')) || 0;
+  if (amt <= 0) return;
+  var cov = FT.accountCoverage(sel.value, amt);
+  if (cov.ok) return;
+  var acct = FT.checking().find(function (a) { return String(a.id) === String(sel.value); }) || {};
+  var box0 = 'style="border-radius:14px;padding:11px 12px;margin-top:8px;display:flex;flex-direction:column;gap:8px;';
+  var btn = function (id, primary, txt) { return '<button type="button" id="' + id + '" class="tap" style="padding:10px 12px;border-radius:11px;font-family:var(--ui-font);font-weight:800;font-size:12.5px;cursor:pointer;border:1.5px solid ' + (primary ? 'transparent' : 'var(--hair)') + ';background:' + (primary ? 'linear-gradient(135deg,var(--g-dark),var(--g-main))' : 'transparent') + ';color:' + (primary ? '#fff' : 'var(--ink)') + '">' + txt + '</button>'; };
+  var canFunds = cov.fundsTotal + 0.005 >= cov.shortfall;
+  var canEmerg = !canFunds && cov.fundsTotal + cov.emerg + 0.005 >= cov.shortfall;
+  var names = cov.funds.map(function (f) { return f.name; }).join(', ');
+  if (canFunds || canEmerg) {
+    box.innerHTML = '<div ' + box0 + 'background:var(--amber-bg,#FFF3DF)"><b style="color:var(--amber,#B7700F)">' + (es ? 'El disponible no alcanza: faltan ' : 'Available doesn\'t cover it: short ') + FT.money(cov.shortfall, { cents: true }) + '</b>' +
+      '<span style="font-size:12px;color:var(--text2)">' + (es ? 'La cuenta sí tiene dinero, apartado en ' : 'The account does have money, set aside in ') + (names || (es ? 'Emergencia' : 'Emergency')) + (canEmerg ? (es ? ' y Emergencia.' : ' and Emergency.') : '.') + '</span>' +
+      btn('eXfer', true, (es ? 'Pasar ' : 'Move ') + FT.money(cov.shortfall, { cents: true }) + (es ? ' de ' : ' from ') + (canEmerg ? (es ? 'tus fondos y Emergencia' : 'your funds and Emergency') : (cov.funds.length > 1 ? (es ? 'tus fondos' : 'your funds') : cov.funds[0].name)) + (es ? ' al disponible' : ' to available')) +
+      '<span style="font-size:11px;color:var(--text3)">' + (es ? 'Es un traspaso dentro de la misma cuenta: el total no cambia.' : 'A transfer inside the same account: the total doesn\'t change.') + '</span></div>';
+    body.querySelector('#eXfer').onclick = function () {
+      var run = function (useEmerg) {
+        // Se recalcula el faltante al ejecutar (no el capturado al dibujar el
+        // aviso): con la confirmación de Emergencia (asíncrona) un doble toque
+        // movería el mismo monto dos veces y dejaría el disponible de más.
+        var fresh = FT.accountCoverage(sel.value, getAmount().toString().replace(/,/g, '')).shortfall;
+        if (fresh <= 0.004) { renderAcctStatus(body, getAmount, onMoved); return; }
+        var r = FT.coverFromFunds(sel.value, fresh, { useEmergency: useEmerg }); FT.toast((es ? 'Pasaron ' : 'Moved ') + FT.money(r.moved, { cents: true }) + (es ? ' al disponible de ' : ' to available in ') + (acct.name || ''), { icon: '🔁', ms: 3200 }); if (onMoved) onMoved(); renderAcctStatus(body, getAmount, onMoved); };
+      if (canEmerg) FT.confirm(es ? 'Esto usa tu fondo de Emergencia, que es solo para emergencias reales. ¿Continuar?' : 'This uses your Emergency fund, which is only for real emergencies. Continue?').then(function (ok) { if (ok) run(true); });
+      else run(false);
+    };
+  } else if (FT.accountEarmarked(sel.value) > 0.004) {
+    box.innerHTML = '<div ' + box0 + 'background:var(--red-bg,#FCECEC)"><b style="color:var(--red)">' + (es ? 'No alcanza ni con lo apartado' : 'Not enough even with what\'s set aside') + '</b>' +
+      '<span style="font-size:12px;color:var(--text2)">' + (es ? 'La cuenta tiene ' + FT.money(FT.accountTotal(acct), { cents: true }) + ' en total y el gasto es de ' + FT.money(amt, { cents: true }) + '. Prueba con otra cuenta.' : 'The account has ' + FT.money(FT.accountTotal(acct), { cents: true }) + ' in total and the expense is ' + FT.money(amt, { cents: true }) + '. Try another account.') + '</span></div>';
+  }
+}
+
 function openEntry(type) {
   var es = FT.lang === 'es';
   var isServ = type === 'servicio';
@@ -651,7 +702,7 @@ function openEntry(type) {
   var canDeductAcct = (realType === 'gasto' || (realType === 'suscripcion' && !isServ)) && hogarAcctOpts.length > 0;
   if (realType === 'gasto' && myAccts.length) {
     var defAcctId = FT.user().defaultAccountId;
-    extra += '<div class="ft-field" id="eAcctPersWrap"><label>' + (es ? '¿De qué cuenta se paga? (opcional)' : 'Paid from which account? (optional)') + '</label><select id="eAcctPers"><option value="">' + (es ? 'Ninguna' : 'None') + '</option>' + myAccts.map(function (a) { return '<option value="' + a.id + '"' + (a.id === defAcctId ? ' selected' : '') + '>' + a.name + ' (' + FT.money(FT.accountFree(a), { cents: true }) + ' ' + (es ? 'libre' : 'free') + ')</option>'; }).join('') + '</select></div>';
+    extra += '<div class="ft-field" id="eAcctPersWrap"><label>' + (es ? '¿De qué cuenta se paga? (opcional)' : 'Paid from which account? (optional)') + '</label><select id="eAcctPers"><option value="">' + (es ? 'Ninguna' : 'None') + '</option>' + myAccts.map(function (a) { return '<option value="' + a.id + '"' + (a.id === defAcctId ? ' selected' : '') + '>' + acctOptLabel(a) + '</option>'; }).join('') + '</select></div><div id="eAcctStatus" aria-live="polite"></div>';
   }
   if (realType === 'ingreso' && myAccts.length) {
     extra += '<div class="ft-field"><label>' + (es ? '¿A qué cuenta llega? (opcional)' : 'Which account does it land in? (optional)') + '</label><select id="eAcctIn"><option value="">' + (es ? 'Ninguna' : 'None') + '</option>' + myAccts.map(function (a) { return '<option value="' + a.id + '">' + a.name + ' (' + FT.money(FT.accountFree(a), { cents: true }) + ')</option>'; }).join('') + '</select></div>';
@@ -702,6 +753,23 @@ function openEntry(type) {
       }
       var lib = body.querySelector('#eLib'), emg = body.querySelector('#eEmg');
       if (lib) { emg.onclick = function () { state.dest = 'emergencia'; sel(emg, lib); }; lib.onclick = function () { state.dest = 'libre'; sel(lib, emg); }; }
+      // Aviso en vivo de la cuenta personal (ver renderAcctStatus): se
+      // recalcula al teclear el monto, al cambiar de cuenta y al alternar
+      // Personal/Hogar; tras un traspaso se refresca el texto del selector.
+      var amtEl = body.querySelector('#eAmt'), persSel = body.querySelector('#eAcctPers');
+      if (persSel && amtEl) {
+        var refreshPersOpts = function () {
+          Array.prototype.forEach.call(persSel.options, function (o) {
+            if (!o.value) return;
+            var a = FT.checking().find(function (x) { return String(x.id) === String(o.value); });
+            if (a) o.textContent = acctOptLabel(a);
+          });
+        };
+        var updAcctStatus = function () { renderAcctStatus(body, function () { return amtEl.value; }, refreshPersOpts); };
+        amtEl.addEventListener('input', updAcctStatus);
+        persSel.addEventListener('change', updAcctStatus);
+        if (h) { h.addEventListener('click', updAcctStatus); p.addEventListener('click', updAcctStatus); }
+      }
       function sel(on, off) {
         on.style.borderColor = 'var(--g-main)'; on.style.background = 'var(--g-light)'; on.style.color = 'var(--g-dark)';
         off.style.borderColor = 'var(--hair)'; off.style.background = 'var(--sunk)'; off.style.color = 'var(--text2)';
@@ -829,7 +897,7 @@ function hogarInsufficientSheet(acctObj, chk) {
     FT.sheet({
       title: '🏠 ' + (es ? 'No alcanza en «' + acctObj.name + '»' : 'Not enough in "' + acctObj.name + '"'),
       html: '<p style="font-size:13px;color:var(--text2);margin:2px 0 6px">' +
-        (es ? 'Tiene ' + FT.money(chk.libre, { cents: true }) + ' libre -- faltan ' : 'Has ' + FT.money(chk.libre, { cents: true }) + ' free -- short ') +
+        (es ? 'Tiene ' + FT.money(chk.libre, { cents: true }) + ' disponible -- faltan ' : 'Has ' + FT.money(chk.libre, { cents: true }) + ' available -- short ') +
         '<b>' + FT.money(chk.shortfall, { cents: true }) + '</b>' + (es ? ' para este gasto. ¿Qué quieres hacer?' : ' for this expense. What do you want to do?') + '</p>',
       actions: [
         { label: '🔁 ' + (es ? 'Transferir dinero aquí' : 'Transfer money here'), primary: true, onClick: function () { resolve('transfer'); } },

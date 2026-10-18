@@ -620,6 +620,45 @@ FT.checkOverdraft = function (accountId, amount) {
   var libre = FT.accountFree(acct), amt = parseFloat(amount) || 0;
   return { ok: amt <= libre + 0.005, libre: libre, shortfall: Math.max(0, +(amt - libre).toFixed(2)) };
 };
+/** Qué hay detrás de un faltante (15-oct-2026, aprobado vía simulación): además
+ *  de lo libre, cuánto está apartado en fondos vinculados a esta cuenta y se
+ *  puede pasar al disponible con un traspaso. Solo informa, no mueve nada. */
+FT.accountCoverage = function (accountId, amount) {
+  var acct = FT.checking().find(function (a) { return String(a.id) === String(accountId); });
+  if (!acct) return { ok: true, libre: 0, shortfall: 0, funds: [], fundsTotal: 0, emerg: 0 };
+  var libre = FT.accountFree(acct), amt = parseFloat(amount) || 0;
+  var shortfall = Math.max(0, +(amt - libre).toFixed(2));
+  var funds = FT.savingsFunds().filter(function (f) { return f.accountId === acct.id && (parseFloat(f.actual) || 0) > 0.004; })
+    .map(function (f) { return { id: f.id, name: f.emoji + ' ' + f.name, actual: parseFloat(f.actual) || 0 }; })
+    .sort(function (a, b) { return b.actual - a.actual; });
+  var fundsTotal = funds.reduce(function (s, f) { return s + f.actual; }, 0);
+  var emerg = FT.emergencyAccountId() === acct.id ? FT.emergencyBalance() : 0;
+  return { ok: shortfall <= 0.005, libre: libre, shortfall: shortfall, funds: funds, fundsTotal: fundsTotal, emerg: emerg };
+};
+/** Traspaso: pasa `amount` de los fondos de Ahorro libre vinculados a la cuenta
+ *  (el más grande primero) a su disponible. Con o.useEmergency también toma lo
+ *  que falte de Emergencia. Cada retiro es el mismo FT.addSavings/addEmergency
+ *  de siempre -- como el fondo está vinculado, sube el disponible de la cuenta
+ *  exactamente lo que baja el fondo (el total de la cuenta no cambia). */
+FT.coverFromFunds = function (accountId, amount, o) {
+  o = o || {};
+  var es = FT.lang === 'es';
+  var left = +(parseFloat(amount) || 0).toFixed(2), moved = 0, i = 0, base = Date.now(), date = FT.todayISO();
+  var cov = FT.accountCoverage(accountId, 0);
+  var note = es ? 'Traspaso al disponible de la cuenta' : 'Transfer to the account\'s available balance';
+  cov.funds.forEach(function (f) {
+    if (left <= 0.004) return;
+    var take = Math.min(left, f.actual);
+    FT.addSavings({ id: base + (i++), amount: take, date: date, tipo: 'retiro', fundId: f.id, note: note });
+    left = +(left - take).toFixed(2); moved += take;
+  });
+  if (left > 0.004 && o.useEmergency && cov.emerg > 0.004) {
+    var takeE = Math.min(left, cov.emerg);
+    FT.addEmergency({ id: base + (i++), amount: takeE, date: date, tipo: 'retiro', note: note });
+    left = +(left - takeE).toFixed(2); moved += takeE;
+  }
+  return { moved: +moved.toFixed(2), left: left };
+};
 /** Inverso de FT.deductChecking -- para revertir al borrar o editar un movimiento. */
 FT.creditChecking = function (accountId, amount) {
   if (!accountId) return;
@@ -697,7 +736,7 @@ FT.checkingAccountsScreen = function (isHogar) {
     var vaults = FT.accountVaults(c.id);
     var libre = FT.accountFree(c), apartado = FT.accountEarmarked(c.id), total = libre + apartado;
     var breakdown = vaults.length ?
-      '<div style="font-size:9.5px;color:var(--text3);margin-top:2px">' + (L ? 'Total ' : 'Total ') + FT.money(total, { cents: true }) + ' = ' + (L ? 'Libre ' : 'Free ') + FT.money(libre, { cents: true }) + ' + ' + (L ? 'Apartado ' : 'Set aside ') + FT.money(apartado, { cents: true }) + '</div>' +
+      '<div style="font-size:9.5px;color:var(--text3);margin-top:2px">' + (L ? 'Total ' : 'Total ') + FT.money(total, { cents: true }) + ' = ' + (L ? 'Disponible ' : 'Available ') + FT.money(libre, { cents: true }) + ' + ' + (L ? 'Apartado ' : 'Set aside ') + FT.money(apartado, { cents: true }) + '</div>' +
       '<div style="font-size:9px;color:var(--text3);margin-top:1px">' + vaults.map(function (v) { return v.name + ' ' + FT.money(v.actual, { cents: true }); }).join(' · ') + '</div>' : '';
     return '<div style="display:flex;align-items:center;gap:8px;padding:10px;background:var(--sunk);border-radius:12px;margin-bottom:8px">' +
       '<div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:700">' + (c.name || (L ? 'Cuenta' : 'Account')) + '</div>' +
@@ -921,10 +960,29 @@ function _openAjusteSaldoCuenta(acct) {
   // libre (total − apartado) -- sin vínculos, el comportamiento es
   // idéntico al de siempre (edita el libre directo).
   var apartado = FT.accountEarmarked(acct.id);
-  var shown = apartado ? FT.accountTotal(acct) : (parseFloat(acct.amount) || 0);
+  var shown = Math.round((apartado ? FT.accountTotal(acct) : (parseFloat(acct.amount) || 0)) * 100) / 100;
   FT.modal({
-    title: (L ? 'Ajustar saldo de ' : 'Adjust balance for ') + acct.name,
-    html: '<div class="ft-field"><label>' + (L ? 'Saldo real actual' : 'Real current balance') + '</label><input id="abSaldo" inputmode="decimal" value="' + shown + '"></div>' +
+    title: (L ? 'Cuadrar con mi banco · ' : 'Match my bank · ') + acct.name,
+    // 15-oct-2026 (aprobado vía simulación): esta pantalla ya existía como
+    // "Ajustar saldo" pero nadie la encontraba -- ahora se llama como lo que
+    // hace, el motivo viene prellenado (un clic menos) y muestra en vivo
+    // cuánto quedaría de disponible antes de guardar.
+    onOpen: function (body) {
+      var inp = body.querySelector('#abSaldo'), prev = body.querySelector('#abPrev');
+      if (!inp || !prev) return;
+      function upd() {
+        var v = parseFloat((inp.value || '').replace(/,/g, ''));
+        if (isNaN(v)) { prev.textContent = ''; return; }
+        var ap = FT.accountEarmarked(acct.id), nl = +(v - ap).toFixed(2);
+        prev.style.color = nl < -0.005 ? 'var(--red)' : 'var(--g-main)';
+        prev.textContent = nl < -0.005
+          ? (L ? 'Tus fondos suman más que ese saldo (' + FT.money(ap, { cents: true }) + '). Revisa el saldo del fondo.' : 'Your funds add up to more than that balance (' + FT.money(ap, { cents: true }) + '). Check the fund balance.')
+          : (L ? 'El disponible quedaría en ' : 'Available would be ') + FT.money(nl, { cents: true });
+      }
+      inp.addEventListener('input', upd); upd();
+    },
+    html: '<div class="ft-field"><label>' + (L ? '¿Qué dice tu banco?' : 'What does your bank show?') + '</label><input id="abSaldo" inputmode="decimal" value="' + shown + '"></div>' +
+      (apartado ? '<p id="abPrev" style="font-size:12px;font-weight:800;margin:-4px 0 8px"></p>' : '') +
       (apartado ? '<p style="font-size:10.5px;color:var(--text3)">' + (L ? 'Escribe el TOTAL que dice tu banco (incluye lo apartado en fondos vinculados, ' + FT.money(apartado, { cents: true }) + '). La app descuenta lo apartado solo -- no lo sumes tú.' : 'Type the TOTAL your bank shows (includes what\'s set aside in linked funds, ' + FT.money(apartado, { cents: true }) + '). The app subtracts the set-aside amount on its own -- don\'t subtract it yourself.') + '</p>' : '') +
       // Fase 4 (QA Jett): "modificable solo vía transferencia o ajuste
       // manual CON MOTIVO (todo en historial)" -- este ajuste antes
@@ -932,7 +990,7 @@ function _openAjusteSaldoCuenta(acct) {
       // motivo. Ahora, si el número realmente cambia, se pide un motivo y
       // queda una transacción reversible en Historial (mismo patrón que
       // cualquier otro movimiento de cuenta).
-      '<div class="ft-field"><label>' + (L ? 'Motivo del ajuste' : 'Reason for the adjustment') + '</label><input id="abMotivo" placeholder="' + (L ? 'Ej. Cheque no registrado, corrección…' : 'E.g. Unlogged paycheck, correction…') + '"></div>' +
+      '<div class="ft-field"><label>' + (L ? 'Motivo del ajuste' : 'Reason for the adjustment') + '</label><input id="abMotivo" value="' + (L ? 'Cuadre con mi banco' : 'Matched to my bank') + '" placeholder="' + (L ? 'Ej. Cheque no registrado, corrección…' : 'E.g. Unlogged paycheck, correction…') + '"></div>' +
       '<p style="font-size:10.5px;color:var(--text3)">' + (L ? 'Escribe lo que de verdad dice tu banco -- esto reemplaza el número, no lo suma. Útil si un depósito automático no aplicó (ej. un cheque que registraste antes de poner la regla).' : "Type what your bank actually shows -- this replaces the number, it doesn't add to it. Useful if an auto-deposit didn't apply (e.g. a paycheck logged before you set the rule).") + '</p>',
     saveLabel: L ? 'Guardar saldo' : 'Save balance',
     onSave: function (body) {
@@ -1519,7 +1577,13 @@ FT.recordCheque = function (o) {
     autoSaved = Math.round(personalAmt * savPct / 100);
     if (autoSaved > 0) {
       var savId = nextId();
-      FT.addSavings({ id: savId, amount: autoSaved, date: fecha, note: es ? 'Págate primero (automático del cheque)' : 'Pay yourself first (automatic from paycheck)' });
+      // _noAcctMove (15-oct-2026, aprobado vía simulación): el cheque personal
+      // nunca se suma a ninguna cuenta, así que depositarlo a un fondo
+      // vinculado NO debe restarle al disponible de la cuenta -- antes cada
+      // cheque dejaba el disponible más negativo aunque el dinero real sí
+      // entró al fondo. El dinero llega directo a la bóveda: sube el
+      // apartado (y el total de la cuenta), el disponible no se toca.
+      FT.addSavings({ id: savId, amount: autoSaved, date: fecha, note: es ? 'Págate primero (automático del cheque)' : 'Pay yourself first (automatic from paycheck)', _noAcctMove: true });
       var d2 = FT.data();
       d2.transactions.push({ id: savId, type: 'ahorro', desc: es ? 'Ahorro automático del cheque' : 'Automatic paycheck savings', amount: autoSaved, date: fecha, cat: '💰 Ahorro', dest: 'libre', createdBy: FT.userName() });
       FT.set(K.data, d2);
@@ -1546,7 +1610,7 @@ FT.recordCheque = function (o) {
         if (amt <= 0) return;
         var f = fundsAll.find(function (x) { return x.id === fundId; });
         var repId = nextId();
-        FT.addSavings({ id: repId, amount: amt, date: fecha, tipo: 'deposito', note: (es ? 'Reparto de cheque — ' : 'Paycheck allocation — ') + (f ? f.name : ''), monthTx: true, fundId: fundId });
+        FT.addSavings({ id: repId, amount: amt, date: fecha, tipo: 'deposito', note: (es ? 'Reparto de cheque — ' : 'Paycheck allocation — ') + (f ? f.name : ''), monthTx: true, fundId: fundId, _noAcctMove: true });
         var dF = FT.data();
         dF.transactions.push({ id: repId, type: 'ahorro', desc: (es ? 'Reparto de cheque — ' : 'Paycheck allocation — ') + (f ? f.name : ''), amount: amt, date: fecha, cat: '💵 Ahorro', dest: 'libre', createdBy: FT.userName() });
         FT.set(K.data, dF);
@@ -1643,7 +1707,7 @@ FT.applyReparto = function (allocations) {
     // esa transacción después revertía solo uno de los dos fondos, dejando
     // el otro con saldo fantasma sin transacción que lo explique.
     var id = base + i;
-    FT.addSavings({ id: id, amount: amt, date: FT.todayISO(), tipo: 'deposito', note: (es ? 'Reparto de cheque' : 'Paycheck allocation') + (al.fundName ? ' — ' + al.fundName : ''), monthTx: true, fundId: al.fundId });
+    FT.addSavings({ id: id, amount: amt, date: FT.todayISO(), tipo: 'deposito', note: (es ? 'Reparto de cheque' : 'Paycheck allocation') + (al.fundName ? ' — ' + al.fundName : ''), monthTx: true, fundId: al.fundId, _noAcctMove: true });
     var d = FT.data();
     d.transactions.push({ id: id, type: 'ahorro', desc: (es ? 'Reparto de cheque — ' : 'Paycheck allocation — ') + (al.fundName || ''), amount: amt, date: FT.todayISO(), cat: '💵 Ahorro', dest: 'libre', createdBy: FT.userName() });
     FT.set(K.data, d);
@@ -4151,7 +4215,24 @@ FT.balanceScreen = function (opts) {
     } else {
       hero += '<div class="sub">' + (L ? 'Sin restricciones — úsalo para lo que quieras' : 'No restrictions — use it for anything') + '</div>';
     }
-    hero += '</div>';
+    // 15-oct-2026 (aprobado vía simulación): si este fondo vive dentro de una
+    // cuenta, se dice cuál -- y SOLO si el disponible de esa cuenta está en
+    // negativo aparece un aviso corto. Sin esto, esta pantalla dice "úsalo
+    // para lo que quieras" mientras el formulario de gasto muestra la
+    // cuenta en negativo, y parece que la app se contradice.
+    var linkAcctId = E ? FT.emergencyAccountId() : (af && af.accountId);
+    var linkAcct = linkAcctId ? FT.checking().find(function (a) { return String(a.id) === String(linkAcctId); }) : null;
+    var linkWarn = '';
+    if (linkAcct) {
+      hero += '<div class="sub" style="margin-top:8px">💵 ' + (L ? 'Dentro de ' : 'Inside ') + linkAcct.name + '</div>';
+      if (FT.accountFree(linkAcct) < -0.004) {
+        linkWarn = '<div style="background:var(--amber-bg,#FFF3DF);border-radius:14px;padding:11px 12px;margin:0 0 12px;font-size:12px;color:var(--text2)"><b style="color:var(--amber,#B7700F)">' +
+          linkAcct.name + ' ' + (L ? 'tiene disponible ' : 'has an available balance of ') + FT.money(FT.accountFree(linkAcct), { cents: true }) + '</b><br>' +
+          (L ? 'Tu dinero está aquí, apartado en este fondo. Para usarlo, pásalo al disponible al pagar, o cuadra la cuenta con tu banco.' : 'Your money is here, set aside in this fund. To use it, move it to available when you pay, or match the account to your bank.') +
+          '<br><button type="button" class="tap" data-cuadrar="' + linkAcct.id + '" style="border:none;background:none;padding:6px 0 0;font-family:inherit;font-weight:800;font-size:12px;color:var(--g-main);text-decoration:underline;cursor:pointer">' + (L ? 'Cuadrar con mi banco' : 'Match my bank') + '</button></div>';
+      }
+    }
+    hero += '</div>' + linkWarn;
 
     var acts = '<div class="ft-bs-acts">' +
       '<button class="prim tap" data-a="deposito"><span class="e">＋</span>' + (L ? 'Depositar' : 'Deposit') + '</button>' +
@@ -4183,6 +4264,7 @@ FT.balanceScreen = function (opts) {
     mount.querySelectorAll('[data-mv]').forEach(function (el) { el.onclick = function () { openDetail(el.getAttribute('data-mv')); }; });
     mount.querySelectorAll('[data-rec]').forEach(function (el) { el.onclick = function () { openRecDetail(el.getAttribute('data-rec')); }; });
     mount.querySelectorAll('[data-go]').forEach(function (el) { el.onclick = function () { FT.go(el.getAttribute('data-go')); }; });
+    mount.querySelectorAll('[data-cuadrar]').forEach(function (el) { el.onclick = function () { var a = FT.checking().find(function (x) { return String(x.id) === el.getAttribute('data-cuadrar'); }); if (a) _openAjusteSaldoCuenta(a); }; });
     mount.querySelectorAll('[data-fund]').forEach(function (el) { el.onclick = function () { activeFundId = el.getAttribute('data-fund'); render(); }; });
     mount.querySelectorAll('[data-fund-new]').forEach(function (el) { el.onclick = function () { openFundForm(null); }; });
     mount.querySelectorAll('[data-fund-edit]').forEach(function (el) { el.onclick = function () { var f = activeFund(); if (f) openFundMenu(f); }; });
