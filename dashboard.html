@@ -450,11 +450,11 @@ function emergPersonalCardHTML(es) {
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px"><div class="ft-num" style="font-size:22px">' + FT.money(bal, { cents: true }) + '</div><button class="ft-btn tap" style="margin:0;width:auto;padding:9px 14px;background:var(--blue);color:#fff" onclick="FT.openEntry(\'ahorro\', { dest: \'emergencia\' })">＋ ' + (es ? 'Depositar' : 'Deposit') + '</button></div></div>';
 }
 function pendingBlockHTML(es) {
-  var list = FT.txs().filter(FT.isPending).sort(function (a, b) { return String(a.date).localeCompare(String(b.date)); }).slice(0, 5);
+  var all = FT.txs().filter(FT.isPending).sort(function (a, b) { return String(a.date).localeCompare(String(b.date)); }), list = all.slice(0, 5);
   if (!list.length) return '';
   return '<div class="ft-section"><div class="ft-section-head"><h3>⏳ ' + (es ? 'Próximos' : 'Upcoming') + '</h3></div>' +
     '<div class="sm" style="font-size:11px;color:var(--text3);margin:-4px 0 6px">' + (es ? 'Todavía no mueven tu cuenta ni tu presupuesto: se aplican solos ese día.' : 'They do not move your account or budget yet: they apply on their own that day.') + '</div>' +
-    list.map(function (x, i) { return FT.txRow(x, i); }).join('') + '</div>';
+    list.map(function (x, i) { return FT.txRow(x, i); }).join('') + (all.length > list.length ? '<div class="tap" style="font-size:12px;font-weight:800;color:var(--g-main);padding:8px 0;cursor:pointer" onclick="FT.go(\'historial.html?f=all\')">' + (es ? 'y ' + (all.length - list.length) + ' más en Historial ›' : (all.length - list.length) + ' more in History ›') + '</div>' : '') + '</div>';
 }
 function mrow(label, key, spent, limit, pct, color) {
   var es = FT.lang === 'es';
@@ -675,7 +675,7 @@ function openCheque() {
         // principal (que ya se cierra solo a los pocos segundos).
         if (r.hogarSinAsignar > 0.5) {
           // 20-oct-2026: en vez de un aviso que se va en 4 segundos, se abre la hoja para asignar ese dinero.
-          setTimeout(function () { try { FT.openAsignar({ target: 'mine', chequeId: r.chequeId, monto: r.hogarSinAsignar, fecha: r.fecha }); } catch (e) {} }, 900);
+          setTimeout(function () { try { FT.openAsignar({ target: 'mine', chequeId: r.chequeId, monto: r.hogarSinAsignar, fecha: r.fecha, total: r.hogarAmt }); } catch (e) {} }, 900);
         }
         // 15-oct-2026: el reparto a fondos de Ahorro libre ahora se aplica
         // solo (ver FT.recordCheque) -- este aviso es el equivalente al de

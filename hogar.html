@@ -451,7 +451,7 @@ function _mySetup() {
 }
 /* ── DINERO SIN ASIGNAR Y CAMBIOS ENTRE LOS DOS (20-oct-2026) ── */
 function _safeId(x) { return String(x == null ? '' : x).replace(/[^\w\-]/g, ''); }
-function _sentFor(chequeId) { return FT.sentHogarEdits().filter(function (e) { return e.op === 'assign' && String(e.chequeId) === String(chequeId) && !e.undone; })[0]; }
+function _sentFor(chequeId) { return FT.sentHogarEdits().filter(function (e) { return e.op === 'assign' && String(e.chequeId) === String(chequeId) && !e.undone && e.status === 'sent'; })[0]; } // solo mientras sigue 'Enviado'
 function unassignedCardsHtml(partnerName) {
   var L = es(), out = '';
   function card(u, who, js, sentEdit) {
@@ -464,15 +464,15 @@ function unassignedCardsHtml(partnerName) {
   FT.partnerUnassigned().forEach(function (u) { out += card(u, L ? 'cheque de ' + partnerName : partnerName + "'s paycheck", 'asignarPareja(\'' + _safeId(u.id) + '\')', _sentFor(u.id)); });
   return out;
 }
-function asignarMio(id) { var u = FT.hogarUnassigned().find(function (x) { return _safeId(x.id) === id; }); if (u) FT.openAsignar({ target: 'mine', chequeId: u.id, monto: u.monto, fecha: u.fecha }); }
-function asignarPareja(id) { var u = FT.partnerUnassigned().find(function (x) { return _safeId(x.id) === id; }); if (u) FT.openAsignar({ target: 'partner', chequeId: u.id, monto: u.monto, fecha: u.fecha, partnerName: FT.hogar().partnerName }); }
+function asignarMio(id) { var row = FT.cheques().find(function (c) { return _safeId(c.id) === id; }); if (row && (parseFloat(row.hogarSinAsignar) || 0) > 0.5) FT.openAsignar({ target: 'mine', chequeId: row.id, monto: row.hogarSinAsignar, fecha: row.fecha, total: row.hogarAmt }); }
+function asignarPareja(id) { var u = FT.partnerUnassigned().find(function (x) { return _safeId(x.id) === id; }); if (u) FT.openAsignar({ target: 'partner', chequeId: u.id, monto: u.monto, fecha: u.fecha, total: u.total, partnerName: FT.hogar().partnerName }); }
 function cambiarReparto(chequeId) {
   var row = FT.cheques().find(function (c) { return _safeId(c.id) === chequeId; });
   if (!row) return;
   FT.confirm(es() ? 'Esto deshace el reparto actual de este cheque y te deja volver a asignarlo. ¿Continuar?' : 'This undoes the current split of this paycheck so you can assign it again. Continue?').then(function (ok) {
     if (!ok) return;
     var r = FT.unassignHogar(row.id);
-    if (r.ok) { var u = FT.hogarUnassigned().find(function (x) { return String(x.id) === String(row.id); }); if (u) FT.openAsignar({ target: 'mine', chequeId: u.id, monto: u.monto, fecha: u.fecha }); }
+    if (r.ok) { var row2 = FT.cheques().find(function (c) { return String(c.id) === String(row.id); }); if (row2) FT.openAsignar({ target: 'mine', chequeId: row2.id, monto: row2.hogarSinAsignar, fecha: row2.fecha, total: row2.hogarAmt }); }
   });
 }
 function _allocText(allocs) { return (allocs || []).map(function (a) { return _escHg(a.name || a.acctName) + ' +' + FT.money(a.amount, { cents: true }); }).join(' · '); }
@@ -784,6 +784,8 @@ function eliminarMeta(idx) {
   FT.confirm(L ? '¿Eliminar esta meta?' : 'Delete this goal?').then(function (ok) {
     if (!ok) return;
     var f = FT.hogarFondos();
+    if (f.metas[idx] && f.metas[idx].accountId) FT.unlinkHogarFondo('hogarmeta', f.metas[idx].id); // lo apartado vuelve a su cuenta
+    f = FT.hogarFondos();
     var removed = f.metas.splice(idx, 1)[0];
     FT.saveHogarFondos(f);
     if (removed) FT.set(FT.K.recurring, FT.recurring().filter(function (r) { return !(r.kind === 'meta' && r.metaTipo === 'meta' && r.metaId === removed.id); }));
@@ -827,6 +829,8 @@ function abrirAporteModal(tipo, idx, montoSugerido) {
     '</div>' +
     (hogarAccts.length ? '<div class="ft-field"><label>' + (L ? '¿De qué cuenta sale?' : 'Which account does it come from?') + '</label><select id="apAcct">' + hogarAccts.map(function (a) { return '<option value="' + a.id + '"' + (String(a.id) === String(defAcct) ? ' selected' : '') + '>' + a.name + ' · ' + (L ? 'Disponible ' : 'Available ') + FT.money(FT.accountFree(a), { cents: true }) + '</option>'; }).join('') + '<option value="">' + (L ? 'Ninguna (no mueve ninguna cuenta)' : 'None (does not move any account)') + '</option></select><div id="apPrev" style="font-size:12px;font-weight:700;color:var(--text2);margin-top:6px"></div><div class="dt-hint" style="margin:6px 0 0">' + (L ? 'El dinero pasa del disponible de esa cuenta a lo apartado para esta meta (queda dentro de la cuenta). Con "Ya estaba apartado" no se mueve nada.' : 'The money moves from that account\'s available balance to what is set aside for this goal (it stays inside the account). With "Already set aside" nothing moves.') + '</div></div>' : '');
 
+  // Lo que la cuenta absorbe además del monto: si la meta/emergencia todavía no vive en esa cuenta, absorbe todo lo ya ahorrado.
+  function apAbsorb(acctId) { return (curMeta0 && String(curMeta0.accountId) === String(acctId)) ? 0 : (parseFloat(curMeta0 && curMeta0.actual) || 0); }
   var saving = false;
   FT.modal({
     title: titulo, html: body, saveLabel: L ? 'Guardar' : 'Save',
@@ -843,7 +847,9 @@ function abrirAporteModal(tipo, idx, montoSugerido) {
       });
       b.querySelector('#apRec').onchange = function () { b.querySelector('#apRecFreqWrap').style.display = this.checked ? 'block' : 'none'; };
       var apA = b.querySelector('#apAcct'), apM = b.querySelector('#apMonto'), apP = b.querySelector('#apPrev');
-      function apUpd() { if (!apA || !apP) return; var a = FT.checking().find(function (x) { return String(x.id) === String(apA.value); }); if (!a || origen !== 'nuevo') { apP.textContent = ''; return; } var v = FT.numMoney(apM.value), libre = FT.accountFree(a); apP.textContent = (L ? 'Disponible ' : 'Available ') + FT.money(libre, { cents: true }) + ' → ' + (L ? 'quedará ' : 'will be ') + FT.money(libre - (v > 0 ? v : 0), { cents: true }); apP.style.color = libre - v < -0.005 ? 'var(--red)' : 'var(--text2)'; }
+      // Si esta meta/emergencia ya vive en una cuenta, solo puede salir de ella (\"Ya estaba apartado" inflaría el total de la cuenta).
+      if (curMeta0 && curMeta0.accountId && b.querySelector('[data-v=\"tenia\"]')) { b.querySelector('[data-v=\"tenia\"]').style.display = 'none'; b.querySelector('#apTipo').style.gridTemplateColumns = '1fr'; }
+      function apUpd() { if (!apA || !apP) return; var a = FT.checking().find(function (x) { return String(x.id) === String(apA.value); }); if (!a || origen !== 'nuevo') { apP.textContent = ''; return; } var v = FT.numMoney(apM.value), libre = FT.accountFree(a), need = (v > 0 ? v : 0) + apAbsorb(a.id); apP.textContent = (L ? 'Disponible ' : 'Available ') + FT.money(libre, { cents: true }) + ' → ' + (L ? 'quedará ' : 'will be ') + FT.money(libre - need, { cents: true }) + (need > v && v > 0 ? (L ? ' (incluye ' + FT.money(need - v, { cents: true }) + ' que ya tenían ahorrados)' : ' (includes ' + FT.money(need - v, { cents: true }) + ' already saved)') : ''); apP.style.color = libre - need < -0.005 ? 'var(--red)' : 'var(--text2)'; }
       if (apA) { apA.onchange = apUpd; apM.addEventListener('input', apUpd); b.querySelector('#apTipo').addEventListener('click', function () { setTimeout(apUpd, 0); }); apUpd(); }
     },
     onSave: function (b) {
@@ -877,6 +883,14 @@ function abrirAporteModal(tipo, idx, montoSugerido) {
         FT.toast(L ? 'Aporte guardado' : 'Deposit saved');
         FT.closeTop();
         switchTab(activeTab);
+      }
+      if (origen === 'nuevo' && checkingAccountId) {
+        var chkA = FT.checkOverdraft(checkingAccountId, monto + apAbsorb(checkingAccountId));
+        if (!chkA.ok) {
+          var anm = (FT.checking().find(function (x) { return String(x.id) === String(checkingAccountId); }) || {}).name || '';
+          FT.confirm(L ? '«' + anm + '» quedaría en negativo (te faltan ' + FT.money(chkA.shortfall, { cents: true }) + '). ¿Continuar?' : '"' + anm + '" would go negative (short ' + FT.money(chkA.shortfall, { cents: true }) + '). Continue?').then(function (okA) { if (okA) proceed(); });
+          return true;
+        }
       }
       if (activos.length) {
         var msg = wantsRec
@@ -951,10 +965,8 @@ function deleteMyIncomeTx(id) {
   var L = es();
   FT.confirm(L ? '¿Eliminar este depósito?' : 'Delete this deposit?').then(function (ok) {
     if (!ok) return;
-    var d = FT.data(); d.transactions = (d.transactions || []).filter(function (t) { return String(t.id) !== String(id); }); FT.saveData(d);
-    // chequeRow.id NUNCA fue el id de esta transacción (cada uno se genera
-    // por separado) -- el campo que de verdad los liga es txId.
-    var cheques = FT.cheques().filter(function (c) { return String(c.txId) !== String(id); }); FT.set(FT.K.cheques, cheques);
+    // FT.deleteTx deshace las asignaciones del cheque (sus cuentas dejan de tener ese dinero) y quita su fila ligada por txId.
+    FT.deleteTx(id);
     switchTab('depositos');
   });
 }

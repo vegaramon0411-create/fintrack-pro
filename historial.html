@@ -188,7 +188,7 @@ function toggleToolsPanel() {
 
 function renderList() {
   var L = es(), data = FT.data();
-  var txs = (data.transactions || []).filter(function (t) { return (t.date || '').startsWith(selectedMonth); });
+  var txs = (data.transactions || []).filter(function (t) { return acctFilter ? !!t.date : (t.date || '').startsWith(selectedMonth); }); // vista de una cuenta: todos sus meses
   var hogar = FT.hogar(), partnerName = hogar.partnerName || (L ? 'Tu pareja' : 'Your partner');
   var pp = FT.partnerProfile();
   if (pp && pp.data && pp.data.transactions) {
