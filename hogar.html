@@ -352,6 +352,7 @@ function renderDashboard(hogar) {
   _patriH = { checkTotal: checkTotal, invTotal: invTotal, metasTotal: metasTotal, emergTotal: emergTotal, total: patrimonioHogar };
 
   var h =
+    reviewCardsHtml(partnerName) +
     '<div class="hg-hero">' +
       '<div class="lbl">' + (L ? 'Gastado del hogar en ' + mesNameH : 'Household spending in ' + mesNameH) + '</div>' +
       '<div class="amt" style="margin-bottom:10px">' + FT.money(spentH, { cents: true }) + '</div>' +
@@ -419,6 +420,70 @@ function renderDashboard(hogar) {
     });
   });
   renderTab(calc, partnerName);
+}
+/* ── REVISIÓN DEL HOGAR POR LA PAREJA (19-oct-2026, a petición de Ramón) ──
+   Cuando uno captura cuentas conjuntas / inversiones del hogar, la otra persona
+   ve "Revisa lo que X configuró" y responde: ✅ Todo bien, o ⚠️ Algo no está
+   bien (con una nota). Quien capturó ve la respuesta aquí mismo y corrige desde
+   Cuentas conjuntas. Solo viaja lo del hogar -- nada personal. La respuesta
+   sube por el mismo perfil que ya se sincroniza (hogarReview). */
+function _revSig(items) {
+  var s = items.map(function (i) { return i.name + '|' + Math.round(i.amt); }).sort().join(';'), h = 0;
+  for (var k = 0; k < s.length; k++) h = ((h << 5) - h + s.charCodeAt(k)) | 0;
+  return s ? String(h) : '';
+}
+function _partnerSetup() {
+  var pp = FT.partnerProfile();
+  var raw = FT.get(FT.K.partnerChecking, []); raw = Array.isArray(raw) ? raw : (raw ? [raw] : []);
+  var items = raw.filter(function (c) { return c.hogar; }).map(function (c) { return { ico: '🏦', name: c.name || (es() ? 'Cuenta' : 'Account'), amt: parseFloat(c.amount) || 0 }; });
+  ((pp && pp.data && pp.data.hogarInv) || []).forEach(function (i) { items.push({ ico: '📈', name: i.ticker || i.name || (es() ? 'Inversión' : 'Investment'), amt: parseFloat(i.amount) || 0 }); });
+  return items;
+}
+function reviewCardsHtml(partnerName) {
+  var L = es(), out = '';
+  // 1) Lo que mi pareja configuró del hogar y yo aún no he revisado
+  var items = _partnerSetup(), sig = _revSig(items);
+  // Hogares que ya llevan tiempo conectados: lo que ya existe se da por revisado,
+  // para no pedir "revisa esto" de golpe a quien ya usa la app.
+  if (items.length && sig && !FT.getRaw('ft_hogar_review_ack')) {
+    var ca = FT.hogar().connectedAt;
+    if (ca && (Date.now() - new Date(ca).getTime()) > 86400000) FT.setRaw('ft_hogar_review_ack', sig);
+  }
+  if (items.length && sig && FT.getRaw('ft_hogar_review_ack') !== sig) {
+    out += '<div class="ft-card" style="border:1.5px solid var(--g-main)"><div style="font-size:14px;font-weight:800;margin-bottom:2px">👀 ' + (L ? 'Revisa lo que ' + partnerName + ' configuró del hogar' : 'Review what ' + partnerName + ' set up for the household') + '</div>' +
+      '<div style="font-size:11px;color:var(--text3);margin-bottom:10px">' + (L ? '¿Está bien? Solo ves lo del hogar.' : 'Does it look right? You only see household items.') + '</div>' +
+      items.map(function (i) { return '<div class="ft-row"><span class="k">' + i.ico + ' ' + _escHg(i.name) + '</span><span class="v">' + FT.money(i.amt, { cents: true }) + '</span></div>'; }).join('') +
+      '<div style="display:flex;gap:8px;margin-top:12px"><button class="ft-btn ft-btn-primary tap" style="margin:0;flex:1" onclick="answerReview(\'ok\')">✅ ' + (L ? 'Todo bien' : 'Looks good') + '</button>' +
+      '<button class="ft-btn ft-btn-ghost tap" style="margin:0;flex:1" onclick="answerReview(\'fix\')">⚠️ ' + (L ? 'Algo no está bien' : 'Something is off') + '</button></div></div>';
+  }
+  // 2) La respuesta de mi pareja a lo que yo configuré
+  var pp = FT.partnerProfile(), rv = pp && pp.data && pp.data.hogarReview;
+  if (rv && rv.at && FT.getRaw('ft_hogar_review_seen') !== rv.at) {
+    out += '<div class="ft-card" style="background:' + (rv.status === 'fix' ? 'var(--amber-bg,#FBF0DD)' : 'var(--g-light)') + '">' +
+      '<div style="font-size:13px;font-weight:800;margin-bottom:4px">' + (rv.status === 'fix' ? '⚠️ ' + (L ? partnerName + ' pidió corregir algo del hogar' : partnerName + ' asked to fix something') : '✅ ' + (L ? partnerName + ' confirmó lo del hogar' : partnerName + ' confirmed the household setup')) + '</div>' +
+      (rv.note ? '<div style="font-size:12.5px;color:var(--text2);margin-bottom:8px">“' + _escHg(rv.note) + '”</div>' : '') +
+      '<div style="display:flex;gap:8px">' + (rv.status === 'fix' ? '<button class="ft-btn ft-btn-primary tap" style="margin:0;flex:1" onclick="FT.setRaw(\'ft_hogar_review_seen\',\'' + rv.at + '\');FT.checkingAccountsScreen(true);render()">✏️ ' + (L ? 'Editar cuentas del hogar' : 'Edit household accounts') + '</button>' : '') +
+      '<button class="ft-btn ft-btn-ghost tap" style="margin:0;flex:1" onclick="FT.setRaw(\'ft_hogar_review_seen\',\'' + rv.at + '\');render()">' + (L ? 'Entendido' : 'Got it') + '</button></div></div>';
+  }
+  return out;
+}
+function _escHg(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+function answerReview(status) {
+  var L = es(), sig = _revSig(_partnerSetup());
+  function send(note) {
+    FT.setRaw('ft_hogar_review_ack', sig);
+    var h = FT.hogar(); h.myReview = { status: status, note: note || '', at: new Date().toISOString() };
+    FT.saveHogar(h);
+    FT.toast(status === 'ok' ? (L ? '✅ Confirmado' : '✅ Confirmed') : (L ? '📨 Le avisamos a tu pareja' : '📨 We let your partner know'));
+    render();
+  }
+  if (status === 'ok') { send(''); return; }
+  FT.modal({
+    title: L ? '¿Qué no está bien?' : "What's off?",
+    html: '<div class="ft-field"><label>' + (L ? 'Cuéntale (opcional)' : 'Tell them (optional)') + '</label><input id="rvNote" placeholder="' + (L ? 'Ej. El saldo de Casa + Servicio es otro' : 'E.g. The balance is different') + '"></div>',
+    saveLabel: L ? 'Enviar' : 'Send',
+    onSave: function (body) { send((body.querySelector('#rvNote').value || '').trim().slice(0, 200)); }
+  });
 }
 function qItem(ico, pastel, label, sub, onclickJs) {
   return '<div class="hg-qi tap" role="button" tabindex="0" onclick="' + onclickJs + '"><div class="ic ft-tx-ico ' + pastel + '" style="width:34px;height:34px;font-size:15px">' + ico + '</div>' +

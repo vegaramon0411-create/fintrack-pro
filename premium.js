@@ -3287,7 +3287,8 @@ FT.syncPartner = function () {
         personalSpentThisMonth: (nd.personalSpentThisMonth != null ? nd.personalSpentThisMonth : od.personalSpentThisMonth) || 0,
         subscriptions: _mergeById(od.subscriptions, nd.subscriptions),
         sharedDebts: nd.sharedDebts != null ? nd.sharedDebts : (od.sharedDebts || []),
-        hogarInv: nd.hogarInv != null ? nd.hogarInv : (od.hogarInv || [])
+        hogarInv: nd.hogarInv != null ? nd.hogarInv : (od.hogarInv || []),
+        hogarReview: nd.hogarReview !== undefined ? nd.hogarReview : (od.hogarReview || null)
       };
       var pp = { name: data.name || (old && old.name) || '', email: data.email || h.partnerEmail, income: parseFloat(data.income) || 0, needs: parseFloat(data.needs) || 0, wants: parseFloat(data.wants) || 0, savings: parseFloat(data.savings) || 0, data: merged };
       FT.set(pkey, pp);
@@ -3366,7 +3367,8 @@ FT.pushProfileToGAS = function () {
       personalSpentThisMonth: 0,
       sharedRecurring: sharedRecurring,
       servicios: FT.servicios().filter(function (s) { return !s._fromPartner; }).slice(-20), // nunca le hago eco a mi pareja de sus propios servicios
-      checking: FT.checking().filter(function (c) { return c.hogar; })
+      checking: FT.checking().filter(function (c) { return c.hogar; }),
+      hogarReview: FT.hogar().myReview || null // mi respuesta a lo que mi pareja configuró del hogar (ver hogar.html)
     };
     var params = new URLSearchParams({ action: 'saveProfile', email: u.email, name: u.name || '', income: u.income || 0, needs: u.needs || 0, wants: u.wants || 0, savings: u.savings || 0, dataJson: JSON.stringify(limited) });
     fetch(FT.GAS_URL + '?' + params.toString()).catch(function () {});
