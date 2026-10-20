@@ -1505,8 +1505,12 @@ FT.personalAvailable = function () {
   var mk = new Date().toISOString().slice(0, 7);
   var txs = FT.txs();
   var inc = txs.filter(function (t) { return t.type === 'ingreso' && String(t.date || '').slice(0, 7) === mk; });
-  var cheque = inc.filter(function (t) { return t.incomeKind !== 'extra' && t.incomeKind !== 'cobertura'; }).reduce(function (s, t) { return s + (parseFloat(t.amount) || 0); }, 0);
-  var extra = inc.filter(function (t) { return t.incomeKind === 'extra' || t.incomeKind === 'cobertura'; }).reduce(function (s, t) { return s + (parseFloat(t.amount) || 0); }, 0);
+  // 19-oct-2026: regla única de ingresos (misma en Hogar, Dashboard, Análisis
+  // e Historial) -- SOLO 'cheque' se reparte con el hogar; todo lo demás
+  // (extra, cobertura, dividendos importados) es 100% tuyo; 'venta' (venta de
+  // inversión) no es dinero nuevo y no cuenta para el presupuesto.
+  var cheque = inc.filter(function (t) { return t.incomeKind === 'cheque'; }).reduce(function (s, t) { return s + (parseFloat(t.amount) || 0); }, 0);
+  var extra = inc.filter(function (t) { return t.incomeKind !== 'cheque' && t.incomeKind !== 'venta'; }).reduce(function (s, t) { return s + (parseFloat(t.amount) || 0); }, 0);
   // 15-oct-2026, a petición EXPLÍCITA de Ramón (confirmado vía pregunta
   // directa -- revierte el criterio de "cuenta como factor" de QA
   // 29-sep-2026 citado abajo): separación TOTAL por etiqueta. Cualquier
@@ -2365,8 +2369,69 @@ FT.resolveDebtApproval = function (debtId, abonoId, approve) {
   FT._changed();
   return true;
 };
+/* ── Migración de ingresos viejos sin etiqueta (19-oct-2026) ────────────────
+   Antes de la regla única (solo 'cheque' se reparte con el hogar), un ingreso
+   sin incomeKind contaba como cheque. Ahora cuenta como 100% tuyo, así que los
+   viejos se etiquetan: lo inequívoco solo (por descripción/nota), el resto se
+   le pregunta al usuario UNA vez con FT.reviewIncomeKinds(). */
+FT.autoTagIncomes = function () {
+  var d = FT.data(), n = 0;
+  (d.transactions || []).forEach(function (t) {
+    if (t.type !== 'ingreso' || t.incomeKind) return;
+    var desc = String(t.desc || ''), note = String(t.note || ''), k = null;
+    if (t.cobId || /^(Cobertura|Coverage):/i.test(desc)) k = 'cobertura';
+    else if (/^(Cheque recibido|Paycheck received)/i.test(desc)) k = 'cheque';
+    else if (note === 'Venta Fidelity') k = 'venta';
+    else if (note === 'Fidelity dividend') k = 'extra';
+    if (k) { t.incomeKind = k; n++; }
+  });
+  if (n) FT.saveData(d);
+  return 0; // silencioso: no debe disparar el toast de automatizaciones
+};
+FT.reviewIncomeKinds = function () {
+  try { FT.autoTagIncomes(); } catch (e) {}
+  var es = FT.lang === 'es', today = FT.todayISO();
+  if (FT.getRaw('ft_ik_snooze') === today) return;
+  var pend = FT.txs().filter(function (t) { return t.type === 'ingreso' && !t.incomeKind && t.hogar !== true; });
+  if (!pend.length) return;
+  FT.setRaw('ft_ik_snooze', today); // se pregunta como máximo una vez al día, aunque se cierre con la ✕
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  var shown = pend.slice(0, 30);
+  var rows = shown.map(function (t, i) {
+    return '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line, #eee)">' +
+      '<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(t.desc || (es ? 'Ingreso' : 'Income')) + '</div>' +
+      '<div style="font-size:11px;color:var(--text3)">' + esc(t.date || '') + ' · ' + FT.money(parseFloat(t.amount) || 0, { cents: true }) + '</div></div>' +
+      '<select data-ik="' + i + '" aria-label="' + (es ? 'Tipo de ingreso' : 'Income type') + '" style="max-width:48%;font-size:12px;padding:6px">' +
+      '<option value="" selected>' + (es ? 'Elige…' : 'Choose…') + '</option>' +
+      '<option value="extra">' + (es ? '🎁 100% mío' : '🎁 100% mine') + '</option>' +
+      '<option value="cheque">' + (es ? '🏠 Cheque (se reparte)' : '🏠 Paycheck (split)') + '</option>' +
+      '<option value="venta">' + (es ? '🔄 Venta de inversión' : '🔄 Investment sale') + '</option></select></div>';
+  }).join('');
+  var ov = FT.sheet({
+    title: es ? 'Revisa tus ingresos' : 'Review your income',
+    html: '<p style="font-size:13px;color:var(--text2);margin:2px 0 8px">' + (es
+      ? 'Estos ingresos no tienen tipo. Elige cuál es cada uno para que todas las pantallas los cuenten igual: el cheque se reparte con el hogar, lo demás es 100% tuyo. Los que no elijas siguen contando como 100% tuyo.'
+      : 'These incomes have no type. Pick one for each so every screen counts them the same: paychecks are split with the household, everything else is 100% yours. Any you skip keep counting as 100% yours.') +
+      (pend.length > shown.length ? ' ' + (es ? 'Hay ' + (pend.length - shown.length) + ' más, aparecerán después.' : (pend.length - shown.length) + ' more will show up later.') : '') + '</p>' +
+      '<div style="max-height:46vh;overflow-y:auto">' + rows + '</div>',
+    actions: [
+      { label: es ? 'Guardar' : 'Save', primary: true, onClick: function () {
+        var d = FT.data(), map = {};
+        shown.forEach(function (t, i) {
+          var sel = ov.querySelector('[data-ik="' + i + '"]');
+          if (sel && sel.value) map[String(t.id)] = sel.value; // sin elegir = sigue pendiente, nunca se adivina
+        });
+        (d.transactions || []).forEach(function (t) { if (t.type === 'ingreso' && !t.incomeKind && map[String(t.id)]) t.incomeKind = map[String(t.id)]; });
+        FT.saveData(d);
+        FT.toast(es ? 'Ingresos actualizados' : 'Income updated', { icon: '✅' });
+      } },
+      { label: es ? 'Después' : 'Later' }
+    ]
+  });
+};
 FT.runAutomations = function () {
   var n = 0;
+  try { FT.autoTagIncomes(); } catch (e) {}
   try { n += FT.catchUpCheques(); } catch (e) {}
   try { n += FT.applyDueRecurring(); } catch (e) {}
   try { n += FT.applyDueSubscriptions(); } catch (e) {}
@@ -3165,7 +3230,10 @@ FT.syncPartner = function () {
       // respeta un borrado del lado de la pareja) y se conserva intacto el
       // resto de meses ya cacheados.
       var thisMonthKey = FT.todayISO().slice(0, 7);
-      var oldOtherMonths = (od.transactions || []).filter(function (t) { return String(t.date || '').slice(0, 7) !== thisMonthKey; });
+      // 19-oct-2026 (privacidad): también se depura lo ya cacheado de meses
+      // anteriores -- versiones viejas subían TODOS los ingresos personales;
+      // solo se conserva lo que la pareja puede ver (hogar y cheques).
+      var oldOtherMonths = (od.transactions || []).filter(function (t) { return String(t.date || '').slice(0, 7) !== thisMonthKey && (t.hogar === true || t.isHogar || (t.type === 'ingreso' && t.incomeKind === 'cheque')); });
       var merged = {
         transactions: oldOtherMonths.concat(nd.transactions || []),
         emergency: (nd.emergency != null ? nd.emergency : od.emergency) || 0,
@@ -3233,17 +3301,25 @@ FT.pushProfileToGAS = function () {
     var thisMonth = FT.todayISO().slice(0, 7);
     var personalSpentThisMonth = (data.transactions || []).filter(function (t) { return String(t.date || '').startsWith(thisMonth) && t.hogar !== true && (t.type === 'gasto' || t.type === 'suscripcion' || t.type === 'hipoteca'); })
       .reduce(function (a, t) { return a + (parseFloat(t.amount) || 0); }, 0);
+    // 19-oct-2026, a petición de Ramón: la pareja solo puede ver lo que entra
+    // al hogar -- nada personal. Antes se subían TODOS los ingresos del mes
+    // (extra, cobertura, dividendos), TODAS las cuentas de cheques (incluidas
+    // las personales, con nombre y saldo), el fondo de Emergencia y el total
+    // personal gastado. Ahora solo: gastos del hogar, cheques (necesarios para
+    // el reparto por %), y cuentas marcadas hogar. Emergencia y gasto
+    // personal se mandan en 0 a propósito: así sobrescriben cualquier valor
+    // viejo que ya hubiera quedado guardado en el dispositivo de tu pareja.
     var limited = {
-      transactions: (data.transactions || []).filter(function (t) { return String(t.date || '').startsWith(thisMonth) && (t.hogar === true || t.type === 'ingreso'); }),
-      emergency: data.emergency || 0,
+      transactions: (data.transactions || []).filter(function (t) { return String(t.date || '').startsWith(thisMonth) && (t.hogar === true || (t.type === 'ingreso' && t.incomeKind === 'cheque')); }),
+      emergency: 0,
       subscriptions: (data.subscriptions || []).slice(-10),
       sharedDebts: sharedDebts.slice(-20),
       hogarInv: hogarInv.slice(-20),
       fondos: FT.hogarFondos(),
-      personalSpentThisMonth: personalSpentThisMonth,
+      personalSpentThisMonth: 0,
       sharedRecurring: sharedRecurring,
       servicios: FT.servicios().filter(function (s) { return !s._fromPartner; }).slice(-20), // nunca le hago eco a mi pareja de sus propios servicios
-      checking: FT.checking()
+      checking: FT.checking().filter(function (c) { return c.hogar; })
     };
     var params = new URLSearchParams({ action: 'saveProfile', email: u.email, name: u.name || '', income: u.income || 0, needs: u.needs || 0, wants: u.wants || 0, savings: u.savings || 0, dataJson: JSON.stringify(limited) });
     fetch(FT.GAS_URL + '?' + params.toString()).catch(function () {});

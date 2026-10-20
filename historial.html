@@ -78,8 +78,9 @@ function render() {
     var a = parseFloat(t.amount) || 0, esHogarTx = t.isHogar || t.hogar === true;
     if (t.type === 'ingreso') {
       if (esHogarTx) hIngreso += a;
-      else if (t.incomeKind === 'extra' || t.incomeKind === 'cobertura') pIncomeExtra += a;
-      else pIncomeCheque += a;
+      else if (t.incomeKind === 'venta') { /* venta de inversión: no es dinero nuevo */ }
+      else if (t.incomeKind === 'cheque') pIncomeCheque += a;
+      else pIncomeExtra += a;
     }
     else if (t.type === 'inversion') { pInvest += a; }
     else if (t.type === 'ahorro') { if (esHogarTx) hAportado += a; else pAhorro += a; }
@@ -164,11 +165,14 @@ function rowHtml(t) {
     // 100% personal desde la parte 24 -- solo esta etiqueta por fila no se
     // había corregido igual). Mismo tratamiento que 'extra'.
     else if (t.incomeKind === 'cobertura') { tagLabel = L ? '💵 Cobertura (100% tuyo)' : '💵 Coverage (100% yours)'; tagBg = 'var(--g-light)'; tagColor = 'var(--g-dark)'; }
-    else {
+    else if (t.incomeKind === 'venta') { tagLabel = L ? '🔄 Venta de inversión (no suma al presupuesto)' : '🔄 Investment sale (not in budget)'; tagBg = 'var(--sunk)'; tagColor = 'var(--text3)'; }
+    else if (t.incomeKind === 'cheque') {
       var hc = FT.hogar(), pct = (parseFloat(hc.payPctHogar) || 50) + (parseFloat(hc.saveHogarPct) || 10);
       var amt = parseFloat(t.amount) || 0, hp = amt * pct / 100, pp2 = amt - hp;
       tagLabel = '🏠 ' + FT.money(hp) + ' + 👤 ' + FT.money(pp2); tagBg = '#FBF0DD'; tagColor = 'var(--amber)';
     }
+    // Sin etiqueta (dato viejo, antes de la migración): se trata como extra, igual que el resto de pantallas.
+    else { tagLabel = L ? '🎁 Extra (100% tuyo)' : '🎁 Extra (100% yours)'; tagBg = 'var(--g-light)'; tagColor = 'var(--g-dark)'; }
   } else if (t.type === 'transferencia') {
     // Neutral por regla (#1) -- no es personal ni de hogar, es un
     // movimiento entre tus propias cuentas/fondos.

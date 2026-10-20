@@ -103,11 +103,11 @@ function calcHogar() {
 }
 function incomeReceivedThisMonth() {
   var mesKey = FT.todayISO().slice(0, 7);
-  var mine = (FT.data().transactions || []).filter(function (t) { return t.type === 'ingreso' && t.incomeKind !== 'extra' && String(t.date || '').startsWith(mesKey); })
+  var mine = (FT.data().transactions || []).filter(function (t) { return t.type === 'ingreso' && t.incomeKind === 'cheque' && String(t.date || '').startsWith(mesKey); })
     .reduce(function (a, t) { return a + (parseFloat(t.amount) || 0); }, 0);
   var pp = FT.partnerProfile();
   var partner = pp && pp.data && pp.data.transactions
-    ? (pp.data.transactions || []).filter(function (t) { return t.type === 'ingreso' && t.incomeKind !== 'extra' && String(t.date || '').startsWith(mesKey); }).reduce(function (a, t) { return a + (parseFloat(t.amount) || 0); }, 0)
+    ? (pp.data.transactions || []).filter(function (t) { return t.type === 'ingreso' && t.incomeKind === 'cheque' && String(t.date || '').startsWith(mesKey); }).reduce(function (a, t) { return a + (parseFloat(t.amount) || 0); }, 0)
     : 0;
   return mine + partner;
 }
@@ -705,10 +705,10 @@ function tabDepositos() {
   var L = es(), hogar = FT.hogar(), pp = FT.partnerProfile();
   var hogarPctChk = (parseFloat(hogar.payPctHogar) || 50) + (parseFloat(hogar.saveHogarPct) || 10);
   var mesKey = FT.todayISO().slice(0, 7);
-  var myTxs = (FT.data().transactions || []).filter(function (t) { return t.type === 'ingreso' && t.incomeKind !== 'extra' && String(t.date || '').startsWith(mesKey); })
+  var myTxs = (FT.data().transactions || []).filter(function (t) { return t.type === 'ingreso' && t.incomeKind === 'cheque' && String(t.date || '').startsWith(mesKey); })
     .map(function (t) { return { id: t.id, amount: parseFloat(t.amount) || 0, date: t.date, mine: true }; });
   var pTxs = pp && pp.data && pp.data.transactions
-    ? (pp.data.transactions || []).filter(function (t) { return t.type === 'ingreso' && t.incomeKind !== 'extra' && String(t.date || '').startsWith(mesKey); })
+    ? (pp.data.transactions || []).filter(function (t) { return t.type === 'ingreso' && t.incomeKind === 'cheque' && String(t.date || '').startsWith(mesKey); })
         .map(function (t) { return { id: t.id, amount: parseFloat(t.amount) || 0, date: t.date, mine: false }; })
     : [];
   var all = myTxs.concat(pTxs).sort(function (a, b) { return String(b.date || '').localeCompare(String(a.date || '')); });
