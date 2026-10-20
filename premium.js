@@ -72,7 +72,13 @@ var CAT_PASTEL = {
 /* ─────────────────────────────────────────────────────────────────────────
    2 · FORMATO — LatAm: millar con punto, decimal con coma
    ───────────────────────────────────────────────────────────────────────── */
-function groupInt(s) { return String(s).replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
+/* 19-oct-2026, a petición de Ramón: el formato por defecto es el de EE.UU.
+   ($1,200.00) y se puede cambiar en Perfil (user.numFormat: 'us' | 'latam',
+   user.currencySymbol). Antes estaba fijo en LatAm ($1.200,00). */
+FT.numFormat = function () { var f; try { f = (FT.user() || {}).numFormat; } catch (e) {} return f === 'latam' ? 'latam' : 'us'; };
+FT.currencySymbol = function () { var s; try { s = (FT.user() || {}).currencySymbol; } catch (e) {} return s ? String(s) : '$'; };
+function _seps() { return FT.numFormat() === 'latam' ? { group: '.', dec: ',' } : { group: ',', dec: '.' }; }
+function groupInt(s) { return String(s).replace(/\B(?=(\d{3})+(?!\d))/g, _seps().group); }
 
 /**
  * FT.money(n, opts)
@@ -84,18 +90,19 @@ function groupInt(s) { return String(s).replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
 FT.money = function (n, opts) {
   opts = opts || {};
   n = Number(n) || 0;
-  var neg = n < 0, abs = Math.abs(n), sym = opts.noSymbol ? '' : '$';
+  var neg = n < 0, abs = Math.abs(n), sym = opts.noSymbol ? '' : FT.currencySymbol();
   var pfx = opts.sign ? (neg ? '−' : '+') : (neg ? '−' : '');
+  var sp = _seps();
 
   if (opts.compact && abs >= 1000) {
     var big = abs >= 1e6, div = big ? 1e6 : 1e3, unit = big ? 'M' : 'k';
     var v = abs / div;
-    var str = v >= 100 ? String(Math.round(v)) : v.toFixed(1).replace(/\.0$/, '').replace('.', ',');
+    var str = v >= 100 ? String(Math.round(v)) : v.toFixed(1).replace(/\.0$/, '').replace('.', sp.dec);
     return pfx + sym + str + unit;
   }
   var dec = opts.cents ? 2 : 0;
   var parts = abs.toFixed(dec).split('.');
-  return pfx + sym + groupInt(parts[0]) + (dec ? ',' + parts[1] : '');
+  return pfx + sym + groupInt(parts[0]) + (dec ? sp.dec + parts[1] : '');
 };
 
 /** Interpreta un monto escrito a mano en CUALQUIER convención de separador
@@ -130,7 +137,7 @@ FT.moneyParts = function (n, opts) {
   n = Number(n) || 0;
   var neg = n < 0, dec = opts.cents ? 2 : 0;
   var parts = Math.abs(n).toFixed(dec).split('.');
-  return { neg: neg, sign: neg ? '−' : '+', int: groupInt(parts[0]), dec: parts[1] || '', sym: '$' };
+  return { neg: neg, sign: neg ? '−' : '+', int: groupInt(parts[0]), dec: parts[1] || '', sym: FT.currencySymbol(), decSep: _seps().dec };
 };
 
 /** FT.date(x, fmt) — fmt: 'DD/MM/AA' (def) | 'DD/MM/AAAA' | 'D MMM' | 'ISO' */
@@ -3802,7 +3809,7 @@ FT.heroNumber = function (o) {
       (o.label ? '<div class="cap">' + o.label + '</div>' : '') +
       '<div class="row">' +
         '<span class="ft-sign ' + (neg ? 'neg' : 'pos') + '">' + (neg ? '−' : '+') + '</span>' +
-        '<span class="amt"><span class="cur">$</span>' + p.int + (o.cents ? '<span style="font-size:.5em">,' + p.dec + '</span>' : '') + '</span>' +
+        '<span class="amt"><span class="cur">' + p.sym + '</span>' + p.int + (o.cents ? '<span style="font-size:.5em">' + p.decSep + p.dec + '</span>' : '') + '</span>' +
       '</div>' +
       (o.splitHTML ? '<div class="ft-split">' + o.splitHTML + '</div>' : '') +
     '</div>';
@@ -3926,9 +3933,26 @@ FT.openTxDetail = function (tx, opts) {
 };
 function _editTxDetail(tx) {
   var es = FT.lang === 'es';
+  // 19-oct-2026, a petición de Ramón: cualquier dato se puede corregir, y un
+  // ingreso debe poder cambiar de tipo (cheque / 100% mío / venta) cuando te
+  // equivocas al capturarlo. Un cheque con su fila en ft_cheques y una
+  // cobertura (ligada por cobId) quedan fijos: cambiarles el tipo dejaría
+  // descuadrado el bote del hogar o el ahorro que ya movieron -- para
+  // corregirlos, se eliminan y se registran de nuevo.
+  var kindHtml = '';
+  if (tx.type === 'ingreso') {
+    var lockedKind = tx.incomeKind === 'cobertura' || !!tx.cobId ||
+      (tx.incomeKind === 'cheque' && FT.cheques().some(function (c) { return String(c.txId) === String(tx.id); }));
+    var kindNames = { cheque: es ? '🏠 Cheque (se reparte con el hogar)' : '🏠 Paycheck (split with household)', extra: es ? '🎁 100% mío' : '🎁 100% mine', venta: es ? '🔄 Venta de inversión (no suma)' : '🔄 Investment sale (not counted)', cobertura: es ? '💵 Cobertura (100% mío)' : '💵 Coverage (100% mine)' };
+    var curKind = tx.incomeKind || 'extra';
+    kindHtml = lockedKind
+      ? '<div class="ft-field"><label>' + (es ? 'Tipo de ingreso' : 'Income type') + '</label><div style="font-size:13px;color:var(--text2)">' + (kindNames[curKind] || curKind) + '</div><p style="font-size:10px;color:var(--text3);margin-top:4px">' + (es ? 'Este tipo ya movió dinero. Para cambiarlo, elimínalo y regístralo de nuevo.' : 'This type already moved money. To change it, delete it and record it again.') + '</p></div>'
+      : '<div class="ft-field"><label>' + (es ? 'Tipo de ingreso' : 'Income type') + '</label><select id="etKind">' +
+        ['extra', 'cheque', 'venta'].map(function (k) { return '<option value="' + k + '"' + (k === curKind ? ' selected' : '') + '>' + kindNames[k] + '</option>'; }).join('') + '</select></div>';
+  }
   FT.modal({
     title: es ? 'Editar registro' : 'Edit entry',
-    html: '<div class="ft-field"><label>' + (es ? 'Descripción' : 'Description') + '</label><input id="etDesc" value="' + (tx.desc || '').replace(/"/g, '&quot;') + '"></div>' +
+    html: '<div class="ft-field"><label>' + (es ? 'Descripción' : 'Description') + '</label><input id="etDesc" value="' + (tx.desc || '').replace(/"/g, '&quot;') + '"></div>' + kindHtml +
       '<div class="ft-field"><label>' + (es ? 'Monto' : 'Amount') + '</label><input id="etAmount" type="number" step="0.01" value="' + tx.amount + '"></div>' +
       '<div class="ft-field"><label>' + (es ? 'Fecha' : 'Date') + '</label><input id="etDate" type="date" value="' + tx.date + '"></div>' +
       '<div class="ft-field"><label>' + (es ? 'Nota' : 'Note') + '</label><input id="etNote" value="' + (tx.note || '').replace(/"/g, '&quot;') + '"></div>',
@@ -3957,12 +3981,14 @@ function _editTxDetail(tx) {
           if (oldTx.acctCredited) FT.creditChecking(oldTx.checkingAccountId, newAmount - oldAmt);
           else FT.creditChecking(oldTx.checkingAccountId, oldAmt - newAmount);
         }
+        var kindSel = body.querySelector('#etKind');
         d.transactions[i] = Object.assign({}, oldTx, {
           desc: body.querySelector('#etDesc').value.trim(),
           amount: newAmount,
           date: body.querySelector('#etDate').value,
           note: body.querySelector('#etNote').value.trim()
         });
+        if (kindSel && kindSel.value) d.transactions[i].incomeKind = kindSel.value;
         FT.saveData(d);
         FT.toast(es ? '✅ Registro actualizado' : '✅ Entry updated');
       }

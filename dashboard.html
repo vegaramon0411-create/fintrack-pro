@@ -371,7 +371,7 @@ function render() {
     '<div class="d-hero" onclick="cycleView()">' +
       '<div class="cap" onclick="event.stopPropagation();explain(\'' + (HERO_VIEW === 2 ? 'patrimonio' : 'gasto') + '\')">' + heroCap + ' <span class="ft-info">i</span></div>' +
       '<div class="row"><span class="sign ' + heroSign + '">' + (heroSign === 'neg' ? '−' : '+') + '</span>' +
-        '<span class="amt"><span class="cur">$</span>' + mp.int + '<span style="font-size:.5em">,' + mp.dec + '</span></span></div>' +
+        '<span class="amt"><span class="cur">' + mp.sym + '</span>' + mp.int + '<span style="font-size:.5em">' + mp.decSep + mp.dec + '</span></span></div>' +
       splitHTML +
     '</div>' +
 
