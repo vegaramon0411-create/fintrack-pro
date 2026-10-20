@@ -109,10 +109,28 @@ function openForm(id) {
       if (!target) { FT.toast(L ? '⚠️ Ingresa una meta' : '⚠️ Enter a target'); return true; }
       var goals = FT.goals();
       var gg;
+      var gOld = g ? goals.find(function (x) { return String(x.id) === String(id); }) : null;
+      var linkedEdit = gOld && gOld.accountId && FT.checking().some(function (a) { return String(a.id) === String(gOld.accountId); });
+      var more = linkedEdit ? +(saved - (parseFloat(gOld.saved) || 0)).toFixed(2) : 0;
+      // Subir "Ahorrado" en una meta apartada saca dinero del disponible de su cuenta: si no alcanza, pide confirmar antes de tocar nada.
+      if (more > 0.004) {
+        var chkE = FT.checkOverdraft(gOld.accountId, more);
+        if (!chkE.ok) {
+          var an = (FT.checking().find(function (x) { return String(x.id) === String(gOld.accountId); }) || {}).name || '';
+          FT.confirm(L ? '«' + esc(an) + '» quedaría en negativo (te faltan ' + FT.money(chkE.shortfall, { cents: true }) + '). ¿Guardar de todos modos?' : '"' + esc(an) + '" would go negative (short ' + FT.money(chkE.shortfall, { cents: true }) + '). Save anyway?').then(function (okE) { if (okE) { commitGoal(); FT.closeTop(); } });
+          return true;
+        }
+      }
+      commitGoal();
+      function commitGoal() {
+      goals = FT.goals();
       if (g) {
         gg = goals.find(function (x) { return String(x.id) === String(id); });
-        // Meta apartada dentro de una cuenta: cambiar lo ahorrado mueve la diferencia contra el DISPONIBLE de esa cuenta (el total no cambia).
-        if (gg.accountId && FT.checking().some(function (a) { return String(a.id) === String(gg.accountId); })) { var oldS = parseFloat(gg.saved) || 0; if (Math.abs(oldS - saved) > 0.004) FT.creditChecking(gg.accountId, oldS - saved); }
+        // Meta apartada dentro de una cuenta: cambiar lo ahorrado mueve la diferencia contra el DISPONIBLE de esa cuenta (el total no cambia) y queda en Movimientos de la cuenta.
+        if (gg.accountId && FT.checking().some(function (a) { return String(a.id) === String(gg.accountId); })) {
+          var oldS = parseFloat(gg.saved) || 0;
+          if (Math.abs(oldS - saved) > 0.004) { FT.creditChecking(gg.accountId, oldS - saved); gg.vaultLog = (gg.vaultLog || []).concat([{ date: FT.todayISO(), acctId: gg.accountId, amount: +(oldS - saved).toFixed(2), note: 'edit' }]).slice(-40); }
+        }
         Object.assign(gg, { name: name, target: target, saved: saved, deadline: deadline, icon: icon });
       }
       else { gg = { id: 'g_' + Date.now(), name: name, target: target, saved: saved, deadline: deadline, icon: icon, recurring: false, createdAt: new Date().toISOString() }; goals.push(gg); }
@@ -124,6 +142,7 @@ function openForm(id) {
       else if (gg.recurring) FT.clearGoalRecurring(gg.id);
       FT.toast(L ? '✅ Meta guardada' : '✅ Goal saved');
       render();
+      }
     }
   });
 }

@@ -145,6 +145,7 @@ function render() {
       '<span>' + (L ? 'Gastos' : 'Expenses') + ' <b>' + FT.money(totalExpense, { cents: true }) + '</b></span>' +
     '</div></div>';
 
+  if (acctFilter) h = '';   // vista de una cuenta: abarca todos los meses, el resumen del mes no aplica
   h += '<div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;margin-bottom:14px">' +
     [['all', L ? 'Todos' : 'All'], ['gasto', '💸 ' + (L ? 'Gastos' : 'Expenses')], ['ingreso', '💰 ' + (L ? 'Ingresos' : 'Income')], ['inversion', '📈 ' + (L ? 'Inversiones' : 'Investments')], ['personal', '👤 Personal'], ['hogar', '🏠 ' + (L ? 'Hogar' : 'Household')]]
       .map(function (f) { var on = activeFilter === f[0]; return '<button class="tap" data-f="' + f[0] + '" style="flex-shrink:0;background:' + (on ? 'var(--ink)' : 'var(--sunk)') + ';border:1.5px solid ' + (on ? 'var(--ink)' : 'var(--hair)') + ';color:' + (on ? '#fff' : 'var(--text2)') + ';border-radius:99px;padding:6px 14px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;white-space:nowrap">' + f[1] + '</button>'; }).join('') +
