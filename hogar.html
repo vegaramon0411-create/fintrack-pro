@@ -375,6 +375,7 @@ function renderDashboard(hogar) {
       '</details>' +
     '</div>' +
 
+    emergHogarCardHtml() +
     '<div class="hg-quick">' +
       qItem('🏦', 'sky', L ? 'Cuentas' : 'Accounts', myChecking.length || partnerChecking.length ? FT.money(checkTotal, { cents: true }) : (L ? 'Agregar cuenta' : 'Add account'), "FT.checkingAccountsScreen(true)") +
       qItem('💎', 'mint', L ? 'Patrimonio' : 'Net worth', FT.money(patrimonioHogar), "openPatrimonio()") +
@@ -500,6 +501,15 @@ function changeCardsHtml(partnerName) {
 }
 function deshacerAviso(id) { FT.confirm(es() ? '¿Deshacer este reparto? El dinero vuelve a quedar sin asignar.' : 'Undo this split? The money goes back to unassigned.').then(function (ok) { if (ok) { FT.undoNotice(id); FT.toast(es() ? '↩ Reparto deshecho' : '↩ Split undone'); } }); }
 function deshacerEnviado(id) { FT.confirm(es() ? '¿Deshacer este reparto en el teléfono de tu pareja? Se aplicará cuando abra la app.' : 'Undo this split on your partner\'s phone? It applies when they open the app.').then(function (ok) { if (ok) { FT.undoSentEdit(id); FT.toast(es() ? '↩ Enviado' : '↩ Sent'); render(); } }); }
+function emergHogarCardHtml() {
+  var L = es(), f = FT.hogarFondos(), e = f.emerg || {}, actual = parseFloat(e.actual) || 0, meta = parseFloat(e.meta) || 0;
+  var tag = '<span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:99px;background:var(--g-light);color:var(--g-dark)">🏠 ' + (L ? 'DE LOS DOS' : 'SHARED') + '</span>';
+  if (!actual && !meta) return '<div class="ft-card" style="border:1.5px dashed var(--g-main)"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div><b style="font-size:13px">🛡️ ' + (L ? 'Emergencia del hogar' : 'Household emergency') + '</b> ' + tag + '<div style="font-size:11px;color:var(--text3);margin-top:2px">' + (L ? 'Aún no tienen un fondo de emergencia del hogar' : 'No household emergency fund yet') + '</div></div><button class="ft-btn ft-btn-primary tap" style="margin:0;width:auto;padding:9px 14px" onclick="configFondo(\'emerg\')">' + (L ? 'Crear fondo' : 'Create fund') + '</button></div></div>';
+  var pct = meta > 0 ? Math.min(100, actual / meta * 100) : 0;
+  return '<div class="ft-card" style="border:1.5px solid var(--g-main);background:var(--g-light)"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><b style="font-size:13px">🛡️ ' + (L ? 'Emergencia del hogar' : 'Household emergency') + '</b>' + tag + '</div>' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px"><div class="ft-num" style="font-size:22px">' + FT.money(actual, { cents: true }) + '</div><button class="ft-btn ft-btn-primary tap" style="margin:0;width:auto;padding:9px 14px" onclick="abrirAporteModal(\'emerg\')">＋ ' + (L ? 'Depositar' : 'Deposit') + '</button></div>' +
+    (meta > 0 ? '<div class="ft-track" style="height:6px;margin-top:6px"><div class="ft-fill" style="width:' + pct + '%;background:var(--g-main)"></div></div><div style="font-size:10.5px;color:var(--text3);margin-top:4px">' + Math.round(pct) + '% ' + (L ? 'de la meta de ' : 'of the goal of ') + FT.money(meta) + '</div>' : '') + '</div>';
+}
 function reviewCardsHtml(partnerName) {
   var L = es(), out = '';
   // 1) Lo que mi pareja configuró del hogar y yo aún no he revisado
@@ -1247,9 +1257,11 @@ function pushMyProfileToGAS() { FT.pushProfileToGAS(); }
 /* ── INIT ── */
 document.addEventListener('ft:ready', function () {
   var t = function () { return FT.lang === 'es' ? '🏠 Hogar' : '🏠 Household'; };
-  var sh = FT.shell({ active: 'hogar', title: t(), onPlus: function () { var hogar = FT.hogar(); if (hogar.connected && hogar.mode) abrirAporteModal('emerg'); else go('dashboard.html'); } });
+  var sh = FT.shell({ active: 'hogar', title: t(), onPlus: function () { FT.openPicker({ ctx: 'hogar' }); } });
   document.addEventListener('ft:langchange', function () { sh.setTitle(t()); render(); });
   document.addEventListener('ft:datachanged', render);
+  // Llegar desde el ＋ de otra pantalla con ?deposit=emerg abre directo el depósito a la emergencia del hogar.
+  try { if (new URLSearchParams(location.search).get('deposit') === 'emerg') setTimeout(function () { if (FT.hogar().connected && FT.hogar().mode) abrirAporteModal('emerg'); }, 500); } catch (e) {}
 
   render();
 
