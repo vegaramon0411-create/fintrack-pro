@@ -69,7 +69,7 @@ var BUDGET_PRESETS = [
 
 /* ── ESTADÍSTICAS ── */
 function computeStats() {
-  var txs = FT.txs(), invs = FT.investments('');
+  var txs = FT.txsCounted(), invs = FT.investments('');
   var u = FT.user();
   var created = u.createdAt ? new Date(u.createdAt) : new Date();
   var monthsActive = Math.max(1, Math.round((new Date() - created) / (1000 * 60 * 60 * 24 * 30)));
@@ -137,7 +137,7 @@ function buildHouseholdSection() {
 
 function buildRecentActivity() {
   var L = es();
-  var recent = FT.txs().slice().sort(function (a, b) { return new Date(b.date) - new Date(a.date); }).slice(0, 5);
+  var recent = FT.txsCounted().slice().sort(function (a, b) { return new Date(b.date) - new Date(a.date); }).slice(0, 5);
   if (!recent.length) return '<div class="ft-empty">' + (L ? 'Sin actividad reciente' : 'No recent activity') + '</div>';
   var icons = { gasto: '💸', ingreso: '💰', inversion: '📈', ahorro: '🛡️', suscripcion: '🔄', hipoteca: '🏠' };
   var pastels = { gasto: 'coral', ingreso: 'mint', inversion: 'sky', ahorro: 'peach', suscripcion: 'sky', hipoteca: 'coral' };

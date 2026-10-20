@@ -18,7 +18,7 @@ function buildMonthlyTrend(data) {
   var now = new Date(), months = [];
   for (var i = 5; i >= 0; i--) months.push(new Date(now.getFullYear(), now.getMonth() - i, 1).toISOString().slice(0, 7));
   return months.map(function (m) {
-    var txs = (data.transactions || []).filter(function (t) { return (t.date || '').startsWith(m); });
+    var txs = (data.transactions || []).filter(function (t) { return !FT.isPending(t) && (t.date || '').startsWith(m); });
     var income = 0, expenses = 0;
     txs.forEach(function (t) {
       var a = parseFloat(t.amount) || 0;
@@ -56,7 +56,7 @@ function renderTrendChart(trend) {
 
 function render() {
   var L = es(), data = FT.data(), now = new Date(), month = FT.todayISO().slice(0, 7);
-  var txs = (data.transactions || []).filter(function (t) { return (t.date || '').startsWith(month); });
+  var txs = (data.transactions || []).filter(function (t) { return !FT.isPending(t) && (t.date || '').startsWith(month); });
 
   var income = 0, expenses = 0, invested = 0, hogarExpenses = 0, personalAhorro = 0, extraIncome = 0, chequeIncome = 0;
   var catMap = {};

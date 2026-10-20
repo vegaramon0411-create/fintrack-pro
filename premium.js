@@ -191,6 +191,12 @@ FT.data = function () {
 };
 FT.saveData = function (d) { FT.set(K.data, d); FT._changed(); };
 FT.txs = function () { return FT.data().transactions; };
+/** Pendiente (20-oct-2026, aprobado vía simulación): un gasto o ingreso creado
+ *  o cambiado a una fecha FUTURA no mueve ninguna cuenta ni cuenta en el
+ *  presupuesto hasta ese día (t.pendiente). Al llegar la fecha, FT.applyPendingTxs
+ *  lo aplica solo. Solo cuenta como pendiente mientras su fecha sea posterior a hoy. */
+FT.isPending = function (t) { return !!t && t.pendiente === true && String(t.date || '') > FT.todayISO(); };
+FT.txsCounted = function () { return FT.txs().filter(function (t) { return !FT.isPending(t); }); };
 
 /* ── ft_user ── */
 FT.user = function () { return FT._user || FT.loadUser() || {}; };
@@ -702,6 +708,7 @@ FT.accountEarmarked = function (accountId) {
   var hf = FT.hogarFondos();
   if (hf.emerg && hf.emerg.accountId === accountId) out += parseFloat(hf.emerg.actual) || 0;
   (hf.metas || []).forEach(function (m) { if (m.accountId === accountId) out += parseFloat(m.actual) || 0; });
+  FT.goals().forEach(function (g) { if (g.accountId === accountId) out += parseFloat(g.saved) || 0; }); // metas personales (apartados)
   return out;
 };
 /** "Libre en la cuenta" -- lo que NO está apartado en ningún fondo vinculado.
@@ -719,6 +726,7 @@ FT.accountVaults = function (accountId) {
   var hf = FT.hogarFondos();
   if (hf.emerg && hf.emerg.accountId === accountId) out.push({ kind: 'hogaremerg', id: null, name: '🛡️ ' + (FT.lang === 'es' ? 'Emergencia del hogar' : 'Household emergency'), actual: parseFloat(hf.emerg.actual) || 0 });
   (hf.metas || []).forEach(function (m) { if (m.accountId === accountId) out.push({ kind: 'hogarmeta', id: m.id, name: '🎯 ' + m.nombre, actual: parseFloat(m.actual) || 0 }); });
+  FT.goals().forEach(function (g) { if (g.accountId === accountId) out.push({ kind: 'goal', id: g.id, name: (g.icon || '🎯') + ' ' + g.name, actual: parseFloat(g.saved) || 0 }); });
   return out;
 };
 
@@ -734,6 +742,27 @@ FT.accountVaults = function (accountId) {
  *  aporte hogar, FT.suggestCheckingAllocation) -- son solo un saldo que
  *  tú ajustas a mano y que puedes elegir como origen al crear un
  *  recurrente en cualquier pantalla. */
+/** Movimientos de una cuenta de cheques (los más recientes primero): gastos/ingresos/aportes ligados por
+ *  checkingAccountId, ajustes y transferencias. Un movimiento pendiente sale marcado y aún no suma. */
+FT.accountMovements = function (acctId, limit) {
+  var out = [];
+  FT.txs().forEach(function (t) {
+    var a = parseFloat(t.amount) || 0;
+    if (String(t.checkingAccountId) === String(acctId) && t.type !== 'transferencia') out.push({ date: t.date, desc: t.desc || t.cat || '', amount: t.acctCredited ? a : -a, by: t.createdBy, pending: !!t.acctPending, id: t.id });
+    else if (t.type === 'transferencia' && t.fromRef && t.fromRef.type === 'account' && String(t.fromRef.id) === String(acctId)) out.push({ date: t.date, desc: (FT.lang === 'es' ? 'Transferencia → ' : 'Transfer → ') + (t.toLabel || ''), amount: -a, by: t.createdBy, id: t.id });
+    else if (t.type === 'transferencia' && t.toRef && t.toRef.type === 'account' && String(t.toRef.id) === String(acctId)) out.push({ date: t.date, desc: (FT.lang === 'es' ? 'Transferencia ← ' : 'Transfer ← ') + (t.fromLabel || ''), amount: a, by: t.createdBy, id: t.id });
+  });
+  // Apartados dentro de la cuenta: abonos a metas y vincular/desvincular (no son transacciones, pero mueven el disponible).
+  var es2 = FT.lang === 'es';
+  FT.goals().forEach(function (g) {
+    (g.hist || []).forEach(function (h) { if (String(h.acctId) === String(acctId)) out.push({ date: h.fecha, desc: (g.icon || '🎯') + ' ' + g.name + (es2 ? ' · apartado' : ' · set aside'), amount: -(parseFloat(h.monto) || 0), id: 0 }); });
+    (g.vaultLog || []).forEach(function (v) { if (String(v.acctId) === String(acctId)) out.push({ date: v.date, desc: (g.icon || '🎯') + ' ' + g.name + (v.amount < 0 ? (es2 ? ' · apartado (ya ahorrado)' : ' · set aside (already saved)') : (es2 ? ' · liberado' : ' · released')), amount: v.amount, id: 0 }); });
+  });
+  var hfm = FT.hogarFondos();
+  (hfm.metas || []).concat([hfm.emerg || {}]).forEach(function (m) { (m.vaultLog || []).forEach(function (v) { if (String(v.acctId) === String(acctId)) out.push({ date: v.date, desc: '🛡️ ' + (m.nombre || (es2 ? 'Emergencia del hogar' : 'Household emergency')) + (v.amount < 0 ? (es2 ? ' · apartado (ya ahorrado)' : ' · set aside (already saved)') : (es2 ? ' · liberado' : ' · released')), amount: v.amount, id: 0 }); }); });
+  out.sort(function (x, y) { return String(y.date).localeCompare(String(x.date)) || (parseInt(y.id, 10) || 0) - (parseInt(x.id, 10) || 0); });
+  return out.slice(0, limit || 8);
+};
 FT.checkingAccountsScreen = function (isHogar) {
   var L = FT.lang === 'es';
   // 19-oct-2026, a petición de Ramón: "al modificar cuentas tiene que ser muy
@@ -741,29 +770,70 @@ FT.checkingAccountsScreen = function (isHogar) {
   // (✏️ ⭐ 🔗 🗑) sin decir qué hacían. Ahora cada cuenta es una tarjeta con
   // "Editar ›" visible, y al tocarla se abre un menú con cada acción rotulada y
   // explicada (cuadrar saldo, renombrar, vincular fondo, regla, eliminar).
+  var _open = {}; // cuentas con los movimientos desplegados (solo mientras esta hoja esté abierta)
+  function movRows(list, who) {
+    if (!list.length) return '<div style="font-size:11.5px;color:var(--text3);padding:6px 0">' + (L ? 'Sin movimientos todavía.' : 'No activity yet.') + '</div>';
+    return list.map(function (m) {
+      return '<div style="display:flex;justify-content:space-between;gap:8px;padding:6px 0;font-size:12.5px;border-bottom:1px dashed var(--hair)"><span style="min-width:0">' + FT.date(m.date) + ' · ' + _escH(m.desc) + (m.by && m.by !== FT.userName() ? ' · <b>' + _escH(m.by) + '</b>' : '') + (m.pending ? ' · ⏳' : '') + '</span>' +
+        '<b style="white-space:nowrap;color:' + (m.amount >= 0 ? 'var(--g-main)' : 'var(--ink)') + '">' + (m.amount >= 0 ? '+' : '−') + FT.money(Math.abs(m.amount), { cents: true }) + '</b></div>';
+    }).join('');
+  }
+  function bannerHtml() {
+    if (!isHogar) return '';
+    var out = '', pn = FT.hogar().partnerName || (L ? 'tu pareja' : 'your partner');
+    FT.hogarUnassigned().forEach(function (u) {
+      out += '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--amber-bg,#FFF3DF);border-radius:12px;margin-bottom:8px"><div style="flex:1;font-size:12.5px"><b>' + FT.money(u.monto, { cents: true }) + '</b> ' + (L ? 'sin asignar de tu cheque del ' : 'unassigned from your paycheck of ') + FT.date(u.fecha) + '</div><button type="button" class="tap" data-asg-mine="' + String(u.id).replace(/[^\w\-]/g, '') + '" style="padding:7px 12px;border-radius:9px;border:none;background:var(--g-main);color:#fff;font-weight:800;font-size:12px;cursor:pointer;font-family:inherit">' + (L ? 'Asignar' : 'Assign') + '</button></div>';
+    });
+    FT.partnerUnassigned().forEach(function (u) {
+      out += '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--amber-bg,#FFF3DF);border-radius:12px;margin-bottom:8px"><div style="flex:1;font-size:12.5px"><b>' + FT.money(u.monto, { cents: true }) + '</b> ' + (L ? 'sin asignar del cheque de ' + _escH(pn) + ' del ' : 'unassigned from ' + _escH(pn) + "'s paycheck of ") + FT.date(u.fecha) + '</div><button type="button" class="tap" data-asg-partner="' + String(u.id).replace(/[^\w\-]/g, '') + '" style="padding:7px 12px;border-radius:9px;border:none;background:var(--g-main);color:#fff;font-weight:800;font-size:12px;cursor:pointer;font-family:inherit">' + (L ? 'Asignar' : 'Assign') + '</button></div>';
+    });
+    return out;
+  }
+  function partnerHtml() {
+    if (!isHogar) return '';
+    var pa = FT.partnerJointAccounts();
+    if (!pa.length) return '';
+    var pn = FT.hogar().partnerName || (L ? 'tu pareja' : 'your partner');
+    var pp = FT.partnerProfile(), ptx = (pp && pp.data && pp.data.transactions) || [];
+    return '<div style="font-size:11px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin:12px 2px 6px">' + (L ? 'Cuentas de ' + _escH(pn) + ' · solo lectura' : _escH(pn) + "'s accounts · read only") + '</div>' +
+      '<button type="button" class="tap" data-rule-partner="1" style="width:100%;padding:9px;margin-bottom:8px;border-radius:11px;border:1.5px solid var(--hair);background:#fff;color:var(--text2);font-weight:800;font-size:12px;cursor:pointer;font-family:inherit">⚙️ ' + (L ? 'Cambiar el reparto de sus cheques' : 'Change how their paychecks split') + '</button>' +
+      pa.map(function (c) {
+        var mv = ptx.filter(function (t) { return String(t.checkingAccountId) === String(c.id); }).sort(function (a, b) { return String(b.date).localeCompare(String(a.date)); }).slice(0, 6)
+          .map(function (t) { return { date: t.date, desc: t.desc, amount: t.acctCredited ? parseFloat(t.amount) || 0 : -(parseFloat(t.amount) || 0), by: t.createdBy }; });
+        var op = !!_open['p' + c.id];
+        return '<div style="border:1px solid var(--hair);border-radius:14px;margin-bottom:8px;overflow:hidden">' +
+          '<button type="button" class="tap" data-mv="' + _escH('p' + c.id) + '" aria-expanded="' + op + '" style="display:flex;align-items:center;gap:10px;width:100%;padding:11px 12px;background:var(--sunk);border:none;font-family:inherit;color:inherit;text-align:left;cursor:pointer"><div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:800">' + _escH(c.name || (L ? 'Cuenta' : 'Account')) + '</div><div style="font-size:15px;font-weight:900">' + FT.money(FT.accountTotal(c), { cents: true }) + '</div></div><span style="font-size:11px;color:var(--text3)">' + (op ? '▴' : '▾') + ' ' + (L ? 'Movimientos' : 'Activity') + '</span></button>' +
+          (op ? '<div style="padding:4px 12px 8px">' + movRows(mv) + '</div>' : '') + '</div>';
+      }).join('');
+  }
   function rowsHtml() {
     var mine = FT.checking().filter(function (c) { return !!c.hogar === !!isHogar; });
-    if (!mine.length) return '<div style="font-size:12px;color:var(--text3);padding:6px 0 10px">' + (isHogar ? (L ? 'Aún no tienes ninguna cuenta marcada como conjunta.' : "You don't have any account marked as joint yet.") : (L ? 'Aún no tienes ninguna cuenta personal registrada.' : "You don't have any personal account yet.")) + '</div>';
+    var head = bannerHtml();
+    if (!mine.length) return head + '<div style="font-size:12px;color:var(--text3);padding:6px 0 10px">' + (isHogar ? (L ? 'Aún no tienes ninguna cuenta marcada como conjunta.' : "You don't have any account marked as joint yet.") : (L ? 'Aún no tienes ninguna cuenta personal registrada.' : "You don't have any personal account yet.")) + '</div>' + partnerHtml();
     var defId = FT.user().defaultAccountId;
-    return mine.map(function (c) {
-      var ruleLbl = isHogar ? (c.rule ? (c.rule.type === 'remainder' ? (L ? 'Lo que sobre' : "What's left") : c.rule.type === 'pct' ? c.rule.value + '%' : FT.money(c.rule.value)) : (c.autoDeposit ? (L ? '100% (config. anterior)' : '100% (old setting)') : null)) : null;
-      // Cuentas como base (Fase 1/3): con fondos vinculados se muestra Total →
-      // Apartado → Disponible (espejo del modelo SoFi).
+    return head + mine.map(function (c) {
+      var ruleLbl = isHogar ? (c.rule ? (c.rule.type === 'remainder' ? (L ? 'Lo que sobre' : "What's left") : c.rule.type === 'pct' ? (Number(c.rule.value) || 0) + '%' : FT.money(Number(c.rule.value) || 0)) : (c.autoDeposit ? (L ? '100% (config. anterior)' : '100% (old setting)') : null)) : null;
+      // Cuentas como base (Fase 1/3): con fondos vinculados se muestra Total → Apartado → Disponible (espejo del modelo SoFi).
       var vaults = FT.accountVaults(c.id);
       var libre = FT.accountFree(c), apartado = FT.accountEarmarked(c.id), total = libre + apartado;
       var ico = c.kind === 'cash' ? '💵' : c.kind === 'other' ? '➕' : '🏦';
       var chips = [];
       if (!isHogar && c.id === defId) chips.push('⭐ ' + (L ? 'Predeterminada' : 'Default'));
-      if (vaults.length) chips.push('🔗 ' + vaults.length + ' ' + (L ? 'fondo(s)' : 'fund(s)'));
+      if (vaults.length) chips.push('🔗 ' + vaults.length + ' ' + (L ? 'apartado(s)' : 'vault(s)'));
       if (ruleLbl) chips.push('⚙️ ' + (L ? 'Regla: ' : 'Rule: ') + ruleLbl);
-      return '<div class="tap" data-acct-menu="' + c.id + '" title="' + (L ? 'Toca para editar esta cuenta' : 'Tap to edit this account') + '" style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--sunk);border-radius:14px;margin-bottom:8px;cursor:pointer">' +
-        '<div style="width:38px;height:38px;border-radius:12px;background:#fff;display:grid;place-items:center;font-size:18px;flex-shrink:0">' + ico + '</div>' +
-        '<div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + _escH(c.name || (L ? 'Cuenta' : 'Account')) + '</div>' +
-        '<div style="font-size:15px;font-weight:900;margin-top:1px">' + FT.money(vaults.length ? total : (c.amount || 0), { cents: true }) + '</div>' +
-        (vaults.length ? '<div style="font-size:10px;color:var(--text3)">' + (L ? 'Disponible ' : 'Available ') + FT.money(libre, { cents: true }) + ' · ' + (L ? 'Apartado ' : 'Set aside ') + FT.money(apartado, { cents: true }) + '</div>' : '') +
-        (chips.length ? '<div style="font-size:10px;color:var(--g-dark);font-weight:700;margin-top:3px">' + chips.join(' · ') + '</div>' : '') + '</div>' +
-        '<div style="font-size:12px;font-weight:800;color:var(--blue);flex-shrink:0">' + (L ? 'Editar' : 'Edit') + ' ›</div></div>';
-    }).join('');
+      var op = !!_open[c.id];
+      return '<div style="border:1px solid var(--hair);border-radius:14px;margin-bottom:8px;overflow:hidden">' +
+        '<div style="display:flex;align-items:stretch;background:var(--sunk)">' +
+          '<button type="button" class="tap" data-mv="' + _escH(c.id) + '" aria-expanded="' + op + '" title="' + (L ? 'Ver los movimientos de esta cuenta' : 'See this account\'s activity') + '" style="display:flex;align-items:center;gap:12px;flex:1;min-width:0;padding:11px 12px;background:none;border:none;font-family:inherit;color:inherit;text-align:left;cursor:pointer">' +
+            '<div style="width:38px;height:38px;border-radius:12px;background:#fff;display:grid;place-items:center;font-size:18px;flex-shrink:0">' + ico + '</div>' +
+            '<div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + _escH(c.name || (L ? 'Cuenta' : 'Account')) + '</div>' +
+            '<div style="font-size:15px;font-weight:900;margin-top:1px">' + FT.money(vaults.length ? total : (c.amount || 0), { cents: true }) + '</div>' +
+            (vaults.length ? '<div style="font-size:10px;color:var(--text3)">' + (L ? 'Disponible ' : 'Available ') + FT.money(libre, { cents: true }) + ' · ' + (L ? 'Apartado ' : 'Set aside ') + FT.money(apartado, { cents: true }) + '</div>' : '') +
+            (chips.length ? '<div style="font-size:10px;color:var(--g-dark);font-weight:700;margin-top:3px">' + chips.join(' · ') + '</div>' : '') + '</div>' +
+            '<span style="font-size:11px;color:var(--text3);white-space:nowrap">' + (op ? '▴' : '▾') + ' ' + (L ? 'Movimientos' : 'Activity') + '</span></button>' +
+          '<button type="button" class="tap" data-acct-menu="' + c.id + '" title="' + (L ? 'Editar esta cuenta' : 'Edit this account') + '" style="padding:0 14px;background:none;border:none;border-left:1px solid var(--hair);font-size:12px;font-weight:800;color:var(--blue);cursor:pointer;font-family:inherit">' + (L ? 'Editar' : 'Edit') + ' ›</button></div>' +
+        (op ? '<div style="padding:4px 12px 8px">' + movRows(FT.accountMovements(c.id, 8)) + '<div class="tap" data-hist="' + c.id + '" style="font-size:12px;font-weight:800;color:var(--g-main);padding:8px 0 2px;cursor:pointer">' + (L ? 'Ver todos en Historial ›' : 'See all in History ›') + '</div></div>' : '') + '</div>';
+    }).join('') + partnerHtml();
   }
 
   FT.sheet({
@@ -777,6 +847,11 @@ FT.checkingAccountsScreen = function (isHogar) {
     ],
     onOpen: function (body) {
       function wire() {
+        body.querySelectorAll('[data-mv]').forEach(function (b) { b.onclick = function () { var k = b.getAttribute('data-mv'); _open[k] = !_open[k]; var box = body.querySelector('#acctRows'); if (box) { box.innerHTML = rowsHtml(); wire(); } }; });
+        body.querySelectorAll('[data-rule-partner]').forEach(function (b) { b.onclick = function () { FT.openReglaPareja(); }; });
+        body.querySelectorAll('[data-hist]').forEach(function (b) { b.onclick = function () { FT.go('historial.html?acct=' + encodeURIComponent(b.getAttribute('data-hist'))); }; });
+        body.querySelectorAll('[data-asg-mine]').forEach(function (b) { b.onclick = function () { var u = FT.cheques().find(function (x) { return String(x.id).replace(/[^\w\-]/g, '') === b.getAttribute('data-asg-mine'); }); if (u && (parseFloat(u.hogarSinAsignar) || 0) > 0.5) FT.openAsignar({ target: 'mine', chequeId: u.id, monto: u.hogarSinAsignar, fecha: u.fecha, total: u.hogarAmt }); }; });
+        body.querySelectorAll('[data-asg-partner]').forEach(function (b) { b.onclick = function () { var u = FT.partnerUnassigned().find(function (x) { return String(x.id).replace(/[^\w\-]/g, '') === b.getAttribute('data-asg-partner'); }); if (u) FT.openAsignar({ target: 'partner', chequeId: u.id, monto: u.monto, fecha: u.fecha, total: u.total, partnerName: FT.hogar().partnerName }); }; });
         body.querySelectorAll('[data-acct-menu]').forEach(function (b) {
           b.onclick = function () {
             var acct = FT.checking().find(function (a) { return String(a.id) === b.getAttribute('data-acct-menu'); });
@@ -1100,9 +1175,11 @@ function _openVincularFondo(acct, isHogar) {
     var hf = FT.hogarFondos();
     if (kind === 'hogaremerg') return parseFloat(hf.emerg && hf.emerg.actual) || 0;
     if (kind === 'hogarmeta') { var m = (hf.metas || []).find(function (x) { return x.id === id; }); return m ? parseFloat(m.actual) || 0 : 0; }
+    if (kind === 'goal') { var gg = FT.goals().find(function (x) { return String(x.id) === String(id); }); return gg ? parseFloat(gg.saved) || 0 : 0; }
     return 0;
   }
   function setLink(kind, id, accountIdOrNull) {
+    if (kind === 'goal') { FT.linkGoal(id, accountIdOrNull); return; } // meta personal: mismo movimiento libre <-> apartado
     var linking = !!accountIdOrNull;
     var actual = currentActual(kind, id); // saldo fresco, no el capturado al abrir la pantalla
     if (actual) FT[linking ? 'deductChecking' : 'creditChecking'](acct.id, actual);
@@ -1143,6 +1220,7 @@ function _openVincularFondo(acct, isHogar) {
         if (!f.accountId) options.push({ kind: 'fund', id: f.id, name: f.emoji + ' ' + f.name, actual: parseFloat(f.actual) || 0 });
       });
       if (!FT.emergencyAccountId()) options.push({ kind: 'emerg', id: null, name: '🛡️ ' + (L ? 'Emergencia' : 'Emergency'), actual: FT.emergencyBalance() });
+      FT.goals().forEach(function (g) { if (!g.accountId) options.push({ kind: 'goal', id: g.id, name: (g.icon || '🎯') + ' ' + g.name, actual: parseFloat(g.saved) || 0 }); });
     } else {
       var hf = FT.hogarFondos();
       if (hf.emerg && !hf.emerg.accountId) options.push({ kind: 'hogaremerg', id: null, name: '🛡️ ' + (L ? 'Emergencia del hogar' : 'Household emergency'), actual: parseFloat(hf.emerg.actual) || 0 });
@@ -1232,23 +1310,69 @@ FT.addGoalDeposit = function (goalId, amount, opts) {
   var amt = parseFloat(amount) || 0;
   g.saved = (parseFloat(g.saved) || 0) + amt;
   g.hist = g.hist || [];
-  g.hist.push({ id: 'gd_' + (opts.id != null ? opts.id : Date.now()), monto: amt, fecha: opts.date || FT.todayISO(), recId: opts.recId || null, auto: !!opts.auto });
+  g.hist.push({ id: 'gd_' + (opts.id != null ? opts.id : Date.now()), monto: amt, fecha: opts.date || FT.todayISO(), recId: opts.recId || null, auto: !!opts.auto, acctId: opts.acctId || null });
   FT.saveGoals(goals);
 };
 /** Activa/actualiza el aporte automático mensual de una meta personal. */
-FT.setGoalRecurring = function (goalId, amount, freq) {
+/** Meta personal como "apartado" dentro de una cuenta (modelo de tu banco: el dinero llega a la cuenta y de ahí
+ *  se reparte a apartados; lo que sobra queda disponible). Vincular/desvincular mueve el LIBRE de la cuenta por
+ *  el ahorrado de la meta, así el TOTAL de la cuenta nunca cambia. acctId null = desvincular. */
+FT.linkGoal = function (goalId, acctId) {
+  var goals = FT.goals();
+  var g = goals.find(function (x) { return String(x.id) === String(goalId); });
+  if (!g) return false;
+  var cur = parseFloat(g.saved) || 0, today = FT.todayISO(), log = [];
+  if (acctId && String(g.accountId) === String(acctId)) return true;
+  if (g.accountId && cur) { FT.creditChecking(g.accountId, cur); log.push({ date: today, acctId: g.accountId, amount: cur, note: 'release' }); }   // deja la cuenta anterior
+  if (acctId && cur) { FT.deductChecking(acctId, cur); log.push({ date: today, acctId: acctId, amount: -cur, note: 'absorb' }); }                   // la nueva absorbe lo ya ahorrado
+  var goals2 = FT.goals();
+  var g2 = goals2.find(function (x) { return String(x.id) === String(goalId); });
+  g2.accountId = acctId || null;
+  if (log.length) g2.vaultLog = (g2.vaultLog || []).concat(log).slice(-40); // para que Movimientos de la cuenta explique estos cambios
+  FT.saveGoals(goals2);
+  return true;
+};
+/** Cuánto del DISPONIBLE de `acctId` hace falta, además del monto, para abonar a esta meta: si todavía no está
+ *  vinculada a esa cuenta, la cuenta absorbe primero todo lo ya ahorrado. */
+FT.goalAbsorbNeed = function (goalId, acctId) {
+  var g = FT.goals().find(function (x) { return String(x.id) === String(goalId); });
+  if (!g || !acctId) return 0;
+  var linkedOk = g.accountId && FT.checking().some(function (a) { return String(a.id) === String(g.accountId); });
+  return (linkedOk && String(g.accountId) === String(acctId)) ? 0 : (parseFloat(g.saved) || 0);
+};
+/** Depósito a una meta personal. Con cuenta: el dinero sale de su DISPONIBLE y pasa al apartado de la meta
+ *  (la meta queda vinculada a esa cuenta). Sin cuenta (solo si la meta no está vinculada): como antes, solo suma. */
+FT.goalDeposit = function (goalId, amount, o) {
+  o = o || {};
+  var g = FT.goals().find(function (x) { return String(x.id) === String(goalId); });
+  var amt = +(parseFloat(amount) || 0).toFixed(2);
+  if (!g || amt <= 0) return false;
+  // Una meta vinculada a una cuenta que ya no existe (respaldo/sync) se trata como NO vinculada.
+  if (g.accountId && !FT.checking().some(function (a) { return String(a.id) === String(g.accountId); })) {
+    var gs = FT.goals(); gs.find(function (x) { return String(x.id) === String(goalId); }).accountId = null; FT.saveGoals(gs); g.accountId = null;
+  }
+  var acctId = g.accountId || o.accountId || null; // una meta ya vinculada siempre sale de SU cuenta
+  var date = o.date || FT.todayISO();
+  if (acctId) {
+    if (String(g.accountId) !== String(acctId)) FT.linkGoal(goalId, acctId);
+    FT.deductChecking(acctId, amt, date);
+  }
+  FT.addGoalDeposit(goalId, amt, { date: date, recId: o.recId, auto: !!o.auto, id: o.id, acctId: acctId });
+  return true;
+};
+FT.setGoalRecurring = function (goalId, amount, freq, accountId) {
   var goals = FT.goals();
   var g = goals.find(function (x) { return String(x.id) === String(goalId); });
   if (!g) return;
   var rec = FT.recurring();
   if (g.recId) {
     var r = rec.find(function (x) { return String(x.id) === String(g.recId); });
-    if (r) { r.amount = parseFloat(amount) || r.amount; r.freq = freq || r.freq; r.active = true; }
+    if (r) { r.amount = parseFloat(amount) || r.amount; r.freq = freq || r.freq; r.active = true; if (accountId !== undefined) r.accountId = accountId || null; }
     else { g.recId = null; }
   }
   if (!g.recId) {
     var id = 'rec_' + Date.now();
-    rec.push({ id: id, kind: 'metapersonal', goalId: g.id, amount: parseFloat(amount) || 0, freq: freq || 'monthly', nextDate: FT.todayISO(), active: true, paused: false, createdBy: FT.userName() });
+    rec.push({ id: id, kind: 'metapersonal', goalId: g.id, amount: parseFloat(amount) || 0, freq: freq || 'monthly', nextDate: FT.todayISO(), active: true, paused: false, createdBy: FT.userName(), accountId: accountId || null });
     g.recId = id;
   }
   g.recurring = true;
@@ -1403,6 +1527,19 @@ FT.deleteTx = function (id) {
   // cobertura y devolver el dinero al pozo (ahorro / emergencia).
   if (t.cobId) FT._unwindCobertura(t.cobId);
 
+  // Aporte de una asignación del hogar (chequeId): devolver su monto a 'sin asignar' y quitar su entrada, para que no se pierda de la vista.
+  if (t.chequeId && t.acctCredited) {
+    try {
+      var cqA = FT.cheques(), rwA = cqA.find(function (c) { return String(c.id) === String(t.chequeId); });
+      if (rwA) {
+        var nA = (rwA.asignaciones || []).length;
+        var backA = 0;   // se devuelve lo que la asignación movió de verdad, no el monto actual del aporte (puede haberse editado)
+        rwA.asignaciones = (rwA.asignaciones || []).filter(function (a) { if (String(a.txId) !== String(t.id)) return true; backA += parseFloat(a.amount) || 0; return false; });
+        if (rwA.asignaciones.length !== nA) { rwA.hogarSinAsignar = +((parseFloat(rwA.hogarSinAsignar) || 0) + backA).toFixed(2); FT.set(K.cheques, cqA); }
+      }
+    } catch (e) {}
+  }
+
   // Si esta transacción había movido una cuenta al crearse, hay que
   // revertirla en la dirección correcta: un gasto/suscripción DESCONTÓ (hay
   // que devolverle el saldo, creditar), pero algo que ACREDITÓ (un ingreso,
@@ -1412,7 +1549,8 @@ FT.deleteTx = function (id) {
   // con el aporte hogar de recordCheque, que acredita pero es type:'ahorro'
   // -- se quedaba revertido al revés (creditaba de nuevo en vez de
   // descontar), inflando esa cuenta al borrar/editar ese aporte.
-  if (t.checkingAccountId) {
+  // (Un movimiento pendiente todavía no movió la cuenta: no hay nada que revertir.)
+  if (t.checkingAccountId && !t.acctPending) {
     if (t.acctCredited) FT.deductChecking(t.checkingAccountId, t.amount);
     else FT.creditChecking(t.checkingAccountId, t.amount);
   }
@@ -1484,6 +1622,8 @@ FT.deleteTx = function (id) {
     // ningún caso de borrado -- ni el de Hogar, ni este genérico -- tenía
     // esta limpieza, porque chequeRow.id nunca fue igual al id de la
     // transacción y nada más las ligaba).
+    var rowDel = FT.cheques().find(function (c) { return String(c.txId) === String(t.id); });
+    if (rowDel && (rowDel.asignaciones || []).length) FT.unassignHogar(rowDel.id); // sus cuentas dejan de tener ese dinero (no quedan acreditadas huérfanas)
     var cheques2 = FT.cheques().filter(function (c) { return String(c.txId) !== String(t.id); });
     FT.set(K.cheques, cheques2);
   } else if (t.cat === '💳 Deudas') {
@@ -1554,7 +1694,7 @@ FT.undoCobertura = function (cobId) {
 /** Disponible personal del mes en curso (solo cheques ya recibidos × % personal). */
 FT.personalAvailable = function () {
   var mk = new Date().toISOString().slice(0, 7);
-  var txs = FT.txs();
+  var txs = FT.txsCounted();
   var inc = txs.filter(function (t) { return t.type === 'ingreso' && String(t.date || '').slice(0, 7) === mk; });
   // 19-oct-2026: regla única de ingresos (misma en Hogar, Dashboard, Análisis
   // e Historial) -- SOLO 'cheque' se reparte con el hogar; todo lo demás
@@ -1583,6 +1723,335 @@ FT.personalAvailable = function () {
 /* ─────────────────────────────────────────────────────────────────────────
    5 · AUTOMATIZACIONES — corren al cargar cualquier pantalla
    ───────────────────────────────────────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────────────────────────
+   5a · HOGAR — DINERO SIN ASIGNAR (20-oct-2026, aprobado vía simulación)
+   Cuando entra dinero al hogar (la parte del hogar de un cheque) y ninguna regla
+   lo reparte entre las cuentas conjuntas, queda "sin asignar". Cualquiera de los
+   dos puede asignarlo con una plantilla (reglas / una cuenta / partes iguales /
+   a mano) y, si quiere, dejar ese reparto como la regla de esa persona para sus
+   próximos cheques. Lo del otro viaja como una "edición" dentro del perfil que ya
+   se sincroniza (hogarEdits) y su teléfono la aplica al abrir; la respuesta vuelve
+   en hogarAck. Todo es SOLO del hogar -- nada personal viaja. Cada cambio queda con
+   quién, cuándo, y se puede deshacer.
+   ───────────────────────────────────────────────────────────────────────── */
+var _lastUid = 0;
+function _uidMono() { var n = Date.now(); if (n <= _lastUid) n = _lastUid + 1; _lastUid = n; return n; }
+/* Una regla que viene de fuera (la pareja) solo puede ser de estos tipos y con un valor finito. */
+function _cleanRule(r) {
+  if (!r || typeof r !== 'object') return null;
+  if (r.type === 'remainder') return { type: 'remainder' };
+  var v = Number(r.value);
+  if ((r.type === 'fixed' || r.type === 'pct') && isFinite(v) && v >= 0 && v <= 1e9) return { type: r.type, value: v };
+  return null;
+}
+FT.allocateByRules = function (pool, items) { return _allocateByRules(pool, items); };
+FT.partnerJointAccounts = function () {
+  var raw = FT.get(K.partnerChecking, []);
+  raw = Array.isArray(raw) ? raw : (raw ? [raw] : []);
+  return raw.filter(function (c) { return c && c.hogar; });
+};
+FT.hogarJointAccounts = function () { return FT.checking().filter(function (c) { return c.hogar; }); };
+/** Mis cheques (mes actual y anterior) con parte del hogar sin asignar a ninguna cuenta. */
+FT.hogarUnassigned = function () {
+  var d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 1);
+  var since = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-01';
+  return FT.cheques().filter(function (c) { return c.tipo === 'nuevo' && (parseFloat(c.hogarSinAsignar) || 0) > 0.5 && String(c.fecha || '') >= since; })
+    .map(function (c) { return { id: c.id, txId: c.txId, fecha: c.fecha, monto: +(parseFloat(c.hogarSinAsignar) || 0).toFixed(2), total: +(parseFloat(c.hogarAmt) || 0).toFixed(2) }; })
+    .sort(function (a, b) { return String(b.fecha).localeCompare(String(a.fecha)); }).slice(0, 5);
+};
+/** Lo mismo, pero de mi pareja (viaja en su perfil como sinAsignar). */
+FT.partnerUnassigned = function () {
+  var pp = FT.partnerProfile(), l = pp && pp.data && pp.data.sinAsignar;
+  return Array.isArray(l) ? l.filter(function (x) { return x && (parseFloat(x.monto) || 0) > 0.5; }) : [];
+};
+/** Reglas de cuenta (rule) en bloque: list = [{acctId, rule|null}]. */
+FT.setAccountRules = function (list) {
+  var accts = FT.checking();
+  (list || []).forEach(function (it) {
+    var a = accts.find(function (x) { return String(x.id) === String(it.acctId); });
+    if (a && a.hogar === true) { a.rule = _cleanRule(it.rule); a.autoDeposit = false; } // solo cuentas del HOGAR (nunca una personal)
+  });
+  FT.saveChecking(accts);
+};
+/** Convierte una plantilla en reglas de cuenta para los PRÓXIMOS cheques.
+ *  allocs: [{acctId, amount}] (para 'manual'); accts: ids de todas las cuentas del hogar. */
+FT.rulesFromTemplate = function (tpl, accts, allocs, total, chosenId) {
+  if (tpl === 'reglas') return null;
+  var out = [];
+  if (tpl === 'una') { accts.forEach(function (id) { out.push({ acctId: id, rule: String(id) === String(chosenId) ? { type: 'remainder' } : null }); }); return out; }
+  if (tpl === 'iguales') { accts.forEach(function (id) { out.push({ acctId: id, rule: { type: 'remainder' } }); }); return out; }
+  var withAmt = (allocs || []).filter(function (a) { return a.amount > 0.004; });
+  var lastId = withAmt.length ? withAmt[withAmt.length - 1].acctId : null;
+  accts.forEach(function (id) {
+    var a = withAmt.find(function (x) { return String(x.acctId) === String(id); });
+    if (!a) { out.push({ acctId: id, rule: null }); return; }
+    out.push({ acctId: id, rule: String(id) === String(lastId) ? { type: 'remainder' } : { type: 'pct', value: +(a.amount / (total || 1) * 100).toFixed(1) } });
+  });
+  return out;
+};
+/** Asigna `allocations` ([{acctId, amount}]) de la parte del hogar sin asignar de un cheque MÍO. */
+FT.assignHogar = function (chequeId, allocations, o) {
+  o = o || {};
+  var es = FT.lang === 'es';
+  var cheques = FT.cheques();
+  var row = cheques.find(function (c) { return String(c.id) === String(chequeId); });
+  if (!row) return { ok: false, reason: 'nocheque' };
+  var allocs = (allocations || []).map(function (a) { return { acctId: a.acctId, amount: +(parseFloat(a.amount) || 0).toFixed(2) }; }).filter(function (a) { return a.amount > 0.004; });
+  if (!allocs.length) return { ok: false, reason: 'empty' };
+  var sum = allocs.reduce(function (s, a) { return s + a.amount; }, 0), left = parseFloat(row.hogarSinAsignar) || 0;
+  if (sum > left + 0.011) return { ok: false, reason: 'exceeds', left: left };
+  var accts = FT.checking();
+  for (var k = 0; k < allocs.length; k++) { var ac0 = accts.find(function (x) { return String(x.id) === String(allocs[k].acctId); }); if (!ac0 || ac0.hogar !== true) return { ok: false, reason: ac0 ? 'notjoint' : 'noacct' }; }
+  var by = String(o.by || FT.userName()).slice(0, 40), at = new Date().toISOString(), today = FT.todayISO(), made = [];
+  allocs.forEach(function (a) {
+    FT.creditChecking(a.acctId, a.amount);
+    var acct = FT.checking().find(function (x) { return String(x.id) === String(a.acctId); });
+    var txId = _uidMono();
+    var d = FT.data();
+    d.transactions.push({ id: txId, type: 'ahorro', desc: (es ? 'Aporte hogar — ' : 'Household contribution — ') + (acct ? acct.name : '?') + (row.fecha ? ' (' + (es ? 'cheque ' : 'paycheck ') + FT.date(row.fecha) + ')' : ''), amount: a.amount, date: today, cat: '🏠 Hogar', hogar: true, createdBy: by, auto: true, checkingAccountId: a.acctId, acctCredited: true, chequeId: row.id, editId: o.editId || undefined });
+    FT.set(K.data, d);
+    made.push({ txId: txId, acctId: a.acctId, acctName: acct ? acct.name : '', amount: a.amount, by: by, at: at, editId: o.editId || null });
+  });
+  var cheques2 = FT.cheques();
+  var row2 = cheques2.find(function (c) { return String(c.id) === String(chequeId); });
+  row2.hogarSinAsignar = Math.max(0, +(left - sum).toFixed(2));
+  if (row2.hogarSinAsignar < 0.005) row2.hogarSinAsignar = 0;
+  row2.asignaciones = (row2.asignaciones || []).concat(made);
+  FT.set(K.cheques, cheques2);
+  if (o.rules && o.rules.length) FT.setAccountRules(o.rules);
+  FT._changed();
+  return { ok: true, made: made, left: row2.hogarSinAsignar };
+};
+/** Deshace las asignaciones de un cheque MÍO (todas, o solo las de `onlyEditId`) y devuelve ese monto a "sin asignar". */
+FT.unassignHogar = function (chequeId, onlyEditId) {
+  var cheques = FT.cheques();
+  var row = cheques.find(function (c) { return String(c.id) === String(chequeId); });
+  if (!row) return { ok: false, reason: 'nocheque' };
+  var rm = [], keep = [];
+  (row.asignaciones || []).forEach(function (a) { if (!onlyEditId || a.editId === onlyEditId) rm.push(a); else keep.push(a); });
+  if (!rm.length) return { ok: false, reason: 'none' };
+  var back = 0;
+  rm.forEach(function (a) {
+    back += parseFloat(a.amount) || 0;
+    // FT.deleteTx revierte la cuenta y devuelve el monto a 'sin asignar' (y quita la entrada). Si el movimiento ya no existía, se ajusta a mano.
+    if (!FT.deleteTx(a.txId)) {
+      var cq = FT.cheques(), rr = cq.find(function (c) { return String(c.id) === String(chequeId); });
+      if (rr) { rr.asignaciones = (rr.asignaciones || []).filter(function (x) { return String(x.txId) !== String(a.txId); }); rr.hogarSinAsignar = +((parseFloat(rr.hogarSinAsignar) || 0) + (parseFloat(a.amount) || 0)).toFixed(2); FT.set(K.cheques, cq); }
+    }
+  });
+  FT._changed();
+  return { ok: true, back: +back.toFixed(2) };
+};
+FT.unassignByEdit = function (editId) {
+  var row = FT.cheques().find(function (c) { return (c.asignaciones || []).some(function (a) { return a.editId === editId; }); });
+  return row ? FT.unassignHogar(row.id, editId) : { ok: false, reason: 'none' };
+};
+
+/* ── Ediciones entre los dos (viajan en el perfil sincronizado) ── */
+FT.hogarEditsOut = function () { return FT.get('ft_hogar_edits_out', []) || []; };
+FT.hogarAckOut = function () { return FT.get('ft_hogar_ack_out', []) || []; };
+FT.queueHogarEdit = function (edit) {
+  var l = FT.hogarEditsOut(); l.push(edit);
+  FT.set('ft_hogar_edits_out', l.slice(-30));
+  FT._changed();
+  try { FT.pushProfileToGAS(); } catch (e) {}
+};
+/** Aplica UNA edición que mi pareja mandó sobre mis cuentas/cheques. Devuelve {status, reason, notice}. */
+FT._applyIncomingEdit = function (e) {
+  try {
+    e = Object.assign({}, e, { by: String(e.by == null ? '' : e.by).slice(0, 40) }); // el nombre viaja como texto corto
+    if (e.op === 'undo') {
+      if (typeof e.undoes !== 'string' || !e.undoes) return { status: 'failed', reason: 'op' };
+      var r0 = FT.unassignByEdit(e.undoes);
+      return { status: r0.ok ? 'ok' : 'failed', reason: r0.ok ? '' : 'none', notice: r0.ok ? { kind: 'undo', by: e.by, editId: e.undoes } : null };
+    }
+    if (e.op === 'rule') {
+      if (!Array.isArray(e.rules)) return { status: 'failed', reason: 'op' };
+      FT.setAccountRules(e.rules.map(function (x) { return { acctId: x.acctId, rule: x.rule }; }));
+      return { status: 'ok', notice: { kind: 'rule', by: e.by, editId: e.id } };
+    }
+    if (e.op === 'assign') {
+      if (e.rules != null && !Array.isArray(e.rules)) return { status: 'failed', reason: 'op' };
+      if (e.allocations != null && !Array.isArray(e.allocations)) return { status: 'failed', reason: 'op' };
+      var res = FT.assignHogar(e.chequeId, (e.allocations || []).map(function (a) { return { acctId: a.acctId, amount: a.amount }; }), { by: e.by, editId: e.id, rules: e.rules || null });
+      if (!res.ok) return { status: 'failed', reason: res.reason };
+      return { status: 'ok', notice: { kind: 'assign', by: e.by, editId: e.id, chequeId: e.chequeId, fecha: e.fecha, allocs: res.made.map(function (m) { return { name: m.acctName, amount: m.amount }; }), rule: !!(e.rules && e.rules.length) } };
+    }
+    return { status: 'failed', reason: 'op' };
+  } catch (err) { return { status: 'failed', reason: 'error' }; }
+};
+FT.processIncomingEdits = function (list) {
+  if (!Array.isArray(list) || !list.length) return 0;
+  var applied = FT.get('ft_hogar_edits_applied', []) || [], ack = FT.hogarAckOut(), notices = FT.get('ft_hogar_notices', []) || [], known = {}, n = 0;
+  applied.forEach(function (a) { known[a.id] = 1; });
+  list.forEach(function (e) {
+    if (!e || !e.id || known[e.id]) return;
+    var at = new Date().toISOString(), mark = { id: e.id, status: 'applying', at: at };
+    applied.push(mark); known[e.id] = 1; FT.set('ft_hogar_edits_applied', applied.slice(-80)); // se anota ANTES de mover dinero: si algo falla no se reaplica
+    var res = FT._applyIncomingEdit(e);
+    var rec = { id: e.id, status: res.status, reason: res.reason || '', at: at };
+    mark.status = res.status; ack.push(rec); n++;
+    if (res.notice) notices.push(Object.assign({ id: 'n_' + e.id, at: at, seen: false }, res.notice));
+  });
+  if (n) {
+    FT.set('ft_hogar_edits_applied', applied.slice(-80));
+    FT.set('ft_hogar_ack_out', ack.slice(-80));
+    FT.set('ft_hogar_notices', notices.slice(-30));
+    FT._changed();
+  }
+  return n;
+};
+FT.hogarNotices = function () { return (FT.get('ft_hogar_notices', []) || []).filter(function (n) { return !n.seen; }); };
+FT.markNoticeSeen = function (id) {
+  var l = FT.get('ft_hogar_notices', []) || [];
+  l.forEach(function (n) { if (n.id === id) n.seen = true; });
+  FT.set('ft_hogar_notices', l); FT._changed();
+};
+/** Deshacer, desde quien recibió el cambio, una asignación hecha por mi pareja. */
+FT.undoNotice = function (id) {
+  var l = FT.get('ft_hogar_notices', []) || [], nt = l.find(function (n) { return n.id === id; });
+  if (!nt) return false;
+  var r = FT.unassignByEdit(nt.editId);
+  nt.seen = true; FT.set('ft_hogar_notices', l);
+  var ack = FT.hogarAckOut(); ack.push({ id: nt.editId, status: r.ok ? 'undone' : 'failed', reason: r.ok ? '' : (r.reason || ''), at: new Date().toISOString() });
+  FT.set('ft_hogar_ack_out', ack.slice(-80));
+  FT._changed();
+  return r.ok;
+};
+/** Mis ediciones enviadas con el estado que reporta mi pareja (pendiente/aplicada/fallida/deshecha). */
+FT.sentHogarEdits = function () {
+  var pp = FT.partnerProfile(), ack = (pp && pp.data && pp.data.hogarAck) || [], cutoff = Date.now() - 7 * 86400000;
+  return FT.hogarEditsOut().filter(function (e) { return e.op !== 'undo' && new Date(e.at).getTime() > cutoff; }).slice(-5).reverse().map(function (e) {
+    var a = ack.filter(function (x) { return x.id === e.id; }).pop();
+    return Object.assign({}, e, { status: a ? a.status : 'sent', reason: a ? a.reason : '' });
+  });
+};
+/** Deshacer, desde quien lo mandó, un cambio que mi pareja ya aplicó (o que está por aplicar). */
+FT.undoSentEdit = function (editId) {
+  FT.queueHogarEdit({ id: 'he_' + Date.now(), op: 'undo', undoes: editId, by: FT.userName(), at: new Date().toISOString() });
+  var l = FT.hogarEditsOut().map(function (e) { if (e.id === editId) e.undone = true; return e; });
+  FT.set('ft_hogar_edits_out', l);
+};
+
+/** Cambiar la regla de reparto de mi pareja para sus próximos cheques (se manda como edición; ella lo ve y puede deshacerlo). */
+FT.openReglaPareja = function () {
+  var L = FT.lang === 'es', pa = FT.partnerJointAccounts(), pn = FT.hogar().partnerName || (L ? 'tu pareja' : 'your partner');
+  if (!pa.length) { FT.toast(L ? 'Tu pareja aún no tiene cuentas conjuntas visibles' : 'Your partner has no visible joint accounts yet'); return; }
+  var st = { tpl: pa.length > 1 ? 'iguales' : 'una', one: pa[0].id, pct: {} };
+  pa.forEach(function (a, i) { st.pct[a.id] = i === pa.length - 1 ? +(100 - Math.floor(100 / pa.length) * (pa.length - 1)).toFixed(1) : Math.floor(100 / pa.length); });
+  function btn(k, t, s) { return '<button type="button" class="tap" data-t="' + k + '" style="display:flex;flex-direction:column;gap:2px;text-align:left;width:100%;padding:10px 12px;margin-bottom:8px;border-radius:12px;border:1.5px solid ' + (st.tpl === k ? 'var(--g-main)' : 'var(--hair)') + ';background:' + (st.tpl === k ? 'var(--g-light)' : 'var(--sunk)') + ';font-family:inherit;color:var(--ink);cursor:pointer"><b style="font-size:13px">' + t + '</b><span style="font-size:11.5px;color:var(--text3)">' + s + '</span></button>'; }
+  var ov = FT.sheet({ title: '⚙️ ' + (L ? 'Reparto de los cheques de ' : 'Split for ') + _escH(pn), html: '<div id="rpBody"></div>', onOpen: function (body) { paint(body.querySelector('#rpBody')); } });
+  function paint(box) {
+    var h = '<p style="font-size:12.5px;color:var(--text2);margin:0 0 10px">' + (L ? 'Así se repartirán sus próximos cheques entre sus cuentas del hogar, sin que tenga que hacer nada. Verá un aviso y puede cambiarlo.' : 'This is how their next paychecks will split across their household accounts, with nothing for them to do. They will see a notice and can change it.') + '</p>' +
+      btn('una', L ? 'Todo a una cuenta' : 'All to one account', L ? 'Tú eliges cuál' : 'You pick which') +
+      (pa.length > 1 ? btn('iguales', L ? 'Partes iguales' : 'Equal parts', L ? 'El mismo monto a cada cuenta' : 'The same to each account') + btn('manual', L ? 'Por porcentaje' : 'By percentage', L ? 'Tú decides el % de cada una' : 'You set each %') : '');
+    if (st.tpl === 'una') h += '<div class="ft-field"><label>' + (L ? '¿A cuál cuenta?' : 'Which account?') + '</label><select id="rpOne">' + pa.map(function (a) { return '<option value="' + _escH(a.id) + '"' + (String(a.id) === String(st.one) ? ' selected' : '') + '>' + _escH(a.name) + '</option>'; }).join('') + '</select></div>';
+    if (st.tpl === 'manual') h += pa.map(function (a, i) { return '<div class="ft-field"><label>' + _escH(a.name) + (i === pa.length - 1 ? (L ? ' (lo que sobre)' : ' (the rest)') : ' %') + '</label><input data-p="' + _escH(a.id) + '" inputmode="decimal" value="' + (st.pct[a.id] || '') + '"' + (i === pa.length - 1 ? ' disabled' : '') + '></div>'; }).join('');
+    h += '<button type="button" class="ft-btn ft-btn-primary tap" data-ok="1">' + (L ? 'Guardar reparto' : 'Save split') + '</button>';
+    box.innerHTML = h;
+    box.querySelectorAll('[data-t]').forEach(function (b) { b.onclick = function () { st.tpl = b.getAttribute('data-t'); paint(box); }; });
+    var one = box.querySelector('#rpOne'); if (one) one.onchange = function () { st.one = one.value; };
+    box.querySelectorAll('[data-p]').forEach(function (inp) { inp.oninput = function () { st.pct[inp.getAttribute('data-p')] = FT.numMoney(inp.value); }; });
+    box.querySelector('[data-ok]').onclick = function () {
+      var ids = pa.map(function (a) { return a.id; }), allocs = ids.map(function (id, i) { return { acctId: id, amount: i === ids.length - 1 ? Math.max(0, +(100 - ids.slice(0, -1).reduce(function (s, x) { return s + (st.pct[x] || 0); }, 0)).toFixed(1)) : (st.pct[id] || 0) }; });
+      var rules = FT.rulesFromTemplate(st.tpl, ids, allocs, 100, st.one);
+      FT.queueHogarEdit({ id: 'he_' + Date.now(), op: 'rule', rules: rules, by: FT.userName(), at: new Date().toISOString() });
+      FT.toast(L ? '📨 Enviado. ' + pn + ' lo verá al abrir la app' : '📨 Sent. ' + pn + ' will see it when they open the app', { icon: '🏠' });
+      FT.closeTop();
+    };
+  }
+  return ov;
+};
+/** Hoja "Asignar": opts = { target:'mine'|'partner', chequeId, monto, fecha, partnerName }. */
+FT.openAsignar = function (opts) {
+  opts = opts || {};
+  var L = FT.lang === 'es', mine = opts.target !== 'partner';
+  var accts = (mine ? FT.hogarJointAccounts() : FT.partnerJointAccounts()).map(function (c) { return { id: c.id, name: c.name || (L ? 'Cuenta' : 'Account'), rule: c.rule || (c.autoDeposit ? { type: 'pct', value: 100 } : null) }; });
+  var who = mine ? (L ? 'tu' : 'your') : _escH(opts.partnerName || (L ? 'tu pareja' : 'your partner'));
+  var total = +(parseFloat(opts.monto) || 0).toFixed(2);
+  if (!accts.length) {
+    FT.sheet({ title: '💵 ' + (L ? 'Asignar ' : 'Assign ') + FT.money(total, { cents: true }),
+      html: '<p style="font-size:13px;color:var(--text2);margin:2px 0 8px">' + (mine ? (L ? 'Aún no tienes ninguna cuenta conjunta. Agrega una para poder repartir este dinero.' : "You don't have a joint account yet. Add one to split this money.") : (L ? 'Tu pareja aún no tiene cuentas conjuntas que se puedan ver. Cuando las agregue, podrás asignarle este dinero.' : "Your partner has no visible joint accounts yet. Once they add some, you can assign this money.")) + '</p>',
+      actions: mine ? [{ label: '＋ ' + (L ? 'Agregar cuenta conjunta' : 'Add joint account'), primary: true, onClick: function () { _openCuentaForm(true); } }] : [] });
+    return;
+  }
+  var items = accts.map(function (a) { return { id: a.id, rule: a.rule }; });
+  var hasRules = items.some(function (it) { return !!it.rule; });
+  var byRules = FT.allocateByRules(total, items);
+  // Si lo que se reparte es solo un RESTO (parte del cheque ya estaba asignada), no se ofrece dejarlo como regla: borraría las reglas que ya funcionan.
+  var partial = !!(opts.total && total < (parseFloat(opts.total) || 0) - 0.5);
+  var st = { step: 1, tpl: hasRules ? 'reglas' : (accts.length > 1 ? 'iguales' : 'una'), one: accts[0].id, manual: {}, saveRule: !partial };
+  accts.forEach(function (a) { st.manual[a.id] = byRules[a.id] || 0; });
+  if (!hasRules) { var eq = +(total / accts.length).toFixed(2); accts.forEach(function (a, i) { st.manual[a.id] = i === accts.length - 1 ? +(total - eq * (accts.length - 1)).toFixed(2) : eq; }); }
+  function allocs() {
+    var out = [];
+    if (st.tpl === 'reglas') accts.forEach(function (a) { if (byRules[a.id] > 0) out.push({ acctId: a.id, amount: byRules[a.id] }); });
+    else if (st.tpl === 'una') out.push({ acctId: st.one, amount: total });
+    else if (st.tpl === 'iguales') { var e = +(total / accts.length).toFixed(2); accts.forEach(function (a, i) { out.push({ acctId: a.id, amount: i === accts.length - 1 ? +(total - e * (accts.length - 1)).toFixed(2) : e }); }); }
+    else accts.forEach(function (a) { var v = parseFloat(st.manual[a.id]) || 0; if (v > 0) out.push({ acctId: a.id, amount: v }); });
+    return out;
+  }
+  function sumOf(l) { return +l.reduce(function (s, a) { return s + a.amount; }, 0).toFixed(2); }
+  function nameOf(id) { var a = accts.find(function (x) { return String(x.id) === String(id); }); return a ? a.name : '?'; }
+  var ov = FT.sheet({ title: '💵 ' + (L ? 'Asignar ' : 'Assign ') + FT.money(total, { cents: true }), html: '<div id="asgBody"></div>', onOpen: function (body) { paint(body.querySelector('#asgBody')); } });
+  function tplBtn(k, t, s, dis) {
+    return '<button type="button" class="tap" data-tpl="' + k + '"' + (dis ? ' disabled' : '') + ' style="display:flex;flex-direction:column;gap:2px;text-align:left;width:100%;padding:10px 12px;margin-bottom:8px;border-radius:12px;border:1.5px solid ' + (st.tpl === k ? 'var(--g-main)' : 'var(--hair)') + ';background:' + (st.tpl === k ? 'var(--g-light)' : 'var(--sunk)') + ';color:var(--ink);font-family:inherit;cursor:pointer;' + (dis ? 'opacity:.5;' : '') + '"><b style="font-size:13px">' + t + '</b><span style="font-size:11.5px;color:var(--text3)">' + s + '</span></button>';
+  }
+  function paint(box) {
+    var h = '';
+    if (st.step === 1) {
+      var rl = accts.filter(function (a) { return byRules[a.id] > 0; }).map(function (a) { return _escH(a.name) + ' ' + FT.money(byRules[a.id], { cents: true }); }).join(' · ');
+      h = '<p style="font-size:12.5px;color:var(--text2);margin:0 0 10px">' + (L ? 'Elige cómo repartir este dinero entre las cuentas del hogar.' : 'Pick how to split this money across the household accounts.') + '</p>' +
+        tplBtn('reglas', L ? 'Como indican las reglas' : 'As the rules say', hasRules ? (rl || (L ? 'Ninguna regla alcanza este monto' : 'No rule covers this amount')) : (L ? 'Aún no hay reglas en las cuentas' : 'No account has a rule yet'), !hasRules) +
+        tplBtn('una', L ? 'Todo a una cuenta' : 'All to one account', L ? 'Tú eliges cuál' : 'You pick which') +
+        (accts.length > 1 ? tplBtn('iguales', L ? 'Partes iguales' : 'Equal parts', FT.money(total / accts.length, { cents: true }) + (L ? ' a cada una' : ' each')) : '') +
+        (accts.length > 1 ? tplBtn('manual', L ? 'Yo decido cuánto a cada una' : 'I decide how much each', L ? 'Escribes los montos' : 'You type the amounts') : '') +
+        '<button type="button" class="ft-btn ft-btn-primary tap" data-go="2">' + (L ? 'Continuar' : 'Continue') + '</button>';
+    } else {
+      var al = allocs(), sum = sumOf(al), diff = +(total - sum).toFixed(2), over = diff < -0.011;
+      var detail = '';
+      if (st.tpl === 'una') detail = '<div class="ft-field"><label>' + (L ? '¿A cuál cuenta?' : 'Which account?') + '</label><select id="asgOne">' + accts.map(function (a) { return '<option value="' + _escH(a.id) + '"' + (String(a.id) === String(st.one) ? ' selected' : '') + '>' + _escH(a.name) + '</option>'; }).join('') + '</select></div>';
+      if (st.tpl === 'manual') detail = accts.map(function (a) { return '<div class="ft-field"><label>' + _escH(a.name) + '</label><input data-man="' + _escH(a.id) + '" inputmode="decimal" value="' + (st.manual[a.id] || '') + '"></div>'; }).join('');
+      h = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><b style="font-size:13px">' + (L ? 'Revisa el reparto' : 'Review the split') + '</b><button type="button" class="tap" data-go="1" style="background:none;border:none;color:var(--blue);font-weight:800;font-size:12px;cursor:pointer">← ' + (L ? 'Atrás' : 'Back') + '</button></div>' +
+        detail +
+        '<div style="background:var(--sunk);border-radius:12px;padding:10px 12px;margin:8px 0">' + (al.length ? al.map(function (a) { return '<div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0"><span>' + _escH(nameOf(a.acctId)) + '</span><b>+' + FT.money(a.amount, { cents: true }) + '</b></div>'; }).join('') : '<span style="font-size:12px;color:var(--text3)">' + (L ? 'Nada que asignar con esta plantilla.' : 'Nothing to assign with this template.') + '</span>') + '</div>' +
+        '<div id="asgChk" style="font-size:12px;font-weight:700;margin-bottom:8px;color:' + (over ? 'var(--red)' : (diff === 0 ? 'var(--g-dark)' : '#8a5a00')) + '">' + (over ? (L ? 'Te pasaste por ' : 'Over by ') + FT.money(-diff, { cents: true }) : (diff === 0 ? '✓ ' + (L ? 'Asignado ' : 'Assigned ') + FT.money(sum, { cents: true }) + (L ? ' de ' : ' of ') + FT.money(total, { cents: true }) : (L ? 'Quedarán ' : 'Left over: ') + FT.money(diff, { cents: true }) + (L ? ' sin asignar' : ' unassigned'))) + '</div>' +
+        '<div style="font-size:12px;font-weight:800;margin:4px 0">' + (L ? '¿Para cuáles cheques?' : 'For which paychecks?') + '</div>' +
+        '<button type="button" class="tap" data-sr="0" style="display:flex;flex-direction:column;gap:2px;text-align:left;width:100%;padding:9px 12px;margin-bottom:6px;border-radius:12px;border:1.5px solid ' + (!st.saveRule ? 'var(--g-main)' : 'var(--hair)') + ';background:' + (!st.saveRule ? 'var(--g-light)' : 'var(--sunk)') + ';font-family:inherit;color:var(--ink);cursor:pointer"><b style="font-size:12.5px">' + (L ? 'Solo este cheque' : 'Only this paycheck') + '</b><span style="font-size:11px;color:var(--text3)">' + (L ? 'Los próximos los asignas a mano' : 'You assign the next ones by hand') + '</span></button>' +
+        (st.tpl === 'reglas' || partial ? '' : '<button type="button" class="tap" data-sr="1" style="display:flex;flex-direction:column;gap:2px;text-align:left;width:100%;padding:9px 12px;margin-bottom:8px;border-radius:12px;border:1.5px solid ' + (st.saveRule ? 'var(--g-main)' : 'var(--hair)') + ';background:' + (st.saveRule ? 'var(--g-light)' : 'var(--sunk)') + ';font-family:inherit;color:var(--ink);cursor:pointer"><b style="font-size:12.5px">' + (L ? 'Este y los próximos ' + (mine ? 'míos' : 'de ' + who) : 'This and the next ones') + '</b><span style="font-size:11px;color:var(--text3)">' + (mine ? (L ? 'Queda como mi regla de reparto: mis cheques se reparten solos' : 'Becomes my split rule: my paychecks split on their own') : (L ? 'Queda como la regla de reparto de ' + who + ': sus cheques se reparten solos, sin que tenga que hacer nada' : 'Becomes ' + who + "'s split rule: their paychecks split on their own")) + '</span></button>') +
+        '<button type="button" class="ft-btn ft-btn-primary tap" data-ok="1"' + ((!al.length || over) ? ' disabled style="opacity:.5"' : '') + '>' + (L ? 'Asignar ' : 'Assign ') + FT.money(sum, { cents: true }) + '</button>';
+    }
+    box.innerHTML = h;
+    box.querySelectorAll('[data-tpl]').forEach(function (b) { b.onclick = function () { if (b.disabled) return; st.tpl = b.getAttribute('data-tpl'); paint(box); }; });
+    box.querySelectorAll('[data-go]').forEach(function (b) { b.onclick = function () { st.step = parseInt(b.getAttribute('data-go'), 10); paint(box); }; });
+    box.querySelectorAll('[data-sr]').forEach(function (b) { b.onclick = function () { st.saveRule = b.getAttribute('data-sr') === '1'; paint(box); }; });
+    var one = box.querySelector('#asgOne'); if (one) one.onchange = function () { st.one = one.value; paint(box); };
+    box.querySelectorAll('[data-man]').forEach(function (inp) {
+      inp.oninput = function () {
+        st.manual[inp.getAttribute('data-man')] = FT.numMoney(inp.value);
+        var al2 = allocs(), s2 = sumOf(al2), d2 = +(total - s2).toFixed(2), chk = box.querySelector('#asgChk'), ok = box.querySelector('[data-ok]');
+        if (chk) { chk.textContent = d2 < -0.011 ? (L ? 'Te pasaste por ' : 'Over by ') + FT.money(-d2, { cents: true }) : (d2 === 0 ? '✓ ' + (L ? 'Asignado ' : 'Assigned ') + FT.money(s2, { cents: true }) + (L ? ' de ' : ' of ') + FT.money(total, { cents: true }) : (L ? 'Quedarán ' : 'Left over: ') + FT.money(d2, { cents: true }) + (L ? ' sin asignar' : ' unassigned')); chk.style.color = d2 < -0.011 ? 'var(--red)' : (d2 === 0 ? 'var(--g-dark)' : '#8a5a00'); }
+        if (ok) { ok.disabled = !al2.length || d2 < -0.011; ok.style.opacity = ok.disabled ? '.5' : ''; ok.textContent = (L ? 'Asignar ' : 'Assign ') + FT.money(s2, { cents: true }); }
+      };
+    });
+    var okb = box.querySelector('[data-ok]');
+    if (okb) okb.onclick = function () {
+      var al3 = allocs(); if (!al3.length) return;
+      var rules = (st.saveRule && st.tpl !== 'reglas') ? FT.rulesFromTemplate(st.tpl, accts.map(function (a) { return a.id; }), al3, total, st.one) : null;
+      if (mine) {
+        var res = FT.assignHogar(opts.chequeId, al3, { rules: rules });
+        if (!res.ok) { var why = { exceeds: L ? 'ya se asignó parte de este dinero' : 'part of this money was already assigned', noacct: L ? 'esa cuenta ya no existe' : 'that account no longer exists', notjoint: L ? 'esa cuenta no es del hogar' : 'that account is not a household one', nocheque: L ? 'ese cheque ya no existe' : 'that paycheck no longer exists', empty: L ? 'no hay nada que asignar' : 'nothing to assign' }[res.reason] || res.reason; FT.toast(L ? '⚠️ No se pudo asignar: ' + why : '⚠️ Could not assign: ' + why); return; }
+        FT.toast(L ? '✅ Asignado ' + FT.money(sumOf(al3), { cents: true }) : '✅ Assigned ' + FT.money(sumOf(al3), { cents: true }), { icon: '🏠' });
+      } else {
+        FT.queueHogarEdit({ id: 'he_' + Date.now(), op: 'assign', chequeId: opts.chequeId, fecha: opts.fecha || '', allocations: al3.map(function (a) { return { acctId: a.acctId, acctName: nameOf(a.acctId), amount: a.amount }; }), rules: rules, by: FT.userName(), at: new Date().toISOString() });
+        FT.toast(L ? '📨 Enviado. ' + who.charAt(0).toUpperCase() + who.slice(1) + ' lo verá al abrir la app' : '📨 Sent. They will see it when they open the app', { icon: '🏠' });
+      }
+      FT.closeTop();
+    };
+  }
+  return ov;
+};
+
 FT.recordCheque = function (o) {
   var monto = parseFloat(o.monto); if (!monto || monto <= 0) return null;
   var h = FT.hogar();
@@ -1711,7 +2180,9 @@ FT.recordCheque = function (o) {
           // mismo flag en FT.addEntry. Sin esto, borrar/editar este aporte
           // se revertía en la dirección de un gasto (creditChecking de
           // nuevo) en vez de deshacer el crédito original (deductChecking).
-          dH.transactions.push({ id: nextId(), type: 'ahorro', desc: (es ? 'Aporte hogar — ' : 'Household contribution — ') + (acct ? acct.name : '?'), amount: amt, date: fecha, cat: '🏠 Hogar', hogar: true, createdBy: FT.userName(), auto: true, checkingAccountId: acctId, acctCredited: true });
+          var txIdA = nextId();
+          dH.transactions.push({ id: txIdA, type: 'ahorro', desc: (es ? 'Aporte hogar — ' : 'Household contribution — ') + (acct ? acct.name : '?'), amount: amt, date: fecha, cat: '🏠 Hogar', hogar: true, createdBy: FT.userName(), auto: true, checkingAccountId: acctId, acctCredited: true, chequeId: chequeRow.id });
+          chequeRow.asignaciones = (chequeRow.asignaciones || []).concat([{ txId: txIdA, acctId: acctId, acctName: acct ? acct.name : '', amount: amt, by: FT.userName(), at: new Date().toISOString(), auto: true }]);
         });
         FT.set(K.data, dH);
       }
@@ -1724,7 +2195,7 @@ FT.recordCheque = function (o) {
   }
   FT.set(K.cheques, cheques);
   FT._changed();
-  return { monto: monto, hogarAmt: hogarAmt, personalAmt: personalAmt, autoSaved: autoSaved, hogarSinAsignar: chequeRow.hogarSinAsignar || 0, fondoSinAsignar: chequeRow.fondoSinAsignar || 0 };
+  return { chequeId: chequeRow.id, fecha: fecha, monto: monto, hogarAmt: hogarAmt, personalAmt: personalAmt, autoSaved: autoSaved, hogarSinAsignar: chequeRow.hogarSinAsignar || 0, fondoSinAsignar: chequeRow.fondoSinAsignar || 0 };
 };
 
 /* ── Reparto de cheque a fondos de Ahorro libre (2026-09-23, etapa 2) ──────
@@ -1913,26 +2384,68 @@ function _advanceRecDate(freq, fromStr) {
 }
 FT._advanceRecDate = _advanceRecDate;
 
+/** Vincula la emergencia/una meta DEL HOGAR a una cuenta conjunta como apartado (si no lo estaba ya): absorbe lo ya
+ *  ahorrado (baja el libre) para que el TOTAL de la cuenta no cambie. kind: 'hogaremerg' | 'hogarmeta'. */
+FT.linkHogarFondo = function (kind, id, acctId) {
+  if (!acctId) return false;
+  var hf = FT.hogarFondos(), item = kind === 'hogaremerg' ? hf.emerg : (hf.metas || []).find(function (m) { return m.id === id; });
+  if (!item) return false;
+  if (item.accountId && String(item.accountId) === String(acctId)) return true;
+  var cur = parseFloat(item.actual) || 0, today = FT.todayISO(), log = [];
+  var relBack = Math.max(0, cur - (parseFloat(item.foreign) || 0));   // lo aportado por la pareja nunca salió de esa cuenta
+  if (item.accountId && relBack) { FT.creditChecking(item.accountId, relBack); log.push({ date: today, acctId: item.accountId, amount: relBack, note: 'release' }); }
+  if (cur) { FT.deductChecking(acctId, cur); log.push({ date: today, acctId: acctId, amount: -cur, note: 'absorb' }); }
+  var hf2 = FT.hogarFondos(), it2 = kind === 'hogaremerg' ? hf2.emerg : (hf2.metas || []).find(function (m) { return m.id === id; });
+  it2.accountId = acctId; it2.foreign = undefined;   // la cuenta nueva absorbió todo lo ya apartado
+  if (log.length) it2.vaultLog = (it2.vaultLog || []).concat(log).slice(-40);
+  FT.saveHogarFondos(hf2);
+  return true;
+};
+/** Cuánto del DISPONIBLE de `acctId` hace falta, además del monto, para aportar a esta meta/emergencia del hogar. */
+FT.hogarAbsorbNeed = function (kind, id, acctId) {
+  var hf = FT.hogarFondos(), item = kind === 'hogaremerg' ? hf.emerg : (hf.metas || []).find(function (m) { return m.id === id; });
+  if (!item || !acctId) return 0;
+  var linkedOk = item.accountId && FT.checking().some(function (a) { return String(a.id) === String(item.accountId); });
+  return (linkedOk && String(item.accountId) === String(acctId)) ? 0 : (parseFloat(item.actual) || 0);
+};
+/** Desvincula (y libera lo apartado a su cuenta) una meta del hogar o la emergencia del hogar -- usar antes de borrarla. */
+FT.unlinkHogarFondo = function (kind, id) {
+  var hf = FT.hogarFondos(), item = kind === 'hogaremerg' ? hf.emerg : (hf.metas || []).find(function (m) { return m.id === id; });
+  if (!item || !item.accountId) return false;
+  var cur = Math.max(0, (parseFloat(item.actual) || 0) - (parseFloat(item.foreign) || 0));
+  if (cur) FT.creditChecking(item.accountId, cur);
+  var hf2 = FT.hogarFondos(), it2 = kind === 'hogaremerg' ? hf2.emerg : (hf2.metas || []).find(function (m) { return m.id === id; });
+  it2.accountId = null;
+  FT.saveHogarFondos(hf2);
+  return true;
+};
 function _applyRecMeta(rec, hoy, nextId) {
   nextId = nextId || Date.now;
   try {
     var f = FT.hogarFondos();
     var meta = rec.metaTipo === 'emerg' ? f.emerg : (rec.metaId != null ? f.metas.find(function (m) { return m.id === rec.metaId; }) : f.metas[rec.metaIdx]);
     if (!meta) return 'broken';
+    // Sale del DISPONIBLE de su cuenta: si no alcanza, no se aplica y se reintenta (no se deja la cuenta en negativo).
+    var _kind = rec.metaTipo === 'emerg' ? 'hogaremerg' : 'hogarmeta';
+    var srcAcct = (rec.desdePres && rec.checkingAccountId) || (meta.accountId && FT.checking().some(function (a) { return String(a.id) === String(meta.accountId); }) ? meta.accountId : null);
+    if (srcAcct && !FT.checkOverdraft(srcAcct, rec.amount + FT.hogarAbsorbNeed(_kind, meta.id, srcAcct)).ok) return 'insufficient';
+    if (srcAcct) FT.linkHogarFondo(_kind, meta.id, srcAcct);
+    f = FT.hogarFondos(); meta = rec.metaTipo === 'emerg' ? f.emerg : (rec.metaId != null ? f.metas.find(function (m) { return m.id === rec.metaId; }) : f.metas[rec.metaIdx]);
     meta.hist = meta.hist || [];
     if (meta.hist.some(function (h) { return h.fecha === hoy && (h.recId === rec.id || !h.recId); })) return 'already';
     meta.hist.push({ id: 'd_' + nextId(), monto: rec.amount, fecha: hoy, desdePres: rec.desdePres, auto: true, recId: rec.id });
     meta.actual = meta.hist.reduce(function (a, h) { return a + (h.monto || 0); }, 0);
     FT.set(K.hogarFondos, f);
+    if (!rec.desdePres && srcAcct) FT.deductChecking(srcAcct, rec.amount, hoy); // meta vinculada: el aporte siempre sale del libre de su cuenta
     if (rec.desdePres) {
       // Si este aporte recurrente se configuró para salir de una cuenta de
       // cheques (conjunta, ya que las metas de hogar son dinero compartido),
       // descontarla también -- solo cuando de verdad es dinero nuevo saliendo
       // del presupuesto (desdePres), no cuando "ya lo tenía ahorrado" (ese
       // caso no mueve nada nuevo del banco, sería descontar de más).
-      if (rec.checkingAccountId) FT.deductChecking(rec.checkingAccountId, rec.amount, hoy);
+      if (srcAcct) FT.deductChecking(srcAcct, rec.amount, hoy);
       var d = FT.data();
-      d.transactions.push({ id: nextId(), type: 'ahorro', desc: rec.desc, amount: rec.amount, date: hoy, cat: '🏠 Hogar', hogar: true, createdBy: FT.userName(), auto: true, recId: rec.id, checkingAccountId: rec.checkingAccountId });
+      d.transactions.push({ id: nextId(), type: 'ahorro', desc: rec.desc, amount: rec.amount, date: hoy, cat: '🏠 Hogar', hogar: true, createdBy: FT.userName(), auto: true, recId: rec.id, checkingAccountId: srcAcct || rec.checkingAccountId });
       FT.set(K.data, d);
     }
     return 'applied';
@@ -2124,7 +2637,10 @@ function _applyRecMetaPersonal(rec, hoy, nextId) {
     if (!g) return 'broken';
     g.hist = g.hist || [];
     if (g.hist.some(function (h) { return h.fecha === hoy && h.recId === rec.id; })) return 'already';
-    FT.addGoalDeposit(g.id, rec.amount, { date: hoy, recId: rec.id, auto: true, id: nextId() });
+    var acctId = (g.accountId && FT.checking().some(function (a) { return String(a.id) === String(g.accountId); }) ? g.accountId : null) || rec.accountId || null;
+    // Sale del DISPONIBLE de la cuenta: si no alcanza, no se aplica y se reintenta (queda pendiente y avisa).
+    if (acctId && !FT.checkOverdraft(acctId, rec.amount + FT.goalAbsorbNeed(g.id, acctId)).ok) return 'insufficient';
+    FT.goalDeposit(g.id, rec.amount, { accountId: acctId, date: hoy, recId: rec.id, auto: true, id: nextId() });
     return 'applied';
   } catch (e) { return 'broken'; }
 }
@@ -2480,8 +2996,24 @@ FT.reviewIncomeKinds = function () {
     ]
   });
 };
+/** Aplica los gastos/ingresos pendientes cuya fecha ya llegó: mueve su cuenta y
+ *  los vuelve normales (cuentan en el presupuesto). Idempotente. */
+FT.applyPendingTxs = function () {
+  var hoy = FT.todayISO(), d = FT.data(), due = (d.transactions || []).filter(function (t) { return t.pendiente === true && String(t.date || '') <= hoy; });
+  if (!due.length) return 0;
+  due.forEach(function (t) {
+    if (t.acctPending && t.checkingAccountId) {
+      if (t.acctCredited) FT.creditChecking(t.checkingAccountId, t.amount); else FT.deductChecking(t.checkingAccountId, t.amount, t.date);
+    }
+  });
+  var d2 = FT.data(), n = 0;
+  (d2.transactions || []).forEach(function (t) { if (t.pendiente === true && String(t.date || '') <= hoy) { delete t.pendiente; delete t.acctPending; n++; } });
+  if (n) FT.saveData(d2);
+  return n;
+};
 FT.runAutomations = function () {
   var n = 0;
+  try { n += FT.applyPendingTxs(); } catch (e) {}
   try { FT.autoTagIncomes(); } catch (e) {}
   try { n += FT.catchUpCheques(); } catch (e) {}
   try { n += FT.applyDueRecurring(); } catch (e) {}
@@ -2523,6 +3055,9 @@ FT.addEntry = function (o) {
   else if (o.type === 'ahorro') cat = o.dest === 'libre' ? '💵 Ahorro' : '🛡️ Emergencia';
   else if (o.type === 'inversion') cat = '📈 Inversión';
 
+  // Fecha futura en un gasto o ingreso => queda PENDIENTE: no mueve la cuenta
+  // ni cuenta en el presupuesto hasta ese día (ver FT.isPending / applyPendingTxs).
+  var future = (o.type === 'gasto' || o.type === 'ingreso') && String(o.date) > FT.todayISO();
   var id = Date.now();
   var entry = {
     id: id, type: o.type, desc: o.desc, amount: amount, date: o.date, note: o.note || '', cat: cat,
@@ -2564,7 +3099,7 @@ FT.addEntry = function (o) {
 
   // Cobertura de gasto (opción C): o.cobertura = { source:'libre'|'emergencia', monto:<faltante> }
   var cobId = null;
-  if (o.type === 'gasto' && o.cobertura && parseFloat(o.cobertura.monto) > 0) {
+  if (o.type === 'gasto' && o.cobertura && parseFloat(o.cobertura.monto) > 0 && !future) {
     var src = o.cobertura.source;
     // OJO: la cobertura siempre sale del fondo DEFAULT de Ahorro libre
     // (FT.addSavings sin fundId cae ahí) -- el tope tiene que ser el saldo
@@ -2594,7 +3129,10 @@ FT.addEntry = function (o) {
   // ya no se exige `hogar`. El sobregiro (¿el libre alcanza?) se revisa y
   // confirma ANTES de llegar aquí (ver FT.checkOverdraft) -- esta función
   // solo aplica el descuento, sin clamp, igual que siempre.
-  if ((o.type === 'gasto' || o.type === 'suscripcion') && o.checkingAccountId) {
+  if (future) {
+    entry.pendiente = true;
+    if (o.checkingAccountId) { entry.checkingAccountId = o.checkingAccountId; entry.acctPending = true; if (o.type === 'ingreso') entry.acctCredited = true; }
+  } else if ((o.type === 'gasto' || o.type === 'suscripcion') && o.checkingAccountId) {
     FT.deductChecking(o.checkingAccountId, amount, o.date);
     entry.checkingAccountId = o.checkingAccountId; // para poder devolver el saldo si se borra este movimiento
   }
@@ -2605,7 +3143,7 @@ FT.addEntry = function (o) {
   // FT.checking() desde el fix de doble atribución de gasto de hogar --
   // este comentario decía lo contrario y quedó obsoleto, corregido para no
   // guiar a alguien de vuelta al bug ya cerrado.
-  if (o.type === 'ingreso' && o.checkingAccountId) {
+  if (!future && o.type === 'ingreso' && o.checkingAccountId) {
     FT.creditChecking(o.checkingAccountId, amount);
     entry.checkingAccountId = o.checkingAccountId;
     // acctCredited (no el `type`) es lo que le dice a FT.deleteTx/
@@ -2621,10 +3159,394 @@ FT.addEntry = function (o) {
   FT.saveData(d);
 
   // Ingreso extra + reparto automático solicitado
-  if (o.type === 'ingreso' && entry.incomeKind === 'extra' && o.autoDist) FT.applyDist(amount, { note: o.desc });
+  if (o.type === 'ingreso' && entry.incomeKind === 'extra' && o.autoDist && !future) FT.applyDist(amount, { note: o.desc });
 
   return entry;
 };
+
+/* ─────────────────────────────────────────────────────────────────────────
+   5c · MENÚ DEL ＋ Y FORMULARIO DE REGISTRO (movido desde dashboard.html el 20-oct-2026 para que
+   cualquier pantalla lo abra sin salir de ella: FT.openPicker / FT.openEntry)
+   ───────────────────────────────────────────────────────────────────────── */
+(function () {
+/* Menú del "＋" (20-oct-2026, aprobado vía simulación): el MISMO menú en toda la app. En Hogar, gasto/inversión/
+   suscripción vienen marcados "del hogar" y aparece el depósito a la emergencia DEL HOGAR (verde, "de los dos");
+   en el resto, el depósito a MI emergencia (azul, "solo mía"). */
+function openPicker(o) {
+  o = o || {};
+  if (document.querySelector('[data-picker="1"]')) return; // ya está abierto: un segundo toque no apila otro menú
+  var es = FT.lang === 'es', hg = o.ctx === 'hogar' && FT.hogarConnected();
+  var items = hg ? [
+    { t: 'gasto', e: '💸', l: es ? 'Gasto del hogar' : 'Household expense', p: { hogar: true } },
+    { t: 'ingreso', e: '💰', l: es ? 'Ingreso' : 'Income' },
+    { t: 'ingreso', e: '🏠', l: es ? 'Aporte al hogar' : 'Household contribution', p: { incomeHogar: true } },
+    { t: 'inversion', e: '📈', l: es ? 'Inversión del hogar' : 'Household investment', p: { hogar: true } },
+    { t: 'suscripcion', e: '🔄', l: es ? 'Suscripción' : 'Subscription', p: { hogar: true } },
+    { t: 'servicio', e: '🏠', l: es ? 'Servicio' : 'Utility bill' },
+    { t: 'emerg-hogar', e: '🛡️', l: es ? 'Depósito a emergencia del hogar' : 'Household emergency deposit', k: 'h' }
+  ] : [
+    { t: 'gasto', e: '💸', l: es ? 'Gasto' : 'Expense' }, { t: 'ingreso', e: '💰', l: es ? 'Ingreso' : 'Income' },
+    { t: 'ahorro', e: '💵', l: es ? 'Ahorro' : 'Savings' }, { t: 'inversion', e: '📈', l: es ? 'Inversión' : 'Investment' },
+    { t: 'suscripcion', e: '🔄', l: es ? 'Suscripción' : 'Subscription' }, { t: 'servicio', e: '🏠', l: es ? 'Servicio hogar' : 'Utility bill' },
+    { t: 'emerg-personal', e: '🛡️', l: es ? 'Depósito a mi emergencia' : 'Deposit to my emergency', k: 'p' }
+  ];
+  var tagH = '<span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:99px;background:var(--g-light);color:var(--g-dark)">🏠 ' + (es ? 'DE LOS DOS' : 'SHARED') + '</span>';
+  var tagP = '<span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:99px;background:var(--sky-bg);color:var(--blue)">👤 ' + (es ? 'SOLO MÍA' : 'ONLY MINE') + '</span>';
+  var ov = FT.sheet({
+    title: es ? '¿Qué quieres registrar?' : 'What do you want to log?',
+    html: '<div style="display:grid;grid-template-columns:1fr 1fr;gap:9px">' +
+      items.map(function (it, i) {
+        var sp = it.k ? 'grid-column:span 2;' : '', st = it.k === 'h' ? 'border-color:var(--g-main);background:var(--g-light);' : it.k === 'p' ? 'border-color:var(--blue);background:var(--sky-bg);' : 'border:1px solid var(--hair);background:var(--sunk);';
+        return '<button class="tap" data-i="' + i + '" style="' + sp + 'display:flex;flex-direction:column;align-items:center;gap:5px;padding:15px 8px;border-radius:13px;border:1px solid var(--hair);' + st + 'cursor:pointer;font-family:var(--ui-font);font-size:12px;font-weight:800;color:var(--ink)"><span style="font-size:21px">' + it.e + '</span>' + it.l + (it.k === 'h' ? tagH : it.k === 'p' ? tagP : '') + '</button>';
+      }).join('') + '</div>'
+  });
+  ov.setAttribute('data-picker', '1');
+  ov.querySelectorAll('[data-i]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var it = items[parseInt(b.getAttribute('data-i'), 10)];
+      FT.closeTop();
+      if (it.t === 'emerg-hogar') { if (typeof window.abrirAporteModal === 'function') window.abrirAporteModal('emerg'); else FT.go('hogar.html?deposit=emerg'); }
+      else if (it.t === 'emerg-personal') openEntry('ahorro', { dest: 'emergencia' });
+      else openEntry(it.t, it.p);
+    });
+  });
+}
+
+// 15-oct-2026 (aprobado vía simulación): antes el selector solo decía "(X libre)"
+// y escondía lo apartado en fondos -- una cuenta con $165 en un fondo y
+// disponible negativo se veía como "no tengo nada". Ahora muestra las dos
+// partes; "libre" se llama "Disponible" porque "Ahorro libre" (el fondo) y el
+// libre de la cuenta eran dos cosas distintas con el mismo nombre.
+function acctOptLabel(a) {
+  var es = FT.lang === 'es', ap = FT.accountEarmarked(a.id);
+  return a.name + ' · ' + (es ? 'Disponible ' : 'Available ') + FT.money(FT.accountFree(a), { cents: true }) + (ap > 0.004 ? ' · ' + (es ? 'Apartado ' : 'Set aside ') + FT.money(ap, { cents: true }) : '');
+}
+
+// Aviso en vivo bajo "¿De qué cuenta se paga?": solo aparece si el disponible no
+// alcanza. Ofrece pasar lo necesario de los fondos vinculados al disponible en
+// un toque (FT.coverFromFunds); si ni con los fondos alcanza, lo dice claro.
+function renderAcctStatus(body, getAmount, onMoved) {
+  var box = body.querySelector('#eAcctStatus'), sel = body.querySelector('#eAcctPers');
+  if (!box) return;
+  var es = FT.lang === 'es', wrap = body.querySelector('#eAcctPersWrap');
+  box.innerHTML = '';
+  if (!sel || !sel.value || (wrap && wrap.style.display === 'none')) return;
+  var amt = FT.numMoney(getAmount());
+  if (amt <= 0) return;
+  var cov = FT.accountCoverage(sel.value, amt);
+  if (cov.ok) return;
+  var acct = FT.checking().find(function (a) { return String(a.id) === String(sel.value); }) || {};
+  var box0 = 'style="border-radius:14px;padding:11px 12px;margin-top:8px;display:flex;flex-direction:column;gap:8px;';
+  var btn = function (id, primary, txt) { return '<button type="button" id="' + id + '" class="tap" style="padding:10px 12px;border-radius:11px;font-family:var(--ui-font);font-weight:800;font-size:12.5px;cursor:pointer;border:1.5px solid ' + (primary ? 'transparent' : 'var(--hair)') + ';background:' + (primary ? 'linear-gradient(135deg,var(--g-dark),var(--g-main))' : 'transparent') + ';color:' + (primary ? '#fff' : 'var(--ink)') + '">' + txt + '</button>'; };
+  var canFunds = cov.fundsTotal + 0.005 >= cov.shortfall;
+  var canEmerg = !canFunds && cov.fundsTotal + cov.emerg + 0.005 >= cov.shortfall;
+  var names = cov.funds.map(function (f) { return f.name; }).join(', ');
+  if (canFunds || canEmerg) {
+    box.innerHTML = '<div ' + box0 + 'background:var(--amber-bg,#FFF3DF)"><b style="color:var(--amber,#B7700F)">' + (es ? 'El disponible no alcanza: faltan ' : 'Available doesn\'t cover it: short ') + FT.money(cov.shortfall, { cents: true }) + '</b>' +
+      '<span style="font-size:12px;color:var(--text2)">' + (es ? 'La cuenta sí tiene dinero, apartado en ' : 'The account does have money, set aside in ') + (names || (es ? 'Emergencia' : 'Emergency')) + (canEmerg ? (es ? ' y Emergencia.' : ' and Emergency.') : '.') + '</span>' +
+      btn('eXfer', true, (es ? 'Pasar ' : 'Move ') + FT.money(cov.shortfall, { cents: true }) + (es ? ' de ' : ' from ') + (canEmerg ? (es ? 'tus fondos y Emergencia' : 'your funds and Emergency') : (cov.funds.length > 1 ? (es ? 'tus fondos' : 'your funds') : cov.funds[0].name)) + (es ? ' al disponible' : ' to available')) +
+      '<span style="font-size:11px;color:var(--text3)">' + (es ? 'Es un traspaso dentro de la misma cuenta: el total no cambia.' : 'A transfer inside the same account: the total doesn\'t change.') + '</span></div>';
+    body.querySelector('#eXfer').onclick = function () {
+      var run = function (useEmerg) {
+        // Se recalcula el faltante al ejecutar (no el capturado al dibujar el
+        // aviso): con la confirmación de Emergencia (asíncrona) un doble toque
+        // movería el mismo monto dos veces y dejaría el disponible de más.
+        var fresh = FT.accountCoverage(sel.value, FT.numMoney(getAmount())).shortfall;
+        if (fresh <= 0.004) { renderAcctStatus(body, getAmount, onMoved); return; }
+        var r = FT.coverFromFunds(sel.value, fresh, { useEmergency: useEmerg }); FT.toast((es ? 'Pasaron ' : 'Moved ') + FT.money(r.moved, { cents: true }) + (es ? ' al disponible de ' : ' to available in ') + (acct.name || ''), { icon: '🔁', ms: 3200 }); if (onMoved) onMoved(); renderAcctStatus(body, getAmount, onMoved); };
+      if (canEmerg) FT.confirm(es ? 'Esto usa tu fondo de Emergencia, que es solo para emergencias reales. ¿Continuar?' : 'This uses your Emergency fund, which is only for real emergencies. Continue?').then(function (ok) { if (ok) run(true); });
+      else run(false);
+    };
+  } else if (FT.accountEarmarked(sel.value) > 0.004) {
+    box.innerHTML = '<div ' + box0 + 'background:var(--red-bg,#FCECEC)"><b style="color:var(--red)">' + (es ? 'No alcanza ni con lo apartado' : 'Not enough even with what\'s set aside') + '</b>' +
+      '<span style="font-size:12px;color:var(--text2)">' + (es ? 'La cuenta tiene ' + FT.money(FT.accountTotal(acct), { cents: true }) + ' en total y el gasto es de ' + FT.money(amt, { cents: true }) + '. Prueba con otra cuenta.' : 'The account has ' + FT.money(FT.accountTotal(acct), { cents: true }) + ' in total and the expense is ' + FT.money(amt, { cents: true }) + '. Try another account.') + '</span></div>';
+  }
+}
+
+function openEntry(type, preset) {
+  var es = FT.lang === 'es';
+  var isServ = type === 'servicio';
+  var realType = isServ ? 'suscripcion' : type;
+  var CATS = ['🛒 Supermercado', '🍔 Restaurantes', '💊 Salud', '⛽ Gasolina', '🏠 Renta / Hipoteca', '📱 Teléfono/Internet', '🎬 Entretenimiento', '👕 Ropa', '✈️ Viajes', '🔧 Mantenimiento', '📦 Otros'];
+  var extra = '';
+  if (realType === 'gasto' || realType === 'hipoteca') extra += '<div class="ft-field"><label>' + (es ? 'Categoría' : 'Category') + '</label><select id="eCat">' + CATS.map(function (c) { return '<option>' + c + '</option>'; }).join('') + '</select></div>';
+  var hogarAccts = FT.checking().filter(function (a) { return a.hogar; });
+  // Cuentas como base (Fase 1): un gasto PERSONAL (no solo de hogar) también
+  // puede elegir de qué cuenta sale -- predeterminada (FT.user().
+  // defaultAccountId) o cambiada para este gasto en particular. Un ingreso
+  // también puede elegir a qué cuenta llega (ya no hay "pool sin cuenta"
+  // obligatorio, pero sigue siendo opcional para no romper a quien no usa
+  // cuentas todavía).
+  var myAccts = FT.checking().filter(function (a) { return !a.hogar; });
+  // Un gasto de HOGAR también puede pagarse con tu cuenta PERSONAL (para
+  // adelantarlo de tu propio bolsillo) además de la conjunta -- la
+  // conjunta va primero en la lista (sugerencia/default), pero el usuario
+  // puede elegir cualquiera. Aclarado por Ramón (29-sep-2026): "para eso
+  // implementamos lo de las cuentas, para que el usuario escoja... si
+  // escojo la mía se restará de mi presupuesto aunque sea un gasto del
+  // hogar". Antes este selector solo ofrecía cuentas conjuntas.
+  var hogarAcctOpts = hogarAccts.concat(myAccts);
+  var canDeductAcct = (realType === 'gasto' || (realType === 'suscripcion' && !isServ)) && hogarAcctOpts.length > 0;
+  if (realType === 'gasto' && myAccts.length) {
+    var defAcctId = FT.user().defaultAccountId;
+    extra += '<div class="ft-field" id="eAcctPersWrap"><label>' + (es ? '¿De qué cuenta se paga? (opcional)' : 'Paid from which account? (optional)') + '</label><select id="eAcctPers"><option value="">' + (es ? 'Ninguna' : 'None') + '</option>' + myAccts.map(function (a) { return '<option value="' + a.id + '"' + (a.id === defAcctId ? ' selected' : '') + '>' + acctOptLabel(a) + '</option>'; }).join('') + '</select></div><div id="eAcctStatus" aria-live="polite"></div>';
+  }
+  if (realType === 'ingreso' && myAccts.length) {
+    extra += '<div class="ft-field"><label>' + (es ? '¿A qué cuenta llega? (opcional)' : 'Which account does it land in? (optional)') + '</label><select id="eAcctIn"><option value="">' + (es ? 'Ninguna' : 'None') + '</option>' + myAccts.map(function (a) { return '<option value="' + a.id + '">' + a.name + ' (' + FT.money(FT.accountFree(a), { cents: true }) + ')</option>'; }).join('') + '</select></div>';
+  }
+  if (FT.hogarConnected() && (realType === 'gasto' || realType === 'inversion' || (realType === 'suscripcion' && !isServ))) {
+    extra += '<div class="ft-field"><label>' + (es ? 'Es para' : 'For') + '</label><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><button type="button" id="ePers" class="tap" style="padding:9px;border-radius:10px;border:1.5px solid var(--g-main);background:var(--g-light);color:var(--g-dark);font-weight:800;font-family:var(--ui-font)">👤 ' + (es ? 'Personal' : 'Personal') + '</button><button type="button" id="eHog" class="tap" style="padding:9px;border-radius:10px;border:1px solid var(--hair);background:var(--sunk);color:var(--text2);font-weight:800;font-family:var(--ui-font)">🏠 ' + (es ? 'Hogar' : 'Household') + '</button></div></div>';
+    if (canDeductAcct) {
+      // Conjunta primero (grupo aparte, es la sugerencia/default -- no
+      // toca tu presupuesto personal), luego tus cuentas personales (si
+      // eliges una, SÍ cuenta contra tu presupuesto -- lo estás
+      // adelantando de tu bolsillo).
+      extra += '<div class="ft-field" id="eAcctWrap" style="display:none"><label>' + (es ? '¿De qué cuenta se paga?' : 'Paid from which account?') + '</label><select id="eAcct">' +
+        (hogarAccts.length ? '<optgroup label="' + (es ? 'Conjunta' : 'Joint') + '">' + hogarAccts.map(function (a, i) { return '<option value="' + a.id + '"' + (i === 0 ? ' selected' : '') + '>' + a.name + ' (' + FT.money(FT.accountFree(a), { cents: true }) + ')</option>'; }).join('') + '</optgroup>' : '') +
+        (myAccts.length ? '<optgroup label="' + (es ? 'Mi cuenta (adelantar)' : 'My account (front it)') + '">' + myAccts.map(function (a) { return '<option value="' + a.id + '">' + a.name + ' (' + FT.money(FT.accountFree(a), { cents: true }) + ')</option>'; }).join('') + '</optgroup>' : '') +
+        // "Ninguna" al final (gasto en efectivo, o sin cuenta conjunta que
+        // no quieres adelantar de tu bolsillo) -- si no hay ninguna cuenta
+        // conjunta, esta es la que queda seleccionada por default (nunca
+        // se elige una cuenta personal en automático, sin que el usuario
+        // lo pida).
+        '<option value=""' + (hogarAccts.length ? '' : ' selected') + '>' + (es ? 'Ninguna (efectivo / sin registrar)' : 'None (cash / untracked)') + '</option>' +
+        '</select>' +
+        '<p style="font-size:10px;color:var(--text3);margin-top:4px">' + (es ? 'La conjunta no toca tu presupuesto personal -- tu propia cuenta sí.' : "The joint account doesn't touch your personal budget -- your own account does.") + '</p>' +
+      '</div>';
+    }
+  }
+  if (realType === 'ahorro')
+    extra += '<div class="ft-field"><label>' + (es ? 'Destino' : 'Destination') + '</label><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><button type="button" id="eLib" class="tap" style="padding:9px;border-radius:10px;border:1.5px solid var(--g-main);background:var(--g-light);color:var(--g-dark);font-weight:800;font-family:var(--ui-font)">💵 ' + (es ? 'Ahorro libre' : 'Free savings') + '</button><button type="button" id="eEmg" class="tap" style="padding:9px;border-radius:10px;border:1px solid var(--hair);background:var(--sunk);color:var(--text2);font-weight:800;font-family:var(--ui-font)">🛡️ ' + (es ? 'Emergencia' : 'Emergency') + '</button></div></div>';
+  if (realType === 'ingreso')
+    extra += '<label class="tap" style="display:flex;gap:9px;align-items:flex-start;background:var(--sunk);border:1px solid var(--hair);border-radius:11px;padding:10px 12px;cursor:pointer;font-size:11.5px;color:var(--text2)"><input type="checkbox" id="eDist" style="width:17px;height:17px;margin-top:1px;accent-color:var(--g-main)"><span>' + (es ? 'Repartir automáticamente a ahorro / emergencia / inversión según mis %.' : 'Auto-distribute to savings / emergency / investing by my %.') + '</span></label>';
+
+  // 19-oct-2026, a petición de Ramón: un ingreso puede ser 100% mío o un APORTE
+  // AL HOGAR (ej. un bono que va completo a la casa). El aporte NO pasa por tu
+  // presupuesto personal: se anota como aporte del hogar (hogar:true), que tu
+  // pareja ve y que cuenta como "Aportado" en Historial/Hogar. Opcionalmente
+  // acredita una cuenta conjunta (se revierte solo si lo eliminas).
+  if (realType === 'ingreso' && FT.hogarConnected()) {
+    var jointAcctsK = FT.checking().filter(function (c) { return c.hogar; });
+    extra = '<div class="ft-field" id="eKindWrap"><label>' + (es ? '¿Qué es este ingreso?' : 'What is this income?') + '</label>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><button type="button" id="eKMine" class="tap" style="padding:9px;border-radius:10px;border:1.5px solid var(--g-main);background:var(--g-light);color:var(--g-dark);font-weight:800;font-family:var(--ui-font)">🎁 ' + (es ? '100% mío' : '100% mine') + '</button>' +
+      '<button type="button" id="eKHogar" class="tap" style="padding:9px;border-radius:10px;border:1px solid var(--hair);background:var(--sunk);color:var(--text2);font-weight:800;font-family:var(--ui-font)">🏠 ' + (es ? 'Aporte al hogar' : 'Household contribution') + '</button></div>' +
+      '<p id="eKNote" style="font-size:10.5px;color:var(--text3);margin:6px 0 0">' + (es ? 'Suma a tu presupuesto personal.' : 'Adds to your personal budget.') + '</p></div>' +
+      '<div class="ft-field" id="eAcctHWrap" style="display:none"><label>' + (es ? '¿A qué cuenta conjunta llega? (opcional)' : 'Which joint account does it land in? (optional)') + '</label><select id="eAcctH"><option value="">' + (es ? 'Ninguna' : 'None') + '</option>' +
+        jointAcctsK.map(function (a) { return '<option value="' + a.id + '">' + a.name + ' (' + FT.money(FT.accountFree(a), { cents: true }) + ')</option>'; }).join('') + '</select></div>' + extra;
+  }
+  var state = { hogar: false, dest: 'libre', incomeHogar: false };
+  var titles = { gasto: es ? 'Gasto' : 'Expense', ingreso: es ? 'Ingreso' : 'Income', ahorro: es ? 'Ahorro' : 'Savings', inversion: es ? 'Inversión' : 'Investment', suscripcion: es ? 'Suscripción' : 'Subscription', servicio: es ? 'Servicio del hogar' : 'Utility bill' };
+
+  var ov = FT.modal({
+    title: (es ? 'Nuevo: ' : 'New: ') + titles[type],
+    html:
+      '<div class="ft-field"><label>' + (es ? 'Descripción' : 'Description') + '</label><input id="eDesc" placeholder="' + (es ? 'Ej. Soriana' : 'e.g. Store') + '"></div>' +
+      '<div class="ft-field"><label>' + (es ? 'Monto' : 'Amount') + '</label><input id="eAmt" inputmode="decimal" placeholder="$0"></div>' +
+      '<div class="ft-field"><label>' + (es ? 'Fecha' : 'Date') + '</label><input id="eDate" type="date" value="' + FT.todayISO() + '"></div>' +
+      extra,
+    saveLabel: es ? 'Guardar registro' : 'Save entry',
+    onOpen: function (body) {
+      var h = body.querySelector('#eHog'), p = body.querySelector('#ePers'), acctWrap = body.querySelector('#eAcctWrap');
+      var persAcctWrap = body.querySelector('#eAcctPersWrap');
+      if (h) {
+        h.onclick = function () { state.hogar = true; sel(h, p); if (acctWrap) acctWrap.style.display = ''; if (persAcctWrap) persAcctWrap.style.display = 'none'; };
+        p.onclick = function () { state.hogar = false; sel(p, h); if (acctWrap) acctWrap.style.display = 'none'; if (persAcctWrap) persAcctWrap.style.display = ''; };
+      }
+      var kMine = body.querySelector('#eKMine'), kHog = body.querySelector('#eKHogar');
+      if (kMine && kHog) {
+        var acctInWrap = body.querySelector('#eAcctIn') ? body.querySelector('#eAcctIn').closest('.ft-field') : null, distWrap = body.querySelector('#eDist') ? body.querySelector('#eDist').closest('label') : null;
+        var setKind = function (hogarKind) {
+          state.incomeHogar = hogarKind;
+          sel(hogarKind ? kHog : kMine, hogarKind ? kMine : kHog);
+          body.querySelector('#eAcctHWrap').style.display = hogarKind ? '' : 'none';
+          if (acctInWrap) acctInWrap.style.display = hogarKind ? 'none' : '';
+          if (distWrap) distWrap.style.display = hogarKind ? 'none' : '';
+          body.querySelector('#eKNote').textContent = hogarKind
+            ? (FT.lang === 'es' ? 'Va completo al hogar y NO suma a tu presupuesto personal. Tu pareja lo ve como aporte.' : 'Goes entirely to the household and does NOT add to your personal budget. Your partner sees it as a contribution.')
+            : (FT.lang === 'es' ? 'Suma a tu presupuesto personal.' : 'Adds to your personal budget.');
+        };
+        kMine.onclick = function () { setKind(false); };
+        kHog.onclick = function () { setKind(true); };
+      }
+      var lib = body.querySelector('#eLib'), emg = body.querySelector('#eEmg');
+      if (lib) { emg.onclick = function () { state.dest = 'emergencia'; sel(emg, lib); }; lib.onclick = function () { state.dest = 'libre'; sel(lib, emg); }; }
+      preset = preset || {};
+      if (preset.dest === 'emergencia' && emg) emg.onclick();
+      if (preset.hogar && h) h.onclick();
+      if (preset.incomeHogar && kHog) kHog.onclick();
+      // Aviso en vivo de la cuenta personal (ver renderAcctStatus): se
+      // recalcula al teclear el monto, al cambiar de cuenta y al alternar
+      // Personal/Hogar; tras un traspaso se refresca el texto del selector.
+      var amtEl = body.querySelector('#eAmt'), persSel = body.querySelector('#eAcctPers');
+      if (persSel && amtEl) {
+        var refreshPersOpts = function () {
+          Array.prototype.forEach.call(persSel.options, function (o) {
+            if (!o.value) return;
+            var a = FT.checking().find(function (x) { return String(x.id) === String(o.value); });
+            if (a) o.textContent = acctOptLabel(a);
+          });
+        };
+        var updAcctStatus = function () { renderAcctStatus(body, function () { return amtEl.value; }, refreshPersOpts); };
+        amtEl.addEventListener('input', updAcctStatus);
+        persSel.addEventListener('change', updAcctStatus);
+        if (h) { h.addEventListener('click', updAcctStatus); p.addEventListener('click', updAcctStatus); }
+      }
+      function sel(on, off) {
+        on.style.borderColor = 'var(--g-main)'; on.style.background = 'var(--g-light)'; on.style.color = 'var(--g-dark)';
+        off.style.borderColor = 'var(--hair)'; off.style.background = 'var(--sunk)'; off.style.color = 'var(--text2)';
+      }
+    },
+    onSave: function (body) {
+      var o = {
+        type: realType,
+        desc: body.querySelector('#eDesc').value.trim(),
+        amount: body.querySelector('#eAmt').value,
+        date: body.querySelector('#eDate').value,
+        cat: body.querySelector('#eCat') ? body.querySelector('#eCat').value : undefined,
+        hogar: state.hogar, dest: state.dest,
+        incomeKind: realType === 'ingreso' ? 'extra' : undefined,
+        autoDist: body.querySelector('#eDist') ? body.querySelector('#eDist').checked : false,
+        esServicioHogar: isServ,
+        // Orden importa: el primer caso (hogar + canDeductAcct) es el
+        // comportamiento de SIEMPRE, cubre gasto Y suscripción de hogar --
+        // NO se puede perder al agregar los casos nuevos (gasto personal,
+        // ingreso). Antes de este comentario hubo una versión que colapsaba
+        // el chequeo a solo "realType==='gasto'", rompiendo en silencio la
+        // cuenta de una suscripción de hogar -- corregido antes de subir.
+        checkingAccountId: (state.hogar && canDeductAcct)
+          ? (body.querySelector('#eAcct') ? body.querySelector('#eAcct').value : hogarAcctOpts[0].id)
+          : (realType === 'gasto' && !state.hogar && body.querySelector('#eAcctPers') ? (body.querySelector('#eAcctPers').value || undefined)
+            : (realType === 'ingreso' && body.querySelector('#eAcctIn') ? (body.querySelector('#eAcctIn').value || undefined) : undefined))
+      };
+      if (!o.desc || !FT.numMoney(o.amount) || !o.date) { FT.toast(FT.lang === 'es' ? 'Completa descripción, monto y fecha' : 'Fill description, amount and date'); return true; }
+
+      // Aporte al hogar: se anota como aporte del hogar, sin tocar el presupuesto personal.
+      if (realType === 'ingreso' && state.incomeHogar) {
+        var esA = FT.lang === 'es', amtA = FT.numMoney(o.amount);
+        if (!(amtA > 0)) { FT.toast(esA ? 'El monto debe ser mayor a 0' : 'Amount must be greater than 0'); return true; }
+        var acctH = body.querySelector('#eAcctH') ? (body.querySelector('#eAcctH').value || '') : '';
+        if (acctH) FT.creditChecking(acctH, amtA);
+        var dA = FT.data();
+        dA.transactions.push({ id: Date.now(), type: 'ahorro', desc: (esA ? 'Aporte al hogar — ' : 'Household contribution — ') + o.desc, amount: amtA, date: o.date, cat: '🏠 Hogar', hogar: true, createdBy: FT.userName(),
+          checkingAccountId: acctH || undefined, acctCredited: acctH ? true : undefined, aporteManual: true });
+        FT.saveData(dA);
+        FT.toast((esA ? 'Aporte al hogar · ' : 'Household contribution · ') + FT.money(amtA, { cents: true }), { icon: '🏠' });
+        /* la pantalla se refresca sola (ft:datachanged) */
+        FT.closeTop();
+        return true;
+      }
+
+      // Gasto personal que excede el disponible → hoja de cobertura (opción C).
+      function afterOverdraft() {
+        if (realType === 'gasto' && !o.hogar && String(o.date) <= FT.todayISO()) {
+          var disp = FT.personalAvailable();
+          var amt = FT.numMoney(o.amount);
+          if (amt > disp) {
+            var falt = Math.round((amt - Math.max(0, disp)) * 100) / 100;
+            coberturaSheet(o.desc, falt).then(function (choice) {
+              if (choice === 'libre' || choice === 'emergencia') o.cobertura = { source: choice, monto: falt };
+              commit(o); FT.closeTop();
+            });
+            return;
+          }
+        }
+        commit(o); FT.closeTop();
+      }
+      // Sobregiro estilo SoFi (Fase 1/2): si el gasto elige una cuenta y su
+      // LIBRE no alcanza, se avisa y pide confirmación antes de dejarla en
+      // negativo -- los fondos vinculados a esa cuenta NUNCA se tocan
+      // solos para cubrir la diferencia (eso violaría la regla de que un
+      // fondo/apartado nunca se mueve sin que el usuario lo pida).
+      if (realType === 'gasto' && o.checkingAccountId && String(o.date) <= FT.todayISO()) {
+        var chk = FT.checkOverdraft(o.checkingAccountId, FT.numMoney(o.amount));
+        if (!chk.ok) {
+          var acctObj = FT.checking().find(function (a) { return String(a.id) === String(o.checkingAccountId); }) || {};
+          if (acctObj.hogar) {
+            // Gasto CONJUNTO sin fondos suficientes (QA 30-sep-2026): Ramón
+            // fue explícito -- que la cuenta conjunta llegue a $0 es normal
+            // (se hizo para cubrir gastos de la casa), así que el aviso
+            // genérico de sobregiro ("¿continuar?") no es lo que quiere
+            // aquí. En su lugar, opciones reales: transferir dinero a esa
+            // cuenta ahí mismo, continuar igual, o cancelar.
+            hogarInsufficientSheet(acctObj, chk).then(function (choice) {
+              if (choice === 'continue') afterOverdraft();
+              else if (choice === 'transfer') {
+                FT.closeTop(); // cierra "Nuevo gasto" -- se retoma después de transferir
+                FT.openTransfer({ toType: 'account', toId: acctObj.id, amount: chk.shortfall });
+              }
+              // 'cancel' o cerrar sin elegir: no hace nada, "Nuevo gasto" sigue abierto.
+            });
+            return true;
+          }
+          // Cuenta PERSONAL: el aviso simple de siempre (acortado -- era el
+          // confirm() más largo de la app).
+          FT.confirm(FT.lang === 'es'
+            ? '«' + (acctObj.name || '') + '» quedaría en negativo (te faltan ' + FT.money(chk.shortfall, { cents: true }) + '). ¿Continuar?'
+            : '"' + (acctObj.name || '') + '" would go negative (short ' + FT.money(chk.shortfall, { cents: true }) + '). Continue?'
+          ).then(function (ok) { if (ok) afterOverdraft(); });
+          return true;
+        }
+      }
+      afterOverdraft();
+      return true;
+    }
+  });
+
+  function commit(o) {
+    var e = FT.addEntry(o);
+    if (e) {
+      if (o.cobertura) FT.toast(FT.money(o.cobertura.monto) + (FT.lang === 'es' ? ' movido de ' : ' moved from ') + (o.cobertura.source === 'emergencia' ? (FT.lang === 'es' ? 'Emergencia' : 'Emergency') : (FT.lang === 'es' ? 'Ahorro libre' : 'Free savings')) + (FT.lang === 'es' ? ' para cubrir «' : ' to cover "') + o.desc + '»', { icon: '💵', ms: 4000 });
+      else FT.toast((FT.lang === 'es' ? 'Registrado · ' : 'Logged · ') + FT.money(e.amount, { cents: true }), { icon: '✅' });
+    }
+    /* la pantalla se refresca sola (ft:datachanged) */
+  }
+}
+
+/** Hoja de cobertura: ¿de dónde cubrir el faltante de un gasto que excede el disponible? */
+function coberturaSheet(name, falt) {
+  var es = FT.lang === 'es';
+  return new Promise(function (resolve) {
+    FT.sheet({
+      title: es ? 'Excede tu disponible' : 'Over your available',
+      html: '<p style="font-size:13px;color:var(--text2);margin:2px 0 6px">' +
+        (es ? 'Este gasto supera tu disponible del mes por ' : 'This expense is over your monthly available by ') +
+        '<b>' + FT.money(falt) + '</b>. ' + (es ? '¿De dónde lo cubres?' : 'Where do you cover it from?') + '</p>',
+      actions: [
+        { label: '💵 ' + (es ? 'Ahorro libre' : 'Free savings') + ' · ' + FT.money(FT.savingsBalance()), primary: true, onClick: function () { resolve('libre'); } },
+        { label: '🛡️ ' + (es ? 'Emergencia' : 'Emergency') + ' · ' + FT.money(FT.emergencyBalance()), onClick: function () { resolve('emergencia'); } },
+        { label: es ? 'Dejarlo en rojo (gasto extra)' : 'Leave it negative', onClick: function () { resolve('rojo'); } }
+      ]
+    });
+  });
+}
+
+/** Hoja de opciones cuando un gasto CONJUNTO no alcanza en la cuenta
+ *  elegida (QA 30-sep-2026). A diferencia de un gasto personal, quedarse
+ *  en $0 en la cuenta conjunta es normal (se hizo justo para cubrir gastos
+ *  de la casa) -- Ramón no quiere el aviso genérico de sobregiro aquí,
+ *  quiere opciones reales: transferir dinero a esa cuenta ahí mismo,
+ *  continuar igual (queda en negativo), o cancelar. Resuelve
+ *  'transfer'|'continue'|'cancel' -- cerrar el sheet sin elegir nunca
+ *  resuelve nada, mismo criterio que el resto de los sheets de opciones. */
+function hogarInsufficientSheet(acctObj, chk) {
+  var es = FT.lang === 'es';
+  return new Promise(function (resolve) {
+    FT.sheet({
+      title: '🏠 ' + (es ? 'No alcanza en «' + acctObj.name + '»' : 'Not enough in "' + acctObj.name + '"'),
+      html: '<p style="font-size:13px;color:var(--text2);margin:2px 0 6px">' +
+        (es ? 'Tiene ' + FT.money(chk.libre, { cents: true }) + ' disponible -- faltan ' : 'Has ' + FT.money(chk.libre, { cents: true }) + ' available -- short ') +
+        '<b>' + FT.money(chk.shortfall, { cents: true }) + '</b>' + (es ? ' para este gasto. ¿Qué quieres hacer?' : ' for this expense. What do you want to do?') + '</p>',
+      actions: [
+        { label: '🔁 ' + (es ? 'Transferir dinero aquí' : 'Transfer money here'), primary: true, onClick: function () { resolve('transfer'); } },
+        { label: '✅ ' + (es ? 'Continuar de todas formas' : 'Continue anyway'), onClick: function () { resolve('continue'); } },
+        { label: es ? 'Cancelar' : 'Cancel', onClick: function () { resolve('cancel'); } }
+      ]
+    });
+  });
+}
+FT.openPicker = openPicker;
+FT.openEntry = openEntry;
+})();
 
 /* ─────────────────────────────────────────────────────────────────────────
    TRANSFERENCIAS (Fase 2, Cuentas como base) — neutral por regla, reversible
@@ -3028,7 +3950,7 @@ FT.getNotifications = function () {
     var toEmerg = s.fundSource && s.fundSource.type === 'emerg';
     out.push({ icon: '⚠️', tone: 'red', url: toEmerg ? 'emergencia.html' : 'ahorro.html',
       fundId: toEmerg ? null : (s.fundSource && s.fundSource.id),
-      text: (es ? 'Abono a ' + s.debtName + ' atorado desde el ' + FT.date(s.nextDate) + ' — falta ' : 'Payment to ' + s.debtName + ' stuck since ' + FT.date(s.nextDate) + ' — short ') + FT.money(s.shortfall) + (es ? ' en ' : ' in ') + s.fundLabel });
+      text: (es ? 'Abono a ' + _escH(s.debtName) + ' atorado desde el ' + FT.date(s.nextDate) + ' — falta ' : 'Payment to ' + _escH(s.debtName) + ' stuck since ' + FT.date(s.nextDate) + ' — short ') + FT.money(s.shortfall) + (es ? ' en ' : ' in ') + _escH(s.fundLabel) });
   });
 
   // 4 · Dinero movido hoy a ahorro / emergencia (entradas automáticas)
@@ -3038,6 +3960,24 @@ FT.getNotifications = function () {
     out.push({ icon: toEmerg ? '🛡️' : '🏦', tone: 'blue', url: toEmerg ? 'emergencia.html' : 'ahorro.html',
       text: FT.money(t.amount) + (es ? ' movido a ' : ' moved to ') + (toEmerg ? (es ? 'Emergencia' : 'Emergency') : (es ? 'Ahorro libre' : 'Free savings')) });
   });
+
+  // 4b · Aportes recurrentes a metas que no alcanzan en su cuenta (quedan pendientes y se reintentan)
+  try {
+    FT.recurring().filter(function (r) { return r.kind === 'metapersonal' && r.active !== false && !r.paused && r.nextDate && r.nextDate <= FT.todayISO(); }).forEach(function (r) {
+      var g = FT.goals().find(function (x) { return String(x.id) === String(r.goalId); });
+      var a = g && ((g.accountId && FT.checking().some(function (x) { return String(x.id) === String(g.accountId); }) ? g.accountId : null) || r.accountId);
+      if (!g || !a) return;
+      var chk = FT.checkOverdraft(a, r.amount + FT.goalAbsorbNeed(g.id, a));
+      if (!chk.ok) { var ac = FT.checking().find(function (x) { return String(x.id) === String(a); }); out.push({ icon: '⏳', tone: 'red', url: 'metas.html', text: (es ? 'Aporte a ' + _escH(g.name) + ' pendiente: faltan ' : 'Deposit to ' + _escH(g.name) + ' pending: short ') + FT.money(chk.shortfall, { cents: true }) + (es ? ' en ' : ' in ') + _escH(ac ? ac.name : '') }); }
+    });
+  } catch (e) {}
+
+  // 5 · Hogar: dinero sin asignar y cambios de mi pareja (20-oct-2026)
+  try {
+    FT.hogarUnassigned().forEach(function (u) { out.push({ icon: '💵', tone: 'amber', url: 'hogar.html', text: FT.money(u.monto, { cents: true }) + (es ? ' del hogar sin asignar a ninguna cuenta' : ' of household money not assigned to any account') }); });
+    FT.partnerUnassigned().forEach(function (u) { out.push({ icon: '💵', tone: 'amber', url: 'hogar.html', text: FT.money(u.monto, { cents: true }) + (es ? ' de tu pareja sin asignar a ninguna cuenta' : ' of your partner\'s money not assigned to any account') }); });
+    FT.hogarNotices().forEach(function (nt) { out.push({ icon: '🏠', tone: 'blue', url: 'hogar.html', text: _escH(nt.by || (es ? 'Tu pareja' : 'Your partner')) + (nt.kind === 'assign' ? (es ? ' asignó un cheque del hogar' : ' assigned a household paycheck') : nt.kind === 'undo' ? (es ? ' deshizo un reparto del hogar' : ' undid a household split') : (es ? ' cambió una regla de reparto' : ' changed a split rule')) }); });
+  } catch (e) {}
 
   return out;
 };
@@ -3157,7 +4097,10 @@ function _mergeFondosInto(myFondos, partnerFondos) {
     meta: (myFondos.emerg && myFondos.emerg.meta) || (partnerFondos.emerg && partnerFondos.emerg.meta) || 0,
     fecha: (myFondos.emerg && myFondos.emerg.fecha) || (partnerFondos.emerg && partnerFondos.emerg.fecha) || '',
     hist: emergHist,
-    actual: emergHist.reduce(function (a, h) { return a + (h.monto || 0); }, 0)
+    foreign: ((parseFloat(myFondos.emerg && myFondos.emerg.foreign) || 0) + Math.max(0, emergHist.reduce(function (a, h) { return a + (h.monto || 0); }, 0) - ((myFondos.emerg && myFondos.emerg.hist) || []).reduce(function (a, h) { return a + (h.monto || 0); }, 0))) || undefined,
+    actual: emergHist.reduce(function (a, h) { return a + (h.monto || 0); }, 0),
+    accountId: (myFondos.emerg && myFondos.emerg.accountId) || null,   // el apartado es de MI cuenta: nunca se toma del otro lado
+    vaultLog: (myFondos.emerg && myFondos.emerg.vaultLog) || undefined
   };
   var metasById = {};
   (myFondos.metas || []).forEach(function (m) { if (m && m.id != null) metasById[m.id] = Object.assign({}, m); });
@@ -3172,8 +4115,11 @@ function _mergeFondosInto(myFondos, partnerFondos) {
       // sync quedaba marcada como ajena, y la poda de abajo podía borrarla
       // (encontrado por revisión independiente).
       var mine = metasById[m.id], hist = _mergeHistByKey(mine.hist, m.hist);
-      metasById[m.id] = Object.assign({}, mine, m, { nombre: mine.nombre || m.nombre, hist: hist, actual: hist.reduce(function (a, h) { return a + (h.monto || 0); }, 0), _fromPartner: mine._fromPartner });
-    } else metasById[m.id] = Object.assign({}, m, { _fromPartner: true });
+      var sumH = function (l) { return (l || []).reduce(function (a, h) { return a + (h.monto || 0); }, 0); };
+      // `foreign`: lo que llegó de mi pareja y NO salió de mi cuenta; no se acredita al soltar/desvincular.
+      var foreign = (parseFloat(mine.foreign) || 0) + Math.max(0, sumH(hist) - sumH(mine.hist));
+      metasById[m.id] = Object.assign({}, mine, m, { foreign: foreign || undefined, nombre: mine.nombre || m.nombre, hist: hist, actual: hist.reduce(function (a, h) { return a + (h.monto || 0); }, 0), _fromPartner: mine._fromPartner, accountId: mine.accountId || null, vaultLog: mine.vaultLog });
+    } else metasById[m.id] = Object.assign({}, m, { _fromPartner: true, accountId: null, vaultLog: undefined, foreign: undefined });
   });
   // Igual que deudas/recurrentes/servicios: si `partnerFondos` trae `metas`
   // (aunque sea vacío -- es la lista completa y actual de mi pareja, no un
@@ -3181,7 +4127,12 @@ function _mergeFondosInto(myFondos, partnerFondos) {
   // se quita también de mi lado. Nunca se toca una meta que YO creé.
   var metasOut = Object.keys(metasById).map(function (k) { return metasById[k]; });
   if (Array.isArray(partnerFondos.metas)) {
-    metasOut = metasOut.filter(function (m) { return !(m._fromPartner && !partnerMetaIds[String(m.id)]); });
+    metasOut = metasOut.filter(function (m) {
+      var drop = m._fromPartner && !partnerMetaIds[String(m.id)];
+      var back = Math.max(0, (parseFloat(m.actual) || 0) - (parseFloat(m.foreign) || 0));
+      if (drop && m.accountId && back) { try { FT.creditChecking(m.accountId, back); } catch (e) {} } // libera el apartado antes de soltar la meta
+      return !drop;
+    });
   }
   return { emerg: emerg, metas: metasOut };
 }
@@ -3294,11 +4245,16 @@ FT.syncPartner = function () {
         subscriptions: _mergeById(od.subscriptions, nd.subscriptions),
         sharedDebts: nd.sharedDebts != null ? nd.sharedDebts : (od.sharedDebts || []),
         hogarInv: nd.hogarInv != null ? nd.hogarInv : (od.hogarInv || []),
-        hogarReview: nd.hogarReview !== undefined ? nd.hogarReview : (od.hogarReview || null)
+        hogarReview: nd.hogarReview !== undefined ? nd.hogarReview : (od.hogarReview || null),
+        sinAsignar: nd.sinAsignar !== undefined ? nd.sinAsignar : (od.sinAsignar || []),
+        hogarEdits: nd.hogarEdits !== undefined ? nd.hogarEdits : (od.hogarEdits || []),
+        hogarAck: nd.hogarAck !== undefined ? nd.hogarAck : (od.hogarAck || [])
       };
       var pp = { name: data.name || (old && old.name) || '', email: data.email || h.partnerEmail, income: parseFloat(data.income) || 0, needs: parseFloat(data.needs) || 0, wants: parseFloat(data.wants) || 0, savings: parseFloat(data.savings) || 0, data: merged };
       FT.set(pkey, pp);
       FT.set(K.profileB, pp);
+      // Cambios que mi pareja hizo a lo MÍO del hogar (asignar un cheque, una regla...): se aplican aquí.
+      try { FT.processIncomingEdits(merged.hogarEdits); } catch (e) {}
 
       if (nd.fondos) { try { FT.saveHogarFondos(_mergeFondosInto(FT.hogarFondos(), nd.fondos)); } catch (e) {} }
       if (nd.sharedDebts) { try { _mergeSharedDebtsIntoMine(nd.sharedDebts); } catch (e) {} }
@@ -3364,17 +4320,24 @@ FT.pushProfileToGAS = function () {
     // personal se mandan en 0 a propósito: así sobrescriben cualquier valor
     // viejo que ya hubiera quedado guardado en el dispositivo de tu pareja.
     var limited = {
-      transactions: (data.transactions || []).filter(function (t) { return String(t.date || '').startsWith(thisMonth) && (t.hogar === true || (t.type === 'ingreso' && t.incomeKind === 'cheque')); }),
+      transactions: (data.transactions || []).filter(function (t) { return !FT.isPending(t) && String(t.date || '').startsWith(thisMonth) && (t.hogar === true || (t.type === 'ingreso' && t.incomeKind === 'cheque')); }),
       emergency: 0,
       subscriptions: (data.subscriptions || []).filter(function (s) { return s && s.hogar === true; }).slice(-10),
       sharedDebts: sharedDebts.slice(-20),
       hogarInv: hogarInv.slice(-20),
-      fondos: FT.hogarFondos(),
+      fondos: (function () {
+        var f = FT.hogarFondos();   // sin accountId/vaultLog: son de MIS cuentas y no deben viajar al otro teléfono
+        return { emerg: Object.assign({}, f.emerg, { accountId: undefined, vaultLog: undefined, foreign: undefined }),
+          metas: (f.metas || []).map(function (m) { return Object.assign({}, m, { accountId: undefined, vaultLog: undefined, foreign: undefined }); }) };
+      })(),
       personalSpentThisMonth: 0,
       sharedRecurring: sharedRecurring,
       servicios: FT.servicios().filter(function (s) { return !s._fromPartner; }).slice(-20), // nunca le hago eco a mi pareja de sus propios servicios
       checking: FT.checking().filter(function (c) { return c.hogar; }),
-      hogarReview: FT.hogar().myReview || null // mi respuesta a lo que mi pareja configuró del hogar (ver hogar.html)
+      hogarReview: FT.hogar().myReview || null, // mi respuesta a lo que mi pareja configuró del hogar (ver hogar.html)
+      sinAsignar: FT.hogarUnassigned(), // parte del hogar de mis cheques que aún no está en ninguna cuenta
+      hogarEdits: FT.hogarEditsOut(), // cambios que hice a lo del hogar de mi pareja (solo hogar)
+      hogarAck: FT.hogarAckOut() // qué pasó con los cambios que ella me mandó
     };
     var params = new URLSearchParams({ action: 'saveProfile', email: u.email, name: u.name || '', income: u.income || 0, needs: 0, wants: 0, savings: 0, dataJson: JSON.stringify(limited) }); // needs/wants/savings personales ya no se suben (nadie los usa del otro lado)
     fetch(FT.GAS_URL + '?' + params.toString()).catch(function () {});
@@ -3953,7 +4916,7 @@ FT.txRow = function (t, idx, o) {
   }
   var esHogarRow = t.hogar === true || t.isHogar === true;
   var who = (o.partner && t._partner && t.createdBy) ? ' · ' + _escH(t.createdBy) : '';
-  var lbl = _escH(meta.label) + (esHogarRow ? ' · 🏠 ' + (es ? 'Hogar' : 'Household') : '') + who;
+  var lbl = _escH(meta.label) + (FT.isPending(t) ? ' · ⏳ ' + (es ? 'Pendiente · ' + FT.date(t.date) : 'Pending · ' + FT.date(t.date)) : '') + (esHogarRow ? ' · 🏠 ' + (es ? 'Hogar' : 'Household') : '') + who;
   return '<div class="ft-tx tap" data-txid="' + t.id + '" role="button" tabindex="0"' + (t._partner ? ' style="cursor:default"' : '') + '>' +
     '<div class="ft-tx-top"><span class="ft-pill">' + FT.date(t.date) + '</span>' +
       '<span class="ft-pill"' + (isIn ? ' style="color:var(--g-main)"' : '') + '>' + (isIn ? '+' : (neutralSign ? '' : '−')) + FT.money(t.amount, { cents: true, noSymbol: false }).replace('−', '') + '</span></div>' +
@@ -3986,7 +4949,7 @@ FT.openTxDetail = function (tx, opts) {
     [es ? 'Fecha' : 'Date', FT.date(tx.date)],
     [es ? 'Hora de registro' : 'Time recorded', hora]
   ];
-  if (tx.createdBy) rows.push([es ? 'Registrado por' : 'Recorded by', tx.createdBy]);
+  if (tx.createdBy) rows.push([es ? 'Registrado por' : 'Recorded by', _escH(tx.createdBy)]);
   if (tx.auto) rows.push([es ? 'Origen' : 'Source', es ? 'Automático' : 'Automatic']);
   var html = '<div style="text-align:center;margin-bottom:16px">' +
       '<div class="ft-num" style="font-size:28px;color:' + (isCredit ? 'var(--g-main)' : 'var(--ink)') + '">' + (isCredit ? '+' : (tx.type === 'transferencia' ? '' : '−')) + FT.money(tx.amount, { cents: true }) + '</div>' +
@@ -4039,43 +5002,71 @@ function _editTxDetail(tx) {
       '<div class="ft-field"><label>' + (es ? 'Fecha' : 'Date') + '</label><input id="etDate" type="date" value="' + tx.date + '"></div>' +
       '<div class="ft-field"><label>' + (es ? 'Nota' : 'Note') + '</label><input id="etNote" value="' + (tx.note || '').replace(/"/g, '&quot;') + '"></div>',
     onSave: function (body) {
-      var d = FT.data();
-      var i = d.transactions.findIndex(function (t) { return String(t.id) === String(tx.id); });
-      if (i >= 0) {
-        var newAmount = parseFloat(body.querySelector('#etAmount').value) || 0;
-        // Si este movimiento había descontado una cuenta de cheques conjunta,
-        // editar el monto tiene que ajustar esa cuenta por la diferencia --
-        // si no, el saldo de la cuenta se queda desfasado del monto real que
-        // termina mostrando el movimiento (encontrado por revisión
-        // independiente al construir la función de descuento automático).
-        var oldTx = d.transactions[i];
-        if (oldTx.checkingAccountId && newAmount !== oldTx.amount) {
-          var oldAmt = parseFloat(oldTx.amount) || 0;
-          // Revisión independiente: esto SIEMPRE hacía creditChecking(viejo
-          // − nuevo), que es correcto para un GASTO (más monto = ya se
-          // dedujo de más, hay que quitarle más al saldo) pero está AL
-          // REVÉS para algo que ACREDITÓ la cuenta (`acctCredited:true` --
-          // un ingreso, o el aporte hogar de FT.recordCheque, que acredita
-          // pero es type:'ahorro', no 'ingreso') -- ahí más monto = se
-          // acreditó de más, hay que AGREGARLE más al saldo, signo
-          // contrario. Discriminar por `type==='ingreso'` se quedaba corto
-          // con el aporte de recordCheque.
-          if (oldTx.acctCredited) FT.creditChecking(oldTx.checkingAccountId, newAmount - oldAmt);
-          else FT.creditChecking(oldTx.checkingAccountId, oldAmt - newAmount);
-        }
-        var kindSel = body.querySelector('#etKind');
-        d.transactions[i] = Object.assign({}, oldTx, {
-          desc: body.querySelector('#etDesc').value.trim(),
-          amount: newAmount,
-          date: body.querySelector('#etDate').value,
-          note: body.querySelector('#etNote').value.trim()
-        });
-        if (kindSel && kindSel.value) d.transactions[i].incomeKind = kindSel.value;
-        FT.saveData(d);
-        FT.toast(es ? '✅ Registro actualizado' : '✅ Entry updated');
+      var d0 = FT.data();
+      var i0 = d0.transactions.findIndex(function (t) { return String(t.id) === String(tx.id); });
+      if (i0 < 0) { FT.closeTop(); FT.closeTop(); return true; }
+      var old0 = d0.transactions[i0];
+      var newDate0 = body.querySelector('#etDate').value || old0.date;
+      var newAmt0 = parseFloat(body.querySelector('#etAmount').value) || 0;
+      // Fecha futura en un gasto/ingreso => pendiente (20-oct-2026, aprobado vía simulación).
+      var willFuture = (old0.type === 'gasto' || old0.type === 'ingreso') && String(newDate0) > FT.todayISO();
+      if (willFuture && (old0.cobId || old0.incomeKind === 'cheque' || old0.incomeKind === 'cobertura')) {
+        FT.toast(es ? 'Un cheque o un gasto con cobertura no puede quedar con fecha futura' : 'A paycheck or a covered expense cannot have a future date'); return true;
       }
-      FT.closeTop(); // cierra el modal de edición
-      FT.closeTop(); // cierra también la hoja de detalle (los datos ya cambiaron)
+      var accountMoved = !!old0.checkingAccountId && !old0.acctPending;
+      var acctName = '';
+      if (old0.checkingAccountId) { var ac0 = FT.checking().find(function (a) { return String(a.id) === String(old0.checkingAccountId); }); acctName = ac0 ? ac0.name : ''; }
+      var msg = '';
+      if (old0.checkingAccountId && accountMoved && willFuture) {
+        msg = es ? 'Con esa fecha futura el movimiento queda ⏳ pendiente: ' + FT.money(old0.amount, { cents: true }) + (old0.acctCredited ? ' salen de «' : ' regresan a «') + acctName + '» y dejan de contar en tu presupuesto hasta el ' + FT.date(newDate0) + '. Ese día se aplica solo.'
+          : 'With that future date the entry becomes ⏳ pending: ' + FT.money(old0.amount, { cents: true }) + (old0.acctCredited ? ' leave "' : ' go back to "') + acctName + '" and stop counting in your budget until ' + FT.date(newDate0) + '. It applies on its own that day.';
+      } else if (old0.checkingAccountId && !accountMoved && !willFuture) {
+        msg = es ? 'Con esa fecha el movimiento se aplica ya: ' + FT.money(newAmt0, { cents: true }) + (old0.acctCredited ? ' entran a «' : ' salen de «') + acctName + '» y cuenta en tu presupuesto.'
+          : 'With that date the entry applies now: ' + FT.money(newAmt0, { cents: true }) + (old0.acctCredited ? ' go into "' : ' come out of "') + acctName + '" and counts in your budget.';
+      }
+      function commit() {
+        var d = FT.data();
+        var i = d.transactions.findIndex(function (t) { return String(t.id) === String(tx.id); });
+        if (i >= 0) {
+          var oldTx = d.transactions[i];
+          var newAmount = newAmt0;
+          if (oldTx.checkingAccountId) {
+            var oldAmt = parseFloat(oldTx.amount) || 0, moved = !oldTx.acctPending;
+            if (moved && willFuture) {
+              // pasa a pendiente: devolver el movimiento viejo a la cuenta
+              if (oldTx.acctCredited) FT.deductChecking(oldTx.checkingAccountId, oldAmt); else FT.creditChecking(oldTx.checkingAccountId, oldAmt);
+            } else if (!moved && !willFuture) {
+              // llegó/cambió a hoy o pasado: se aplica ahora con el monto nuevo
+              if (oldTx.acctCredited) FT.creditChecking(oldTx.checkingAccountId, newAmount); else FT.deductChecking(oldTx.checkingAccountId, newAmount, newDate0);
+            } else if (moved && newAmount !== oldAmt) {
+              // Si este movimiento había movido una cuenta, editar el monto ajusta esa cuenta por la
+              // diferencia. Un GASTO deducido de más se devuelve; algo que ACREDITÓ (ingreso o aporte
+              // hogar de recordCheque) va en signo contrario (revisión independiente anterior).
+              if (oldTx.acctCredited) FT.creditChecking(oldTx.checkingAccountId, newAmount - oldAmt);
+              else FT.creditChecking(oldTx.checkingAccountId, oldAmt - newAmount);
+            }
+            // (pendiente que sigue pendiente: la cuenta no se toca)
+          }
+          var kindSel = body.querySelector('#etKind');
+          var dd = FT.data();
+          var j = dd.transactions.findIndex(function (t) { return String(t.id) === String(tx.id); });
+          dd.transactions[j] = Object.assign({}, dd.transactions[j], {
+            desc: body.querySelector('#etDesc').value.trim(),
+            amount: newAmount,
+            date: newDate0,
+            note: body.querySelector('#etNote').value.trim()
+          });
+          if (kindSel && kindSel.value) dd.transactions[j].incomeKind = kindSel.value;
+          if (willFuture) { dd.transactions[j].pendiente = true; if (dd.transactions[j].checkingAccountId) dd.transactions[j].acctPending = true; }
+          else { delete dd.transactions[j].pendiente; delete dd.transactions[j].acctPending; }
+          FT.saveData(dd);
+          FT.toast(willFuture ? (es ? '⏳ Pendiente hasta el ' + FT.date(newDate0) : '⏳ Pending until ' + FT.date(newDate0)) : (es ? '✅ Registro actualizado' : '✅ Entry updated'));
+        }
+        FT.closeTop(); // cierra el modal de edición
+        FT.closeTop(); // cierra también la hoja de detalle (los datos ya cambiaron)
+      }
+      if (msg) { FT.confirm(msg, { title: es ? 'Cambio de fecha' : 'Date change' }).then(function (ok) { if (ok) commit(); }); return true; }
+      commit();
       return true;   // evita que el wrapper intente cerrar una tercera vez
     }
   });
@@ -4223,6 +5214,7 @@ FT.shell = function (opts) {
   nav.querySelector('[data-act="more"]').addEventListener('click', FT.openMore);
   nav.querySelector('[data-act="plus"]').addEventListener('click', function () {
     if (opts.onPlus) opts.onPlus();
+    else if (FT.openPicker) FT.openPicker({ ctx: opts.active === 'hogar' ? 'hogar' : 'overview' });
     else FT.go('dashboard.html');
   });
 
@@ -5198,7 +6190,7 @@ FT.buildFinanceContext = function () {
     var p = String(t.date).split(/[-T]/);
     return parseInt(p[0], 10) === y && (parseInt(p[1], 10) - 1) === m;
   }
-  var txs = FT.txs().filter(inMonth);
+  var txs = FT.txsCounted().filter(inMonth);
   var income = parseFloat(u.income) || 0;
   var hogarOn = FT.hogarConnected();
   var pct = FT.personalPct();

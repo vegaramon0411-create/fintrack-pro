@@ -133,7 +133,7 @@ function getCategoryType(cat) { return CATEGORY_TYPE_MAP[cat] || 'wants'; }
 
 function getAvailablePeriods() {
   var seen = {};
-  FT.txs().forEach(function (t) {
+  FT.txsCounted().forEach(function (t) {
     var p = String(t.date || '').split('-').map(Number);
     if (p.length < 2) return;
     var key = p[0] + '-' + (p[1] - 1);
@@ -142,7 +142,7 @@ function getAvailablePeriods() {
   return Object.keys(seen).map(function (k) { return seen[k]; }).sort(function (a, b) { return b.year - a.year || b.month - a.month; });
 }
 function getTxForPeriod(year, month) {
-  return FT.txs().filter(function (t) {
+  return FT.txsCounted().filter(function (t) {
     var p = String(t.date || '').split('-').map(Number);
     return p.length >= 2 && p[0] === year && (p[1] - 1) === month;
   });

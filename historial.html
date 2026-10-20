@@ -15,7 +15,7 @@ var selectedMonth = FT.todayISO().slice(0, 7);
 var activeFilter = 'all';
 // 19-oct-2026, a petición de Ramón: tocar una barra de categoría (Overview u
 // Hogar) llega aquí ya filtrado -- ?f=hogar|personal|..., ?m=AAAA-MM, ?cat=...
-var catFilter = '';
+var catFilter = '', acctFilter = '';
 (function () {
   try {
     var q = new URLSearchParams(location.search);
@@ -23,6 +23,7 @@ var catFilter = '';
     if (['all', 'gasto', 'ingreso', 'inversion', 'hogar', 'personal'].indexOf(f) > -1) activeFilter = f;
     if (/^\d{4}-(0[1-9]|1[0-2])$/.test(m || '')) selectedMonth = m;
     catFilter = q.get('cat') || '';
+    acctFilter = q.get('acct') || '';
   } catch (e) {}
 })();
 function catMatches(t) {
@@ -33,6 +34,12 @@ function catMatches(t) {
   return FT.catMeta(t.cat || '').label.toLowerCase() === want;
 }
 function clearCat() { catFilter = ''; render(); }
+function clearAcct() { acctFilter = ''; render(); }
+function acctMatches(t) {
+  if (!acctFilter) return true;
+  if (String(t.checkingAccountId) === String(acctFilter)) return true;
+  return t.type === 'transferencia' && ((t.fromRef && t.fromRef.type === 'account' && String(t.fromRef.id) === String(acctFilter)) || (t.toRef && t.toRef.type === 'account' && String(t.toRef.id) === String(acctFilter)));
+}
 function escH(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
 // Bug real de QA (N3): la sección "Del hogar" alternaba entre dos números
 // distintos (ej. "Aportado $120" y luego "Aportado $0 / Gastos $120") sin
@@ -69,7 +76,7 @@ function render() {
   if (shell) shell.setMonth(monthLabel());
 
   var data = FT.data();
-  var txs = (data.transactions || []).filter(function (t) { return (t.date || '').startsWith(selectedMonth); });
+  var txs = (data.transactions || []).filter(function (t) { return !FT.isPending(t) && (t.date || '').startsWith(selectedMonth); });
   var pp = FT.partnerProfile();
   var partnerHogarTxs = pp && pp.data && pp.data.transactions
     ? (pp.data.transactions || []).filter(function (t) { return (t.isHogar || t.hogar === true) && (t.date || '').startsWith(selectedMonth); })
@@ -138,11 +145,16 @@ function render() {
       '<span>' + (L ? 'Gastos' : 'Expenses') + ' <b>' + FT.money(totalExpense, { cents: true }) + '</b></span>' +
     '</div></div>';
 
+  if (acctFilter) h = '';   // vista de una cuenta: abarca todos los meses, el resumen del mes no aplica
   h += '<div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;margin-bottom:14px">' +
     [['all', L ? 'Todos' : 'All'], ['gasto', '💸 ' + (L ? 'Gastos' : 'Expenses')], ['ingreso', '💰 ' + (L ? 'Ingresos' : 'Income')], ['inversion', '📈 ' + (L ? 'Inversiones' : 'Investments')], ['personal', '👤 Personal'], ['hogar', '🏠 ' + (L ? 'Hogar' : 'Household')]]
       .map(function (f) { var on = activeFilter === f[0]; return '<button class="tap" data-f="' + f[0] + '" style="flex-shrink:0;background:' + (on ? 'var(--ink)' : 'var(--sunk)') + ';border:1.5px solid ' + (on ? 'var(--ink)' : 'var(--hair)') + ';color:' + (on ? '#fff' : 'var(--text2)') + ';border-radius:99px;padding:6px 14px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;white-space:nowrap">' + f[1] + '</button>'; }).join('') +
   '</div>';
 
+  if (acctFilter) {
+    var acN = (FT.checking().find(function (a) { return String(a.id) === String(acctFilter); }) || {}).name || (L ? 'Cuenta' : 'Account');
+    h += '<div style="display:flex;align-items:center;gap:8px;margin:-4px 0 12px"><span style="font-size:12px;color:var(--text2)">' + (L ? 'Cuenta:' : 'Account:') + ' <b>' + escH(acN) + '</b></span><button class="tap" onclick="clearAcct()" style="background:var(--sunk);border:1px solid var(--hair);border-radius:99px;padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;color:var(--text2)">✕ ' + (L ? 'Quitar' : 'Clear') + '</button></div>';
+  }
   if (catFilter) {
     h += '<div style="display:flex;align-items:center;gap:8px;margin:-4px 0 12px"><span style="font-size:12px;color:var(--text2)">' + (L ? 'Categoría:' : 'Category:') + ' <b>' + escH(FT.catMeta(catFilter).label) + '</b></span>' +
       '<button class="tap" onclick="clearCat()" aria-label="' + (L ? 'Quitar filtro de categoría' : 'Clear category filter') + '" style="background:var(--sunk);border:1px solid var(--hair);border-radius:99px;padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;color:var(--text2)">✕ ' + (L ? 'Quitar' : 'Clear') + '</button></div>';
@@ -177,7 +189,7 @@ function toggleToolsPanel() {
 
 function renderList() {
   var L = es(), data = FT.data();
-  var txs = (data.transactions || []).filter(function (t) { return (t.date || '').startsWith(selectedMonth); });
+  var txs = (data.transactions || []).filter(function (t) { return acctFilter ? !!t.date : (t.date || '').startsWith(selectedMonth); }); // vista de una cuenta: todos sus meses
   var hogar = FT.hogar(), partnerName = hogar.partnerName || (L ? 'Tu pareja' : 'Your partner');
   var pp = FT.partnerProfile();
   if (pp && pp.data && pp.data.transactions) {
@@ -194,6 +206,7 @@ function renderList() {
   else if (activeFilter === 'personal') txs = txs.filter(function (t) { return !(t.isHogar || t.hogar === true); });
   else if (activeFilter !== 'all') txs = txs.filter(function (t) { return t.type === activeFilter; });
   if (catFilter) txs = txs.filter(catMatches);
+  if (acctFilter) txs = txs.filter(acctMatches);
   txs.sort(function (a, b) { return String(b.date || '').localeCompare(String(a.date || '')) || ((parseInt(b.id, 10) || 0) - (parseInt(a.id, 10) || 0)); });
 
   _currentList = txs;
