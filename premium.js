@@ -733,121 +733,161 @@ FT.accountVaults = function (accountId) {
  *  recurrente en cualquier pantalla. */
 FT.checkingAccountsScreen = function (isHogar) {
   var L = FT.lang === 'es';
-  var mine = FT.checking().filter(function (c) { return !!c.hogar === !!isHogar; });
-  var rows = mine.length ? mine.map(function (c) {
-    var ruleLbl = isHogar ? (c.rule ? (c.rule.type === 'remainder' ? (L ? 'Lo que sobre' : "What's left") : c.rule.type === 'pct' ? c.rule.value + '%' : FT.money(c.rule.value)) : (c.autoDeposit ? (L ? '100% (config. anterior)' : '100% (old setting)') : null)) : null;
-    // Cuentas como base (Fase 1/3): si esta cuenta tiene fondos vinculados
-    // (apartados), se muestra el desglose Total → Apartado → Libre en vez
-    // de solo el saldo -- espejo del modelo SoFi. Sin vínculos, se ve
-    // exactamente igual que antes de este feature.
-    var vaults = FT.accountVaults(c.id);
-    var libre = FT.accountFree(c), apartado = FT.accountEarmarked(c.id), total = libre + apartado;
-    var breakdown = vaults.length ?
-      '<div style="font-size:9.5px;color:var(--text3);margin-top:2px">' + (L ? 'Total ' : 'Total ') + FT.money(total, { cents: true }) + ' = ' + (L ? 'Disponible ' : 'Available ') + FT.money(libre, { cents: true }) + ' + ' + (L ? 'Apartado ' : 'Set aside ') + FT.money(apartado, { cents: true }) + '</div>' +
-      '<div style="font-size:9px;color:var(--text3);margin-top:1px">' + vaults.map(function (v) { return v.name + ' ' + FT.money(v.actual, { cents: true }); }).join(' · ') + '</div>' : '';
-    return '<div style="display:flex;align-items:center;gap:8px;padding:10px;background:var(--sunk);border-radius:12px;margin-bottom:8px">' +
-      '<div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:700">' + (c.name || (L ? 'Cuenta' : 'Account')) + '</div>' +
-      '<div class="tap" data-edit-bal="' + c.id + '" style="font-size:10px;color:var(--text3);cursor:pointer">' + FT.money(vaults.length ? total : (c.amount || 0), { cents: true }) + ' ✏️' + (ruleLbl ? ' · 🔗 ' + ruleLbl + ' ' + (L ? 'de tu aporte hogar' : 'of your household share') : '') + '</div>' + breakdown + '</div>' +
-      (isHogar ? '<button type="button" class="tap" data-rule-acct="' + c.id + '" style="padding:6px 10px;border-radius:8px;border:1.5px solid ' + (ruleLbl ? 'var(--g-main)' : 'var(--hair)') + ';background:' + (ruleLbl ? 'var(--g-light)' : '#fff') + ';color:' + (ruleLbl ? 'var(--g-dark)' : 'var(--text2)') + ';font-family:inherit;font-size:10px;font-weight:800;cursor:pointer">' + (ruleLbl ? (L ? 'Editar' : 'Edit') : (L ? '+ Regla' : '+ Rule')) + '</button>' : '') +
-      (!isHogar ? '<button type="button" class="tap" data-def-acct="' + c.id + '" style="padding:6px 9px;border-radius:8px;border:none;background:none;color:' + (c.id === FT.user().defaultAccountId ? 'var(--amber, #C99000)' : 'var(--text3)') + ';font-size:14px;cursor:pointer" title="' + (L ? 'Predeterminada para gastos' : 'Default for expenses') + '">' + (c.id === FT.user().defaultAccountId ? '⭐' : '☆') + '</button>' : '') +
-      // Vincular fondos solo en cuentas PERSONALES por ahora -- las metas/
-      // emergencia de Hogar quedaron con el campo accountId listo, pero
-      // ningún flujo de depósito de Hogar (registrarEnPresupuesto,
-      // _applyRecMeta) sabe moverlo todavía; ofrecerlo aquí desincronizaría
-      // los números en silencio (revisión independiente, hallazgo #8).
-      (!isHogar ? '<button type="button" class="tap" data-vault-acct="' + c.id + '" style="padding:6px 9px;border-radius:8px;border:none;background:none;color:var(--text3);font-size:13px;cursor:pointer" title="' + (L ? 'Vincular fondo' : 'Link a fund') + '">🔗</button>' : '') +
-      '<button type="button" class="tap" data-del-acct="' + c.id + '" style="padding:6px 9px;border-radius:8px;border:none;background:none;color:var(--text3);font-size:13px;cursor:pointer">🗑</button>' +
-    '</div>';
-  }).join('') : '<div style="font-size:12px;color:var(--text3);padding:6px 0 10px">' + (isHogar ? (L ? 'Aún no tienes ninguna cuenta marcada como conjunta.' : "You don't have any account marked as joint yet.") : (L ? 'Aún no tienes ninguna cuenta personal registrada.' : "You don't have any personal account yet.")) + '</div>';
+  // 19-oct-2026, a petición de Ramón: "al modificar cuentas tiene que ser muy
+  // sencillo, sin confusiones" -- antes cada cuenta traía 4 íconos sueltos
+  // (✏️ ⭐ 🔗 🗑) sin decir qué hacían. Ahora cada cuenta es una tarjeta con
+  // "Editar ›" visible, y al tocarla se abre un menú con cada acción rotulada y
+  // explicada (cuadrar saldo, renombrar, vincular fondo, regla, eliminar).
+  function rowsHtml() {
+    var mine = FT.checking().filter(function (c) { return !!c.hogar === !!isHogar; });
+    if (!mine.length) return '<div style="font-size:12px;color:var(--text3);padding:6px 0 10px">' + (isHogar ? (L ? 'Aún no tienes ninguna cuenta marcada como conjunta.' : "You don't have any account marked as joint yet.") : (L ? 'Aún no tienes ninguna cuenta personal registrada.' : "You don't have any personal account yet.")) + '</div>';
+    var defId = FT.user().defaultAccountId;
+    return mine.map(function (c) {
+      var ruleLbl = isHogar ? (c.rule ? (c.rule.type === 'remainder' ? (L ? 'Lo que sobre' : "What's left") : c.rule.type === 'pct' ? c.rule.value + '%' : FT.money(c.rule.value)) : (c.autoDeposit ? (L ? '100% (config. anterior)' : '100% (old setting)') : null)) : null;
+      // Cuentas como base (Fase 1/3): con fondos vinculados se muestra Total →
+      // Apartado → Disponible (espejo del modelo SoFi).
+      var vaults = FT.accountVaults(c.id);
+      var libre = FT.accountFree(c), apartado = FT.accountEarmarked(c.id), total = libre + apartado;
+      var ico = c.kind === 'cash' ? '💵' : c.kind === 'other' ? '➕' : '🏦';
+      var chips = [];
+      if (!isHogar && c.id === defId) chips.push('⭐ ' + (L ? 'Predeterminada' : 'Default'));
+      if (vaults.length) chips.push('🔗 ' + vaults.length + ' ' + (L ? 'fondo(s)' : 'fund(s)'));
+      if (ruleLbl) chips.push('⚙️ ' + (L ? 'Regla: ' : 'Rule: ') + ruleLbl);
+      return '<div class="tap" data-acct-menu="' + c.id + '" title="' + (L ? 'Toca para editar esta cuenta' : 'Tap to edit this account') + '" style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--sunk);border-radius:14px;margin-bottom:8px;cursor:pointer">' +
+        '<div style="width:38px;height:38px;border-radius:12px;background:#fff;display:grid;place-items:center;font-size:18px;flex-shrink:0">' + ico + '</div>' +
+        '<div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + _escH(c.name || (L ? 'Cuenta' : 'Account')) + '</div>' +
+        '<div style="font-size:15px;font-weight:900;margin-top:1px">' + FT.money(vaults.length ? total : (c.amount || 0), { cents: true }) + '</div>' +
+        (vaults.length ? '<div style="font-size:10px;color:var(--text3)">' + (L ? 'Disponible ' : 'Available ') + FT.money(libre, { cents: true }) + ' · ' + (L ? 'Apartado ' : 'Set aside ') + FT.money(apartado, { cents: true }) + '</div>' : '') +
+        (chips.length ? '<div style="font-size:10px;color:var(--g-dark);font-weight:700;margin-top:3px">' + chips.join(' · ') + '</div>' : '') + '</div>' +
+        '<div style="font-size:12px;font-weight:800;color:var(--blue);flex-shrink:0">' + (L ? 'Editar' : 'Edit') + ' ›</div></div>';
+    }).join('');
+  }
 
   FT.sheet({
     title: isHogar ? '🏦 ' + (L ? 'Cuentas de cheques conjuntas' : 'Joint checking accounts') : '🏦 ' + (L ? 'Mis cuentas' : 'My accounts'),
-    html: rows +
+    html: '<div id="acctRows">' + rowsHtml() + '</div>' +
       '<p style="font-size:10.5px;color:var(--text3);margin-top:6px">' + (isHogar
-        ? (L ? 'Cada cuenta con regla recibe su parte (monto fijo o %) de tu aporte de hogar cada vez que registras un cheque nuevo -- puedes poner regla en varias cuentas a la vez. Lo que ninguna regla cubra no se deposita en ninguna cuenta, pero sigue contando en tu presupuesto de hogar.' : "Each account with a rule gets its share (fixed $ or %) of your household contribution every time you log a new paycheck -- you can set a rule on more than one account. Whatever no rule covers isn't deposited to any account, but still counts toward your household budget.")
-        : (L ? 'Estas son tus cuentas personales -- puedes elegir cualquiera de ellas como origen al crear un recurrente (inversión, deuda, ahorro, meta), para que se descuente de aquí cuando se aplique.' : 'These are your personal accounts -- you can pick any of them as the source when creating a recurring item (investment, debt, savings, goal), so it gets deducted from here when it applies.')) + '</p>',
+        ? (L ? 'Toca una cuenta para editarla. Cada cuenta con regla recibe su parte (monto fijo o %) de tu aporte de hogar cada vez que registras un cheque nuevo -- puedes poner regla en varias cuentas a la vez. Lo que ninguna regla cubra no se deposita en ninguna cuenta, pero sigue contando en tu presupuesto de hogar.' : "Tap an account to edit it. Each account with a rule gets its share (fixed $ or %) of your household contribution every time you log a new paycheck -- you can set a rule on more than one account. Whatever no rule covers isn't deposited to any account, but still counts toward your household budget.")
+        : (L ? 'Toca una cuenta para editarla. Puedes elegir cualquiera como origen al crear un recurrente (inversión, deuda, ahorro, meta), para que se descuente de aquí cuando se aplique.' : 'Tap an account to edit it. You can pick any of them as the source when creating a recurring item (investment, debt, savings, goal), so it gets deducted from here when it applies.')) + '</p>',
     actions: [
       { label: '＋ ' + (L ? 'Agregar cuenta' : 'Add account'), onClick: function () { _openCuentaForm(isHogar); } }
     ],
     onOpen: function (body) {
-      body.querySelectorAll('[data-rule-acct]').forEach(function (b) {
+      function wire() {
+        body.querySelectorAll('[data-acct-menu]').forEach(function (b) {
+          b.onclick = function () {
+            var acct = FT.checking().find(function (a) { return String(a.id) === b.getAttribute('data-acct-menu'); });
+            if (acct) _openAccountMenu(acct, isHogar);
+          };
+        });
+      }
+      wire();
+      // La lista se refresca sola cuando algo cambia (cuadrar saldo, renombrar, eliminar...).
+      function refresh() {
+        if (!document.body.contains(body)) { document.removeEventListener('ft:datachanged', refresh); return; }
+        var box = body.querySelector('#acctRows');
+        if (box) { box.innerHTML = rowsHtml(); wire(); }
+      }
+      document.addEventListener('ft:datachanged', refresh);
+    }
+  });
+};
+function _escH(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+/** Menú de una cuenta: cada acción con su nombre y una línea que explica qué hace. */
+function _openAccountMenu(acct, isHogar) {
+  var L = FT.lang === 'es';
+  var defId = FT.user().defaultAccountId;
+  var total = FT.accountEarmarked(acct.id) ? FT.accountTotal(acct) : (parseFloat(acct.amount) || 0);
+  function act(ico, title, sub, key, danger) {
+    return '<div class="tap" data-act="' + key + '" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;background:var(--sunk);margin-bottom:8px;cursor:pointer">' +
+      '<div style="font-size:18px;width:26px;text-align:center">' + ico + '</div>' +
+      '<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:800;' + (danger ? 'color:var(--red)' : '') + '">' + title + '</div><div style="font-size:11px;color:var(--text3)">' + sub + '</div></div>' +
+      '<div style="color:var(--text3)">›</div></div>';
+  }
+  var html = '<div style="text-align:center;margin-bottom:14px"><div class="ft-num" style="font-size:26px">' + FT.money(total, { cents: true }) + '</div></div>' +
+    act('✏️', L ? 'Cuadrar saldo con mi banco' : 'Match my bank balance', L ? 'Escribe lo que dice tu banco y la app se ajusta' : 'Type what your bank shows and the app adjusts', 'bal') +
+    act('🏷️', L ? 'Cambiar nombre' : 'Rename', L ? 'Ponle el nombre que reconozcas' : 'Give it a name you recognize', 'name') +
+    (isHogar
+      ? act('⚙️', L ? 'Regla de depósito' : 'Deposit rule', L ? 'Cuánto de tu aporte de hogar llega aquí cada cheque' : 'How much of your household share lands here each paycheck', 'rule')
+      : act('🔗', L ? 'Vincular un fondo' : 'Link a fund', L ? 'Aparta una parte de esta cuenta para un fondo de ahorro' : 'Set part of this account aside for a savings fund', 'vault') +
+        act(acct.id === defId ? '☆' : '⭐', acct.id === defId ? (L ? 'Quitar como predeterminada' : 'Remove as default') : (L ? 'Usar como predeterminada' : 'Use as default'), L ? 'La que se propone al registrar un gasto' : 'The one suggested when you log an expense', 'def')) +
+    act('🗑️', L ? 'Eliminar cuenta' : 'Delete account', L ? 'Solo se puede si está en $0 y sin fondos vinculados' : 'Only possible at $0 with no linked funds', 'del', true);
+  FT.sheet({
+    title: _escH(acct.name || (L ? 'Cuenta' : 'Account')),
+    html: html,
+    onOpen: function (body) {
+      body.querySelectorAll('[data-act]').forEach(function (b) {
         b.onclick = function () {
-          var id = b.getAttribute('data-rule-acct');
-          var acct = FT.checking().find(function (a) { return String(a.id) === id; });
-          if (acct) _openReglaCuenta(acct);
-        };
-      });
-      body.querySelectorAll('[data-edit-bal]').forEach(function (b) {
-        b.onclick = function () {
-          var id = b.getAttribute('data-edit-bal');
-          var acct = FT.checking().find(function (a) { return String(a.id) === id; });
-          if (acct) _openAjusteSaldoCuenta(acct);
-        };
-      });
-      body.querySelectorAll('[data-vault-acct]').forEach(function (b) {
-        b.onclick = function () {
-          var id = b.getAttribute('data-vault-acct');
-          var acct = FT.checking().find(function (a) { return String(a.id) === id; });
-          if (acct) _openVincularFondo(acct, isHogar);
-        };
-      });
-      body.querySelectorAll('[data-def-acct]').forEach(function (b) {
-        b.onclick = function () {
-          var id = b.getAttribute('data-def-acct');
-          var u = FT.user();
-          u.defaultAccountId = (u.defaultAccountId === id) ? null : id;
-          FT.saveUser(u);
-          FT.toast(u.defaultAccountId ? (L ? '⭐ Cuenta predeterminada' : '⭐ Default account') : (L ? 'Ya no es la predeterminada' : 'No longer default'));
+          var k = b.getAttribute('data-act');
           FT.closeTop();
-          FT.checkingAccountsScreen(isHogar);
-        };
-      });
-      body.querySelectorAll('[data-del-acct]').forEach(function (b) {
-        b.onclick = function () {
-          var id = b.getAttribute('data-del-acct');
-          var accts = FT.checking();
-          var acct = accts.find(function (a) { return String(a.id) === id; });
-          if (!acct) return;
-          // Ningún saldo se pierde en silencio: si hay fondos vinculados
-          // (apartados) a esta cuenta, hay que desvincularlos primero -- si
-          // no, quedarían "flotando" sin ninguna cuenta que los respalde.
-          if (FT.accountVaults(id).length) {
-            FT.toast(L ? 'Esta cuenta tiene fondos vinculados — desvincúlalos primero (🔗)' : 'This account has linked funds — unlink them first (🔗)');
-            return;
-          }
-          // Solo se puede eliminar una cuenta en $0 -- si tiene saldo, hay
-          // que retirarlo/moverlo primero para no perder el rastro de ese
-          // dinero (mismo criterio que ya usa Ahorro libre para sus fondos).
-          if (Math.abs(parseFloat(acct.amount) || 0) >= 0.005) {
-            FT.toast(L ? 'Esta cuenta tiene saldo — ajústalo a $0 antes de eliminarla' : 'This account has a balance — set it to $0 before deleting it');
-            return;
-          }
-          FT.confirm(L ? '¿Eliminar «' + acct.name + '»?' : 'Delete "' + acct.name + '"?').then(function (ok) {
-            if (!ok) return;
-            var fresh = FT.checking().find(function (a) { return String(a.id) === id; });
-            if (!fresh || Math.abs(parseFloat(fresh.amount) || 0) >= 0.005 || FT.accountVaults(id).length) { FT.toast(L ? 'Esta cuenta ya no está en $0 o sin vínculos' : 'This account is no longer at $0 or unlinked'); FT.closeTop(); return; }
-            FT.saveChecking(FT.checking().filter(function (a) { return String(a.id) !== id; }));
-            FT.toast(L ? 'Eliminada' : 'Deleted');
-            FT.closeTop();
-          });
+          if (k === 'bal') _openAjusteSaldoCuenta(acct);
+          else if (k === 'name') _openRenombrarCuenta(acct);
+          else if (k === 'rule') _openReglaCuenta(acct);
+          else if (k === 'vault') _openVincularFondo(acct, isHogar);
+          else if (k === 'def') {
+            var u = FT.user();
+            u.defaultAccountId = (u.defaultAccountId === acct.id) ? null : acct.id;
+            FT.saveUser(u);
+            FT.toast(u.defaultAccountId ? (L ? '⭐ Cuenta predeterminada' : '⭐ Default account') : (L ? 'Ya no es la predeterminada' : 'No longer default'));
+            FT._changed();
+          } else if (k === 'del') _deleteCuenta(acct);
         };
       });
     }
   });
-};
+}
+function _openRenombrarCuenta(acct) {
+  var L = FT.lang === 'es';
+  FT.modal({
+    title: L ? 'Cambiar nombre' : 'Rename account',
+    html: '<div class="ft-field"><label>' + (L ? 'Nombre' : 'Name') + '</label><input id="rnName" value="' + _escH(acct.name || '') + '"></div>',
+    saveLabel: L ? 'Guardar' : 'Save',
+    onSave: function (body) {
+      var name = (body.querySelector('#rnName').value || '').trim();
+      if (!name) { FT.toast(L ? 'Ingresa un nombre' : 'Enter a name'); return true; }
+      var accts = FT.checking();
+      var a = accts.find(function (x) { return String(x.id) === String(acct.id); });
+      if (a) { a.name = name; FT.saveChecking(accts); FT.toast(L ? '✅ Nombre actualizado' : '✅ Name updated'); }
+    }
+  });
+}
+function _deleteCuenta(acct) {
+  var L = FT.lang === 'es', id = String(acct.id);
+  // Ningún saldo se pierde en silencio: con fondos vinculados (apartados) hay
+  // que desvincularlos primero, y solo se elimina una cuenta en $0.
+  if (FT.accountVaults(id).length) {
+    FT.toast(L ? 'Esta cuenta tiene fondos vinculados — desvincúlalos primero (Vincular un fondo)' : 'This account has linked funds — unlink them first (Link a fund)');
+    return;
+  }
+  if (Math.abs(parseFloat(acct.amount) || 0) >= 0.005) {
+    FT.toast(L ? 'Esta cuenta tiene saldo — cuádrala a $0 antes de eliminarla' : 'This account has a balance — set it to $0 before deleting it');
+    return;
+  }
+  FT.confirm(L ? '¿Eliminar «' + acct.name + '»?' : 'Delete "' + acct.name + '"?').then(function (ok) {
+    if (!ok) return;
+    var fresh = FT.checking().find(function (a) { return String(a.id) === id; });
+    if (!fresh || Math.abs(parseFloat(fresh.amount) || 0) >= 0.005 || FT.accountVaults(id).length) { FT.toast(L ? 'Esta cuenta ya no está en $0 o sin vínculos' : 'This account is no longer at $0 or unlinked'); return; }
+    FT.saveChecking(FT.checking().filter(function (a) { return String(a.id) !== id; }));
+    FT.toast(L ? 'Eliminada' : 'Deleted');
+  });
+}
 function _openCuentaForm(isHogar) {
   var L = FT.lang === 'es';
   FT.modal({
-    title: isHogar ? (L ? 'Nueva cuenta de cheques' : 'New checking account') : (L ? 'Nueva cuenta personal' : 'New personal account'),
-    html: '<div class="ft-field"><label>' + (L ? 'Nombre' : 'Name') + '</label><input id="ctName" placeholder="' + (isHogar ? (L ? 'Ej. Cuenta conjunta' : 'E.g. Joint account') : (L ? 'Ej. Mi checking' : 'E.g. My checking')) + '"></div>' +
-      '<div class="ft-field"><label>' + (L ? 'Saldo actual' : 'Current balance') + '</label><input id="ctAmt" inputmode="decimal" placeholder="$0"></div>',
+    title: isHogar ? (L ? 'Nueva cuenta conjunta' : 'New joint account') : (L ? 'Nueva cuenta personal' : 'New personal account'),
+    html: '<div class="ft-field"><label>' + (L ? 'Tipo' : 'Type') + '</label><select id="ctKind"><option value="checking">🏦 ' + (L ? 'Cuenta de cheques' : 'Checking account') + '</option><option value="cash">💵 ' + (L ? 'Efectivo' : 'Cash') + '</option><option value="other">➕ ' + (L ? 'Otra cuenta' : 'Other account') + '</option></select></div>' +
+      '<div class="ft-field"><label>' + (L ? 'Nombre' : 'Name') + '</label><input id="ctName" placeholder="' + (isHogar ? (L ? 'Ej. Cuenta conjunta' : 'E.g. Joint account') : (L ? 'Ej. Mi checking' : 'E.g. My checking')) + '"></div>' +
+      '<div class="ft-field"><label>' + (L ? 'Saldo actual' : 'Current balance') + '</label><input id="ctAmt" inputmode="decimal" placeholder="$0"></div>' +
+      '<p style="font-size:10.5px;color:var(--text3)">' + (L ? '¿Tarjeta de crédito o préstamo? Eso es una deuda: agrégala en Deudas.' : 'Credit card or loan? That is a debt: add it in Debts.') + '</p>',
     saveLabel: L ? 'Agregar' : 'Add',
     onSave: function (body) {
       var name = (body.querySelector('#ctName').value || '').trim();
+      var kind = body.querySelector('#ctKind').value;
       if (!name) { FT.toast(L ? 'Ingresa un nombre' : 'Enter a name'); return true; }
-      var amt = parseFloat((body.querySelector('#ctAmt').value || '').replace(/,/g, '')) || 0;
+      var amt = FT.numMoney(body.querySelector('#ctAmt').value) || 0;
       var accts = FT.checking();
-      accts.push({ id: 'chk_' + Date.now(), name: name, amount: amt, hogar: !!isHogar, updatedAt: FT.todayISO() });
+      accts.push({ id: 'chk_' + Date.now(), name: name, amount: amt, hogar: !!isHogar, kind: kind, updatedAt: FT.todayISO() });
       FT.saveChecking(accts);
       FT.toast(L ? '✅ Cuenta agregada' : '✅ Account added');
       FT.closeTop();
