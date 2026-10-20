@@ -73,7 +73,7 @@ function computeStats() {
   var u = FT.user();
   var created = u.createdAt ? new Date(u.createdAt) : new Date();
   var monthsActive = Math.max(1, Math.round((new Date() - created) / (1000 * 60 * 60 * 24 * 30)));
-  var totalSaved = txs.filter(function (t) { return t.type === 'ahorro' || t.type === 'inversion'; }).reduce(function (s, t) { return s + (parseFloat(t.amount) || 0); }, 0);
+  var totalSaved = txs.filter(function (t) { return (t.type === 'ahorro' || t.type === 'inversion') && t.aporteManual !== true; }).reduce(function (s, t) { return s + (parseFloat(t.amount) || 0); }, 0);
   var totalInvested = invs.reduce(function (s, i) { return s + (parseFloat(i.amount) || 0); }, 0);
   var uniqueDays = new Set(txs.map(function (t) { return t.date; })).size;
   var totalTx = txs.length;
@@ -286,6 +286,8 @@ function setPayFreq(freq) {
   FT.saveUser(u);
   render();
 }
+function saveNumFormat(v) { var u = FT.user(); u.numFormat = v === 'latam' ? 'latam' : 'us'; u.numFormatChosen = true; FT.saveUser(u); render(); FT.toast(es() ? '✅ Formato guardado' : '✅ Format saved'); }
+function saveCurrencySym(v) { var u = FT.user(); u.currencySymbol = v || '$'; FT.saveUser(u); render(); FT.toast(es() ? '✅ Símbolo guardado' : '✅ Symbol saved'); }
 function savePayDay(day) { var u = FT.user(); u.payDay = day; FT.saveUser(u); }
 function savePayAnchor(dateISO) { var u = FT.user(); u.payAnchor = dateISO; FT.saveUser(u); FT.toast(es() ? '✅ Fecha guardada' : '✅ Date saved'); }
 function savePayAuto(val) { var u = FT.user(); u.payAuto = val; FT.saveUser(u); FT.toast(val ? (es() ? '✅ Registro automático activado' : '✅ Auto-register on') : (es() ? 'Registro automático desactivado' : 'Auto-register off')); }
@@ -370,6 +372,19 @@ function render() {
     '<div class="stat-card"><div class="stat-ico">📝</div><div class="stat-val" style="color:var(--purple)">' + stats.totalTx + '</div><div class="stat-lbl">' + (L ? 'Registros totales' : 'Total entries') + '</div></div>' +
     '<div class="stat-card"><div class="stat-ico">🔥</div><div class="stat-val" style="color:var(--amber)">' + stats.uniqueDays + '</div><div class="stat-lbl">' + (L ? 'Días con actividad' : 'Days with activity') + '</div></div>' +
   '</div>' +
+
+  '<div class="card"><div class="card-hd">🔢 ' + (L ? 'Moneda y números' : 'Currency & numbers') + '</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">' +
+      '<div><label for="numFmtSel" style="font-size:11px;font-weight:700;color:var(--g-dark);display:block;margin-bottom:6px">' + (L ? 'Formato' : 'Format') + '</label>' +
+      '<select id="numFmtSel" onchange="saveNumFormat(this.value)" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;background:white">' +
+        '<option value="us"' + (FT.numFormat() === 'us' ? ' selected' : '') + '>1,200.00</option>' +
+        '<option value="latam"' + (FT.numFormat() === 'latam' ? ' selected' : '') + '>1.200,00</option></select></div>' +
+      '<div><label style="font-size:11px;font-weight:700;color:var(--g-dark);display:block;margin-bottom:6px">' + (L ? 'Moneda' : 'Currency') + '</label>' +
+      // La moneda (y su símbolo) se cambia en un solo lugar: Configuración.
+      '<button type="button" class="tap" onclick="go(\'config.html\')" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;background:white;text-align:left;cursor:pointer;font-size:14px">' + (FT.user().currency || 'USD') + ' (' + FT.currencySymbol() + ') ›</button></div>' +
+
+    '</div>' +
+    '<div style="font-size:12px;color:var(--text3)">' + (L ? 'Así se verá:' : 'Preview:') + ' <b style="color:var(--ink)">' + FT.money(1234.5, { cents: true }) + '</b></div></div>' +
 
   '<div class="card"><div class="card-hd">💰 ' + (L ? 'Mi ingreso mensual' : 'My monthly income') + '</div>' +
     '<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">' +

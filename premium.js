@@ -72,7 +72,14 @@ var CAT_PASTEL = {
 /* ─────────────────────────────────────────────────────────────────────────
    2 · FORMATO — LatAm: millar con punto, decimal con coma
    ───────────────────────────────────────────────────────────────────────── */
-function groupInt(s) { return String(s).replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
+/* 19-oct-2026, a petición de Ramón: el formato por defecto es el de EE.UU.
+   ($1,200.00) y se puede cambiar en Perfil (user.numFormat: 'us' | 'latam',
+   user.currencySymbol). Antes estaba fijo en LatAm ($1.200,00). */
+FT.numFormat = function () { var f; try { f = (FT.user() || {}).numFormat; } catch (e) {} return f === 'latam' ? 'latam' : 'us'; };
+var _CUR_SYM = { USD: '$', MXN: '$', CAD: '$', COP: '$', ARS: '$', CLP: '$', EUR: '€', GBP: '£', JPY: '¥', PEN: 'S/', BRL: 'R$', GTQ: 'Q', CRC: '₡', CHF: 'CHF' };
+FT.currencySymbol = function () { var u = {}; try { u = FT.user() || {}; } catch (e) {} return u.currencySymbol ? String(u.currencySymbol) : (_CUR_SYM[u.currency] || '$'); };
+function _seps() { return FT.numFormat() === 'latam' ? { group: '.', dec: ',' } : { group: ',', dec: '.' }; }
+function groupInt(s) { return String(s).replace(/\B(?=(\d{3})+(?!\d))/g, _seps().group); }
 
 /**
  * FT.money(n, opts)
@@ -84,18 +91,19 @@ function groupInt(s) { return String(s).replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
 FT.money = function (n, opts) {
   opts = opts || {};
   n = Number(n) || 0;
-  var neg = n < 0, abs = Math.abs(n), sym = opts.noSymbol ? '' : '$';
+  var neg = n < 0, abs = Math.abs(n), sym = opts.noSymbol ? '' : FT.currencySymbol();
   var pfx = opts.sign ? (neg ? '−' : '+') : (neg ? '−' : '');
+  var sp = _seps();
 
   if (opts.compact && abs >= 1000) {
     var big = abs >= 1e6, div = big ? 1e6 : 1e3, unit = big ? 'M' : 'k';
     var v = abs / div;
-    var str = v >= 100 ? String(Math.round(v)) : v.toFixed(1).replace(/\.0$/, '').replace('.', ',');
+    var str = v >= 100 ? String(Math.round(v)) : v.toFixed(1).replace(/\.0$/, '').replace('.', sp.dec);
     return pfx + sym + str + unit;
   }
   var dec = opts.cents ? 2 : 0;
   var parts = abs.toFixed(dec).split('.');
-  return pfx + sym + groupInt(parts[0]) + (dec ? ',' + parts[1] : '');
+  return pfx + sym + groupInt(parts[0]) + (dec ? sp.dec + parts[1] : '');
 };
 
 /** Interpreta un monto escrito a mano en CUALQUIER convención de separador
@@ -117,7 +125,9 @@ FT.numMoney = function (v) {
   } else if (hasComma || hasDot) {
     var sep = hasComma ? ',' : '.';
     var parts = v.split(sep);
-    var looksGrouped = parts.length > 1 && parts.slice(1).every(function (p) { return p.length === 3; }) && parts[0].length <= 3;
+    var looksGrouped = parts.length > 1 && parts.slice(1).every(function (p) { return p.length === 3; }) && parts[0].replace('-', '').length <= 3;
+    // Un solo punto con 3 dígitos: en formato EE.UU. es un decimal (1.200 = 1.2), no un millar.
+    if (looksGrouped && parts.length === 2 && ((sep === '.' && FT.numFormat() === 'us') || (sep === ',' && FT.numFormat() === 'latam'))) looksGrouped = false;
     v = looksGrouped ? parts.join('') : parts.join('.');
   }
   var n = parseFloat(v);
@@ -130,7 +140,7 @@ FT.moneyParts = function (n, opts) {
   n = Number(n) || 0;
   var neg = n < 0, dec = opts.cents ? 2 : 0;
   var parts = Math.abs(n).toFixed(dec).split('.');
-  return { neg: neg, sign: neg ? '−' : '+', int: groupInt(parts[0]), dec: parts[1] || '', sym: '$' };
+  return { neg: neg, sign: neg ? '−' : '+', int: groupInt(parts[0]), dec: parts[1] || '', sym: FT.currencySymbol(), decSep: _seps().dec };
 };
 
 /** FT.date(x, fmt) — fmt: 'DD/MM/AA' (def) | 'DD/MM/AAAA' | 'D MMM' | 'ISO' */
@@ -726,121 +736,162 @@ FT.accountVaults = function (accountId) {
  *  recurrente en cualquier pantalla. */
 FT.checkingAccountsScreen = function (isHogar) {
   var L = FT.lang === 'es';
-  var mine = FT.checking().filter(function (c) { return !!c.hogar === !!isHogar; });
-  var rows = mine.length ? mine.map(function (c) {
-    var ruleLbl = isHogar ? (c.rule ? (c.rule.type === 'remainder' ? (L ? 'Lo que sobre' : "What's left") : c.rule.type === 'pct' ? c.rule.value + '%' : FT.money(c.rule.value)) : (c.autoDeposit ? (L ? '100% (config. anterior)' : '100% (old setting)') : null)) : null;
-    // Cuentas como base (Fase 1/3): si esta cuenta tiene fondos vinculados
-    // (apartados), se muestra el desglose Total → Apartado → Libre en vez
-    // de solo el saldo -- espejo del modelo SoFi. Sin vínculos, se ve
-    // exactamente igual que antes de este feature.
-    var vaults = FT.accountVaults(c.id);
-    var libre = FT.accountFree(c), apartado = FT.accountEarmarked(c.id), total = libre + apartado;
-    var breakdown = vaults.length ?
-      '<div style="font-size:9.5px;color:var(--text3);margin-top:2px">' + (L ? 'Total ' : 'Total ') + FT.money(total, { cents: true }) + ' = ' + (L ? 'Disponible ' : 'Available ') + FT.money(libre, { cents: true }) + ' + ' + (L ? 'Apartado ' : 'Set aside ') + FT.money(apartado, { cents: true }) + '</div>' +
-      '<div style="font-size:9px;color:var(--text3);margin-top:1px">' + vaults.map(function (v) { return v.name + ' ' + FT.money(v.actual, { cents: true }); }).join(' · ') + '</div>' : '';
-    return '<div style="display:flex;align-items:center;gap:8px;padding:10px;background:var(--sunk);border-radius:12px;margin-bottom:8px">' +
-      '<div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:700">' + (c.name || (L ? 'Cuenta' : 'Account')) + '</div>' +
-      '<div class="tap" data-edit-bal="' + c.id + '" style="font-size:10px;color:var(--text3);cursor:pointer">' + FT.money(vaults.length ? total : (c.amount || 0), { cents: true }) + ' ✏️' + (ruleLbl ? ' · 🔗 ' + ruleLbl + ' ' + (L ? 'de tu aporte hogar' : 'of your household share') : '') + '</div>' + breakdown + '</div>' +
-      (isHogar ? '<button type="button" class="tap" data-rule-acct="' + c.id + '" style="padding:6px 10px;border-radius:8px;border:1.5px solid ' + (ruleLbl ? 'var(--g-main)' : 'var(--hair)') + ';background:' + (ruleLbl ? 'var(--g-light)' : '#fff') + ';color:' + (ruleLbl ? 'var(--g-dark)' : 'var(--text2)') + ';font-family:inherit;font-size:10px;font-weight:800;cursor:pointer">' + (ruleLbl ? (L ? 'Editar' : 'Edit') : (L ? '+ Regla' : '+ Rule')) + '</button>' : '') +
-      (!isHogar ? '<button type="button" class="tap" data-def-acct="' + c.id + '" style="padding:6px 9px;border-radius:8px;border:none;background:none;color:' + (c.id === FT.user().defaultAccountId ? 'var(--amber, #C99000)' : 'var(--text3)') + ';font-size:14px;cursor:pointer" title="' + (L ? 'Predeterminada para gastos' : 'Default for expenses') + '">' + (c.id === FT.user().defaultAccountId ? '⭐' : '☆') + '</button>' : '') +
-      // Vincular fondos solo en cuentas PERSONALES por ahora -- las metas/
-      // emergencia de Hogar quedaron con el campo accountId listo, pero
-      // ningún flujo de depósito de Hogar (registrarEnPresupuesto,
-      // _applyRecMeta) sabe moverlo todavía; ofrecerlo aquí desincronizaría
-      // los números en silencio (revisión independiente, hallazgo #8).
-      (!isHogar ? '<button type="button" class="tap" data-vault-acct="' + c.id + '" style="padding:6px 9px;border-radius:8px;border:none;background:none;color:var(--text3);font-size:13px;cursor:pointer" title="' + (L ? 'Vincular fondo' : 'Link a fund') + '">🔗</button>' : '') +
-      '<button type="button" class="tap" data-del-acct="' + c.id + '" style="padding:6px 9px;border-radius:8px;border:none;background:none;color:var(--text3);font-size:13px;cursor:pointer">🗑</button>' +
-    '</div>';
-  }).join('') : '<div style="font-size:12px;color:var(--text3);padding:6px 0 10px">' + (isHogar ? (L ? 'Aún no tienes ninguna cuenta marcada como conjunta.' : "You don't have any account marked as joint yet.") : (L ? 'Aún no tienes ninguna cuenta personal registrada.' : "You don't have any personal account yet.")) + '</div>';
+  // 19-oct-2026, a petición de Ramón: "al modificar cuentas tiene que ser muy
+  // sencillo, sin confusiones" -- antes cada cuenta traía 4 íconos sueltos
+  // (✏️ ⭐ 🔗 🗑) sin decir qué hacían. Ahora cada cuenta es una tarjeta con
+  // "Editar ›" visible, y al tocarla se abre un menú con cada acción rotulada y
+  // explicada (cuadrar saldo, renombrar, vincular fondo, regla, eliminar).
+  function rowsHtml() {
+    var mine = FT.checking().filter(function (c) { return !!c.hogar === !!isHogar; });
+    if (!mine.length) return '<div style="font-size:12px;color:var(--text3);padding:6px 0 10px">' + (isHogar ? (L ? 'Aún no tienes ninguna cuenta marcada como conjunta.' : "You don't have any account marked as joint yet.") : (L ? 'Aún no tienes ninguna cuenta personal registrada.' : "You don't have any personal account yet.")) + '</div>';
+    var defId = FT.user().defaultAccountId;
+    return mine.map(function (c) {
+      var ruleLbl = isHogar ? (c.rule ? (c.rule.type === 'remainder' ? (L ? 'Lo que sobre' : "What's left") : c.rule.type === 'pct' ? c.rule.value + '%' : FT.money(c.rule.value)) : (c.autoDeposit ? (L ? '100% (config. anterior)' : '100% (old setting)') : null)) : null;
+      // Cuentas como base (Fase 1/3): con fondos vinculados se muestra Total →
+      // Apartado → Disponible (espejo del modelo SoFi).
+      var vaults = FT.accountVaults(c.id);
+      var libre = FT.accountFree(c), apartado = FT.accountEarmarked(c.id), total = libre + apartado;
+      var ico = c.kind === 'cash' ? '💵' : c.kind === 'other' ? '➕' : '🏦';
+      var chips = [];
+      if (!isHogar && c.id === defId) chips.push('⭐ ' + (L ? 'Predeterminada' : 'Default'));
+      if (vaults.length) chips.push('🔗 ' + vaults.length + ' ' + (L ? 'fondo(s)' : 'fund(s)'));
+      if (ruleLbl) chips.push('⚙️ ' + (L ? 'Regla: ' : 'Rule: ') + ruleLbl);
+      return '<div class="tap" data-acct-menu="' + c.id + '" title="' + (L ? 'Toca para editar esta cuenta' : 'Tap to edit this account') + '" style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--sunk);border-radius:14px;margin-bottom:8px;cursor:pointer">' +
+        '<div style="width:38px;height:38px;border-radius:12px;background:#fff;display:grid;place-items:center;font-size:18px;flex-shrink:0">' + ico + '</div>' +
+        '<div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + _escH(c.name || (L ? 'Cuenta' : 'Account')) + '</div>' +
+        '<div style="font-size:15px;font-weight:900;margin-top:1px">' + FT.money(vaults.length ? total : (c.amount || 0), { cents: true }) + '</div>' +
+        (vaults.length ? '<div style="font-size:10px;color:var(--text3)">' + (L ? 'Disponible ' : 'Available ') + FT.money(libre, { cents: true }) + ' · ' + (L ? 'Apartado ' : 'Set aside ') + FT.money(apartado, { cents: true }) + '</div>' : '') +
+        (chips.length ? '<div style="font-size:10px;color:var(--g-dark);font-weight:700;margin-top:3px">' + chips.join(' · ') + '</div>' : '') + '</div>' +
+        '<div style="font-size:12px;font-weight:800;color:var(--blue);flex-shrink:0">' + (L ? 'Editar' : 'Edit') + ' ›</div></div>';
+    }).join('');
+  }
 
   FT.sheet({
     title: isHogar ? '🏦 ' + (L ? 'Cuentas de cheques conjuntas' : 'Joint checking accounts') : '🏦 ' + (L ? 'Mis cuentas' : 'My accounts'),
-    html: rows +
+    html: '<div id="acctRows">' + rowsHtml() + '</div>' +
       '<p style="font-size:10.5px;color:var(--text3);margin-top:6px">' + (isHogar
-        ? (L ? 'Cada cuenta con regla recibe su parte (monto fijo o %) de tu aporte de hogar cada vez que registras un cheque nuevo -- puedes poner regla en varias cuentas a la vez. Lo que ninguna regla cubra no se deposita en ninguna cuenta, pero sigue contando en tu presupuesto de hogar.' : "Each account with a rule gets its share (fixed $ or %) of your household contribution every time you log a new paycheck -- you can set a rule on more than one account. Whatever no rule covers isn't deposited to any account, but still counts toward your household budget.")
-        : (L ? 'Estas son tus cuentas personales -- puedes elegir cualquiera de ellas como origen al crear un recurrente (inversión, deuda, ahorro, meta), para que se descuente de aquí cuando se aplique.' : 'These are your personal accounts -- you can pick any of them as the source when creating a recurring item (investment, debt, savings, goal), so it gets deducted from here when it applies.')) + '</p>',
+        ? (L ? 'Toca una cuenta para editarla. Cada cuenta con regla recibe su parte (monto fijo o %) de tu aporte de hogar cada vez que registras un cheque nuevo -- puedes poner regla en varias cuentas a la vez. Lo que ninguna regla cubra no se deposita en ninguna cuenta, pero sigue contando en tu presupuesto de hogar.' : "Tap an account to edit it. Each account with a rule gets its share (fixed $ or %) of your household contribution every time you log a new paycheck -- you can set a rule on more than one account. Whatever no rule covers isn't deposited to any account, but still counts toward your household budget.")
+        : (L ? 'Toca una cuenta para editarla. Puedes elegir cualquiera como origen al crear un recurrente (inversión, deuda, ahorro, meta), para que se descuente de aquí cuando se aplique.' : 'Tap an account to edit it. You can pick any of them as the source when creating a recurring item (investment, debt, savings, goal), so it gets deducted from here when it applies.')) + '</p>',
     actions: [
       { label: '＋ ' + (L ? 'Agregar cuenta' : 'Add account'), onClick: function () { _openCuentaForm(isHogar); } }
     ],
     onOpen: function (body) {
-      body.querySelectorAll('[data-rule-acct]').forEach(function (b) {
+      function wire() {
+        body.querySelectorAll('[data-acct-menu]').forEach(function (b) {
+          b.onclick = function () {
+            var acct = FT.checking().find(function (a) { return String(a.id) === b.getAttribute('data-acct-menu'); });
+            if (acct) _openAccountMenu(acct, isHogar);
+          };
+        });
+      }
+      wire();
+      // La lista se refresca sola cuando algo cambia (cuadrar saldo, renombrar, eliminar...).
+      function refresh() {
+        if (!document.body.contains(body)) { document.removeEventListener('ft:datachanged', refresh); return; }
+        var box = body.querySelector('#acctRows');
+        if (box) { box.innerHTML = rowsHtml(); wire(); }
+      }
+      document.addEventListener('ft:datachanged', refresh);
+    }
+  });
+};
+function _escH(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+/** Menú de una cuenta: cada acción con su nombre y una línea que explica qué hace. */
+function _openAccountMenu(acct, isHogar) {
+  var L = FT.lang === 'es';
+  var defId = FT.user().defaultAccountId;
+  var total = FT.accountEarmarked(acct.id) ? FT.accountTotal(acct) : (parseFloat(acct.amount) || 0);
+  function act(ico, title, sub, key, danger) {
+    return '<div class="tap" data-act="' + key + '" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;background:var(--sunk);margin-bottom:8px;cursor:pointer">' +
+      '<div style="font-size:18px;width:26px;text-align:center">' + ico + '</div>' +
+      '<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:800;' + (danger ? 'color:var(--red)' : '') + '">' + title + '</div><div style="font-size:11px;color:var(--text3)">' + sub + '</div></div>' +
+      '<div style="color:var(--text3)">›</div></div>';
+  }
+  var html = '<div style="text-align:center;margin-bottom:14px"><div class="ft-num" style="font-size:26px">' + FT.money(total, { cents: true }) + '</div></div>' +
+    act('✏️', L ? 'Cuadrar saldo con mi banco' : 'Match my bank balance', L ? 'Escribe lo que dice tu banco y la app se ajusta' : 'Type what your bank shows and the app adjusts', 'bal') +
+    act('🏷️', L ? 'Cambiar nombre' : 'Rename', L ? 'Ponle el nombre que reconozcas' : 'Give it a name you recognize', 'name') +
+    (isHogar
+      ? act('⚙️', L ? 'Regla de depósito' : 'Deposit rule', L ? 'Cuánto de tu aporte de hogar llega aquí cada cheque' : 'How much of your household share lands here each paycheck', 'rule')
+      : act('🔗', L ? 'Vincular un fondo' : 'Link a fund', L ? 'Aparta una parte de esta cuenta para un fondo de ahorro' : 'Set part of this account aside for a savings fund', 'vault') +
+        act(acct.id === defId ? '☆' : '⭐', acct.id === defId ? (L ? 'Quitar como predeterminada' : 'Remove as default') : (L ? 'Usar como predeterminada' : 'Use as default'), L ? 'La que se propone al registrar un gasto' : 'The one suggested when you log an expense', 'def')) +
+    act('🗑️', L ? 'Eliminar cuenta' : 'Delete account', L ? 'Solo se puede si está en $0 y sin fondos vinculados' : 'Only possible at $0 with no linked funds', 'del', true);
+  FT.sheet({
+    title: _escH(acct.name || (L ? 'Cuenta' : 'Account')),
+    html: html,
+    onOpen: function (body) {
+      body.querySelectorAll('[data-act]').forEach(function (b) {
         b.onclick = function () {
-          var id = b.getAttribute('data-rule-acct');
-          var acct = FT.checking().find(function (a) { return String(a.id) === id; });
-          if (acct) _openReglaCuenta(acct);
-        };
-      });
-      body.querySelectorAll('[data-edit-bal]').forEach(function (b) {
-        b.onclick = function () {
-          var id = b.getAttribute('data-edit-bal');
-          var acct = FT.checking().find(function (a) { return String(a.id) === id; });
-          if (acct) _openAjusteSaldoCuenta(acct);
-        };
-      });
-      body.querySelectorAll('[data-vault-acct]').forEach(function (b) {
-        b.onclick = function () {
-          var id = b.getAttribute('data-vault-acct');
-          var acct = FT.checking().find(function (a) { return String(a.id) === id; });
-          if (acct) _openVincularFondo(acct, isHogar);
-        };
-      });
-      body.querySelectorAll('[data-def-acct]').forEach(function (b) {
-        b.onclick = function () {
-          var id = b.getAttribute('data-def-acct');
-          var u = FT.user();
-          u.defaultAccountId = (u.defaultAccountId === id) ? null : id;
-          FT.saveUser(u);
-          FT.toast(u.defaultAccountId ? (L ? '⭐ Cuenta predeterminada' : '⭐ Default account') : (L ? 'Ya no es la predeterminada' : 'No longer default'));
+          var k = b.getAttribute('data-act');
           FT.closeTop();
-          FT.checkingAccountsScreen(isHogar);
-        };
-      });
-      body.querySelectorAll('[data-del-acct]').forEach(function (b) {
-        b.onclick = function () {
-          var id = b.getAttribute('data-del-acct');
-          var accts = FT.checking();
-          var acct = accts.find(function (a) { return String(a.id) === id; });
-          if (!acct) return;
-          // Ningún saldo se pierde en silencio: si hay fondos vinculados
-          // (apartados) a esta cuenta, hay que desvincularlos primero -- si
-          // no, quedarían "flotando" sin ninguna cuenta que los respalde.
-          if (FT.accountVaults(id).length) {
-            FT.toast(L ? 'Esta cuenta tiene fondos vinculados — desvincúlalos primero (🔗)' : 'This account has linked funds — unlink them first (🔗)');
-            return;
-          }
-          // Solo se puede eliminar una cuenta en $0 -- si tiene saldo, hay
-          // que retirarlo/moverlo primero para no perder el rastro de ese
-          // dinero (mismo criterio que ya usa Ahorro libre para sus fondos).
-          if (Math.abs(parseFloat(acct.amount) || 0) >= 0.005) {
-            FT.toast(L ? 'Esta cuenta tiene saldo — ajústalo a $0 antes de eliminarla' : 'This account has a balance — set it to $0 before deleting it');
-            return;
-          }
-          FT.confirm(L ? '¿Eliminar «' + acct.name + '»?' : 'Delete "' + acct.name + '"?').then(function (ok) {
-            if (!ok) return;
-            var fresh = FT.checking().find(function (a) { return String(a.id) === id; });
-            if (!fresh || Math.abs(parseFloat(fresh.amount) || 0) >= 0.005 || FT.accountVaults(id).length) { FT.toast(L ? 'Esta cuenta ya no está en $0 o sin vínculos' : 'This account is no longer at $0 or unlinked'); FT.closeTop(); return; }
-            FT.saveChecking(FT.checking().filter(function (a) { return String(a.id) !== id; }));
-            FT.toast(L ? 'Eliminada' : 'Deleted');
-            FT.closeTop();
-          });
+          if (k === 'bal') _openAjusteSaldoCuenta(acct);
+          else if (k === 'name') _openRenombrarCuenta(acct);
+          else if (k === 'rule') _openReglaCuenta(acct);
+          else if (k === 'vault') _openVincularFondo(acct, isHogar);
+          else if (k === 'def') {
+            var u = FT.user();
+            u.defaultAccountId = (u.defaultAccountId === acct.id) ? null : acct.id;
+            FT.saveUser(u);
+            FT.toast(u.defaultAccountId ? (L ? '⭐ Cuenta predeterminada' : '⭐ Default account') : (L ? 'Ya no es la predeterminada' : 'No longer default'));
+            FT._changed();
+          } else if (k === 'del') _deleteCuenta(acct);
         };
       });
     }
   });
-};
+}
+function _openRenombrarCuenta(acct) {
+  var L = FT.lang === 'es';
+  FT.modal({
+    title: L ? 'Cambiar nombre' : 'Rename account',
+    html: '<div class="ft-field"><label>' + (L ? 'Nombre' : 'Name') + '</label><input id="rnName" value="' + _escH(acct.name || '') + '"></div>',
+    saveLabel: L ? 'Guardar' : 'Save',
+    onSave: function (body) {
+      var name = (body.querySelector('#rnName').value || '').trim();
+      if (!name) { FT.toast(L ? 'Ingresa un nombre' : 'Enter a name'); return true; }
+      var accts = FT.checking();
+      var a = accts.find(function (x) { return String(x.id) === String(acct.id); });
+      if (a) { a.name = name; FT.saveChecking(accts); FT.toast(L ? '✅ Nombre actualizado' : '✅ Name updated'); }
+    }
+  });
+}
+function _deleteCuenta(acct) {
+  var L = FT.lang === 'es', id = String(acct.id);
+  // Ningún saldo se pierde en silencio: con fondos vinculados (apartados) hay
+  // que desvincularlos primero, y solo se elimina una cuenta en $0.
+  if (FT.accountVaults(id).length) {
+    FT.toast(L ? 'Esta cuenta tiene fondos vinculados — desvincúlalos primero (Vincular un fondo)' : 'This account has linked funds — unlink them first (Link a fund)');
+    return;
+  }
+  if (Math.abs(parseFloat(acct.amount) || 0) >= 0.005) {
+    FT.toast(L ? 'Esta cuenta tiene saldo — cuádrala a $0 antes de eliminarla' : 'This account has a balance — set it to $0 before deleting it');
+    return;
+  }
+  FT.confirm(L ? '¿Eliminar «' + acct.name + '»?' : 'Delete "' + acct.name + '"?').then(function (ok) {
+    if (!ok) return;
+    var fresh = FT.checking().find(function (a) { return String(a.id) === id; });
+    if (!fresh || Math.abs(parseFloat(fresh.amount) || 0) >= 0.005 || FT.accountVaults(id).length) { FT.toast(L ? 'Esta cuenta ya no está en $0 o sin vínculos' : 'This account is no longer at $0 or unlinked'); return; }
+    FT.saveChecking(FT.checking().filter(function (a) { return String(a.id) !== id; }));
+    var uD = FT.user(); if (uD.defaultAccountId && String(uD.defaultAccountId) === id) { uD.defaultAccountId = null; FT.saveUser(uD); }
+    FT.toast(L ? 'Eliminada' : 'Deleted');
+  });
+}
 function _openCuentaForm(isHogar) {
   var L = FT.lang === 'es';
   FT.modal({
-    title: isHogar ? (L ? 'Nueva cuenta de cheques' : 'New checking account') : (L ? 'Nueva cuenta personal' : 'New personal account'),
-    html: '<div class="ft-field"><label>' + (L ? 'Nombre' : 'Name') + '</label><input id="ctName" placeholder="' + (isHogar ? (L ? 'Ej. Cuenta conjunta' : 'E.g. Joint account') : (L ? 'Ej. Mi checking' : 'E.g. My checking')) + '"></div>' +
-      '<div class="ft-field"><label>' + (L ? 'Saldo actual' : 'Current balance') + '</label><input id="ctAmt" inputmode="decimal" placeholder="$0"></div>',
+    title: isHogar ? (L ? 'Nueva cuenta conjunta' : 'New joint account') : (L ? 'Nueva cuenta personal' : 'New personal account'),
+    html: '<div class="ft-field"><label>' + (L ? 'Tipo' : 'Type') + '</label><select id="ctKind"><option value="checking">🏦 ' + (L ? 'Cuenta de cheques' : 'Checking account') + '</option><option value="cash">💵 ' + (L ? 'Efectivo' : 'Cash') + '</option><option value="other">➕ ' + (L ? 'Otra cuenta' : 'Other account') + '</option></select></div>' +
+      '<div class="ft-field"><label>' + (L ? 'Nombre' : 'Name') + '</label><input id="ctName" placeholder="' + (isHogar ? (L ? 'Ej. Cuenta conjunta' : 'E.g. Joint account') : (L ? 'Ej. Mi checking' : 'E.g. My checking')) + '"></div>' +
+      '<div class="ft-field"><label>' + (L ? 'Saldo actual' : 'Current balance') + '</label><input id="ctAmt" inputmode="decimal" placeholder="$0"></div>' +
+      '<p style="font-size:10.5px;color:var(--text3)">' + (L ? '¿Tarjeta de crédito o préstamo? Eso es una deuda: agrégala en Deudas.' : 'Credit card or loan? That is a debt: add it in Debts.') + '</p>',
     saveLabel: L ? 'Agregar' : 'Add',
     onSave: function (body) {
       var name = (body.querySelector('#ctName').value || '').trim();
+      var kind = body.querySelector('#ctKind').value;
       if (!name) { FT.toast(L ? 'Ingresa un nombre' : 'Enter a name'); return true; }
-      var amt = parseFloat((body.querySelector('#ctAmt').value || '').replace(/,/g, '')) || 0;
+      var amt = FT.numMoney(body.querySelector('#ctAmt').value) || 0;
       var accts = FT.checking();
-      accts.push({ id: 'chk_' + Date.now(), name: name, amount: amt, hogar: !!isHogar, updatedAt: FT.todayISO() });
+      accts.push({ id: 'chk_' + Date.now(), name: name, amount: amt, hogar: !!isHogar, kind: kind, updatedAt: FT.todayISO() });
       FT.saveChecking(accts);
       FT.toast(L ? '✅ Cuenta agregada' : '✅ Account added');
       FT.closeTop();
@@ -880,7 +931,7 @@ function _openReglaCuenta(acct) {
       });
     },
     onSave: function (body) {
-      var val = parseFloat((body.querySelector('#crVal').value || '').replace(/,/g, '')) || 0;
+      var val = FT.numMoney(body.querySelector('#crVal').value) || 0;
       var accts = FT.checking();
       var a = accts.find(function (x) { return String(x.id) === String(acct.id); });
       if (!a) return;
@@ -971,8 +1022,8 @@ function _openAjusteSaldoCuenta(acct) {
       var inp = body.querySelector('#abSaldo'), prev = body.querySelector('#abPrev');
       if (!inp || !prev) return;
       function upd() {
-        var v = parseFloat((inp.value || '').replace(/,/g, ''));
-        if (isNaN(v)) { prev.textContent = ''; return; }
+        var v = FT.numMoney(inp.value);
+        if (!/\d/.test(inp.value)) { prev.textContent = ''; return; }
         var ap = FT.accountEarmarked(acct.id), nl = +(v - ap).toFixed(2);
         prev.style.color = nl < -0.005 ? 'var(--red)' : 'var(--g-main)';
         prev.textContent = nl < -0.005
@@ -994,8 +1045,8 @@ function _openAjusteSaldoCuenta(acct) {
       '<p style="font-size:10.5px;color:var(--text3)">' + (L ? 'Escribe lo que de verdad dice tu banco -- esto reemplaza el número, no lo suma. Útil si un depósito automático no aplicó (ej. un cheque que registraste antes de poner la regla).' : "Type what your bank actually shows -- this replaces the number, it doesn't add to it. Useful if an auto-deposit didn't apply (e.g. a paycheck logged before you set the rule).") + '</p>',
     saveLabel: L ? 'Guardar saldo' : 'Save balance',
     onSave: function (body) {
-      var val = parseFloat((body.querySelector('#abSaldo').value || '').replace(/,/g, ''));
-      if (isNaN(val) || val < 0) { FT.toast(L ? 'Ingresa un saldo válido' : 'Enter a valid balance'); return true; }
+      var rawS = body.querySelector('#abSaldo').value, val = FT.numMoney(rawS);
+      if (!/\d/.test(rawS) || val < 0) { FT.toast(L ? 'Ingresa un saldo válido' : 'Enter a valid balance'); return true; }
       var motivo = (body.querySelector('#abMotivo').value || '').trim();
       var freshApartado = FT.accountEarmarked(acct.id); // fresco, no el capturado al abrir
       var newLibre = +(val - freshApartado).toFixed(2);
@@ -2375,12 +2426,12 @@ FT.resolveDebtApproval = function (debtId, abonoId, approve) {
    viejos se etiquetan: lo inequívoco solo (por descripción/nota), el resto se
    le pregunta al usuario UNA vez con FT.reviewIncomeKinds(). */
 FT.autoTagIncomes = function () {
-  var d = FT.data(), n = 0;
+  var d = FT.data(), n = 0, chequeRows = FT.cheques() || [];
   (d.transactions || []).forEach(function (t) {
     if (t.type !== 'ingreso' || t.incomeKind) return;
     var desc = String(t.desc || ''), note = String(t.note || ''), k = null;
     if (t.cobId || /^(Cobertura|Coverage):/i.test(desc)) k = 'cobertura';
-    else if (/^(Cheque recibido|Paycheck received)/i.test(desc)) k = 'cheque';
+    else if (/^(Cheque recibido|Paycheck received)/i.test(desc) || chequeRows.some(function (c) { return String(c.txId) === String(t.id) || (c.fecha === t.date && Math.abs((parseFloat(c.monto) || 0) - (parseFloat(t.amount) || 0)) < 0.01); })) k = 'cheque';
     else if (note === 'Venta Fidelity') k = 'venta';
     else if (note === 'Fidelity dividend') k = 'extra';
     if (k) { t.incomeKind = k; n++; }
@@ -2459,7 +2510,9 @@ FT.entryCategoryType = function (cat) {
  */
 FT.addEntry = function (o) {
   o = o || {};
-  var amount = parseFloat(o.amount) || 0;
+  // 19-oct-2026: un monto escrito a mano como "1,200.50" se leía como 1 con
+  // parseFloat -- FT.numMoney entiende los dos formatos (1,200.50 y 1.200,50).
+  var amount = typeof o.amount === 'string' ? FT.numMoney(o.amount) : (parseFloat(o.amount) || 0);
   if (!o.desc || !amount || !o.date) return null;
   var es = FT.lang === 'es';
   var name = FT.userName();
@@ -2728,7 +2781,7 @@ FT.openTransfer = function (opts) {
       });
     },
     onSave: function (body) {
-      var amt = parseFloat((body.querySelector('#xfAmt').value || '').replace(/,/g, '')) || 0;
+      var amt = FT.numMoney(body.querySelector('#xfAmt').value) || 0;
       if (!amt || amt <= 0) { FT.toast(L ? 'Ingresa un monto' : 'Enter an amount'); return true; }
       var fi = +body.querySelector('#xfFrom').value, ti = +body.querySelector('#xfTo').value;
       if (fi === ti) { FT.toast(L ? 'Elige un origen y un destino distintos' : 'Pick a different origin and destination'); return true; }
@@ -3235,12 +3288,13 @@ FT.syncPartner = function () {
       // solo se conserva lo que la pareja puede ver (hogar y cheques).
       var oldOtherMonths = (od.transactions || []).filter(function (t) { return String(t.date || '').slice(0, 7) !== thisMonthKey && (t.hogar === true || t.isHogar || (t.type === 'ingreso' && t.incomeKind === 'cheque')); });
       var merged = {
-        transactions: oldOtherMonths.concat(nd.transactions || []),
+        transactions: oldOtherMonths.concat((nd.transactions || []).filter(function (t) { return t && (t.hogar === true || t.isHogar === true || (t.type === 'ingreso' && t.incomeKind === 'cheque')); })), // filtrar también al recibir: un cliente viejo subía todo
         emergency: (nd.emergency != null ? nd.emergency : od.emergency) || 0,
         personalSpentThisMonth: (nd.personalSpentThisMonth != null ? nd.personalSpentThisMonth : od.personalSpentThisMonth) || 0,
         subscriptions: _mergeById(od.subscriptions, nd.subscriptions),
         sharedDebts: nd.sharedDebts != null ? nd.sharedDebts : (od.sharedDebts || []),
-        hogarInv: nd.hogarInv != null ? nd.hogarInv : (od.hogarInv || [])
+        hogarInv: nd.hogarInv != null ? nd.hogarInv : (od.hogarInv || []),
+        hogarReview: nd.hogarReview !== undefined ? nd.hogarReview : (od.hogarReview || null)
       };
       var pp = { name: data.name || (old && old.name) || '', email: data.email || h.partnerEmail, income: parseFloat(data.income) || 0, needs: parseFloat(data.needs) || 0, wants: parseFloat(data.wants) || 0, savings: parseFloat(data.savings) || 0, data: merged };
       FT.set(pkey, pp);
@@ -3263,7 +3317,7 @@ FT.syncPartner = function () {
           FT.saveServicios(Object.keys(byIdServ).map(function (k) { return byIdServ[k]; }));
         } catch (e) {}
       }
-      if (nd.checking) { try { FT.set(K.partnerChecking, nd.checking); } catch (e) {} }
+      if (nd.checking) { try { FT.set(K.partnerChecking, (Array.isArray(nd.checking) ? nd.checking : [nd.checking]).filter(function (c) { return c && c.hogar; })); } catch (e) {} }
 
       FT._changed();
     }).catch(function () {});
@@ -3312,16 +3366,17 @@ FT.pushProfileToGAS = function () {
     var limited = {
       transactions: (data.transactions || []).filter(function (t) { return String(t.date || '').startsWith(thisMonth) && (t.hogar === true || (t.type === 'ingreso' && t.incomeKind === 'cheque')); }),
       emergency: 0,
-      subscriptions: (data.subscriptions || []).slice(-10),
+      subscriptions: (data.subscriptions || []).filter(function (s) { return s && s.hogar === true; }).slice(-10),
       sharedDebts: sharedDebts.slice(-20),
       hogarInv: hogarInv.slice(-20),
       fondos: FT.hogarFondos(),
       personalSpentThisMonth: 0,
       sharedRecurring: sharedRecurring,
       servicios: FT.servicios().filter(function (s) { return !s._fromPartner; }).slice(-20), // nunca le hago eco a mi pareja de sus propios servicios
-      checking: FT.checking().filter(function (c) { return c.hogar; })
+      checking: FT.checking().filter(function (c) { return c.hogar; }),
+      hogarReview: FT.hogar().myReview || null // mi respuesta a lo que mi pareja configuró del hogar (ver hogar.html)
     };
-    var params = new URLSearchParams({ action: 'saveProfile', email: u.email, name: u.name || '', income: u.income || 0, needs: u.needs || 0, wants: u.wants || 0, savings: u.savings || 0, dataJson: JSON.stringify(limited) });
+    var params = new URLSearchParams({ action: 'saveProfile', email: u.email, name: u.name || '', income: u.income || 0, needs: 0, wants: 0, savings: 0, dataJson: JSON.stringify(limited) }); // needs/wants/savings personales ya no se suben (nadie los usa del otro lado)
     fetch(FT.GAS_URL + '?' + params.toString()).catch(function () {});
   } catch (e) {}
 };
@@ -3802,7 +3857,7 @@ FT.heroNumber = function (o) {
       (o.label ? '<div class="cap">' + o.label + '</div>' : '') +
       '<div class="row">' +
         '<span class="ft-sign ' + (neg ? 'neg' : 'pos') + '">' + (neg ? '−' : '+') + '</span>' +
-        '<span class="amt"><span class="cur">$</span>' + p.int + (o.cents ? '<span style="font-size:.5em">,' + p.dec + '</span>' : '') + '</span>' +
+        '<span class="amt"><span class="cur">' + p.sym + '</span>' + p.int + (o.cents ? '<span style="font-size:.5em">' + p.decSep + p.dec + '</span>' : '') + '</span>' +
       '</div>' +
       (o.splitHTML ? '<div class="ft-split">' + o.splitHTML + '</div>' : '') +
     '</div>';
@@ -3821,12 +3876,15 @@ FT.catBars = function (items, o) {
   items = (items || []).slice().sort(function (a, b) { return (b.spent || 0) - (a.spent || 0); }).slice(0, o.max || 4);
   var maxRef = Math.max.apply(null, items.map(function (i) { return Math.max(i.spent || 0, i.budget || 0); }).concat([1]));
   var total = items.reduce(function (a, i) { return a + (i.spent || 0); }, 0) || 1;
-  return '<div class="ft-catbars">' + items.map(function (it, idx) {
+  // 19-oct-2026, a petición de Ramón: cada barra es clicable y lleva a
+  // Historial ya filtrado por esa categoría (o.scope: 'personal' | 'hogar',
+  // o.month: 'AAAA-MM'). Ver el listener delegado justo debajo.
+  return '<div class="ft-catbars" data-go="1" data-scope="' + (o.scope || 'personal') + '"' + (o.month ? ' data-month="' + o.month + '"' : '') + '>' + items.map(function (it, idx) {
     var meta = it.emoji ? { emoji: it.emoji, label: it.label, pastel: PASTELS[idx % PASTELS.length] } : FT.catMeta(it.cat, idx);
     var spentH = Math.max(66 / 196 * 100, (it.spent || 0) / maxRef * 100);
     var budH = it.budget ? (it.budget / maxRef * 100) : 0;
     var pctTotal = Math.round((it.spent || 0) / total * 100);
-    return '<div class="ft-catcol ' + meta.pastel + '" data-cat="' + (it.cat || meta.label) + '">' +
+    return '<div class="ft-catcol ' + meta.pastel + '" data-cat="' + _escH(it.cat || meta.label) + '" role="button" tabindex="0">' +
       (budH > spentH ? '<div class="ft-catbudget" style="height:' + budH + '%"></div>' : '') +
       '<div class="ft-catfill tap" style="height:' + spentH + '%">' +
         '<span class="emo">' + (meta.emoji || '•') + '</span>' +
@@ -3836,8 +3894,22 @@ FT.catBars = function (items, o) {
   }).join('') + '</div>';
 };
 
+document.addEventListener('keydown', function (e) {
+  if ((e.key === 'Enter' || e.key === ' ') && e.target && e.target.getAttribute && e.target.getAttribute('role') === 'button' && e.target.tagName !== 'BUTTON') { e.preventDefault(); e.target.click(); }
+});
+document.addEventListener('click', function (e) {
+  var col = e.target && e.target.closest ? e.target.closest('.ft-catcol') : null;
+  if (!col) return;
+  var box = col.closest('.ft-catbars');
+  if (!box || !box.hasAttribute('data-go')) return;
+  var m = box.getAttribute('data-month');
+  FT.go('historial.html?f=' + (box.getAttribute('data-scope') || 'personal') + (m ? '&m=' + m : '') + '&cat=' + encodeURIComponent(col.getAttribute('data-cat') || ''));
+});
+
 /** tx = transacción de ft_data. Devuelve una fila .ft-tx */
-FT.txRow = function (t, idx) {
+FT.txRow = function (t, idx, o) {
+  o = o || {};
+  var es = FT.lang === 'es';
   // Una transferencia es neutral (regla #1: nunca es ingreso ni gasto) --
   // no lleva `cat`, así que se le da un meta propio en vez de dejar que
   // FT.catMeta(undefined) caiga en el "Otro"/#gasto genérico (revisión
@@ -3857,21 +3929,37 @@ FT.txRow = function (t, idx) {
     var h = FT.hogar();
     var totH = (parseFloat(h.payPctHogar) || 50) + (parseFloat(h.saveHogarPct) || 10);
     var hogarAmt = (t.amount || 0) * totH / 100, persAmt = (t.amount || 0) - hogarAmt;
-    mid = '<div class="ft-tx-name">' + (t.desc || FT.catMeta(t.cat).label) + '</div>' +
+    mid = '<div class="ft-tx-name">' + _escH(t.desc || FT.catMeta(t.cat).label) + '</div>' +
           '<div class="ft-tx-breakdown">🏠 ' + FT.money(hogarAmt) + ' &nbsp;+&nbsp; 👤 ' + FT.money(persAmt) + '</div>';
   } else if (isXfer) {
-    mid = '<div class="ft-tx-name">' + (t.desc || meta.label) + '</div>' +
-          '<div class="ft-tx-breakdown">' + (t.fromLabel || '?') + ' → ' + (t.toLabel || '?') + '</div>';
+    mid = '<div class="ft-tx-name">' + _escH(t.desc || meta.label) + '</div>' +
+          '<div class="ft-tx-breakdown">' + _escH(t.fromLabel || '?') + ' → ' + _escH(t.toLabel || '?') + '</div>';
   } else {
-    mid = '<div class="ft-tx-name">' + (t.desc || meta.label) + '</div>' +
-          '<span class="ft-hashtag">#' + (meta.label || 'gasto').toLowerCase().replace(/\s+/g, '') + '</span>';
+    // 19-oct-2026, a petición de Ramón: Historial, Overview y Hogar usan ESTA
+    // misma fila (antes Historial tenía su propio diseño). El chip dice qué
+    // tipo de movimiento es cuando no basta con la categoría.
+    var chip = null, dsc = String(t.desc || '');
+    if (t.type === 'ingreso') {
+      chip = t.incomeKind === 'cobertura' ? (es ? '💵 Cobertura · 100% tuyo' : '💵 Coverage · 100% yours')
+        : t.incomeKind === 'venta' ? (es ? '🔄 Venta de inversión · no suma' : '🔄 Investment sale · not counted')
+        : (es ? '🎁 Extra · 100% tuyo' : '🎁 Extra · 100% yours');
+    } else if (t.type === 'ahorro' && t.hogar !== true && !t.isHogar) {
+      if (/autom[aá]tic/i.test(dsc)) chip = es ? '⭐ Ahorro automático' : '⭐ Automatic savings';
+      else if (dsc.indexOf('Reparto de cheque') === 0 || dsc.indexOf('Paycheck allocation') === 0) chip = es ? '💵 A tu fondo' : '💵 To your fund';
+    }
+    mid = '<div class="ft-tx-name">' + _escH(t.desc || meta.label) + '</div>' +
+          (chip ? '<span class="ft-hashtag">' + chip + '</span>'
+                : '<span class="ft-hashtag">#' + _escH((meta.label || 'gasto').toLowerCase().replace(/\s+/g, '')) + '</span>');
   }
-  return '<div class="ft-tx tap" data-txid="' + t.id + '">' +
+  var esHogarRow = t.hogar === true || t.isHogar === true;
+  var who = (o.partner && t._partner && t.createdBy) ? ' · ' + _escH(t.createdBy) : '';
+  var lbl = _escH(meta.label) + (esHogarRow ? ' · 🏠 ' + (es ? 'Hogar' : 'Household') : '') + who;
+  return '<div class="ft-tx tap" data-txid="' + t.id + '" role="button" tabindex="0"' + (t._partner ? ' style="cursor:default"' : '') + '>' +
     '<div class="ft-tx-top"><span class="ft-pill">' + FT.date(t.date) + '</span>' +
       '<span class="ft-pill"' + (isIn ? ' style="color:var(--g-main)"' : '') + '>' + (isIn ? '+' : (neutralSign ? '' : '−')) + FT.money(t.amount, { cents: true, noSymbol: false }).replace('−', '') + '</span></div>' +
     '<div class="ft-tx-body">' +
       '<div class="ft-tx-ico ' + meta.pastel + '">' + (meta.emoji || '•') + '</div>' +
-      '<div class="ft-tx-main"><div class="ft-tx-label">' + meta.label + '</div>' + mid + '</div>' +
+      '<div class="ft-tx-main"><div class="ft-tx-label">' + lbl + '</div>' + mid + '</div>' +
       '<div class="ft-tx-amt ' + (isIn ? 'in' : 'out') + '">' + amt + '</div>' +
     '</div></div>';
 };
@@ -3926,9 +4014,27 @@ FT.openTxDetail = function (tx, opts) {
 };
 function _editTxDetail(tx) {
   var es = FT.lang === 'es';
+  // 19-oct-2026, a petición de Ramón: cualquier dato se puede corregir, y un
+  // ingreso debe poder cambiar de tipo (cheque / 100% mío / venta) cuando te
+  // equivocas al capturarlo. Un cheque con su fila en ft_cheques y una
+  // cobertura (ligada por cobId) quedan fijos: cambiarles el tipo dejaría
+  // descuadrado el bote del hogar o el ahorro que ya movieron -- para
+  // corregirlos, se eliminan y se registran de nuevo.
+  var kindHtml = '';
+  if (tx.type === 'ingreso') {
+    var hasChequeRow = FT.cheques().some(function (c) { return String(c.txId) === String(tx.id); });
+    // Un cheque con su fila en ft_cheques ya repartió dinero: fijo. Un cheque heredado SIN fila se puede corregir a extra/venta (nunca al revés).
+    var lockedKind = tx.incomeKind === 'cobertura' || !!tx.cobId || (tx.incomeKind === 'cheque' && hasChequeRow);
+    var kindNames = { cheque: es ? '🏠 Cheque (se reparte con el hogar)' : '🏠 Paycheck (split with household)', extra: es ? '🎁 100% mío' : '🎁 100% mine', venta: es ? '🔄 Venta de inversión (no suma)' : '🔄 Investment sale (not counted)', cobertura: es ? '💵 Cobertura (100% mío)' : '💵 Coverage (100% mine)' };
+    var curKind = tx.incomeKind || 'extra';
+    kindHtml = lockedKind
+      ? '<div class="ft-field"><label>' + (es ? 'Tipo de ingreso' : 'Income type') + '</label><div style="font-size:13px;color:var(--text2)">' + (kindNames[curKind] || curKind) + '</div><p style="font-size:10px;color:var(--text3);margin-top:4px">' + (es ? 'Este tipo ya movió dinero. Para cambiarlo, elimínalo y regístralo de nuevo (un cheque, con «Recibí mi cheque»).' : 'This type already moved money. To change it, delete it and record it again (a paycheck, with "I got paid").') + '</p></div>'
+      : '<div class="ft-field"><label>' + (es ? 'Tipo de ingreso' : 'Income type') + '</label><select id="etKind">' +
+        (tx.incomeKind === 'cheque' ? ['cheque', 'extra', 'venta'] : ['extra', 'venta']).map(function (k) { return '<option value="' + k + '"' + (k === curKind ? ' selected' : '') + '>' + kindNames[k] + '</option>'; }).join('') + '</select></div>';
+  }
   FT.modal({
     title: es ? 'Editar registro' : 'Edit entry',
-    html: '<div class="ft-field"><label>' + (es ? 'Descripción' : 'Description') + '</label><input id="etDesc" value="' + (tx.desc || '').replace(/"/g, '&quot;') + '"></div>' +
+    html: '<div class="ft-field"><label>' + (es ? 'Descripción' : 'Description') + '</label><input id="etDesc" value="' + (tx.desc || '').replace(/"/g, '&quot;') + '"></div>' + kindHtml +
       '<div class="ft-field"><label>' + (es ? 'Monto' : 'Amount') + '</label><input id="etAmount" type="number" step="0.01" value="' + tx.amount + '"></div>' +
       '<div class="ft-field"><label>' + (es ? 'Fecha' : 'Date') + '</label><input id="etDate" type="date" value="' + tx.date + '"></div>' +
       '<div class="ft-field"><label>' + (es ? 'Nota' : 'Note') + '</label><input id="etNote" value="' + (tx.note || '').replace(/"/g, '&quot;') + '"></div>',
@@ -3957,12 +4063,14 @@ function _editTxDetail(tx) {
           if (oldTx.acctCredited) FT.creditChecking(oldTx.checkingAccountId, newAmount - oldAmt);
           else FT.creditChecking(oldTx.checkingAccountId, oldAmt - newAmount);
         }
+        var kindSel = body.querySelector('#etKind');
         d.transactions[i] = Object.assign({}, oldTx, {
           desc: body.querySelector('#etDesc').value.trim(),
           amount: newAmount,
           date: body.querySelector('#etDate').value,
           note: body.querySelector('#etNote').value.trim()
         });
+        if (kindSel && kindSel.value) d.transactions[i].incomeKind = kindSel.value;
         FT.saveData(d);
         FT.toast(es ? '✅ Registro actualizado' : '✅ Entry updated');
       }
@@ -4542,8 +4650,8 @@ FT.balanceScreen = function (opts) {
       onSave: function (body) {
         var name = (body.querySelector('#fdName').value || '').trim();
         if (!name) { FT.toast(L ? 'Ingresa un nombre' : 'Enter a name'); return true; }
-        var metaVal = parseFloat((body.querySelector('#fdMeta').value || '').replace(/,/g, '')) || 0;
-        var ruleVal = parseFloat((body.querySelector('#fdRuleVal').value || '').replace(/,/g, '')) || 0;
+        var metaVal = FT.numMoney(body.querySelector('#fdMeta').value) || 0;
+        var ruleVal = FT.numMoney(body.querySelector('#fdRuleVal').value) || 0;
         var rule = chosenRule === 'remainder' ? { type: 'remainder' } : (chosenRule !== 'none' && ruleVal > 0) ? { type: chosenRule, value: ruleVal } : null;
         var funds2 = FT.savingsFunds();
         if (editing) {
@@ -4891,39 +4999,45 @@ FT.recurringItemsScreen = function (opts) {
     });
   }
 
+  /* 19-oct-2026, a petición de Ramón: "al ingresar un servicio, que salga todo
+     lo necesario de una vez: cada cuándo se cobra o si es una sola vez... el
+     botón de autopay se siente confuso sin saber cada cuándo es recurrente".
+     Tres preguntas, en este orden y en un mismo paso:
+       1) ¿Se repite o es un pago único?  2) ¿Cada cuándo y desde qué fecha?
+       3) ¿Quién lo cobra: yo cada vez, o se cobra solo (autopay)?
+     Pago único NO crea un recurrente: se registra como un gasto normal en esa
+     fecha (así no hace falta una frecuencia nueva en ningún otro lugar). */
+  function segBtns(attr, items, cur) {
+    return '<div style="display:grid;grid-template-columns:repeat(' + items.length + ',1fr);gap:6px">' + items.map(function (it) {
+      var on = it[0] === cur;
+      return '<button type="button" data-' + attr + '="' + it[0] + '" class="tap' + (on ? ' on' : '') + '" style="padding:10px 6px;border-radius:10px;border:1.5px solid ' + (on ? 'var(--g-main)' : 'var(--hair)') + ';background:' + (on ? 'var(--g-light)' : 'var(--sunk)') + ';color:' + (on ? 'var(--g-dark)' : 'var(--text2)') + ';font-family:inherit;font-size:12px;font-weight:800;cursor:pointer">' + it[1] + '</button>';
+    }).join('') + '</div>';
+  }
   function formFields(s) {
-    var L = es();
-    return '<div class="ft-field"><label>' + (L ? 'Nombre' : 'Name') + '</label><input id="siName" value="' + (s ? s.name || '' : '') + '" placeholder="' + (isSub ? 'Netflix, Spotify...' : (L ? 'Luz, Agua, Internet...' : 'Power, Water, Internet...')) + '"></div>' +
-      '<div class="ft-field"><label>' + (L ? 'Monto' : 'Amount') + ' ($)</label><input id="siAmount" type="number" step="0.01" min="0" value="' + (s ? s.amount : '') + '"></div>' +
+    var L = es(), isNew = !s;
+    return '<div class="ft-field"><label>' + (L ? 'Nombre' : 'Name') + '</label><input id="siName" value="' + (s ? String(s.name || '').replace(/"/g, '&quot;') : '') + '" placeholder="' + (isSub ? 'Netflix, Spotify...' : (L ? 'Luz, Agua, Internet...' : 'Power, Water, Internet...')) + '"></div>' +
+      '<div class="ft-field"><label>' + (L ? 'Monto' : 'Amount') + ' ($)</label><input id="siAmount" type="number" inputmode="decimal" step="0.01" min="0" value="' + (s ? s.amount : '') + '"></div>' +
+      (isNew ? '<div class="ft-field"><label>' + (L ? '¿Se repite?' : 'Does it repeat?') + '</label>' + segBtns('st', [['rep', '🔁 ' + (L ? 'Se repite' : 'Repeats')], ['once', '1️⃣ ' + (L ? 'Pago único' : 'One time')]], 'rep') + '</div>' : '') +
       // Personalizado (12-oct-2026, a petición de Ramón: "un pago de la
       // basura que se cobra cada 4 meses" -- no entra en mensual/anual/
-      // semanal). Marcado "selected" si ya es custom al editar, para que
-      // el <select> arranque mostrando la opción correcta.
-      '<div class="ft-field"><label>' + (L ? 'Frecuencia' : 'Frequency') + '</label><select id="siFreq">' +
+      // semanal). Marcado "selected" si ya es custom al editar.
+      '<div class="ft-field" id="siRepWrap"><label>' + (L ? '¿Cada cuándo se cobra?' : 'How often is it charged?') + '</label><select id="siFreq">' +
         ['monthly', 'annual', 'weekly'].map(function (f) { return '<option value="' + f + '" ' + (s && s.freq === f ? 'selected' : '') + '>' + freqLbl(f) + '</option>'; }).join('') +
-        '<option value="custom"' + (s && typeof s.freq === 'string' && s.freq.indexOf('custom:') === 0 ? ' selected' : '') + '>' + (L ? 'Personalizado' : 'Custom') + '</option></select>' +
+        '<option value="custom"' + (s && typeof s.freq === 'string' && s.freq.indexOf('custom:') === 0 ? ' selected' : '') + '>' + (L ? 'Personalizado (cada X días, semanas, meses…)' : 'Custom (every X days, weeks, months…)') + '</option></select>' +
         FT.customFreqSubFormHTML('si', s && s.freq) + '</div>' +
-      '<div class="ft-field"><label>' + (L ? 'Fecha de cobro' : 'Billing date') + '</label><input id="siDate" type="date" value="' + (s ? s.date : FT.todayISO()) + '"></div>' +
-      // 15-oct-2026: CATS ahora varía según FT.lang (antes era un único
-      // arreglo en español sin importar el idioma -- fuga de texto en
-      // español para usuarios en inglés, ver la traducción de arriba). Pero
-      // si editas un artículo guardado en el OTRO idioma, su s.cat guardado
-      // ya no aparece en CATS del idioma actual -- sin esto, el <select> no
-      // seleccionaba nada (el navegador cae en la primera opción) y GUARDAR
-      // sin tocar la categoría la sobreescribía en silencio. Si s.cat no
-      // está en CATS, se agrega como su propia opción extra para que se
-      // mantenga seleccionada y no se pierda sin que el usuario la cambie
-      // a propósito (revisión independiente encontró este caso).
+      '<div class="ft-field"><label id="siDateLbl">' + (L ? 'Próxima fecha de cobro' : 'Next billing date') + '</label><input id="siDate" type="date" value="' + (s ? s.date : FT.todayISO()) + '"></div>' +
+      // CATS varía según FT.lang. Si editas un artículo guardado en el OTRO
+      // idioma, su s.cat guardado no aparece en CATS del idioma actual -- se
+      // agrega como opción extra para que no se pierda en silencio al guardar.
       '<div class="ft-field"><label>' + (L ? 'Categoría' : 'Category') + '</label><select id="siCat">' +
         (s && s.cat && CATS.indexOf(s.cat) === -1 ? '<option selected>' + s.cat + '</option>' : '') +
         CATS.map(function (c) { return '<option ' + (s && s.cat === c ? 'selected' : '') + '>' + c + '</option>'; }).join('') + '</select></div>' +
-      // Autopay (15-oct-2026, a petición de Ramón): si el banco/proveedor
-      // ya lo cobra solo, un recordatorio es solo informativo; si NO, el
-      // recordatorio debe dejar claro que hay que pagarlo a mano. No tiene
-      // relación con "recurrente" de la app (eso es si ESTA app genera el
-      // cargo sola en Historial) -- autopay es si quien de verdad cobra
-      // (tu banco, Netflix, etc.) lo hace solo, fuera de la app.
-      '<label class="ft-field" style="display:flex;align-items:center;gap:9px;cursor:pointer;background:var(--sunk);border-radius:10px;padding:10px 12px"><input type="checkbox" id="siAutopay" ' + (s && s.autopay ? 'checked' : '') + ' style="width:18px;height:18px;flex-shrink:0"><span style="font-size:12px;font-weight:700">' + (L ? 'Se cobra solo (autopay con el banco/proveedor)' : "Charged automatically (autopay with the bank/provider)") + '</span></label>';
+      // Autopay (15-oct-2026): NO tiene relación con "recurrente" de la app
+      // (si ESTA app genera el cargo) -- es si quien de verdad cobra (tu banco,
+      // Netflix, etc.) lo hace solo, fuera de la app.
+      '<div class="ft-field" id="siApWrap"><label>' + (L ? '¿Quién lo cobra?' : 'Who charges it?') + '</label>' +
+        segBtns('ap', [['0', '✋ ' + (L ? 'Yo lo pago' : 'I pay it')], ['1', '🔁 ' + (L ? 'Se cobra solo' : 'Auto-charged')]], s && s.autopay ? '1' : '0') +
+        '<p id="siApNote" style="font-size:10.5px;color:var(--text3);margin:6px 0 0"></p></div>';
   }
 
   function openForm(id) {
@@ -4934,24 +5048,56 @@ FT.recurringItemsScreen = function (opts) {
       onOpen: function (body) {
         var cf = FT.wireCustomFreqSubForm(body, 'si');
         var sel = body.querySelector('#siFreq');
-        cf.show(sel.value === 'custom');
-        sel.addEventListener('change', function () { cf.show(sel.value === 'custom'); });
+        var st = 'rep', ap = s && s.autopay ? '1' : '0';
+        function paint(attr, val) {
+          body.querySelectorAll('[data-' + attr + ']').forEach(function (b) {
+            var on = b.getAttribute('data-' + attr) === val;
+            b.style.borderColor = on ? 'var(--g-main)' : 'var(--hair)'; b.style.background = on ? 'var(--g-light)' : 'var(--sunk)'; b.style.color = on ? 'var(--g-dark)' : 'var(--text2)';
+          });
+        }
+        function sync() {
+          var once = st === 'once';
+          body.querySelector('#siRepWrap').style.display = once ? 'none' : '';
+          body.querySelector('#siApWrap').style.display = once ? 'none' : '';
+          cf.show(!once && sel.value === 'custom');
+          body.querySelector('#siDateLbl').textContent = once ? (L ? 'Fecha del pago' : 'Payment date') : (L ? 'Próxima fecha de cobro' : 'Next billing date');
+          body.querySelector('#siApNote').textContent = ap === '1'
+            ? (L ? 'Tu banco o el proveedor lo cobra solo. La app solo lo anota en tu historial.' : 'Your bank or the provider charges it on its own. The app just records it.')
+            : (L ? 'Tú lo pagas cada vez. La app te lo recuerda antes de la fecha.' : 'You pay it each time. The app reminds you before the date.');
+          paint('st', st); paint('ap', ap);
+        }
+        body.querySelectorAll('[data-st]').forEach(function (b) { b.onclick = function () { st = b.getAttribute('data-st'); sync(); }; });
+        body.querySelectorAll('[data-ap]').forEach(function (b) { b.onclick = function () { ap = b.getAttribute('data-ap'); sync(); }; });
+        sel.addEventListener('change', sync);
+        body._ftGet = function () { return { st: st, ap: ap }; };
+        sync();
       },
       onSave: function (body) {
         // Doble-tap en "Guardar" podía crear dos suscripciones/servicios
         // idénticos -- luego cada uno acumula sus propios cargos por
-        // separado (mismo patrón ya blindado en el abono de deudas con
-        // window._savingAbono).
+        // separado (mismo patrón ya blindado en el abono de deudas).
         if (window._savingSubServ) return true;
         window._savingSubServ = true;
         setTimeout(function () { window._savingSubServ = false; }, 800);
         var name = body.querySelector('#siName').value.trim();
         var amount = parseFloat(body.querySelector('#siAmount').value) || 0;
-        if (!name || !amount) { FT.toast(L ? '⚠️ Llena todos los campos' : '⚠️ Fill all fields'); window._savingSubServ = false; return true; }
+        if (!name || !amount) { FT.toast(L ? '⚠️ Llena nombre y monto' : '⚠️ Fill name and amount'); window._savingSubServ = false; return true; }
+        var sv = body._ftGet ? body._ftGet() : { st: 'rep', ap: '0' };
+        var date = body.querySelector('#siDate').value, cat = body.querySelector('#siCat').value;
+        if (!date) { FT.toast(L ? '⚠️ Elige una fecha' : '⚠️ Pick a date'); window._savingSubServ = false; return true; }
+
+        // Pago único: se anota como un gasto normal en esa fecha, sin recurrente.
+        if (!s && sv.st === 'once') {
+          FT.addEntry({ type: 'gasto', desc: name, amount: amount, date: date, cat: cat, hogar: !isSub });
+          FT.toast(L ? '✅ Pago único registrado' : '✅ One-time payment recorded');
+          render();
+          FT.closeTop();
+          return true;
+        }
+
         var freq = body.querySelector('#siFreq').value;
         if (freq === 'custom') freq = FT.wireCustomFreqSubForm(body, 'si').getFreq();
-        var date = body.querySelector('#siDate').value, cat = body.querySelector('#siCat').value;
-        var autopay = !!(body.querySelector('#siAutopay') && body.querySelector('#siAutopay').checked);
+        var autopay = sv.ap === '1';
 
         function doSave() {
           var l = list();
@@ -4974,8 +5120,7 @@ FT.recurringItemsScreen = function (opts) {
         // nombre muy parecido (ella tiene "Home At&t", tú vas a crear "Home
         // ATT"), lo más probable es que ambos hayan configurado el MISMO
         // gasto real por separado sin darse cuenta -- eso genera un cargo
-        // doble cada mes (uno por cada quien). Solo se checa al CREAR, no
-        // al editar, y solo si el hogar está conectado.
+        // doble cada mes. Solo se checa al CREAR y con el hogar conectado.
         if (!s && FT.hogarConnected()) {
           var norm = function (x) { return String(x || '').toLowerCase().replace(/[^a-z0-9]/g, ''); };
           var nNorm = norm(name);

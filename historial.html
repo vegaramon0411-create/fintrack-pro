@@ -13,6 +13,27 @@
 <script>
 var selectedMonth = FT.todayISO().slice(0, 7);
 var activeFilter = 'all';
+// 19-oct-2026, a petición de Ramón: tocar una barra de categoría (Overview u
+// Hogar) llega aquí ya filtrado -- ?f=hogar|personal|..., ?m=AAAA-MM, ?cat=...
+var catFilter = '';
+(function () {
+  try {
+    var q = new URLSearchParams(location.search);
+    var f = q.get('f'), m = q.get('m');
+    if (['all', 'gasto', 'ingreso', 'inversion', 'hogar', 'personal'].indexOf(f) > -1) activeFilter = f;
+    if (/^\d{4}-(0[1-9]|1[0-2])$/.test(m || '')) selectedMonth = m;
+    catFilter = q.get('cat') || '';
+  } catch (e) {}
+})();
+function catMatches(t) {
+  if (!catFilter) return true;
+  var want = FT.catMeta(catFilter).label.toLowerCase();
+  if (want === 'ahorro' || want === 'savings') return t.type === 'ahorro';
+  if (want === 'inversión' || want === 'inversion' || want === 'investment') return t.type === 'inversion';
+  return FT.catMeta(t.cat || '').label.toLowerCase() === want;
+}
+function clearCat() { catFilter = ''; render(); }
+function escH(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
 // Bug real de QA (N3): la sección "Del hogar" alternaba entre dos números
 // distintos (ej. "Aportado $120" y luego "Aportado $0 / Gastos $120") sin
 // que cambiara ningún dato real -- FT.boot() dispara "ft:ready" (que pinta
@@ -118,10 +139,14 @@ function render() {
     '</div></div>';
 
   h += '<div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;margin-bottom:14px">' +
-    [['all', L ? 'Todos' : 'All'], ['gasto', '💸 ' + (L ? 'Gastos' : 'Expenses')], ['ingreso', '💰 ' + (L ? 'Ingresos' : 'Income')], ['inversion', '📈 ' + (L ? 'Inversiones' : 'Investments')], ['hogar', '🏠 ' + (L ? 'Hogar' : 'Household')]]
+    [['all', L ? 'Todos' : 'All'], ['gasto', '💸 ' + (L ? 'Gastos' : 'Expenses')], ['ingreso', '💰 ' + (L ? 'Ingresos' : 'Income')], ['inversion', '📈 ' + (L ? 'Inversiones' : 'Investments')], ['personal', '👤 Personal'], ['hogar', '🏠 ' + (L ? 'Hogar' : 'Household')]]
       .map(function (f) { var on = activeFilter === f[0]; return '<button class="tap" data-f="' + f[0] + '" style="flex-shrink:0;background:' + (on ? 'var(--ink)' : 'var(--sunk)') + ';border:1.5px solid ' + (on ? 'var(--ink)' : 'var(--hair)') + ';color:' + (on ? '#fff' : 'var(--text2)') + ';border-radius:99px;padding:6px 14px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;white-space:nowrap">' + f[1] + '</button>'; }).join('') +
   '</div>';
 
+  if (catFilter) {
+    h += '<div style="display:flex;align-items:center;gap:8px;margin:-4px 0 12px"><span style="font-size:12px;color:var(--text2)">' + (L ? 'Categoría:' : 'Category:') + ' <b>' + escH(FT.catMeta(catFilter).label) + '</b></span>' +
+      '<button class="tap" onclick="clearCat()" aria-label="' + (L ? 'Quitar filtro de categoría' : 'Clear category filter') + '" style="background:var(--sunk);border:1px solid var(--hair);border-radius:99px;padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;color:var(--text2)">✕ ' + (L ? 'Quitar' : 'Clear') + '</button></div>';
+  }
   h += '<div class="ft-card" id="txList" style="padding:2px 16px"></div>';
 
   h += '<div class="ft-card" style="padding:0">' +
@@ -150,65 +175,6 @@ function toggleToolsPanel() {
   chev.style.transform = open ? 'rotate(0deg)' : 'rotate(180deg)';
 }
 
-function rowHtml(t) {
-  var L = es(), esHogarTx = t.isHogar || t.hogar === true, esDePareja = t._partner === true;
-  var tagLabel, tagBg, tagColor;
-  if (t.type === 'ingreso') {
-    if (t.incomeKind === 'extra') { tagLabel = L ? '🎁 Extra (100% tuyo)' : '🎁 Extra (100% yours)'; tagBg = 'var(--g-light)'; tagColor = 'var(--g-dark)'; }
-    // 12-oct-2026 (Ramón, capturas): un ingreso de cobertura (FT.addEntry's
-    // o.cobertura -- cubre un gasto PERSONAL sacando de tu propio Ahorro
-    // libre/Emergencia) caía en el `else` de abajo y se mostraba con el
-    // reparto %hogar/%personal del CHEQUE, como "🏠 $47 + 👤 $31" -- un
-    // rótulo falso, nunca se tocó ni un centavo de hogar (FT.addEntry solo
-    // retira de un pozo 100% personal, confirmado leyendo el código; el
-    // total de "Ingresos personales" de arriba YA trataba cobertura como
-    // 100% personal desde la parte 24 -- solo esta etiqueta por fila no se
-    // había corregido igual). Mismo tratamiento que 'extra'.
-    else if (t.incomeKind === 'cobertura') { tagLabel = L ? '💵 Cobertura (100% tuyo)' : '💵 Coverage (100% yours)'; tagBg = 'var(--g-light)'; tagColor = 'var(--g-dark)'; }
-    else if (t.incomeKind === 'venta') { tagLabel = L ? '🔄 Venta de inversión (no suma al presupuesto)' : '🔄 Investment sale (not in budget)'; tagBg = 'var(--sunk)'; tagColor = 'var(--text3)'; }
-    else if (t.incomeKind === 'cheque') {
-      var hc = FT.hogar(), pct = (parseFloat(hc.payPctHogar) || 50) + (parseFloat(hc.saveHogarPct) || 10);
-      var amt = parseFloat(t.amount) || 0, hp = amt * pct / 100, pp2 = amt - hp;
-      tagLabel = '🏠 ' + FT.money(hp) + ' + 👤 ' + FT.money(pp2); tagBg = '#FBF0DD'; tagColor = 'var(--amber)';
-    }
-    // Sin etiqueta (dato viejo, antes de la migración): se trata como extra, igual que el resto de pantallas.
-    else { tagLabel = L ? '🎁 Extra (100% tuyo)' : '🎁 Extra (100% yours)'; tagBg = 'var(--g-light)'; tagColor = 'var(--g-dark)'; }
-  } else if (t.type === 'transferencia') {
-    // Neutral por regla (#1) -- no es personal ni de hogar, es un
-    // movimiento entre tus propias cuentas/fondos.
-    tagLabel = (t.fromLabel || '?') + ' → ' + (t.toLabel || '?'); tagBg = 'var(--sky-bg)'; tagColor = 'var(--sky-tx)';
-  } else if (t.type === 'ajuste') {
-    tagLabel = L ? '⚖️ Ajuste manual' : '⚖️ Manual adjustment'; tagBg = 'var(--peach-bg,#FBEFE8)'; tagColor = 'var(--peach-tx)';
-  // 15-oct-2026 (Ramón): "Ahorro libre" tuyo, "Aporte a hogar" y "Ahorro
-  // automático del cheque" compartían la misma etiqueta genérica "👤
-  // Personal"/"🏠 Hogar" -- costaba distinguir cuál era cuál de un
-  // vistazo. No hay un campo dedicado para esto (ninguno de los 3 pone
-  // auto:true), así que se distingue por el `desc` fijo que cada uno ya
-  // usa siempre (constantes del código, no texto libre del usuario) --
-  // solo cambia la ETIQUETA mostrada, cero cambio de dinero/datos.
-  } else if (t.type === 'ahorro' && !esHogarTx) {
-    var descStr = String(t.desc || '');
-    if (/autom[aá]tic/i.test(descStr)) { tagLabel = L ? '⭐ Ahorro automático' : '⭐ Automatic savings'; tagBg = 'var(--g-light)'; tagColor = 'var(--g-dark)'; }
-    else if (descStr.indexOf('Reparto de cheque') === 0 || descStr.indexOf('Paycheck allocation') === 0) { tagLabel = L ? '💵 A tu fondo' : '💵 To your fund'; tagBg = 'var(--sky-bg)'; tagColor = 'var(--blue)'; }
-    else { tagLabel = L ? '👤 Personal' : '👤 Personal'; tagBg = 'var(--chip)'; tagColor = 'var(--text3)'; }
-  } else {
-    tagLabel = esHogarTx ? (t.type === 'ahorro' ? (L ? '🏠 Aporte a hogar' : '🏠 Household contribution') : (L ? '🏠 Hogar' : '🏠 Household')) : (L ? '👤 Personal' : '👤 Personal');
-    tagBg = esHogarTx ? 'var(--g-light)' : 'var(--chip)'; tagColor = esHogarTx ? 'var(--g-dark)' : 'var(--text3)';
-  }
-  if (esDePareja && t.createdBy) tagLabel += ' · ' + t.createdBy;
-  var pastel = TYPE_PASTEL[t.type] || 'peach';
-  return '<div class="tap" data-txid="' + t.id + '" style="display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--hair);cursor:' + (esDePareja ? 'default' : 'pointer') + '">' +
-    '<div class="ft-tx-ico ' + pastel + '">' + (esHogarTx ? '🏠' : (TYPE_ICO[t.type] || '📝')) + '</div>' +
-    '<div style="flex:1;min-width:0">' +
-      '<div style="font-size:10px;color:var(--text3);margin-bottom:1px">' + FT.date(t.date) + (esDePareja && t.createdBy ? ' · ' + t.createdBy : '') + '</div>' +
-      '<div style="font-size:14px;font-weight:800;font-family:var(--round-font);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:3px">' + (t.desc || '—') + '</div>' +
-      '<span style="font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:20px;background:' + tagBg + ';color:' + tagColor + '">' + tagLabel + '</span>' +
-    '</div>' +
-    '<div style="font-size:14px;font-weight:800;font-family:var(--round-font);color:' + ((t.type === 'ingreso' || (t.type === 'ajuste' && t.acctCredited)) ? 'var(--g-main)' : 'var(--ink)') + ';flex-shrink:0">' + ((t.type === 'ingreso' || (t.type === 'ajuste' && t.acctCredited)) ? '+' : (t.type === 'transferencia' ? '' : '−')) + FT.money(Math.abs(parseFloat(t.amount) || 0), { cents: true }) + '</div>' +
-    (esDePareja ? '' : '<div style="color:var(--text3);font-size:15px;flex-shrink:0">›</div>') +
-  '</div>';
-}
-
 function renderList() {
   var L = es(), data = FT.data();
   var txs = (data.transactions || []).filter(function (t) { return (t.date || '').startsWith(selectedMonth); });
@@ -225,12 +191,14 @@ function renderList() {
   // suscripcion e hipoteca -- la lista se veía más corta que el total. La
   // lista ahora incluye lo mismo que ya cuenta el resumen.
   else if (activeFilter === 'gasto') txs = txs.filter(function (t) { return t.type === 'gasto' || t.type === 'suscripcion' || t.type === 'hipoteca'; });
+  else if (activeFilter === 'personal') txs = txs.filter(function (t) { return !(t.isHogar || t.hogar === true); });
   else if (activeFilter !== 'all') txs = txs.filter(function (t) { return t.type === activeFilter; });
+  if (catFilter) txs = txs.filter(catMatches);
   txs.sort(function (a, b) { return String(b.date || '').localeCompare(String(a.date || '')) || ((parseInt(b.id, 10) || 0) - (parseInt(a.id, 10) || 0)); });
 
   _currentList = txs;
   var list = document.getElementById('txList');
-  list.innerHTML = txs.length ? txs.map(rowHtml).join('') : '<div class="ft-empty">' + (L ? 'Sin movimientos este mes' : 'No transactions this month') + '</div>';
+  list.innerHTML = txs.length ? txs.map(function (t, i) { return FT.txRow(t, i, { partner: true }); }).join('') : '<div class="ft-empty">' + (L ? 'Sin movimientos este mes' : 'No transactions this month') + '</div>';
 }
 
 document.getElementById('root').addEventListener('click', function (e) {

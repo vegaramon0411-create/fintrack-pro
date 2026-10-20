@@ -33,13 +33,17 @@ function render() {
   document.getElementById('root').innerHTML =
   '<div class="section"><div class="section-title">' + (L ? 'CUENTA' : 'ACCOUNT') + '</div><div class="card">' +
     row('👤', 'var(--sky-bg)', L ? 'Mi Perfil' : 'My Profile', L ? 'Nombre, ingreso, metas' : 'Name, income, goals', "go('perfil.html')") +
-    row('💰', 'var(--g-light)', L ? 'Saldos iniciales' : 'Starting balances', L ? 'Cuentas, ahorro, metas, deudas' : 'Accounts, savings, goals, debts', "go('onboarding.html')") +
+    row('🏦', 'var(--sky-bg)', L ? 'Mis cuentas' : 'My accounts', L ? 'Editar, renombrar, cuadrar con tu banco o eliminar' : 'Edit, rename, match your bank or delete', "FT.checkingAccountsScreen(false)") +
+    (FT.hogarConnected() ? row('🏠', 'var(--g-light)', L ? 'Cuentas conjuntas' : 'Joint accounts', L ? 'Las cuentas que compartes con tu pareja' : 'The accounts you share with your partner', "FT.checkingAccountsScreen(true)") : '') +
+    row('💰', 'var(--g-light)', L ? 'Saldos iniciales' : 'Starting balances', L ? 'Agrega cuentas, ahorro, inversiones y deudas, paso a paso' : 'Add accounts, savings, investments and debts, step by step', "go('onboarding.html')") +
     '<div class="setting-row"><div class="setting-ico" style="background:var(--g-light)">🌐</div><div class="setting-info"><div class="setting-label">' + (L ? 'Idioma' : 'Language') + '</div></div>' +
       '<div class="setting-ctrl"><div style="display:flex;background:var(--off);border:1px solid var(--border);border-radius:20px;overflow:hidden;font-size:11px;font-weight:700">' +
         '<div class="tap" style="padding:5px 12px;cursor:pointer;' + (L ? 'background:var(--g-main);color:#fff' : 'color:var(--text3)') + '" onclick="FT.setLang(\'es\')">ES</div>' +
         '<div class="tap" style="padding:5px 12px;cursor:pointer;' + (!L ? 'background:var(--g-main);color:#fff' : 'color:var(--text3)') + '" onclick="FT.setLang(\'en\')">EN</div></div></div></div>' +
     '<div class="setting-row"><div class="setting-ico" style="background:var(--amb-dim,rgba(224,149,46,.12))">💰</div><div class="setting-info"><div class="setting-label">' + (L ? 'Moneda' : 'Currency') + '</div></div>' +
-      '<div class="setting-ctrl"><select class="field-input" id="currencySelect" onchange="saveCurrency()"><option value="USD">USD ($)</option><option value="MXN">MXN ($)</option><option value="EUR">EUR (€)</option></select></div></div>' +
+      '<div class="setting-ctrl"><select class="field-input" id="currencySelect" onchange="saveCurrency()">' + CURRENCIES.map(function (c) { return '<option value="' + c[0] + '">' + c[0] + ' (' + c[1] + ')</option>'; }).join('') + '</select></div></div>' +
+    '<div class="setting-row"><div class="setting-ico" style="background:var(--sky-bg)">🔢</div><div class="setting-info"><div class="setting-label">' + (L ? 'Formato de números' : 'Number format') + '</div><div class="setting-sub">' + (L ? 'Cómo se escriben los montos' : 'How amounts are written') + '</div></div>' +
+      '<div class="setting-ctrl"><select class="field-input" id="numFmtSelect" onchange="saveNumFormat()"><option value="us">1,200.00</option><option value="latam">1.200,00</option></select></div></div>' +
   '</div></div>' +
 
   '<div class="section"><div class="section-title">' + (L ? 'DATOS' : 'DATA') + '</div><div class="card">' +
@@ -55,7 +59,17 @@ function render() {
 
   '<div style="text-align:center;padding:20px 0;color:var(--text3);font-size:11px">FinTrack Pro · Versión 2.0</div>';
 
-  if (u.currency) document.getElementById('currencySelect').value = u.currency;
+  document.getElementById('currencySelect').value = u.currency || 'USD';
+  document.getElementById('numFmtSelect').value = FT.numFormat();
+}
+// Moneda (código, símbolo) -- el símbolo es lo que FT.money() escribe delante del monto.
+var CURRENCIES = [['USD', '$'], ['MXN', '$'], ['CAD', '$'], ['COP', '$'], ['ARS', '$'], ['CLP', '$'], ['EUR', '€'], ['GBP', '£'], ['JPY', '¥'], ['PEN', 'S/'], ['BRL', 'R$'], ['GTQ', 'Q'], ['CRC', '₡'], ['CHF', 'CHF']];
+function saveNumFormat() {
+  var u = FT.user();
+  u.numFormat = document.getElementById('numFmtSelect').value === 'latam' ? 'latam' : 'us';
+  u.numFormatChosen = true;
+  FT.saveUser(u);
+  FT.toast(es() ? '✅ Formato guardado' : '✅ Format saved');
 }
 function row(ico, bg, label, sub, onclickJs) {
   return '<div class="setting-row tap" style="cursor:pointer" onclick="' + onclickJs + '"><div class="setting-ico" style="background:' + bg + '">' + ico + '</div>' +
@@ -65,6 +79,10 @@ function row(ico, bg, label, sub, onclickJs) {
 function saveCurrency() {
   var u = FT.user();
   u.currency = document.getElementById('currencySelect').value;
+  var cur = CURRENCIES.find(function (c) { return c[0] === u.currency; });
+  u.currencySymbol = cur ? cur[1] : '$';
+  // Si todavía no elegiste un formato de números a propósito, se propone el habitual de esa moneda.
+  if (!u.numFormatChosen) u.numFormat = ['ARS', 'CLP', 'COP', 'BRL', 'EUR'].indexOf(u.currency) > -1 ? 'latam' : 'us';
   FT.saveUser(u);
   FT.toast(es() ? '✅ Moneda actualizada' : '✅ Currency updated');
 }

@@ -21,6 +21,10 @@
 .hg-hero .box .r{display:flex;justify-content:space-between;font-size:11px;color:var(--text2);margin-bottom:6px;}
 .hg-quick{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px;}
 .hg-qi{display:flex;align-items:center;gap:10px;padding:12px;border-radius:16px;background:var(--white);border:1px solid var(--hair);cursor:pointer;}
+.hg-more summary{cursor:pointer;font-size:12px;font-weight:700;color:var(--blue);margin-top:12px;list-style:none;}
+.hg-more summary::-webkit-details-marker{display:none;}
+.hg-more summary::after{content:' ▾';}
+.hg-more[open] summary::after{content:' ▴';}
 .hg-qi .t{font-size:12.5px;font-weight:800;}
 .hg-qi .s{font-size:10px;color:var(--text3);}
 .mode-card{border:2px solid var(--hair);border-radius:16px;padding:16px;cursor:pointer;margin-bottom:10px;position:relative;}
@@ -36,7 +40,8 @@
 <body>
 <div class="ft-app"><div class="ft-page" id="root"></div></div>
 <script>
-var activeTab = 'resumen';
+var activeTab = ''; // 19-oct-2026: la pantalla abre limpia; cada chip de "Más del hogar" abre su detalle
+var _recentH = [], _patriH = {};
 var _depositosLimit = 5, _gastosHogarLimit = 8;
 var _pollTimer = null;
 
@@ -97,6 +102,8 @@ function calcHogar() {
   var _mesKey = FT.todayISO().slice(0, 7), chequesDelMes = [];
   try { chequesDelMes = (FT.cheques() || []).filter(function (c) { return c.mes === _mesKey; }); } catch (e) {}
   var fondoAportado = chequesDelMes.reduce(function (a, c) { return a + (c.hogarAmt || 0); }, 0);
+  // Aportes al hogar capturados a mano (ingreso > Aporte al hogar) también son tu aporte real.
+  fondoAportado += (FT.txs() || []).filter(function (t) { return t.aporteManual === true && String(t.date || '').slice(0, 7) === _mesKey; }).reduce(function (a, t) { return a + (parseFloat(t.amount) || 0); }, 0);
   return { myIncome: myIncome, partnerIncome: partnerIncome, total: total, myPct: myPct, partnerPct: partnerPct,
     shared: shared, pShared: pShared, sharedTotal: sharedTotal, mySharedPart: mySharedPart, partnerSharedPart: partnerSharedPart,
     fondoAportado: fondoAportado };
@@ -258,7 +265,7 @@ function renderModeSelector() {
 function setMode(mode) {
   var h = FT.hogar(); h.mode = mode; h.modeSetAt = new Date().toISOString(); FT.saveHogar(h);
   FT.toast(es() ? '✅ Modo guardado' : '✅ Mode saved');
-  activeTab = 'resumen';
+  activeTab = '';
   render();
 }
 function changeMode() { var h = FT.hogar(); delete h.mode; FT.saveHogar(h); render(); }
@@ -318,40 +325,70 @@ function renderDashboard(hogar) {
   var myDebtsAll = FT.debts();
   var sharedDebtsN = myDebtsAll.filter(function (d) { return d.owner === 'both'; }).length;
 
+  // 19-oct-2026, a petición de Ramón: Hogar se ve como Overview -- un número
+  // claro, lo importante a la mano (cuentas, patrimonio, deudas... todo
+  // clicable), la gráfica de gasto del hogar (cada barra lleva a Historial ya
+  // filtrado) y los últimos movimientos. El detalle largo (cómo se reparte,
+  // recibido, bote real, patrimonio) queda a un toque, no a la vista.
+  var mkH = FT.todayISO().slice(0, 7);
+  var mesNameH = new Date().toLocaleDateString(L ? 'es-MX' : 'en-US', { month: 'long' });
+  var spentH = calc.sharedTotal;
+  var budLeftH = hogarBudgetHero - spentH;
+  var budPctH = hogarBudgetHero > 0 ? Math.min(100, spentH / hogarBudgetHero * 100) : 0;
+  var byCatH = {};
+  calc.shared.concat(calc.pShared).forEach(function (t) {
+    var meta = FT.catMeta(t.cat || (L ? '📦 Otros' : '📦 Other'));
+    var key = meta.label || (L ? 'Otros' : 'Other');
+    if (!byCatH[key]) byCatH[key] = { cat: (meta.emoji ? meta.emoji + ' ' : '') + key, spent: 0 };
+    byCatH[key].spent += parseFloat(t.amount) || 0;
+  });
+  var catItemsH = Object.keys(byCatH).map(function (k) { return byCatH[k]; });
+  var ppH = FT.partnerProfile();
+  var recentH = (FT.txs() || []).filter(function (t) { return t.hogar === true && String(t.date || '').slice(0, 7) === mkH; })
+    .concat(((ppH && ppH.data && ppH.data.transactions) || [])
+      .filter(function (t) { return (t.hogar === true || t.isHogar) && String(t.date || '').slice(0, 7) === mkH; })
+      .map(function (t) { return Object.assign({}, t, { _partner: true, createdBy: t.createdBy || partnerName }); }))
+    .sort(function (a, b) { return String(b.date || '').localeCompare(String(a.date || '')) || ((parseInt(b.id, 10) || 0) - (parseInt(a.id, 10) || 0)); })
+    .slice(0, 6);
+  _recentH = recentH;
+  _patriH = { checkTotal: checkTotal, invTotal: invTotal, metasTotal: metasTotal, emergTotal: emergTotal, total: patrimonioHogar };
+
   var h =
+    reviewCardsHtml(partnerName) +
     '<div class="hg-hero">' +
-      '<div class="lbl">' + (L ? 'Presupuesto del hogar (' + hogarPctTotal + '% de cada cheque)' : 'Household budget (' + hogarPctTotal + '% of each paycheck)') + '</div>' +
-      '<div class="amt">' + FT.money(hogarBudgetHero) + '<span style="font-size:14px;color:var(--text3);font-weight:700">/mes</span></div>' +
-      '<div class="members">' +
-        '<div class="mem"><div class="n">' + (FT.userName() || (L ? 'Tú' : 'You')) + '</div><div class="a">' + FT.money(myBudgetHero) + '</div><div class="p">' + hogarPctTotal + '% ' + (L ? 'de ' + FT.money(calc.myIncome) : 'of ' + FT.money(calc.myIncome)) + '</div></div>' +
-        '<div class="mem"><div class="n">' + partnerName + '</div><div class="a">' + FT.money(partnerBudgetHero) + '</div><div class="p">' + hogarPctTotal + '% ' + (L ? 'de ' + FT.money(calc.partnerIncome) : 'of ' + FT.money(calc.partnerIncome)) + '</div></div>' +
-      '</div>' +
-      '<div style="font-size:10px;color:var(--text3);margin:2px 0 10px">' + (L ? 'Ingreso combinado total (100%, antes de separar): ' : 'Total combined income (100%, before splitting): ') + '<b style="color:var(--text2)">' + FT.money(calc.total) + '/mes</b></div>' +
-      '<div class="box"><div class="r"><span>💵 ' + (L ? 'Recibido este mes' : 'Received this month') + '</span><span>' + FT.money(totalIncomeReceived * hogarPctTotal / 100) + ' / ' + FT.money(hogarBudgetHero) + '</span></div>' +
-      '<div class="ft-track" style="height:6px"><div class="ft-fill" data-pct="' + incomeReceivedPct + '" style="width:0;background:var(--g-main)"></div></div>' +
-      '<div style="font-size:10px;color:var(--text3);margin-top:6px">' + (L ? 'Bote real del hogar (' + payPctHero + '% de lo recibido − gastado hogar)' : payPctHero + '% of received − household spent') + ': <b style="color:var(--text2)">' + FT.money(botesReal) + '</b></div></div>' +
-      '<div class="box tap" style="margin-top:10px;cursor:pointer" onclick="FT.checkingAccountsScreen(true)"><div class="r" style="margin-bottom:0"><span>🏦 ' + (L ? 'Cuentas de cheques conjuntas' : 'Joint checking accounts') + '</span><span style="font-weight:800;color:var(--ink)">' + FT.money(checkTotal) + ' ›</span></div>' +
-        (myChecking.some(function (c) { return c.rule || c.autoDeposit; }) ? '<div style="font-size:9.5px;color:var(--g-dark);margin-top:4px">🔗 ' + (L ? 'Tu aporte al hogar se deposita aquí automático' : 'Your household share auto-deposits here') + '</div>' : '<div style="font-size:9.5px;color:var(--text3);margin-top:4px">' + (L ? 'Toca para agregar una cuenta o ponerle una regla de depósito automático' : 'Tap to add an account or set an auto-deposit rule') + '</div>') +
-      '</div>' +
+      '<div class="lbl">' + (L ? 'Gastado del hogar en ' + mesNameH : 'Household spending in ' + mesNameH) + '</div>' +
+      '<div class="amt" style="margin-bottom:10px">' + FT.money(spentH, { cents: true }) + '</div>' +
+      '<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;font-weight:700;margin-bottom:6px"><span>' + (L ? 'Presupuesto ' : 'Budget ') + FT.money(hogarBudgetHero) + '</span><span style="color:' + (budLeftH < 0 ? 'var(--red)' : 'var(--g-main)') + '">' + FT.money(budLeftH, { cents: true }) + ' ' + (L ? 'restante' : 'left') + '</span></div>' +
+      '<div class="ft-track" style="height:6px"><div class="ft-fill" data-pct="' + budPctH + '" style="width:0;background:' + (budPctH >= 90 ? 'var(--red)' : 'var(--g-main)') + '"></div></div>' +
+      '<details class="hg-more"><summary>' + (L ? 'Ver detalle del presupuesto' : 'Budget details') + '</summary>' +
+        '<div style="font-size:11px;color:var(--text3);margin:10px 0 8px">' + (L ? 'Presupuesto del hogar (' + hogarPctTotal + '% de cada cheque)' : 'Household budget (' + hogarPctTotal + '% of each paycheck)') + '</div>' +
+        '<div class="members">' +
+          '<div class="mem"><div class="n">' + (FT.userName() || (L ? 'Tú' : 'You')) + '</div><div class="a">' + FT.money(myBudgetHero) + '</div><div class="p">' + hogarPctTotal + '% ' + (L ? 'de ' + FT.money(calc.myIncome) : 'of ' + FT.money(calc.myIncome)) + '</div></div>' +
+          '<div class="mem"><div class="n">' + partnerName + '</div><div class="a">' + FT.money(partnerBudgetHero) + '</div><div class="p">' + hogarPctTotal + '% ' + (L ? 'de ' + FT.money(calc.partnerIncome) : 'of ' + FT.money(calc.partnerIncome)) + '</div></div>' +
+        '</div>' +
+        '<div style="font-size:10px;color:var(--text3);margin:2px 0 10px">' + (L ? 'Ingreso combinado total (100%, antes de separar): ' : 'Total combined income (100%, before splitting): ') + '<b style="color:var(--text2)">' + FT.money(calc.total) + (L ? '/mes' : '/mo') + '</b></div>' +
+        '<div class="box"><div class="r"><span>💵 ' + (L ? 'Recibido este mes' : 'Received this month') + '</span><span>' + FT.money(totalIncomeReceived * hogarPctTotal / 100) + ' / ' + FT.money(hogarBudgetHero) + '</span></div>' +
+        '<div class="ft-track" style="height:6px"><div class="ft-fill" data-pct="' + incomeReceivedPct + '" style="width:0;background:var(--g-main)"></div></div>' +
+        '<div style="font-size:10px;color:var(--text3);margin-top:6px">' + (L ? 'Bote real del hogar (' + payPctHero + '% de lo recibido − gastado hogar)' : payPctHero + '% of received − household spent') + ': <b style="color:var(--text2)">' + FT.money(botesReal) + '</b></div></div>' +
+      '</details>' +
     '</div>' +
 
-    (patrimonioHogar > 0 ? '<div class="ft-card">' +
-      '<div style="font-size:14px;font-weight:800">💎 ' + (L ? 'Patrimonio del hogar' : 'Household net worth') + '</div>' +
-      '<div style="font-size:11px;color:var(--text3);margin-bottom:10px">' + (L ? 'Solo lo compartido — tu ahorro y emergencia personal no se incluyen aquí' : 'Shared only — your personal savings and emergency fund aren\'t included here') + '</div>' +
-      '<div class="ft-num" style="font-size:26px;margin-bottom:10px">' + FT.money(patrimonioHogar) + '</div>' +
-      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
-        '<div style="background:var(--sunk);border-radius:10px;padding:9px;text-align:center"><div style="font-size:9px;color:var(--text3);font-weight:700">🏦 ' + (L ? 'Cuentas' : 'Accounts') + '</div><div style="font-size:12.5px;font-weight:800;margin-top:2px">' + FT.money(checkTotal) + '</div></div>' +
-        '<div style="background:var(--sunk);border-radius:10px;padding:9px;text-align:center"><div style="font-size:9px;color:var(--text3);font-weight:700">📈 ' + (L ? 'Inversión' : 'Investing') + '</div><div style="font-size:12.5px;font-weight:800;margin-top:2px">' + FT.money(invTotal) + '</div></div>' +
-        '<div style="background:var(--sunk);border-radius:10px;padding:9px;text-align:center"><div style="font-size:9px;color:var(--text3);font-weight:700">🎯 ' + (L ? 'Metas' : 'Goals') + '</div><div style="font-size:12.5px;font-weight:800;margin-top:2px">' + FT.money(metasTotal) + '</div></div>' +
-        '<div style="background:var(--sunk);border-radius:10px;padding:9px;text-align:center"><div style="font-size:9px;color:var(--text3);font-weight:700">🛡️ ' + (L ? 'Emergencia' : 'Emergency') + '</div><div style="font-size:12.5px;font-weight:800;margin-top:2px">' + FT.money(emergTotal) + '</div></div>' +
-      '</div></div>' : '') +
-
-    '<div style="font-size:11px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin:4px 4px 8px">' + (L ? 'Accesos rápidos del hogar' : 'Household quick access') + '</div>' +
     '<div class="hg-quick">' +
-      qItem('🏠', 'coral', L ? 'Servicios' : 'Services', servicios.length ? FT.money(servTotal) + '/' + (L ? 'mes' : 'mo') : (L ? 'Sin registrar' : 'None yet'), "go('servicios.html')") +
+      qItem('🏦', 'sky', L ? 'Cuentas' : 'Accounts', myChecking.length || partnerChecking.length ? FT.money(checkTotal, { cents: true }) : (L ? 'Agregar cuenta' : 'Add account'), "FT.checkingAccountsScreen(true)") +
+      qItem('💎', 'mint', L ? 'Patrimonio' : 'Net worth', FT.money(patrimonioHogar), "openPatrimonio()") +
       qItem('💳', 'peach', L ? 'Deudas' : 'Debts', sharedDebtsN ? sharedDebtsN + (L ? ' compartida(s)' : ' shared') : (L ? 'Sin deudas' : 'No debts'), "switchTab('deudas')") +
       qItem('📈', 'mint', L ? 'Inversiones' : 'Investments', hogarInv.length ? FT.money(invTotal) : (L ? 'Sin registrar' : 'None yet'), "switchTab('inversiones')") +
-      qItem('📋', 'pink', L ? 'Guía' : 'Guide', L ? '¿Cómo funciona esto?' : 'How does this work?', "switchTab('guia')") +
+      qItem('🎯', 'pink', L ? 'Metas' : 'Goals', metasTotal > 0 ? FT.money(metasTotal) : (L ? 'Crear meta' : 'Add goal'), "switchTab('metas')") +
+      qItem('🏠', 'coral', L ? 'Servicios' : 'Services', servicios.length ? FT.money(servTotal) + '/' + (L ? 'mes' : 'mo') : (L ? 'Sin registrar' : 'None yet'), "go('servicios.html')") +
+    '</div>' +
+
+    '<div class="ft-section"><div class="ft-section-head"><h3>' + (L ? 'Gasto por categoría' : 'Spending by category') + '</h3></div>' +
+      (catItemsH.length ? FT.catBars(catItemsH, { max: 6, scope: 'hogar', month: mkH }) + '<div class="d-legend" style="font-size:10.5px;color:var(--text3);margin-top:6px">' + (L ? 'Toca una barra para ver esos gastos' : 'Tap a bar to see those expenses') + '</div>'
+        : '<div class="ft-empty">' + (L ? 'Sin gastos del hogar este mes' : 'No household spending this month') + '</div>') +
+    '</div>' +
+
+    '<div class="ft-section" id="recentH"><div class="ft-section-head"><h3>' + (L ? 'Últimos movimientos' : 'Recent activity') + '</h3><button class="link" onclick="go(\'historial.html?f=hogar&m=' + mkH + '\')">' + (L ? 'Ver todos' : 'See all') + '</button></div>' +
+      (recentH.length ? recentH.map(function (t, i) { return FT.txRow(t, i, { partner: true }); }).join('') : '<div class="ft-empty">' + (L ? 'Aún no hay movimientos del hogar' : 'No household activity yet') + '</div>') +
     '</div>' +
 
     '<div style="display:flex;align-items:center;justify-content:space-between;margin:14px 0">' +
@@ -359,8 +396,9 @@ function renderDashboard(hogar) {
       '<button class="tap" style="background:none;border:none;font-size:12px;font-weight:700;color:var(--blue);cursor:pointer" onclick="changeMode()">' + (L ? 'Cambiar modo' : 'Change mode') + ' →</button>' +
     '</div>' +
 
+    '<div style="font-size:11px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin:4px 4px 8px">' + (L ? 'Más del hogar' : 'More') + '</div>' +
     '<div class="ft-chip-row" style="display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;margin-bottom:14px">' +
-      [['resumen', '📊 ' + (L ? 'Resumen' : 'Summary')], ['depositos', '💰 ' + (L ? 'Depósitos' : 'Deposits')], ['gastoshogar', '🧾 ' + (L ? 'Gastos hogar' : 'Household spend')],
+      [['resumen', '📊 ' + (L ? 'Reparto' : 'Split')], ['depositos', '💰 ' + (L ? 'Depósitos' : 'Deposits')], ['gastoshogar', '🧾 ' + (L ? 'Gastos hogar' : 'Household spend')],
        ['distribucion', '💰 ' + (L ? 'Distribución' : 'Distribution')], ['deudas', '💳 ' + (L ? 'Deudas' : 'Debts')], ['inversiones', '📈 ' + (L ? 'Inversiones' : 'Investments')],
        ['metas', '🎯 ' + (L ? 'Metas' : 'Goals')], ['guia', '📋 ' + (L ? 'Guía' : 'Guide')]]
         .map(function (t) { return '<button class="tap" data-tabbtn="' + t[0] + '" style="flex-shrink:0;background:' + (activeTab === t[0] ? 'var(--ink)' : 'var(--sunk)') + ';border:1.5px solid ' + (activeTab === t[0] ? 'var(--ink)' : 'var(--hair)') + ';color:' + (activeTab === t[0] ? '#fff' : 'var(--text2)') + ';border-radius:99px;padding:7px 14px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;white-space:nowrap">' + t[1] + '</button>'; }).join('') +
@@ -374,14 +412,113 @@ function renderDashboard(hogar) {
 
   document.getElementById('root').innerHTML = h;
   requestAnimationFrame(function () { document.querySelectorAll('.ft-fill[data-pct]').forEach(function (f) { f.style.width = f.getAttribute('data-pct') + '%'; }); });
-  document.querySelectorAll('[data-tabbtn]').forEach(function (b) { b.onclick = function () { switchTab(b.getAttribute('data-tabbtn')); }; });
+  document.querySelectorAll('[data-tabbtn]').forEach(function (b) { b.onclick = function () { var k = b.getAttribute('data-tabbtn'); switchTab(activeTab === k ? '' : k); }; });
+  // Tocar un movimiento reciente abre su detalle (los de tu pareja, solo lectura).
+  document.querySelectorAll('#recentH .ft-tx[data-txid]').forEach(function (row) {
+    row.addEventListener('click', function () {
+      var t = _recentH.find(function (x) { return String(x.id) === row.getAttribute('data-txid'); });
+      if (!t) return;
+      if (t._partner) FT.openTxDetail(t, { readOnly: true }); else FT.openTxDetail(t.id);
+    });
+  });
   renderTab(calc, partnerName);
 }
+/* ── REVISIÓN DEL HOGAR POR LA PAREJA (19-oct-2026, a petición de Ramón) ──
+   Cuando uno captura cuentas conjuntas / inversiones del hogar, la otra persona
+   ve "Revisa lo que X configuró" y responde: ✅ Todo bien, o ⚠️ Algo no está
+   bien (con una nota). Quien capturó ve la respuesta aquí mismo y corrige desde
+   Cuentas conjuntas. Solo viaja lo del hogar -- nada personal. La respuesta
+   sube por el mismo perfil que ya se sincroniza (hogarReview). */
+function _revSig(items) {
+  var s = items.map(function (i) { return i.name; }).sort().join(';'), h = 0; // solo nombres: un saldo que cambia por un gasto NO debe pedir revisión otra vez
+  for (var k = 0; k < s.length; k++) h = ((h << 5) - h + s.charCodeAt(k)) | 0;
+  return s ? String(h) : '';
+}
+function _partnerSetup() {
+  var pp = FT.partnerProfile();
+  var raw = FT.get(FT.K.partnerChecking, []); raw = Array.isArray(raw) ? raw : (raw ? [raw] : []);
+  var items = raw.filter(function (c) { return c.hogar; }).map(function (c) { return { ico: '🏦', name: c.name || (es() ? 'Cuenta' : 'Account'), amt: parseFloat(c.amount) || 0 }; });
+  ((pp && pp.data && pp.data.hogarInv) || []).forEach(function (i) { items.push({ ico: '📈', name: i.ticker || i.name || (es() ? 'Inversión' : 'Investment'), amt: parseFloat(i.amount) || 0 }); });
+  return items;
+}
+function _mySetup() {
+  var items = FT.checking().filter(function (c) { return c.hogar; }).map(function (c) { return { name: c.name || (es() ? 'Cuenta' : 'Account') }; });
+  FT.investments('hogar').forEach(function (i) { items.push({ name: i.ticker || i.name || (es() ? 'Inversión' : 'Investment') }); });
+  return items;
+}
+function reviewCardsHtml(partnerName) {
+  var L = es(), out = '';
+  // 1) Lo que mi pareja configuró del hogar y yo aún no he revisado
+  var items = _partnerSetup(), sig = _revSig(items);
+  // Hogares que ya llevan tiempo conectados: lo que ya existe se da por revisado,
+  // para no pedir "revisa esto" de golpe a quien ya usa la app.
+  if (items.length && sig && !FT.getRaw('ft_hogar_review_ack')) {
+    var ca = FT.hogar().connectedAt;
+    if (ca && (Date.now() - new Date(ca).getTime()) > 86400000) FT.setRaw('ft_hogar_review_ack', sig);
+  }
+  if (items.length && sig && FT.getRaw('ft_hogar_review_ack') !== sig) {
+    out += '<div class="ft-card" style="border:1.5px solid var(--g-main)"><div style="font-size:14px;font-weight:800;margin-bottom:2px">👀 ' + (L ? 'Revisa lo que ' + partnerName + ' configuró del hogar' : 'Review what ' + partnerName + ' set up for the household') + '</div>' +
+      '<div style="font-size:11px;color:var(--text3);margin-bottom:10px">' + (L ? '¿Está bien? Solo ves lo del hogar.' : 'Does it look right? You only see household items.') + '</div>' +
+      items.map(function (i) { return '<div class="ft-row"><span class="k">' + i.ico + ' ' + _escHg(i.name) + '</span><span class="v">' + FT.money(i.amt, { cents: true }) + '</span></div>'; }).join('') +
+      '<div style="display:flex;gap:8px;margin-top:12px"><button class="ft-btn ft-btn-primary tap" style="margin:0;flex:1" onclick="answerReview(\'ok\')">✅ ' + (L ? 'Todo bien' : 'Looks good') + '</button>' +
+      '<button class="ft-btn ft-btn-ghost tap" style="margin:0;flex:1" onclick="answerReview(\'fix\')">⚠️ ' + (L ? 'Algo no está bien' : 'Something is off') + '</button></div></div>';
+  }
+  // 2) La respuesta de mi pareja a lo que yo configuré
+  var pp = FT.partnerProfile(), rv = pp && pp.data && pp.data.hogarReview;
+  var rvAt = rv && rv.at ? String(rv.at).replace(/[^0-9TZ:.\-]/g, '') : '';
+  // Solo se muestra la respuesta si corresponde a lo que tengo configurado ahora (misma firma).
+  if (rv && rvAt && (!rv.sig || rv.sig === _revSig(_mySetup())) && FT.getRaw('ft_hogar_review_seen') !== rvAt) {
+    out += '<div class="ft-card" style="background:' + (rv.status === 'fix' ? 'var(--amber-bg,#FBF0DD)' : 'var(--g-light)') + '">' +
+      '<div style="font-size:13px;font-weight:800;margin-bottom:4px">' + (rv.status === 'fix' ? '⚠️ ' + (L ? partnerName + ' pidió corregir algo del hogar' : partnerName + ' asked to fix something') : '✅ ' + (L ? partnerName + ' confirmó lo del hogar' : partnerName + ' confirmed the household setup')) + '</div>' +
+      (rv.note ? '<div style="font-size:12.5px;color:var(--text2);margin-bottom:8px">“' + _escHg(rv.note) + '”</div>' : '') +
+      '<div style="display:flex;gap:8px">' + (rv.status === 'fix' ? '<button class="ft-btn ft-btn-primary tap" style="margin:0;flex:1" onclick="FT.setRaw(\'ft_hogar_review_seen\',\'' + rvAt + '\');FT.checkingAccountsScreen(true);render()">✏️ ' + (L ? 'Editar cuentas del hogar' : 'Edit household accounts') + '</button>' : '') +
+      '<button class="ft-btn ft-btn-ghost tap" style="margin:0;flex:1" onclick="FT.setRaw(\'ft_hogar_review_seen\',\'' + rvAt + '\');render()">' + (L ? 'Entendido' : 'Got it') + '</button></div></div>';
+  }
+  return out;
+}
+function _escHg(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+function answerReview(status) {
+  var L = es(), sig = _revSig(_partnerSetup());
+  function send(note) {
+    FT.setRaw('ft_hogar_review_ack', sig);
+    var h = FT.hogar(); h.myReview = { status: status, note: note || '', sig: sig, at: new Date().toISOString() };
+    FT.saveHogar(h);
+    FT.toast(status === 'ok' ? (L ? '✅ Confirmado' : '✅ Confirmed') : (L ? '📨 Le avisamos a tu pareja' : '📨 We let your partner know'));
+    render();
+  }
+  if (status === 'ok') { send(''); return; }
+  FT.modal({
+    title: L ? '¿Qué no está bien?' : "What's off?",
+    html: '<div class="ft-field"><label>' + (L ? 'Cuéntale (opcional)' : 'Tell them (optional)') + '</label><input id="rvNote" placeholder="' + (L ? 'Ej. El saldo de Casa + Servicio es otro' : 'E.g. The balance is different') + '"></div>',
+    saveLabel: L ? 'Enviar' : 'Send',
+    onSave: function (body) { send((body.querySelector('#rvNote').value || '').trim().slice(0, 200)); }
+  });
+}
 function qItem(ico, pastel, label, sub, onclickJs) {
-  return '<div class="hg-qi tap" onclick="' + onclickJs + '"><div class="ic ft-tx-ico ' + pastel + '" style="width:34px;height:34px;font-size:15px">' + ico + '</div>' +
+  return '<div class="hg-qi tap" role="button" tabindex="0" onclick="' + onclickJs + '"><div class="ic ft-tx-ico ' + pastel + '" style="width:34px;height:34px;font-size:15px">' + ico + '</div>' +
     '<div style="flex:1;min-width:0"><div class="t">' + label + '</div><div class="s">' + sub + '</div></div></div>';
 }
-function switchTab(tab) { activeTab = tab; render(); }
+function switchTab(tab) {
+  activeTab = tab; render();
+  // Al abrir un detalle desde un acceso rápido, llevar la vista hasta él.
+  if (tab) setTimeout(function () { var c = document.getElementById('tabContent'); if (c && c.scrollIntoView) c.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 60);
+}
+/* Patrimonio del hogar: un toque desde la tarjeta "Patrimonio"; cada renglón lleva a su sección. */
+function openPatrimonio() {
+  var L = es(), p = _patriH || {};
+  function row(ico, label, val, js) {
+    return '<div class="ft-row tap" style="cursor:pointer" onclick="FT.closeTop();' + js + '"><span class="k">' + ico + ' ' + label + '</span><span class="v">' + FT.money(val || 0, { cents: true }) + ' ›</span></div>';
+  }
+  FT.sheet({
+    title: '💎 ' + (L ? 'Patrimonio del hogar' : 'Household net worth'),
+    html: '<div class="ft-num" style="font-size:26px;text-align:center;margin-bottom:4px">' + FT.money(p.total || 0, { cents: true }) + '</div>' +
+      '<div style="font-size:11px;color:var(--text3);text-align:center;margin-bottom:12px">' + (L ? 'Solo lo compartido: tu ahorro y emergencia personal no se incluyen' : "Shared only: your personal savings and emergency fund aren't included") + '</div>' +
+      row('🏦', L ? 'Cuentas' : 'Accounts', p.checkTotal, 'FT.checkingAccountsScreen(true)') +
+      row('📈', L ? 'Inversión' : 'Investing', p.invTotal, "switchTab('inversiones')") +
+      row('🎯', L ? 'Metas' : 'Goals', p.metasTotal, "switchTab('metas')") +
+      row('🛡️', L ? 'Emergencia' : 'Emergency', p.emergTotal, "switchTab('resumen')")
+  });
+}
 function renderTab(calc, partnerName) {
   calc = calc || calcHogar(); partnerName = partnerName || (FT.hogar().partnerName || (es() ? 'Tu pareja' : 'Your partner'));
   var c = document.getElementById('tabContent'); if (!c) return;
@@ -441,15 +578,8 @@ function tabResumen(calc) {
   var sobrante = calc.fondoAportado - calc.mySharedPart;
   var sharedPct = calc.total > 0 ? Math.round(calc.sharedTotal / calc.total * 100) : 0;
 
-  return '<div class="ft-card">' +
-    '<div style="font-size:14px;font-weight:800">💸 ' + (L ? 'Gastos del hogar este mes' : 'Household expenses this month') + '</div>' +
-    '<div style="font-size:11px;color:var(--text3);margin-bottom:12px">' + (L ? 'Solo gastos marcados como "del hogar"' : 'Only expenses tagged as household') + '</div>' +
-    '<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;margin-bottom:5px"><span>' + (L ? 'Gastado' : 'Spent') + ': ' + FT.money(calc.sharedTotal) + '</span><span style="color:var(--text3);font-weight:600">' + sharedPct + '% ' + (L ? 'del ingreso' : 'of income') + '</span></div>' +
-    '<div class="ft-track" style="margin-bottom:12px"><div class="ft-fill" data-pct="' + Math.min(sharedPct, 100) + '" style="width:0;background:' + (sharedPct > 50 ? 'var(--red)' : sharedPct > 30 ? 'var(--amber)' : 'var(--g-main)') + '"></div></div>' +
-    (catRows || '<div class="ft-empty">' + (L ? 'Sin gastos del hogar este mes' : 'No household expenses this month') + '</div>') +
-  '</div>' +
-  (tip ? '<div class="ft-card" style="background:var(--amber)10"><div style="font-size:12px;color:#7A3B0A"><b style="display:block;margin-bottom:4px;font-size:13px">💡 ' + (L ? '¿Por qué no sobró más?' : "Why wasn't there more left?") + '</b>' + tip + '</div></div>' : '') +
-  '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">' +
+  // 19-oct-2026: el desglose por categoria y el tip ahora viven en la grafica de la pantalla principal.
+  return '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">' +
     '<div class="ft-card" style="margin-bottom:0"><div style="width:36px;height:36px;border-radius:50%;background:var(--g-main);color:#fff;display:grid;place-items:center;font-weight:800;margin-bottom:8px">' + (FT.userName() || 'T').charAt(0).toUpperCase() + '</div>' +
     '<div style="font-size:12px;font-weight:800">' + (FT.userName() || (L ? 'Tú' : 'You')) + '</div><div style="font-size:11px;color:var(--text3);margin-bottom:8px">' + FT.money(calc.myIncome) + '/mes</div>' +
     '<div style="display:flex;justify-content:space-between;font-size:11px"><span style="color:var(--text3)">' + (L ? 'Aporte hogar' : 'Household share') + '</span><span style="font-weight:700">' + FT.money(calc.mySharedPart) + '</span></div></div>' +
