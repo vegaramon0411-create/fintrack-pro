@@ -3828,7 +3828,10 @@ FT.catBars = function (items, o) {
   items = (items || []).slice().sort(function (a, b) { return (b.spent || 0) - (a.spent || 0); }).slice(0, o.max || 4);
   var maxRef = Math.max.apply(null, items.map(function (i) { return Math.max(i.spent || 0, i.budget || 0); }).concat([1]));
   var total = items.reduce(function (a, i) { return a + (i.spent || 0); }, 0) || 1;
-  return '<div class="ft-catbars">' + items.map(function (it, idx) {
+  // 19-oct-2026, a petición de Ramón: cada barra es clicable y lleva a
+  // Historial ya filtrado por esa categoría (o.scope: 'personal' | 'hogar',
+  // o.month: 'AAAA-MM'). Ver el listener delegado justo debajo.
+  return '<div class="ft-catbars" data-go="1" data-scope="' + (o.scope || 'personal') + '"' + (o.month ? ' data-month="' + o.month + '"' : '') + '>' + items.map(function (it, idx) {
     var meta = it.emoji ? { emoji: it.emoji, label: it.label, pastel: PASTELS[idx % PASTELS.length] } : FT.catMeta(it.cat, idx);
     var spentH = Math.max(66 / 196 * 100, (it.spent || 0) / maxRef * 100);
     var budH = it.budget ? (it.budget / maxRef * 100) : 0;
@@ -3843,8 +3846,19 @@ FT.catBars = function (items, o) {
   }).join('') + '</div>';
 };
 
+document.addEventListener('click', function (e) {
+  var col = e.target && e.target.closest ? e.target.closest('.ft-catcol') : null;
+  if (!col) return;
+  var box = col.closest('.ft-catbars');
+  if (!box || !box.hasAttribute('data-go')) return;
+  var m = box.getAttribute('data-month');
+  FT.go('historial.html?f=' + (box.getAttribute('data-scope') || 'personal') + (m ? '&m=' + m : '') + '&cat=' + encodeURIComponent(col.getAttribute('data-cat') || ''));
+});
+
 /** tx = transacción de ft_data. Devuelve una fila .ft-tx */
-FT.txRow = function (t, idx) {
+FT.txRow = function (t, idx, o) {
+  o = o || {};
+  var es = FT.lang === 'es';
   // Una transferencia es neutral (regla #1: nunca es ingreso ni gasto) --
   // no lleva `cat`, así que se le da un meta propio en vez de dejar que
   // FT.catMeta(undefined) caiga en el "Otro"/#gasto genérico (revisión
@@ -3870,15 +3884,31 @@ FT.txRow = function (t, idx) {
     mid = '<div class="ft-tx-name">' + (t.desc || meta.label) + '</div>' +
           '<div class="ft-tx-breakdown">' + (t.fromLabel || '?') + ' → ' + (t.toLabel || '?') + '</div>';
   } else {
+    // 19-oct-2026, a petición de Ramón: Historial, Overview y Hogar usan ESTA
+    // misma fila (antes Historial tenía su propio diseño). El chip dice qué
+    // tipo de movimiento es cuando no basta con la categoría.
+    var chip = null, dsc = String(t.desc || '');
+    if (t.type === 'ingreso') {
+      chip = t.incomeKind === 'cobertura' ? (es ? '💵 Cobertura · 100% tuyo' : '💵 Coverage · 100% yours')
+        : t.incomeKind === 'venta' ? (es ? '🔄 Venta de inversión · no suma' : '🔄 Investment sale · not counted')
+        : (es ? '🎁 Extra · 100% tuyo' : '🎁 Extra · 100% yours');
+    } else if (t.type === 'ahorro' && t.hogar !== true && !t.isHogar) {
+      if (/autom[aá]tic/i.test(dsc)) chip = es ? '⭐ Ahorro automático' : '⭐ Automatic savings';
+      else if (dsc.indexOf('Reparto de cheque') === 0 || dsc.indexOf('Paycheck allocation') === 0) chip = es ? '💵 A tu fondo' : '💵 To your fund';
+    }
     mid = '<div class="ft-tx-name">' + (t.desc || meta.label) + '</div>' +
-          '<span class="ft-hashtag">#' + (meta.label || 'gasto').toLowerCase().replace(/\s+/g, '') + '</span>';
+          (chip ? '<span class="ft-hashtag">' + chip + '</span>'
+                : '<span class="ft-hashtag">#' + (meta.label || 'gasto').toLowerCase().replace(/\s+/g, '') + '</span>');
   }
-  return '<div class="ft-tx tap" data-txid="' + t.id + '">' +
+  var esHogarRow = t.hogar === true || t.isHogar === true;
+  var who = (o.partner && t.createdBy) ? ' · ' + t.createdBy : '';
+  var lbl = meta.label + (esHogarRow ? ' · 🏠 ' + (es ? 'Hogar' : 'Household') : '') + who;
+  return '<div class="ft-tx tap" data-txid="' + t.id + '"' + (t._partner ? ' style="cursor:default"' : '') + '>' +
     '<div class="ft-tx-top"><span class="ft-pill">' + FT.date(t.date) + '</span>' +
       '<span class="ft-pill"' + (isIn ? ' style="color:var(--g-main)"' : '') + '>' + (isIn ? '+' : (neutralSign ? '' : '−')) + FT.money(t.amount, { cents: true, noSymbol: false }).replace('−', '') + '</span></div>' +
     '<div class="ft-tx-body">' +
       '<div class="ft-tx-ico ' + meta.pastel + '">' + (meta.emoji || '•') + '</div>' +
-      '<div class="ft-tx-main"><div class="ft-tx-label">' + meta.label + '</div>' + mid + '</div>' +
+      '<div class="ft-tx-main"><div class="ft-tx-label">' + lbl + '</div>' + mid + '</div>' +
       '<div class="ft-tx-amt ' + (isIn ? 'in' : 'out') + '">' + amt + '</div>' +
     '</div></div>';
 };

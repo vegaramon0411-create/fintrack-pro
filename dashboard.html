@@ -395,8 +395,8 @@ function render() {
         // arriba puede haber hasta 6 barras reales; con el tope viejo, dos
         // categorías de gasto genuinas se habrían quedado afuera por estas
         // dos nuevas.
-        (catItems.length ? FT.catBars(catItems, { max: 6 }) + (showHogarBudget ? '' : '<div class="d-legend"><i></i> ' + (es ? 'contorno = tu promedio de 3 meses' : 'outline = your 3-month average') + '</div>') : '<div class="d-empty">' + (showHogarBudget ? (es ? 'Sin gastos de hogar este mes' : 'No household spending this month') : (es ? 'Sin gastos personales este mes' : 'No personal spending this month')) + '</div>') +
-        '<div class="ft-section"><div class="ft-section-head"><h3>' + (es ? 'Últimos movimientos' : 'Recent activity') + '</h3><button class="link" onclick="FT.go(\'historial.html\')">' + (es ? 'Ver todos' : 'See all') + '</button></div>' +
+        (catItems.length ? FT.catBars(catItems, { max: 6, scope: showHogarBudget ? 'hogar' : 'personal', month: monthKey() }) + (showHogarBudget ? '' : '<div class="d-legend"><i></i> ' + (es ? 'contorno = tu promedio de 3 meses' : 'outline = your 3-month average') + '</div>') : '<div class="d-empty">' + (showHogarBudget ? (es ? 'Sin gastos de hogar este mes' : 'No household spending this month') : (es ? 'Sin gastos personales este mes' : 'No personal spending this month')) + '</div>') +
+        '<div class="ft-section"><div class="ft-section-head"><h3>' + (es ? 'Últimos movimientos' : 'Recent activity') + '</h3><button class="link" onclick="FT.go(\'historial.html?f=' + (showHogarBudget ? 'hogar' : 'personal') + '&m=' + monthKey() + '\')">' + (es ? 'Ver todos' : 'See all') + '</button></div>' +
           (lastTxs.length ? lastTxs.map(function (x, i) { return FT.txRow(x, i); }).join('') : '<div class="d-empty">' + (es ? 'Aún no hay movimientos' : 'No activity yet') + '</div>') + '</div>' +
       '</div>' +
 
