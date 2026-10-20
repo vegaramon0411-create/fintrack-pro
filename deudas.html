@@ -94,29 +94,7 @@ function info(t) { var c = cfg(t); return c[FT.lang] || c.es; }
  *  type="text" inputmode="decimal" el usuario puede teclear como quiera, y
  *  esta función interpreta el separador de miles (puntos) y decimal (coma)
  *  a la usanza LatAm que ya usa FT.money() en toda la app. */
-function numMoney(v) {
-  v = String(v == null ? '' : v).trim();
-  if (!v) return 0;
-  v = v.replace(/[^\d.,-]/g, ''); // quita $, espacios, etc.
-  var hasComma = v.indexOf(',') > -1, hasDot = v.indexOf('.') > -1;
-  if (hasComma && hasDot) {
-    // Los dos aparecen -- el que esté más a la derecha es el decimal real,
-    // el otro es agrupador de miles ("300.000,50" o "300,000.50").
-    if (v.lastIndexOf(',') > v.lastIndexOf('.')) v = v.replace(/\./g, '').replace(',', '.');
-    else v = v.replace(/,/g, '');
-  } else if (hasComma || hasDot) {
-    // Solo aparece un tipo de separador: si CADA grupo que separa tiene 3
-    // dígitos (y el primero 1-3), es agrupador de miles ("300.000" ->
-    // 300000, "300,000" -> 300000, "1.234.567" -> 1234567) -- si el último
-    // grupo no tiene 3 dígitos ("300.5", "300,50"), es el decimal real.
-    var sep = hasComma ? ',' : '.';
-    var parts = v.split(sep);
-    var looksGrouped = parts.length > 1 && parts.slice(1).every(function (p) { return p.length === 3; }) && parts[0].length <= 3;
-    v = looksGrouped ? parts.join('') : parts.join('.');
-  }
-  var n = parseFloat(v);
-  return isNaN(n) ? 0 : n;
-}
+function numMoney(v) { return FT.numMoney(v); }
 
 /* ═══════════════ AYUDA (i) — qué poner en cada % ═══════════════ */
 var INFO_TEXT = {

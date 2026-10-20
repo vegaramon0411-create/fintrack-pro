@@ -286,7 +286,7 @@ function setPayFreq(freq) {
   FT.saveUser(u);
   render();
 }
-function saveNumFormat(v) { var u = FT.user(); u.numFormat = v === 'latam' ? 'latam' : 'us'; FT.saveUser(u); render(); FT.toast(es() ? '✅ Formato guardado' : '✅ Format saved'); }
+function saveNumFormat(v) { var u = FT.user(); u.numFormat = v === 'latam' ? 'latam' : 'us'; u.numFormatChosen = true; FT.saveUser(u); render(); FT.toast(es() ? '✅ Formato guardado' : '✅ Format saved'); }
 function saveCurrencySym(v) { var u = FT.user(); u.currencySymbol = v || '$'; FT.saveUser(u); render(); FT.toast(es() ? '✅ Símbolo guardado' : '✅ Symbol saved'); }
 function savePayDay(day) { var u = FT.user(); u.payDay = day; FT.saveUser(u); }
 function savePayAnchor(dateISO) { var u = FT.user(); u.payAnchor = dateISO; FT.saveUser(u); FT.toast(es() ? '✅ Fecha guardada' : '✅ Date saved'); }

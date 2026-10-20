@@ -270,7 +270,7 @@ function renderReport() {
   var incomeList = txs.filter(function (t) { return t.type === 'ingreso' && t.incomeKind !== 'venta'; });
   var gastoList = txs.filter(function (t) { return ['gasto', 'hipoteca', 'suscripcion'].indexOf(t.type) > -1; });
   var inversionList = txs.filter(function (t) { return t.type === 'inversion'; });
-  var ahorroList = txs.filter(function (t) { return t.type === 'ahorro'; });
+  var ahorroList = txs.filter(function (t) { return t.type === 'ahorro' && t.aporteManual !== true; });
   var netLabel = totals.superavit >= 0 ? T.netSurplus : T.netDeficit;
   var netColor = totals.superavit >= 0 ? '#22A362' : '#FF6B6B';
 

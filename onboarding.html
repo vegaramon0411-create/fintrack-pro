@@ -295,7 +295,14 @@ function renderFoot() {
     (last ? '<button class="save" onclick="saveOnboarding()">' + T('Confirmar y empezar', 'Confirm and start') + '</button>'
           : '<button class="save" onclick="goStep(' + (S.step + 1) + ')">' + T('Siguiente', 'Next') + ' →</button>');
 }
-function goStep(i) { S.step = Math.max(0, Math.min(STEPS.length - 1, i)); renderStep(); }
+function goStep(i) {
+  // Una meta necesita saber cuánto quieres juntar; si no, aparecería como "alcanzada" desde el día 1.
+  if (i > S.step) {
+    var sinObjetivo = S.savings.find(function (a) { return a.kind === 'meta' && num(a.amount) + num(a.target) > 0 && !(num(a.target) > 0); });
+    if (sinObjetivo && S.step === 1) { FT.toast(T('Pon cuánto quieres juntar en «' + (sinObjetivo.name || 'tu meta') + '»', 'Enter how much you want to save in "' + (sinObjetivo.name || 'your goal') + '"')); return; }
+  }
+  S.step = Math.max(0, Math.min(STEPS.length - 1, i)); renderStep();
+}
 
 /* ─── Eventos (delegados: escribir NO re-dibuja, así no se pierde el cursor) ─── */
 document.getElementById('stepBody').addEventListener('input', function (e) {
@@ -311,7 +318,7 @@ document.getElementById('stepBody').addEventListener('click', function (e) {
   var a = b.getAttribute('data-add'), r = b.getAttribute('data-rm'), o = b.getAttribute('data-own'), g = b.getAttribute('data-goto');
   if (a) { var p = a.split(':'); addItem(p[0], p[1]); }
   else if (r) { var q = r.split(':'); removeItem(q[0], parseInt(q[1], 10)); }
-  else if (o) { var w = o.split(':'), it = findItem('accounts', parseInt(w[0], 10)); if (it) { it.hogar = w[1] === '1'; renderStep(); } }
+  else if (o) { var w = o.split(':'), it = findItem('accounts', parseInt(w[0], 10)); if (it) { it.hogar = w[1] === '1'; it._touched = true; renderStep(); } }
   else if (g != null) goStep(parseInt(g, 10));
 });
 
@@ -465,21 +472,24 @@ function doSaveOnboarding() {
   // Cuentas (cheques, efectivo, otra)
   var nuevas = S.accounts.filter(function (a) {
     // La cuenta de ejemplo que aparece al inicio, sin tocar, no se guarda como una cuenta en $0.
-    return !(String(a.amount).trim() === '' && (a.name || '').trim() === T(ACCT_KINDS[a.kind].defEs, ACCT_KINDS[a.kind].defEn) && !a._touched);
+    return !a._saved && !(String(a.amount).trim() === '' && (a.name || '').trim() === T(ACCT_KINDS[a.kind].defEs, ACCT_KINDS[a.kind].defEn) && !a._touched);
   }).map(function (a) {
     var k = ACCT_KINDS[a.kind];
     return { id: rid('chk_'), name: (a.name || '').trim() || (L ? k.es : k.en), amount: num(a.amount), hogar: !!(a.hogar && hogarOn), kind: a.kind, updatedAt: hoy };
   });
   if (nuevas.length) FT.saveChecking(FT.checking().concat(nuevas));
+  S.accounts.forEach(function (a) { a._saved = true; }); // si algo falla más abajo y se reintenta, esto no se vuelve a agregar
 
   // Ahorros: libre, emergencia (saldo inicial) y metas/apartados
   var personalGoals = null, goalsAdded = false;
   S.savings.forEach(function (a, i) {
+    if (a._saved) return;
     var monto = num(a.amount), nombre = (a.name || '').trim();
-    if (monto <= 0) return;
+    // Una meta con objetivo pero sin nada ahorrado todavía sí se guarda (en $0).
+    if (monto <= 0 && !(a.kind === 'meta' && num(a.target) > 0)) return;
     var note = (L ? 'Saldo inicial: ' : 'Starting balance: ') + (nombre || (L ? SAV_KINDS[a.kind].es : SAV_KINDS[a.kind].en));
-    if (a.kind === 'ahorro') FT.addSavings({ id: rid('onb_'), amount: monto, date: hoy, tipo: 'deposito', note: note });
-    else if (a.kind === 'emergencia') FT.addEmergency({ id: rid('onb_'), amount: monto, date: hoy, tipo: 'deposito', note: note });
+    if (a.kind === 'ahorro') { FT.addSavings({ id: rid('onb_'), amount: monto, date: hoy, tipo: 'deposito', note: note }); a._saved = true; }
+    else if (a.kind === 'emergencia') { FT.addEmergency({ id: rid('onb_'), amount: monto, date: hoy, tipo: 'deposito', note: note }); a._saved = true; }
     else {
       // Meta personal (aparece en Metas y en tu patrimonio). Antes se guardaba como
       // meta del HOGAR: sin hogar no se podía ver ni editar, y con hogar se compartía.
@@ -489,10 +499,11 @@ function doSaveOnboarding() {
     }
   });
   if (goalsAdded) FT.saveGoals(personalGoals);
+  S.savings.forEach(function (a) { if (a.kind === 'meta') a._saved = true; });
 
   // Inversiones
   ['', 'hogar'].forEach(function (scope) {
-    var rows = S.invs.filter(function (a) { return ((scope === 'hogar') === !!(a.hogar && hogarOn)) && num(a.amount) > 0; });
+    var rows = S.invs.filter(function (a) { return ((scope === 'hogar') === !!(a.hogar && hogarOn)) && num(a.amount) > 0 && !a._saved; });
     if (!rows.length) return;
     var list = FT.investments(scope);
     rows.forEach(function (a) {
@@ -501,10 +512,11 @@ function doSaveOnboarding() {
         platform: '', modo: 'yaLaTenia', fecha: hoy, addedBy: user.name || '', addedAt: new Date().toISOString() });
     });
     FT.saveInvestments(list, scope);
+    rows.forEach(function (a) { a._saved = true; });
   });
 
   // Deudas (lo básico; el detalle se completa en Deudas)
-  var debts = S.debts.filter(function (a) { return num(a.amount) > 0; });
+  var debts = S.debts.filter(function (a) { return num(a.amount) > 0 && !a._saved; });
   if (debts.length) {
     var all = FT.debts();
     debts.forEach(function (a) {
@@ -514,6 +526,7 @@ function doSaveOnboarding() {
       if (hogarOn && a.kind === 'hipoteca') { var dl = all[all.length - 1]; dl.splitMe = 50; dl.splitPartner = 50; dl.splitMode = 'equal'; }
     });
     FT.saveDebts(all);
+    debts.forEach(function (a) { a._saved = true; });
   }
 
   FT.setRaw('ft_onboarding_saldos_done', '1');

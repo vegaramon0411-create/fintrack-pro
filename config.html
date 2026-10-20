@@ -67,6 +67,7 @@ var CURRENCIES = [['USD', '$'], ['MXN', '$'], ['CAD', '$'], ['COP', '$'], ['ARS'
 function saveNumFormat() {
   var u = FT.user();
   u.numFormat = document.getElementById('numFmtSelect').value === 'latam' ? 'latam' : 'us';
+  u.numFormatChosen = true;
   FT.saveUser(u);
   FT.toast(es() ? '✅ Formato guardado' : '✅ Format saved');
 }
@@ -80,6 +81,8 @@ function saveCurrency() {
   u.currency = document.getElementById('currencySelect').value;
   var cur = CURRENCIES.find(function (c) { return c[0] === u.currency; });
   u.currencySymbol = cur ? cur[1] : '$';
+  // Si todavía no elegiste un formato de números a propósito, se propone el habitual de esa moneda.
+  if (!u.numFormatChosen) u.numFormat = ['ARS', 'CLP', 'COP', 'BRL', 'EUR'].indexOf(u.currency) > -1 ? 'latam' : 'us';
   FT.saveUser(u);
   FT.toast(es() ? '✅ Moneda actualizada' : '✅ Currency updated');
 }

@@ -1023,7 +1023,7 @@ function _openAjusteSaldoCuenta(acct) {
       if (!inp || !prev) return;
       function upd() {
         var v = FT.numMoney(inp.value);
-        if (isNaN(v)) { prev.textContent = ''; return; }
+        if (!/\d/.test(inp.value)) { prev.textContent = ''; return; }
         var ap = FT.accountEarmarked(acct.id), nl = +(v - ap).toFixed(2);
         prev.style.color = nl < -0.005 ? 'var(--red)' : 'var(--g-main)';
         prev.textContent = nl < -0.005
@@ -1045,8 +1045,8 @@ function _openAjusteSaldoCuenta(acct) {
       '<p style="font-size:10.5px;color:var(--text3)">' + (L ? 'Escribe lo que de verdad dice tu banco -- esto reemplaza el número, no lo suma. Útil si un depósito automático no aplicó (ej. un cheque que registraste antes de poner la regla).' : "Type what your bank actually shows -- this replaces the number, it doesn't add to it. Useful if an auto-deposit didn't apply (e.g. a paycheck logged before you set the rule).") + '</p>',
     saveLabel: L ? 'Guardar saldo' : 'Save balance',
     onSave: function (body) {
-      var val = FT.numMoney(body.querySelector('#abSaldo').value);
-      if (isNaN(val) || val < 0) { FT.toast(L ? 'Ingresa un saldo válido' : 'Enter a valid balance'); return true; }
+      var rawS = body.querySelector('#abSaldo').value, val = FT.numMoney(rawS);
+      if (!/\d/.test(rawS) || val < 0) { FT.toast(L ? 'Ingresa un saldo válido' : 'Enter a valid balance'); return true; }
       var motivo = (body.querySelector('#abMotivo').value || '').trim();
       var freshApartado = FT.accountEarmarked(acct.id); // fresco, no el capturado al abrir
       var newLibre = +(val - freshApartado).toFixed(2);
@@ -3929,11 +3929,11 @@ FT.txRow = function (t, idx, o) {
     var h = FT.hogar();
     var totH = (parseFloat(h.payPctHogar) || 50) + (parseFloat(h.saveHogarPct) || 10);
     var hogarAmt = (t.amount || 0) * totH / 100, persAmt = (t.amount || 0) - hogarAmt;
-    mid = '<div class="ft-tx-name">' + (t.desc || FT.catMeta(t.cat).label) + '</div>' +
+    mid = '<div class="ft-tx-name">' + _escH(t.desc || FT.catMeta(t.cat).label) + '</div>' +
           '<div class="ft-tx-breakdown">🏠 ' + FT.money(hogarAmt) + ' &nbsp;+&nbsp; 👤 ' + FT.money(persAmt) + '</div>';
   } else if (isXfer) {
-    mid = '<div class="ft-tx-name">' + (t.desc || meta.label) + '</div>' +
-          '<div class="ft-tx-breakdown">' + (t.fromLabel || '?') + ' → ' + (t.toLabel || '?') + '</div>';
+    mid = '<div class="ft-tx-name">' + _escH(t.desc || meta.label) + '</div>' +
+          '<div class="ft-tx-breakdown">' + _escH(t.fromLabel || '?') + ' → ' + _escH(t.toLabel || '?') + '</div>';
   } else {
     // 19-oct-2026, a petición de Ramón: Historial, Overview y Hogar usan ESTA
     // misma fila (antes Historial tenía su propio diseño). El chip dice qué
@@ -3949,11 +3949,11 @@ FT.txRow = function (t, idx, o) {
     }
     mid = '<div class="ft-tx-name">' + _escH(t.desc || meta.label) + '</div>' +
           (chip ? '<span class="ft-hashtag">' + chip + '</span>'
-                : '<span class="ft-hashtag">#' + (meta.label || 'gasto').toLowerCase().replace(/\s+/g, '') + '</span>');
+                : '<span class="ft-hashtag">#' + _escH((meta.label || 'gasto').toLowerCase().replace(/\s+/g, '')) + '</span>');
   }
   var esHogarRow = t.hogar === true || t.isHogar === true;
   var who = (o.partner && t._partner && t.createdBy) ? ' · ' + _escH(t.createdBy) : '';
-  var lbl = meta.label + (esHogarRow ? ' · 🏠 ' + (es ? 'Hogar' : 'Household') : '') + who;
+  var lbl = _escH(meta.label) + (esHogarRow ? ' · 🏠 ' + (es ? 'Hogar' : 'Household') : '') + who;
   return '<div class="ft-tx tap" data-txid="' + t.id + '" role="button" tabindex="0"' + (t._partner ? ' style="cursor:default"' : '') + '>' +
     '<div class="ft-tx-top"><span class="ft-pill">' + FT.date(t.date) + '</span>' +
       '<span class="ft-pill"' + (isIn ? ' style="color:var(--g-main)"' : '') + '>' + (isIn ? '+' : (neutralSign ? '' : '−')) + FT.money(t.amount, { cents: true, noSymbol: false }).replace('−', '') + '</span></div>' +
@@ -4022,13 +4022,15 @@ function _editTxDetail(tx) {
   // corregirlos, se eliminan y se registran de nuevo.
   var kindHtml = '';
   if (tx.type === 'ingreso') {
-    var lockedKind = tx.incomeKind === 'cobertura' || !!tx.cobId || tx.incomeKind === 'cheque';
+    var hasChequeRow = FT.cheques().some(function (c) { return String(c.txId) === String(tx.id); });
+    // Un cheque con su fila en ft_cheques ya repartió dinero: fijo. Un cheque heredado SIN fila se puede corregir a extra/venta (nunca al revés).
+    var lockedKind = tx.incomeKind === 'cobertura' || !!tx.cobId || (tx.incomeKind === 'cheque' && hasChequeRow);
     var kindNames = { cheque: es ? '🏠 Cheque (se reparte con el hogar)' : '🏠 Paycheck (split with household)', extra: es ? '🎁 100% mío' : '🎁 100% mine', venta: es ? '🔄 Venta de inversión (no suma)' : '🔄 Investment sale (not counted)', cobertura: es ? '💵 Cobertura (100% mío)' : '💵 Coverage (100% mine)' };
     var curKind = tx.incomeKind || 'extra';
     kindHtml = lockedKind
       ? '<div class="ft-field"><label>' + (es ? 'Tipo de ingreso' : 'Income type') + '</label><div style="font-size:13px;color:var(--text2)">' + (kindNames[curKind] || curKind) + '</div><p style="font-size:10px;color:var(--text3);margin-top:4px">' + (es ? 'Este tipo ya movió dinero. Para cambiarlo, elimínalo y regístralo de nuevo (un cheque, con «Recibí mi cheque»).' : 'This type already moved money. To change it, delete it and record it again (a paycheck, with "I got paid").') + '</p></div>'
       : '<div class="ft-field"><label>' + (es ? 'Tipo de ingreso' : 'Income type') + '</label><select id="etKind">' +
-        ['extra', 'venta'].map(function (k) { return '<option value="' + k + '"' + (k === curKind ? ' selected' : '') + '>' + kindNames[k] + '</option>'; }).join('') + '</select></div>';
+        (tx.incomeKind === 'cheque' ? ['cheque', 'extra', 'venta'] : ['extra', 'venta']).map(function (k) { return '<option value="' + k + '"' + (k === curKind ? ' selected' : '') + '>' + kindNames[k] + '</option>'; }).join('') + '</select></div>';
   }
   FT.modal({
     title: es ? 'Editar registro' : 'Edit entry',
