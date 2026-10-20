@@ -2506,7 +2506,9 @@ FT.entryCategoryType = function (cat) {
  */
 FT.addEntry = function (o) {
   o = o || {};
-  var amount = parseFloat(o.amount) || 0;
+  // 19-oct-2026: un monto escrito a mano como "1,200.50" se leía como 1 con
+  // parseFloat -- FT.numMoney entiende los dos formatos (1,200.50 y 1.200,50).
+  var amount = typeof o.amount === 'string' ? FT.numMoney(o.amount) : (parseFloat(o.amount) || 0);
   if (!o.desc || !amount || !o.date) return null;
   var es = FT.lang === 'es';
   var name = FT.userName();
