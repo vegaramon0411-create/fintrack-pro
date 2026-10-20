@@ -2392,7 +2392,8 @@ FT.linkHogarFondo = function (kind, id, acctId) {
   if (!item) return false;
   if (item.accountId && String(item.accountId) === String(acctId)) return true;
   var cur = parseFloat(item.actual) || 0, today = FT.todayISO(), log = [];
-  if (item.accountId && cur) { FT.creditChecking(item.accountId, cur); log.push({ date: today, acctId: item.accountId, amount: cur, note: 'release' }); }
+  var relBack = Math.max(0, cur - (parseFloat(item.foreign) || 0));   // lo aportado por la pareja nunca salió de esa cuenta
+  if (item.accountId && relBack) { FT.creditChecking(item.accountId, relBack); log.push({ date: today, acctId: item.accountId, amount: relBack, note: 'release' }); }
   if (cur) { FT.deductChecking(acctId, cur); log.push({ date: today, acctId: acctId, amount: -cur, note: 'absorb' }); }
   var hf2 = FT.hogarFondos(), it2 = kind === 'hogaremerg' ? hf2.emerg : (hf2.metas || []).find(function (m) { return m.id === id; });
   it2.accountId = acctId; it2.foreign = undefined;   // la cuenta nueva absorbió todo lo ya apartado

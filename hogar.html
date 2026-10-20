@@ -1089,9 +1089,10 @@ function moverSobranteAMetas(monto) {
     var chkS = linkedAcct ? FT.checkOverdraft(linkedAcct, monto) : { ok: true };
     var metaId = meta.id;
     var go = function () {
-      if (linkedAcct) FT.deductChecking(linkedAcct, monto, hoy);
+      if (FT.getRaw('ft_hogar_surplus_' + mesActual)) return;
       var f = FT.hogarFondos(), meta = f.metas.find(function (m) { return m.id === metaId; });
       if (!meta) return;
+      if (linkedAcct) FT.deductChecking(linkedAcct, monto, hoy);
       moverSobranteApply(f, meta, monto, hoy, mesActual, L);
     };
     if (!chkS.ok) { FT.confirm(L ? 'La cuenta de esa meta quedaría en negativo (te faltan ' + FT.money(chkS.shortfall, { cents: true }) + '). ¿Continuar?' : "That goal's account would go negative (short " + FT.money(chkS.shortfall, { cents: true }) + '). Continue?').then(function (okS) { if (okS) go(); }); return; }
