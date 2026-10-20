@@ -149,7 +149,10 @@ function getTxForPeriod(year, month) {
 }
 function calcTotals(txs) {
   var t = { ingreso: 0, gasto: 0, inversion: 0, ahorro: 0, suscripcion: 0, hipoteca: 0 };
-  txs.forEach(function (tx) { t[tx.type] = (t[tx.type] || 0) + (parseFloat(tx.amount) || 0); });
+  txs.forEach(function (tx) {
+    if (tx.type === 'ingreso' && tx.incomeKind === 'venta') return; // venta de inversión: no es dinero nuevo
+    t[tx.type] = (t[tx.type] || 0) + (parseFloat(tx.amount) || 0);
+  });
   t.spent = t.gasto + t.suscripcion + t.hipoteca;
   var needsSpent = 0, wantsSpent = 0;
   txs.forEach(function (tx) {
@@ -263,7 +266,7 @@ function renderReport() {
     }).join('');
   }
 
-  var incomeList = txs.filter(function (t) { return t.type === 'ingreso'; });
+  var incomeList = txs.filter(function (t) { return t.type === 'ingreso' && t.incomeKind !== 'venta'; });
   var gastoList = txs.filter(function (t) { return ['gasto', 'hipoteca', 'suscripcion'].indexOf(t.type) > -1; });
   var inversionList = txs.filter(function (t) { return t.type === 'inversion'; });
   var ahorroList = txs.filter(function (t) { return t.type === 'ahorro'; });

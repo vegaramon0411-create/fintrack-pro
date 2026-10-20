@@ -22,7 +22,7 @@ function buildMonthlyTrend(data) {
     var income = 0, expenses = 0;
     txs.forEach(function (t) {
       var a = parseFloat(t.amount) || 0;
-      if (t.type === 'ingreso') income += a;
+      if (t.type === 'ingreso') { if (t.incomeKind !== 'venta') income += a; }
       else if ((t.type === 'gasto' || t.type === 'suscripcion' || t.type === 'hipoteca') && t.hogar !== true) expenses += a;
     });
     var d = new Date(m + '-02');
@@ -62,7 +62,7 @@ function render() {
   var catMap = {};
   txs.forEach(function (t) {
     var a = parseFloat(t.amount) || 0;
-    if (t.type === 'ingreso') { income += a; if (t.incomeKind === 'extra') extraIncome += a; else chequeIncome += a; return; }
+    if (t.type === 'ingreso') { if (t.incomeKind === 'venta') return; income += a; if (t.incomeKind === 'cheque') chequeIncome += a; else extraIncome += a; return; }
     if (t.type === 'inversion') { invested += a; return; }
     if (t.type === 'ahorro') { if (t.hogar !== true) personalAhorro += a; return; }
     if (t.type === 'gasto' || t.type === 'suscripcion' || t.type === 'hipoteca') {

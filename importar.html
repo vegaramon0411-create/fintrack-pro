@@ -853,10 +853,10 @@ function renderStep4() {
         else investments.push({ id: Date.now() + Math.random(), ticker: r.symbol, name: r.desc || r.symbol, amount: Math.abs(r.amount), price: r.price, qty: r.qty, date: r.date, platform: 'Fidelity', invType: 'stock', status: 'active' });
         inversiones++;
       } else if (r.type === 'venta') {
-        if (r.sellDisposition === 'withdraw') { data.transactions.push({ id: Date.now() + Math.random(), type: 'ingreso', desc: 'Venta ' + (r.symbol || ''), amount: Math.abs(r.amount), date: r.date, cat: '💰 Inversión', note: 'Venta Fidelity' }); ingresos++; }
+        if (r.sellDisposition === 'withdraw') { data.transactions.push({ id: Date.now() + Math.random(), type: 'ingreso', desc: 'Venta ' + (r.symbol || ''), amount: Math.abs(r.amount), date: r.date, cat: '💰 Inversión', note: 'Venta Fidelity', incomeKind: 'venta' }); ingresos++; }
         else if (r.sellDisposition === 'cash') { pendientes++; }
         ventas++;
-      } else if (r.type === 'ingreso') { data.transactions.push({ id: Date.now() + Math.random(), type: 'ingreso', desc: r.desc || 'Dividendo', amount: Math.abs(r.amount), date: r.date, cat: '💰 Inversión', note: 'Fidelity dividend' }); ingresos++; }
+      } else if (r.type === 'ingreso') { data.transactions.push({ id: Date.now() + Math.random(), type: 'ingreso', desc: r.desc || 'Dividendo', amount: Math.abs(r.amount), date: r.date, cat: '💰 Inversión', note: 'Fidelity dividend', incomeKind: 'extra' }); ingresos++; }
     } else {
       var type = r.type === 'gasto' ? 'gasto' : r.type === 'ingreso' ? 'ingreso' : r.type;
       data.transactions.push({ id: Date.now() + Math.random(), type: type, desc: r.desc, amount: Math.abs(r.amount), date: r.date, cat: r.ftCat, note: r.account || '', hogar: FT.hogarConnected() ? importIsHogar : undefined });

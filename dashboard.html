@@ -106,6 +106,7 @@ function totals() {
       if (isExpenseType) t.hogarTotal += a;
       return; // separación total por etiqueta -- nunca toca tu lado personal
     }
+    if (x.type === 'ingreso' && x.incomeKind === 'venta') return; // venta de inversión: no es dinero nuevo
     t[x.type] = (t[x.type] || 0) + a;
     if (isExpenseType) {
       var kind = x.type === 'hipoteca' ? 'needs' : FT.entryCategoryType(x.cat);
@@ -156,8 +157,10 @@ function patrimonio() {
   var invVal = FT.investments().reduce(function (s, i) { return s + FT.investmentValue(i); }, 0);
   var mk = monthKey();
   var inc = FT.txs().filter(function (t) { return t.type === 'ingreso' && String(t.date || '').slice(0, 7) === mk; });
-  var cheque = inc.filter(function (t) { return t.incomeKind !== 'extra' && t.incomeKind !== 'cobertura'; }).reduce(function (s, t) { return s + (parseFloat(t.amount) || 0); }, 0);
-  var extra = inc.filter(function (t) { return t.incomeKind === 'extra' || t.incomeKind === 'cobertura'; }).reduce(function (s, t) { return s + (parseFloat(t.amount) || 0); }, 0);
+  // 19-oct-2026: misma regla que FT.personalAvailable() -- solo 'cheque' se
+  // reparte; el resto es 100% tuyo; 'venta' no cuenta (no es dinero nuevo).
+  var cheque = inc.filter(function (t) { return t.incomeKind === 'cheque'; }).reduce(function (s, t) { return s + (parseFloat(t.amount) || 0); }, 0);
+  var extra = inc.filter(function (t) { return t.incomeKind !== 'cheque' && t.incomeKind !== 'venta'; }).reduce(function (s, t) { return s + (parseFloat(t.amount) || 0); }, 0);
   var t = totals();
   // QA 29-sep-2026: si adelantas un gasto de hogar con tu cuenta PERSONAL,
   // ese dinero también sale de tu patrimonio -- no solo de tu presupuesto
@@ -579,7 +582,7 @@ function explain(kind) {
     ];
   } else if (kind === 'ingreso') {
     title = es ? 'Ingreso del mes' : 'Monthly income';
-    rows = t.txs.filter(function (x) { return x.type === 'ingreso'; }).map(function (x) { return [x.desc, '+' + FT.money(x.amount, { cents: true })]; });
+    rows = t.txs.filter(function (x) { return x.type === 'ingreso' && x.incomeKind !== 'venta'; }).map(function (x) { return [x.desc, '+' + FT.money(x.amount, { cents: true })]; });
     if (!rows.length) rows = [[es ? 'Sin ingresos registrados' : 'No income logged', FT.money(0)]];
   } else if (kind === 'hogar') {
     title = es ? 'Gasto del hogar' : 'Household spending';
@@ -1068,6 +1071,9 @@ document.addEventListener('ft:ready', function () {
     }
   });
   render();
+  // 19-oct-2026: ingresos viejos sin tipo -- se etiquetan solos los obvios y se
+  // pregunta (una vez al día como máximo) por los demás.
+  setTimeout(function () { try { FT.reviewIncomeKinds(); } catch (e) {} }, 800);
 });
 document.addEventListener('ft:datachanged', render);
 document.addEventListener('ft:langchange', render);
