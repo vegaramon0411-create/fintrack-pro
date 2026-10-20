@@ -15,6 +15,12 @@ var ICONS = ['🎯', '🚗', '✈️', '🏠', '🎓', '💍', '📱', '🛡️'
 
 function es() { return FT.lang === 'es'; }
 
+/* 20-oct-2026 (aprobado vía simulación): las metas salen de la cuenta que elijas, como un apartado dentro de ella. */
+function acctName(id) { var a = FT.checking().find(function (x) { return String(x.id) === String(id); }); return a ? a.name : (es() ? 'su cuenta' : 'its account'); }
+function freqText(f, L) { return f === 'weekly' ? (L ? 'cada semana' : 'every week') : f === 'biweekly' ? (L ? 'cada quincena' : 'every two weeks') : (L ? 'cada mes' : 'every month'); }
+function stuck(rec, g) { var a = g.accountId || rec.accountId; return !!(a && rec.active !== false && !rec.paused && rec.nextDate && rec.nextDate <= FT.todayISO() && !FT.checkOverdraft(a, rec.amount).ok); }
+function acctOpts(sel) { var def = FT.user().defaultAccountId; return FT.checking().filter(function (a) { return !a.hogar; }).map(function (a) { return '<option value="' + a.id + '"' + ((sel ? String(sel) === String(a.id) : String(def) === String(a.id)) ? ' selected' : '') + '>' + a.name + ' · ' + (es() ? 'Disponible ' : 'Available ') + FT.money(FT.accountFree(a), { cents: true }) + '</option>'; }).join(''); }
+
 function render() {
   var L = es(), goals = FT.goals(), root = document.getElementById('root');
   // Bug real de QA (B5): crear una meta SÍ funcionaba (el "+" del menú
@@ -43,7 +49,8 @@ function render() {
       '<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:8px">' +
         '<span>' + (L ? 'Faltan' : 'Remaining') + ': ' + FT.money(Math.max(0, target - saved)) + '</span>' +
         (g.deadline ? '<span>' + (L ? 'Límite' : 'Due') + ': ' + FT.date(g.deadline) + '</span>' : '') + '</div>' +
-      (g.recurring && rec ? '<div style="font-size:10.5px;font-weight:700;color:var(--g-dark);background:var(--g-light);border-radius:9px;padding:7px 9px;margin-bottom:10px">🔁 ' + (L ? 'Aporte automático' : 'Automatic deposit') + ': ' + FT.money(rec.amount) + ' ' + (L ? 'cada mes' : 'every month') + '</div>' : '') +
+      (g.accountId ? '<div style="font-size:10.5px;font-weight:700;color:var(--blue);background:var(--sky-bg);border-radius:9px;padding:7px 9px;margin-bottom:8px">🔗 ' + (L ? 'Apartada dentro de ' : 'Set aside inside ') + acctName(g.accountId) + '</div>' : '') +
+      (g.recurring && rec ? '<div style="font-size:10.5px;font-weight:700;color:var(--g-dark);background:var(--g-light);border-radius:9px;padding:7px 9px;margin-bottom:10px">🔁 ' + (L ? 'Aporte automático' : 'Automatic deposit') + ': ' + FT.money(rec.amount) + ' ' + freqText(rec.freq, L) + (g.accountId || rec.accountId ? (L ? ' · sale de ' : ' · from ') + acctName(g.accountId || rec.accountId) : '') + (stuck(rec, g) ? ' · <span style="color:var(--amber,#8a5a00)">⏳ ' + (L ? 'no alcanza el disponible: pendiente' : 'not enough available: pending') + '</span>' : '') + '</div>' : '') +
       (done ? '<div style="background:var(--g-light);color:var(--g-dark);border-radius:10px;padding:8px;font-size:12px;font-weight:800;text-align:center;margin-bottom:10px">🎉 ' + (L ? '¡Meta alcanzada!' : 'Goal reached!') + '</div>' : '') +
       '<div style="display:flex;gap:8px">' +
         '<button class="ft-btn ft-btn-primary tap" style="flex:2" data-abonar="' + g.id + '">' + (L ? 'Abonar' : 'Add') + '</button>' +
@@ -71,10 +78,13 @@ function openForm(id) {
       '<div class="ft-field"><label>' + (L ? 'Fecha límite (opcional)' : 'Deadline (optional)') + '</label><input id="gDeadline" type="date" value="' + (g ? g.deadline || '' : '') + '"></div>' +
       '<div class="ft-field"><label>' + (L ? 'Ícono' : 'Icon') + '</label><select id="gIcon">' + ICONS.map(function (i) { return '<option ' + (g && g.icon === i ? 'selected' : '') + '>' + i + '</option>'; }).join('') + '</select></div>' +
       '<div class="ft-switchrow" id="gRecRow" style="display:flex;align-items:center;justify-content:space-between;background:var(--sunk);border:1.5px solid var(--hair);border-radius:13px;padding:12px 14px;margin-bottom:13px">' +
-        '<div style="font-size:12.5px;font-weight:700">🔁 ' + (L ? 'Hacer recurrente' : 'Make it recurring') + '<small style="display:block;font-weight:500;color:var(--text3);font-size:10.5px;margin-top:1px">' + (L ? 'Aporta un monto fijo cada mes automáticamente' : 'Deposits a fixed amount every month automatically') + '</small></div>' +
+        '<div style="font-size:12.5px;font-weight:700">🔁 ' + (L ? 'Hacer recurrente' : 'Make it recurring') + '<small style="display:block;font-weight:500;color:var(--text3);font-size:10.5px;margin-top:1px">' + (L ? 'Aporta un monto fijo automáticamente, desde la cuenta que elijas' : 'Deposits a fixed amount automatically, from the account you pick') + '</small></div>' +
         '<div class="tap" id="gRecSw" style="width:42px;height:24px;border-radius:99px;position:relative;cursor:pointer;flex-shrink:0;background:' + (g && g.recurring ? 'var(--g-main)' : 'var(--hair)') + '"><i style="position:absolute;top:3px;left:' + (g && g.recurring ? '21px' : '3px') + ';width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2)"></i></div>' +
       '</div>' +
-      '<div class="ft-field" id="gRecAmtWrap" style="display:' + (g && g.recurring ? 'block' : 'none') + '"><label>' + (L ? 'Aporte automático mensual' : 'Automatic monthly deposit') + ' ($)</label><input id="gRecAmount" type="number" step="0.01" min="0" value="' + (rec ? rec.amount : '') + '"></div>',
+      '<div class="ft-field" id="gRecAmtWrap" style="display:' + (g && g.recurring ? 'block' : 'none') + '"><label>' + (L ? 'Aporte automático' : 'Automatic deposit') + ' ($)</label><input id="gRecAmount" type="number" step="0.01" min="0" value="' + (rec ? rec.amount : '') + '">' +
+        '<label style="margin-top:8px">' + (L ? '¿Cada cuándo?' : 'How often?') + '</label><select id="gRecFreq">' + [['weekly', L ? 'Cada semana' : 'Every week'], ['biweekly', L ? 'Cada quincena' : 'Every two weeks'], ['monthly', L ? 'Cada mes' : 'Every month']].map(function (f) { return '<option value="' + f[0] + '"' + ((rec ? rec.freq : 'monthly') === f[0] ? ' selected' : '') + '>' + f[1] + '</option>'; }).join('') + '</select>' +
+        '<label style="margin-top:8px">' + (L ? '¿De qué cuenta sale?' : 'Which account does it come from?') + '</label>' + (g && g.accountId ? '<div style="font-size:12.5px;font-weight:700">' + acctName(g.accountId) + '<div style="font-size:10.5px;font-weight:500;color:var(--text3)">' + (L ? 'Esta meta vive dentro de esa cuenta' : 'This goal lives inside that account') + '</div></div>' : '<select id="gRecAcct">' + acctOpts(rec && rec.accountId) + '<option value=""' + (rec && !rec.accountId && g ? ' selected' : '') + '>' + (L ? 'Ninguna (no descuenta ninguna cuenta)' : 'None (does not deduct any account)') + '</option></select>') +
+        '<div style="font-size:10.5px;color:var(--text3);margin-top:6px">' + (L ? 'Sale del disponible de esa cuenta y queda apartado para la meta. Si ese día no alcanza, queda pendiente y te avisa.' : 'It comes out of that account\'s available balance and is set aside for the goal. If it is short that day it stays pending and you get a notice.') + '</div></div>',
     saveLabel: L ? 'Guardar meta' : 'Save goal',
     onOpen: function (body) {
       var sw = body.querySelector('#gRecSw'), wrap = body.querySelector('#gRecAmtWrap');
@@ -103,7 +113,8 @@ function openForm(id) {
       FT.saveGoals(goals);
       var wantsRec = body.querySelector('#gRecSw').dataset.on === '1';
       var recAmt = parseFloat(body.querySelector('#gRecAmount').value) || 0;
-      if (wantsRec && recAmt > 0) FT.setGoalRecurring(gg.id, recAmt, 'monthly');
+      var recFreq = (body.querySelector('#gRecFreq') || {}).value || 'monthly', recAcct = body.querySelector('#gRecAcct') ? (body.querySelector('#gRecAcct').value || null) : undefined;
+      if (wantsRec && recAmt > 0) FT.setGoalRecurring(gg.id, recAmt, recFreq, recAcct);
       else if (gg.recurring) FT.clearGoalRecurring(gg.id);
       FT.toast(L ? '✅ Meta guardada' : '✅ Goal saved');
       render();
@@ -112,21 +123,43 @@ function openForm(id) {
 }
 
 function openAbonar(id) {
-  var L = es();
+  var L = es(), g = FT.goals().find(function (x) { return String(x.id) === String(id); });
+  if (!g) return;
+  var linked = g.accountId && FT.checking().some(function (a) { return String(a.id) === String(g.accountId); });
+  var accts = FT.checking().filter(function (a) { return !a.hogar; });
+  var src = linked
+    ? '<div class="ft-field"><label>' + (L ? '¿De qué cuenta sale?' : 'Which account does it come from?') + '</label><div style="font-size:13px;font-weight:800">' + acctName(g.accountId) + '</div><div style="font-size:10.5px;color:var(--text3)">' + (L ? 'Esta meta vive dentro de esa cuenta: el dinero pasa de su disponible a lo apartado.' : 'This goal lives inside that account: the money moves from its available balance to what is set aside.') + '</div></div>'
+    : '<div class="ft-field"><label>' + (L ? '¿De qué cuenta sale?' : 'Which account does it come from?') + '</label><select id="aAcct">' + acctOpts() + '<option value="">' + (L ? 'Ninguna: ya estaba apartado fuera de mis cuentas' : 'None: it was already set aside outside my accounts') + '</option></select></div>';
   FT.modal({
-    title: L ? 'Abonar a meta' : 'Add to goal',
-    html: '<div class="ft-field"><label>' + (L ? 'Monto' : 'Amount') + ' ($)</label><input id="aAmount" type="number" step="0.01" min="0" placeholder="0.00"></div>',
+    title: (L ? 'Abonar a ' : 'Add to ') + g.name,
+    html: '<div class="ft-field"><label>' + (L ? 'Monto' : 'Amount') + ' ($)</label><input id="aAmount" inputmode="decimal" placeholder="0.00"></div>' + src + '<div id="aPrev" style="font-size:12px;font-weight:700;color:var(--text2);margin-top:-2px"></div>',
     saveLabel: L ? 'Abonar' : 'Add',
+    onOpen: function (body) {
+      var amtEl = body.querySelector('#aAmount'), sel = body.querySelector('#aAcct'), prev = body.querySelector('#aPrev');
+      function acctId() { return linked ? g.accountId : (sel ? sel.value : ''); }
+      function upd() {
+        var a = FT.checking().find(function (x) { return String(x.id) === String(acctId()); }), v = FT.numMoney(amtEl.value);
+        if (!a) { prev.textContent = ''; return; }
+        var libre = FT.accountFree(a);
+        prev.textContent = (L ? 'Disponible ' : 'Available ') + FT.money(libre, { cents: true }) + ' → ' + (L ? 'quedará ' : 'will be ') + FT.money(libre - (v > 0 ? v : 0), { cents: true });
+        prev.style.color = libre - v < -0.005 ? 'var(--red)' : 'var(--text2)';
+      }
+      amtEl.addEventListener('input', upd); if (sel) sel.addEventListener('change', upd); upd();
+    },
     onSave: function (body) {
-      var amt = parseFloat(body.querySelector('#aAmount').value) || 0;
-      if (!amt) { FT.toast(L ? '⚠️ Ingresa un monto' : '⚠️ Enter an amount'); return true; }
-      FT.addGoalDeposit(id, amt, { auto: false });
-      FT.toast(L ? '✅ Abono registrado' : '✅ Added to goal');
-      render();
+      var amt = FT.numMoney(body.querySelector('#aAmount').value);
+      if (!(amt > 0)) { FT.toast(L ? '⚠️ Ingresa un monto' : '⚠️ Enter an amount'); return true; }
+      var sel = body.querySelector('#aAcct'), acctId = linked ? g.accountId : (sel ? (sel.value || null) : null);
+      function doIt() { FT.goalDeposit(id, amt, { accountId: acctId }); FT.toast(L ? '✅ Abono registrado' : '✅ Added to goal'); FT.closeTop(); render(); }
+      if (acctId) {
+        var chk = FT.checkOverdraft(acctId, amt);
+        if (!chk.ok) { FT.confirm(L ? '«' + acctName(acctId) + '» quedaría en negativo (te faltan ' + FT.money(chk.shortfall, { cents: true }) + '). ¿Continuar?' : '"' + acctName(acctId) + '" would go negative (short ' + FT.money(chk.shortfall, { cents: true }) + '). Continue?').then(function (ok) { if (ok) doIt(); }); return true; }
+      }
+      doIt();
+      return true;
     }
   });
 }
-
 function deleteGoal(id) {
   var L = es();
   FT.confirm(L ? '¿Eliminar esta meta?' : 'Delete this goal?').then(function (ok) {
