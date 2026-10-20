@@ -1533,8 +1533,9 @@ FT.deleteTx = function (id) {
       var cqA = FT.cheques(), rwA = cqA.find(function (c) { return String(c.id) === String(t.chequeId); });
       if (rwA) {
         var nA = (rwA.asignaciones || []).length;
-        rwA.asignaciones = (rwA.asignaciones || []).filter(function (a) { return String(a.txId) !== String(t.id); });
-        if (rwA.asignaciones.length !== nA) { rwA.hogarSinAsignar = +((parseFloat(rwA.hogarSinAsignar) || 0) + (parseFloat(t.amount) || 0)).toFixed(2); FT.set(K.cheques, cqA); }
+        var backA = 0;   // se devuelve lo que la asignación movió de verdad, no el monto actual del aporte (puede haberse editado)
+        rwA.asignaciones = (rwA.asignaciones || []).filter(function (a) { if (String(a.txId) !== String(t.id)) return true; backA += parseFloat(a.amount) || 0; return false; });
+        if (rwA.asignaciones.length !== nA) { rwA.hogarSinAsignar = +((parseFloat(rwA.hogarSinAsignar) || 0) + backA).toFixed(2); FT.set(K.cheques, cqA); }
       }
     } catch (e) {}
   }
@@ -1865,10 +1866,13 @@ FT._applyIncomingEdit = function (e) {
       return { status: r0.ok ? 'ok' : 'failed', reason: r0.ok ? '' : 'none', notice: r0.ok ? { kind: 'undo', by: e.by, editId: e.undoes } : null };
     }
     if (e.op === 'rule') {
-      FT.setAccountRules((e.rules || []).map(function (x) { return { acctId: x.acctId, rule: x.rule }; }));
+      if (!Array.isArray(e.rules)) return { status: 'failed', reason: 'op' };
+      FT.setAccountRules(e.rules.map(function (x) { return { acctId: x.acctId, rule: x.rule }; }));
       return { status: 'ok', notice: { kind: 'rule', by: e.by, editId: e.id } };
     }
     if (e.op === 'assign') {
+      if (e.rules != null && !Array.isArray(e.rules)) return { status: 'failed', reason: 'op' };
+      if (e.allocations != null && !Array.isArray(e.allocations)) return { status: 'failed', reason: 'op' };
       var res = FT.assignHogar(e.chequeId, (e.allocations || []).map(function (a) { return { acctId: a.acctId, amount: a.amount }; }), { by: e.by, editId: e.id, rules: e.rules || null });
       if (!res.ok) return { status: 'failed', reason: res.reason };
       return { status: 'ok', notice: { kind: 'assign', by: e.by, editId: e.id, chequeId: e.chequeId, fecha: e.fecha, allocs: res.made.map(function (m) { return { name: m.acctName, amount: m.amount }; }), rule: !!(e.rules && e.rules.length) } };
@@ -1963,7 +1967,7 @@ FT.openAsignar = function (opts) {
   opts = opts || {};
   var L = FT.lang === 'es', mine = opts.target !== 'partner';
   var accts = (mine ? FT.hogarJointAccounts() : FT.partnerJointAccounts()).map(function (c) { return { id: c.id, name: c.name || (L ? 'Cuenta' : 'Account'), rule: c.rule || (c.autoDeposit ? { type: 'pct', value: 100 } : null) }; });
-  var who = mine ? (L ? 'tu' : 'your') : (opts.partnerName || (L ? 'tu pareja' : 'your partner'));
+  var who = mine ? (L ? 'tu' : 'your') : _escH(opts.partnerName || (L ? 'tu pareja' : 'your partner'));
   var total = +(parseFloat(opts.monto) || 0).toFixed(2);
   if (!accts.length) {
     FT.sheet({ title: '💵 ' + (L ? 'Asignar ' : 'Assign ') + FT.money(total, { cents: true }),
@@ -2396,6 +2400,13 @@ FT.linkHogarFondo = function (kind, id, acctId) {
   FT.saveHogarFondos(hf2);
   return true;
 };
+/** Cuánto del DISPONIBLE de `acctId` hace falta, además del monto, para aportar a esta meta/emergencia del hogar. */
+FT.hogarAbsorbNeed = function (kind, id, acctId) {
+  var hf = FT.hogarFondos(), item = kind === 'hogaremerg' ? hf.emerg : (hf.metas || []).find(function (m) { return m.id === id; });
+  if (!item || !acctId) return 0;
+  var linkedOk = item.accountId && FT.checking().some(function (a) { return String(a.id) === String(item.accountId); });
+  return (linkedOk && String(item.accountId) === String(acctId)) ? 0 : (parseFloat(item.actual) || 0);
+};
 /** Desvincula (y libera lo apartado a su cuenta) una meta del hogar o la emergencia del hogar -- usar antes de borrarla. */
 FT.unlinkHogarFondo = function (kind, id) {
   var hf = FT.hogarFondos(), item = kind === 'hogaremerg' ? hf.emerg : (hf.metas || []).find(function (m) { return m.id === id; });
@@ -2414,23 +2425,26 @@ function _applyRecMeta(rec, hoy, nextId) {
     var meta = rec.metaTipo === 'emerg' ? f.emerg : (rec.metaId != null ? f.metas.find(function (m) { return m.id === rec.metaId; }) : f.metas[rec.metaIdx]);
     if (!meta) return 'broken';
     // Sale del DISPONIBLE de su cuenta: si no alcanza, no se aplica y se reintenta (no se deja la cuenta en negativo).
-    if (rec.desdePres && rec.checkingAccountId && !FT.checkOverdraft(rec.checkingAccountId, rec.amount).ok) return 'insufficient';
-    if (rec.desdePres && rec.checkingAccountId) FT.linkHogarFondo(rec.metaTipo === 'emerg' ? 'hogaremerg' : 'hogarmeta', meta.id, rec.checkingAccountId);
+    var _kind = rec.metaTipo === 'emerg' ? 'hogaremerg' : 'hogarmeta';
+    var srcAcct = (rec.desdePres && rec.checkingAccountId) || (meta.accountId && FT.checking().some(function (a) { return String(a.id) === String(meta.accountId); }) ? meta.accountId : null);
+    if (srcAcct && !FT.checkOverdraft(srcAcct, rec.amount + FT.hogarAbsorbNeed(_kind, meta.id, srcAcct)).ok) return 'insufficient';
+    if (srcAcct) FT.linkHogarFondo(_kind, meta.id, srcAcct);
     f = FT.hogarFondos(); meta = rec.metaTipo === 'emerg' ? f.emerg : (rec.metaId != null ? f.metas.find(function (m) { return m.id === rec.metaId; }) : f.metas[rec.metaIdx]);
     meta.hist = meta.hist || [];
     if (meta.hist.some(function (h) { return h.fecha === hoy && (h.recId === rec.id || !h.recId); })) return 'already';
     meta.hist.push({ id: 'd_' + nextId(), monto: rec.amount, fecha: hoy, desdePres: rec.desdePres, auto: true, recId: rec.id });
     meta.actual = meta.hist.reduce(function (a, h) { return a + (h.monto || 0); }, 0);
     FT.set(K.hogarFondos, f);
+    if (!rec.desdePres && srcAcct) FT.deductChecking(srcAcct, rec.amount, hoy); // meta vinculada: el aporte siempre sale del libre de su cuenta
     if (rec.desdePres) {
       // Si este aporte recurrente se configuró para salir de una cuenta de
       // cheques (conjunta, ya que las metas de hogar son dinero compartido),
       // descontarla también -- solo cuando de verdad es dinero nuevo saliendo
       // del presupuesto (desdePres), no cuando "ya lo tenía ahorrado" (ese
       // caso no mueve nada nuevo del banco, sería descontar de más).
-      if (rec.checkingAccountId) FT.deductChecking(rec.checkingAccountId, rec.amount, hoy);
+      if (srcAcct) FT.deductChecking(srcAcct, rec.amount, hoy);
       var d = FT.data();
-      d.transactions.push({ id: nextId(), type: 'ahorro', desc: rec.desc, amount: rec.amount, date: hoy, cat: '🏠 Hogar', hogar: true, createdBy: FT.userName(), auto: true, recId: rec.id, checkingAccountId: rec.checkingAccountId });
+      d.transactions.push({ id: nextId(), type: 'ahorro', desc: rec.desc, amount: rec.amount, date: hoy, cat: '🏠 Hogar', hogar: true, createdBy: FT.userName(), auto: true, recId: rec.id, checkingAccountId: srcAcct || rec.checkingAccountId });
       FT.set(K.data, d);
     }
     return 'applied';
@@ -2622,7 +2636,7 @@ function _applyRecMetaPersonal(rec, hoy, nextId) {
     if (!g) return 'broken';
     g.hist = g.hist || [];
     if (g.hist.some(function (h) { return h.fecha === hoy && h.recId === rec.id; })) return 'already';
-    var acctId = g.accountId || rec.accountId || null;
+    var acctId = (g.accountId && FT.checking().some(function (a) { return String(a.id) === String(g.accountId); }) ? g.accountId : null) || rec.accountId || null;
     // Sale del DISPONIBLE de la cuenta: si no alcanza, no se aplica y se reintenta (queda pendiente y avisa).
     if (acctId && !FT.checkOverdraft(acctId, rec.amount + FT.goalAbsorbNeed(g.id, acctId)).ok) return 'insufficient';
     FT.goalDeposit(g.id, rec.amount, { accountId: acctId, date: hoy, recId: rec.id, auto: true, id: nextId() });
@@ -3935,7 +3949,7 @@ FT.getNotifications = function () {
     var toEmerg = s.fundSource && s.fundSource.type === 'emerg';
     out.push({ icon: '⚠️', tone: 'red', url: toEmerg ? 'emergencia.html' : 'ahorro.html',
       fundId: toEmerg ? null : (s.fundSource && s.fundSource.id),
-      text: (es ? 'Abono a ' + s.debtName + ' atorado desde el ' + FT.date(s.nextDate) + ' — falta ' : 'Payment to ' + s.debtName + ' stuck since ' + FT.date(s.nextDate) + ' — short ') + FT.money(s.shortfall) + (es ? ' en ' : ' in ') + s.fundLabel });
+      text: (es ? 'Abono a ' + _escH(s.debtName) + ' atorado desde el ' + FT.date(s.nextDate) + ' — falta ' : 'Payment to ' + _escH(s.debtName) + ' stuck since ' + FT.date(s.nextDate) + ' — short ') + FT.money(s.shortfall) + (es ? ' en ' : ' in ') + _escH(s.fundLabel) });
   });
 
   // 4 · Dinero movido hoy a ahorro / emergencia (entradas automáticas)
@@ -3949,10 +3963,11 @@ FT.getNotifications = function () {
   // 4b · Aportes recurrentes a metas que no alcanzan en su cuenta (quedan pendientes y se reintentan)
   try {
     FT.recurring().filter(function (r) { return r.kind === 'metapersonal' && r.active !== false && !r.paused && r.nextDate && r.nextDate <= FT.todayISO(); }).forEach(function (r) {
-      var g = FT.goals().find(function (x) { return String(x.id) === String(r.goalId); }), a = g && (g.accountId || r.accountId);
+      var g = FT.goals().find(function (x) { return String(x.id) === String(r.goalId); });
+      var a = g && ((g.accountId && FT.checking().some(function (x) { return String(x.id) === String(g.accountId); }) ? g.accountId : null) || r.accountId);
       if (!g || !a) return;
-      var chk = FT.checkOverdraft(a, r.amount);
-      if (!chk.ok) { var ac = FT.checking().find(function (x) { return String(x.id) === String(a); }); out.push({ icon: '⏳', tone: 'red', url: 'metas.html', text: (es ? 'Aporte a ' + g.name + ' pendiente: faltan ' : 'Deposit to ' + g.name + ' pending: short ') + FT.money(chk.shortfall, { cents: true }) + (es ? ' en ' : ' in ') + (ac ? ac.name : '') }); }
+      var chk = FT.checkOverdraft(a, r.amount + FT.goalAbsorbNeed(g.id, a));
+      if (!chk.ok) { var ac = FT.checking().find(function (x) { return String(x.id) === String(a); }); out.push({ icon: '⏳', tone: 'red', url: 'metas.html', text: (es ? 'Aporte a ' + _escH(g.name) + ' pendiente: faltan ' : 'Deposit to ' + _escH(g.name) + ' pending: short ') + FT.money(chk.shortfall, { cents: true }) + (es ? ' en ' : ' in ') + _escH(ac ? ac.name : '') }); }
     });
   } catch (e) {}
 
@@ -4081,7 +4096,9 @@ function _mergeFondosInto(myFondos, partnerFondos) {
     meta: (myFondos.emerg && myFondos.emerg.meta) || (partnerFondos.emerg && partnerFondos.emerg.meta) || 0,
     fecha: (myFondos.emerg && myFondos.emerg.fecha) || (partnerFondos.emerg && partnerFondos.emerg.fecha) || '',
     hist: emergHist,
-    actual: emergHist.reduce(function (a, h) { return a + (h.monto || 0); }, 0)
+    actual: emergHist.reduce(function (a, h) { return a + (h.monto || 0); }, 0),
+    accountId: (myFondos.emerg && myFondos.emerg.accountId) || null,   // el apartado es de MI cuenta: nunca se toma del otro lado
+    vaultLog: (myFondos.emerg && myFondos.emerg.vaultLog) || undefined
   };
   var metasById = {};
   (myFondos.metas || []).forEach(function (m) { if (m && m.id != null) metasById[m.id] = Object.assign({}, m); });
@@ -4096,8 +4113,8 @@ function _mergeFondosInto(myFondos, partnerFondos) {
       // sync quedaba marcada como ajena, y la poda de abajo podía borrarla
       // (encontrado por revisión independiente).
       var mine = metasById[m.id], hist = _mergeHistByKey(mine.hist, m.hist);
-      metasById[m.id] = Object.assign({}, mine, m, { nombre: mine.nombre || m.nombre, hist: hist, actual: hist.reduce(function (a, h) { return a + (h.monto || 0); }, 0), _fromPartner: mine._fromPartner });
-    } else metasById[m.id] = Object.assign({}, m, { _fromPartner: true });
+      metasById[m.id] = Object.assign({}, mine, m, { nombre: mine.nombre || m.nombre, hist: hist, actual: hist.reduce(function (a, h) { return a + (h.monto || 0); }, 0), _fromPartner: mine._fromPartner, accountId: mine.accountId || null, vaultLog: mine.vaultLog });
+    } else metasById[m.id] = Object.assign({}, m, { _fromPartner: true, accountId: null, vaultLog: undefined });
   });
   // Igual que deudas/recurrentes/servicios: si `partnerFondos` trae `metas`
   // (aunque sea vacío -- es la lista completa y actual de mi pareja, no un
@@ -4105,7 +4122,11 @@ function _mergeFondosInto(myFondos, partnerFondos) {
   // se quita también de mi lado. Nunca se toca una meta que YO creé.
   var metasOut = Object.keys(metasById).map(function (k) { return metasById[k]; });
   if (Array.isArray(partnerFondos.metas)) {
-    metasOut = metasOut.filter(function (m) { return !(m._fromPartner && !partnerMetaIds[String(m.id)]); });
+    metasOut = metasOut.filter(function (m) {
+      var drop = m._fromPartner && !partnerMetaIds[String(m.id)];
+      if (drop && m.accountId && (parseFloat(m.actual) || 0)) { try { FT.creditChecking(m.accountId, parseFloat(m.actual) || 0); } catch (e) {} } // libera el apartado antes de soltar la meta
+      return !drop;
+    });
   }
   return { emerg: emerg, metas: metasOut };
 }
@@ -4298,7 +4319,11 @@ FT.pushProfileToGAS = function () {
       subscriptions: (data.subscriptions || []).filter(function (s) { return s && s.hogar === true; }).slice(-10),
       sharedDebts: sharedDebts.slice(-20),
       hogarInv: hogarInv.slice(-20),
-      fondos: FT.hogarFondos(),
+      fondos: (function () {
+        var f = FT.hogarFondos();   // sin accountId/vaultLog: son de MIS cuentas y no deben viajar al otro teléfono
+        return { emerg: Object.assign({}, f.emerg, { accountId: undefined, vaultLog: undefined }),
+          metas: (f.metas || []).map(function (m) { return Object.assign({}, m, { accountId: undefined, vaultLog: undefined }); }) };
+      })(),
       personalSpentThisMonth: 0,
       sharedRecurring: sharedRecurring,
       servicios: FT.servicios().filter(function (s) { return !s._fromPartner; }).slice(-20), // nunca le hago eco a mi pareja de sus propios servicios

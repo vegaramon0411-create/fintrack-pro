@@ -241,7 +241,7 @@ function renderModeSelector() {
   var L = es(), pp = FT.partnerProfile();
   var myIncome = FT.user().income || 0, partnerIncome = pp ? (pp.income || 0) : 0, total = myIncome + partnerIncome;
   var myPct = total > 0 ? Math.round(myIncome / total * 100) : 50, partnerPct = 100 - myPct;
-  var partnerName = FT.hogar().partnerName || (L ? 'Tu pareja' : 'Your partner');
+  var partnerName = _escHg(FT.hogar().partnerName || (L ? 'Tu pareja' : 'Your partner'));
   var recommended = myIncome !== partnerIncome ? 'proportional' : 'equal';
   function card(key, ico, title, sub, rows, pro, con) {
     return '<div class="mode-card ' + (recommended === key ? 'recommended' : '') + ' tap" onclick="setMode(\'' + key + '\')">' +
@@ -272,7 +272,7 @@ function changeMode() { var h = FT.hogar(); delete h.mode; FT.saveHogar(h); rend
 
 /* ── DASHBOARD ── */
 function renderDashboard(hogar) {
-  var L = es(), calc = calcHogar(), partnerName = hogar.partnerName || (L ? 'Tu pareja' : 'Your partner');
+  var L = es(), calc = calcHogar(), partnerName = _escHg(hogar.partnerName || (L ? 'Tu pareja' : 'Your partner'));
   var modeLabels = { equal: (L ? '⚖️ 50/50 Estricto' : '⚖️ 50/50 Equal'), proportional: (L ? '📊 Proporcional' : '📊 Proportional'), common: (L ? '🏦 Fondo común' : '🏦 Common fund') };
 
   var myChecking = FT.checking().filter(function (c) { return c.hogar; });
@@ -479,7 +479,7 @@ function _allocText(allocs) { return (allocs || []).map(function (a) { return _e
 function changeCardsHtml(partnerName) {
   var L = es(), out = '';
   FT.hogarNotices().forEach(function (nt) {
-    var by = _escHg(nt.by || partnerName), id = _safeId(nt.id);
+    var by = nt.by ? _escHg(nt.by) : partnerName, id = _safeId(nt.id);
     var title = nt.kind === 'assign' ? (L ? by + ' asignó tu cheque' + (nt.fecha ? ' del ' + FT.date(nt.fecha) : '') : by + ' assigned your paycheck' + (nt.fecha ? ' of ' + FT.date(nt.fecha) : ''))
       : nt.kind === 'undo' ? (L ? by + ' deshizo un reparto del hogar' : by + ' undid a household split') : (L ? by + ' cambió tu regla de reparto' : by + ' changed your split rule');
     out += '<div class="ft-card" style="background:var(--g-light)"><div style="font-size:13px;font-weight:800;margin-bottom:3px">🏠 ' + title + '</div>' +
@@ -584,7 +584,7 @@ function openPatrimonio() {
   });
 }
 function renderTab(calc, partnerName) {
-  calc = calc || calcHogar(); partnerName = partnerName || (FT.hogar().partnerName || (es() ? 'Tu pareja' : 'Your partner'));
+  calc = calc || calcHogar(); partnerName = partnerName || _escHg(FT.hogar().partnerName || (es() ? 'Tu pareja' : 'Your partner'));
   var c = document.getElementById('tabContent'); if (!c) return;
   var fn = { resumen: tabResumen, depositos: tabDepositos, gastoshogar: tabGastos, distribucion: tabDistribucion, deudas: tabDeudas, inversiones: tabInversiones, metas: tabMetas, guia: tabGuia }[activeTab];
   c.innerHTML = fn ? fn(calc, partnerName) : '';
@@ -647,8 +647,8 @@ function tabResumen(calc) {
     '<div class="ft-card" style="margin-bottom:0"><div style="width:36px;height:36px;border-radius:50%;background:var(--g-main);color:#fff;display:grid;place-items:center;font-weight:800;margin-bottom:8px">' + (FT.userName() || 'T').charAt(0).toUpperCase() + '</div>' +
     '<div style="font-size:12px;font-weight:800">' + (FT.userName() || (L ? 'Tú' : 'You')) + '</div><div style="font-size:11px;color:var(--text3);margin-bottom:8px">' + FT.money(calc.myIncome) + '/mes</div>' +
     '<div style="display:flex;justify-content:space-between;font-size:11px"><span style="color:var(--text3)">' + (L ? 'Aporte hogar' : 'Household share') + '</span><span style="font-weight:700">' + FT.money(calc.mySharedPart) + '</span></div></div>' +
-    '<div class="ft-card" style="margin-bottom:0"><div style="width:36px;height:36px;border-radius:50%;background:var(--blue);color:#fff;display:grid;place-items:center;font-weight:800;margin-bottom:8px">' + (FT.hogar().partnerName || 'P').charAt(0).toUpperCase() + '</div>' +
-    '<div style="font-size:12px;font-weight:800">' + (FT.hogar().partnerName || (L ? 'Pareja' : 'Partner')) + '</div><div style="font-size:11px;color:var(--text3);margin-bottom:8px">' + FT.money(calc.partnerIncome) + '/mes</div>' +
+    '<div class="ft-card" style="margin-bottom:0"><div style="width:36px;height:36px;border-radius:50%;background:var(--blue);color:#fff;display:grid;place-items:center;font-weight:800;margin-bottom:8px">' + _escHg((FT.hogar().partnerName || 'P').charAt(0).toUpperCase()) + '</div>' +
+    '<div style="font-size:12px;font-weight:800">' + _escHg(FT.hogar().partnerName || (L ? 'Pareja' : 'Partner')) + '</div><div style="font-size:11px;color:var(--text3);margin-bottom:8px">' + FT.money(calc.partnerIncome) + '/mes</div>' +
     '<div style="display:flex;justify-content:space-between;font-size:11px"><span style="color:var(--text3)">' + (L ? 'Aporte hogar' : 'Household share') + '</span><span style="font-weight:700">' + FT.money(calc.partnerSharedPart) + '</span></div></div>' +
   '</div>' +
   '<div class="ft-card" style="text-align:center;background:' + (sobrante < 0 ? 'var(--red-dim)' : 'var(--g-light)') + '">' +
@@ -884,22 +884,26 @@ function abrirAporteModal(tipo, idx, montoSugerido) {
         FT.closeTop();
         switchTab(activeTab);
       }
-      if (origen === 'nuevo' && checkingAccountId) {
-        var chkA = FT.checkOverdraft(checkingAccountId, monto + apAbsorb(checkingAccountId));
-        if (!chkA.ok) {
-          var anm = (FT.checking().find(function (x) { return String(x.id) === String(checkingAccountId); }) || {}).name || '';
-          FT.confirm(L ? '«' + anm + '» quedaría en negativo (te faltan ' + FT.money(chkA.shortfall, { cents: true }) + '). ¿Continuar?' : '"' + anm + '" would go negative (short ' + FT.money(chkA.shortfall, { cents: true }) + '). Continue?').then(function (okA) { if (okA) proceed(); });
-          return true;
+      // Primero el aviso de recurrente duplicado y, si se acepta, el de saldo negativo (se encadenan: uno no salta al otro).
+      function checkSaldo() {
+        if (origen === 'nuevo' && checkingAccountId) {
+          var chkA = FT.checkOverdraft(checkingAccountId, monto + apAbsorb(checkingAccountId));
+          if (!chkA.ok) {
+            var anm = (FT.checking().find(function (x) { return String(x.id) === String(checkingAccountId); }) || {}).name || '';
+            FT.confirm(L ? '«' + anm + '» quedaría en negativo (te faltan ' + FT.money(chkA.shortfall, { cents: true }) + '). ¿Continuar?' : '"' + anm + '" would go negative (short ' + FT.money(chkA.shortfall, { cents: true }) + '). Continue?').then(function (okA) { if (okA) proceed(); });
+            return;
+          }
         }
+        proceed();
       }
       if (activos.length) {
         var msg = wantsRec
           ? (L ? '⚠️ Ya tienes un aporte recurrente activo. ¿Crear otro de todos modos? Esto duplicaría los depósitos automáticos.' : '⚠️ You already have an active recurring deposit. Create another anyway? This would duplicate the automatic deposits.')
           : (L ? '⚠️ Ya tienes un aporte recurrente activo. ¿Seguro que quieres depositar manualmente también? Si el recurrente ya cubre este depósito, se duplicaría.' : '⚠️ You already have an active recurring deposit. Deposit manually too? If the recurring one already covers it, it will be duplicated.');
-        FT.confirm(msg).then(function (ok) { if (ok) proceed(); });
+        FT.confirm(msg).then(function (ok) { if (ok) checkSaldo(); });
         return true;
       }
-      proceed();
+      checkSaldo();
       return true;
     }
   });
@@ -929,7 +933,7 @@ function tabDepositos() {
     : [];
   var all = myTxs.concat(pTxs).sort(function (a, b) { return String(b.date || '').localeCompare(String(a.date || '')); });
   var shown = all.slice(0, _depositosLimit);
-  var partnerName = hogar.partnerName || (L ? 'Tu pareja' : 'Your partner');
+  var partnerName = _escHg(hogar.partnerName || (L ? 'Tu pareja' : 'Your partner'));
 
   var depCard = '<div class="ft-card">' +
     '<div style="font-size:14px;font-weight:800">💰 ' + (L ? 'Depósitos de este mes' : 'Deposits this month') + '</div>' +
@@ -973,7 +977,7 @@ function deleteMyIncomeTx(id) {
 
 /* ── TAB GASTOS HOGAR ── */
 function tabGastos() {
-  var L = es(), hogar = FT.hogar(), partnerName = hogar.partnerName || (L ? 'Tu pareja' : 'Your partner');
+  var L = es(), hogar = FT.hogar(), partnerName = _escHg(hogar.partnerName || (L ? 'Tu pareja' : 'Your partner'));
   var mine = getSharedExpenses().map(function (t) { return Object.assign({}, t, { _who: FT.userName() || (L ? 'Tú' : 'You'), _mine: true }); });
   var theirs = partnerSharedTxs().map(function (t) { return Object.assign({}, t, { _who: partnerName, _mine: false }); });
   var all = mine.concat(theirs).sort(function (a, b) { return String(b.date || '').localeCompare(String(a.date || '')); });
@@ -1080,6 +1084,9 @@ function moverSobranteAMetas(monto) {
     var f = FT.hogarFondos();
     if (!f.metas.length) { FT.toast(L ? '⚠️ No tienes metas creadas todavía — créala primero en la pestaña Metas' : "⚠️ You don't have any goals yet — create one first in the Goals tab"); return; }
     var meta = f.metas.find(function (m) { return (m.actual || 0) < (m.meta || Infinity); }) || f.metas[0];
+    // Si la meta es un apartado de una cuenta, el sobrante sale de su disponible (el total de la cuenta no cambia).
+    if (meta.accountId && FT.checking().some(function (a) { return String(a.id) === String(meta.accountId); })) FT.deductChecking(meta.accountId, monto, hoy);
+    f = FT.hogarFondos(); meta = f.metas.find(function (m) { return m.id === meta.id; });
     meta.hist = meta.hist || [];
     meta.hist.push({ id: 'sob_' + Date.now(), monto: monto, fecha: hoy, nota: L ? 'Sobrante del hogar' : 'Household surplus' });
     meta.actual = meta.hist.reduce(function (a, h) { return a + (h.monto || 0); }, 0);
@@ -1109,7 +1116,7 @@ var DEBT_TYPE_STYLE = {
   personal: { ico: '📦', color: '#7B5EA7', bg: '#EFE9F5' }
 };
 function tabDeudas() {
-  var L = es(), hogar = FT.hogar(), partnerName = hogar.partnerName || (L ? 'Tu pareja' : 'Your partner');
+  var L = es(), hogar = FT.hogar(), partnerName = _escHg(hogar.partnerName || (L ? 'Tu pareja' : 'Your partner'));
   var debts = FT.debts(), sharedDebts = debts.filter(function (d) { return d.owner === 'both'; }), myDebts = debts.filter(function (d) { return !d.owner || d.owner === 'me'; });
   var pp = FT.partnerProfile();
   // Todo lo que trae pp.data.sharedDebts YA se fusionó a mi propio ft_debts
