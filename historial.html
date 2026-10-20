@@ -21,7 +21,7 @@ var catFilter = '';
     var q = new URLSearchParams(location.search);
     var f = q.get('f'), m = q.get('m');
     if (['all', 'gasto', 'ingreso', 'inversion', 'hogar', 'personal'].indexOf(f) > -1) activeFilter = f;
-    if (/^\d{4}-\d{2}$/.test(m || '')) selectedMonth = m;
+    if (/^\d{4}-(0[1-9]|1[0-2])$/.test(m || '')) selectedMonth = m;
     catFilter = q.get('cat') || '';
   } catch (e) {}
 })();
@@ -33,6 +33,7 @@ function catMatches(t) {
   return FT.catMeta(t.cat || '').label.toLowerCase() === want;
 }
 function clearCat() { catFilter = ''; render(); }
+function escH(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
 // Bug real de QA (N3): la sección "Del hogar" alternaba entre dos números
 // distintos (ej. "Aportado $120" y luego "Aportado $0 / Gastos $120") sin
 // que cambiara ningún dato real -- FT.boot() dispara "ft:ready" (que pinta
@@ -143,7 +144,7 @@ function render() {
   '</div>';
 
   if (catFilter) {
-    h += '<div style="display:flex;align-items:center;gap:8px;margin:-4px 0 12px"><span style="font-size:12px;color:var(--text2)">' + (L ? 'Categoría:' : 'Category:') + ' <b>' + FT.catMeta(catFilter).label + '</b></span>' +
+    h += '<div style="display:flex;align-items:center;gap:8px;margin:-4px 0 12px"><span style="font-size:12px;color:var(--text2)">' + (L ? 'Categoría:' : 'Category:') + ' <b>' + escH(FT.catMeta(catFilter).label) + '</b></span>' +
       '<button class="tap" onclick="clearCat()" aria-label="' + (L ? 'Quitar filtro de categoría' : 'Clear category filter') + '" style="background:var(--sunk);border:1px solid var(--hair);border-radius:99px;padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;color:var(--text2)">✕ ' + (L ? 'Quitar' : 'Clear') + '</button></div>';
   }
   h += '<div class="ft-card" id="txList" style="padding:2px 16px"></div>';

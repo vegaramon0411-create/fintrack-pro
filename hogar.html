@@ -102,6 +102,8 @@ function calcHogar() {
   var _mesKey = FT.todayISO().slice(0, 7), chequesDelMes = [];
   try { chequesDelMes = (FT.cheques() || []).filter(function (c) { return c.mes === _mesKey; }); } catch (e) {}
   var fondoAportado = chequesDelMes.reduce(function (a, c) { return a + (c.hogarAmt || 0); }, 0);
+  // Aportes al hogar capturados a mano (ingreso > Aporte al hogar) también son tu aporte real.
+  fondoAportado += (FT.txs() || []).filter(function (t) { return t.aporteManual === true && String(t.date || '').slice(0, 7) === _mesKey; }).reduce(function (a, t) { return a + (parseFloat(t.amount) || 0); }, 0);
   return { myIncome: myIncome, partnerIncome: partnerIncome, total: total, myPct: myPct, partnerPct: partnerPct,
     shared: shared, pShared: pShared, sharedTotal: sharedTotal, mySharedPart: mySharedPart, partnerSharedPart: partnerSharedPart,
     fondoAportado: fondoAportado };
@@ -263,7 +265,7 @@ function renderModeSelector() {
 function setMode(mode) {
   var h = FT.hogar(); h.mode = mode; h.modeSetAt = new Date().toISOString(); FT.saveHogar(h);
   FT.toast(es() ? '✅ Modo guardado' : '✅ Mode saved');
-  activeTab = 'resumen';
+  activeTab = '';
   render();
 }
 function changeMode() { var h = FT.hogar(); delete h.mode; FT.saveHogar(h); render(); }
@@ -364,7 +366,7 @@ function renderDashboard(hogar) {
           '<div class="mem"><div class="n">' + (FT.userName() || (L ? 'Tú' : 'You')) + '</div><div class="a">' + FT.money(myBudgetHero) + '</div><div class="p">' + hogarPctTotal + '% ' + (L ? 'de ' + FT.money(calc.myIncome) : 'of ' + FT.money(calc.myIncome)) + '</div></div>' +
           '<div class="mem"><div class="n">' + partnerName + '</div><div class="a">' + FT.money(partnerBudgetHero) + '</div><div class="p">' + hogarPctTotal + '% ' + (L ? 'de ' + FT.money(calc.partnerIncome) : 'of ' + FT.money(calc.partnerIncome)) + '</div></div>' +
         '</div>' +
-        '<div style="font-size:10px;color:var(--text3);margin:2px 0 10px">' + (L ? 'Ingreso combinado total (100%, antes de separar): ' : 'Total combined income (100%, before splitting): ') + '<b style="color:var(--text2)">' + FT.money(calc.total) + '/mes</b></div>' +
+        '<div style="font-size:10px;color:var(--text3);margin:2px 0 10px">' + (L ? 'Ingreso combinado total (100%, antes de separar): ' : 'Total combined income (100%, before splitting): ') + '<b style="color:var(--text2)">' + FT.money(calc.total) + (L ? '/mes' : '/mo') + '</b></div>' +
         '<div class="box"><div class="r"><span>💵 ' + (L ? 'Recibido este mes' : 'Received this month') + '</span><span>' + FT.money(totalIncomeReceived * hogarPctTotal / 100) + ' / ' + FT.money(hogarBudgetHero) + '</span></div>' +
         '<div class="ft-track" style="height:6px"><div class="ft-fill" data-pct="' + incomeReceivedPct + '" style="width:0;background:var(--g-main)"></div></div>' +
         '<div style="font-size:10px;color:var(--text3);margin-top:6px">' + (L ? 'Bote real del hogar (' + payPctHero + '% de lo recibido − gastado hogar)' : payPctHero + '% of received − household spent') + ': <b style="color:var(--text2)">' + FT.money(botesReal) + '</b></div></div>' +
@@ -428,7 +430,7 @@ function renderDashboard(hogar) {
    Cuentas conjuntas. Solo viaja lo del hogar -- nada personal. La respuesta
    sube por el mismo perfil que ya se sincroniza (hogarReview). */
 function _revSig(items) {
-  var s = items.map(function (i) { return i.name + '|' + Math.round(i.amt); }).sort().join(';'), h = 0;
+  var s = items.map(function (i) { return i.name; }).sort().join(';'), h = 0; // solo nombres: un saldo que cambia por un gasto NO debe pedir revisión otra vez
   for (var k = 0; k < s.length; k++) h = ((h << 5) - h + s.charCodeAt(k)) | 0;
   return s ? String(h) : '';
 }
@@ -437,6 +439,11 @@ function _partnerSetup() {
   var raw = FT.get(FT.K.partnerChecking, []); raw = Array.isArray(raw) ? raw : (raw ? [raw] : []);
   var items = raw.filter(function (c) { return c.hogar; }).map(function (c) { return { ico: '🏦', name: c.name || (es() ? 'Cuenta' : 'Account'), amt: parseFloat(c.amount) || 0 }; });
   ((pp && pp.data && pp.data.hogarInv) || []).forEach(function (i) { items.push({ ico: '📈', name: i.ticker || i.name || (es() ? 'Inversión' : 'Investment'), amt: parseFloat(i.amount) || 0 }); });
+  return items;
+}
+function _mySetup() {
+  var items = FT.checking().filter(function (c) { return c.hogar; }).map(function (c) { return { name: c.name || (es() ? 'Cuenta' : 'Account') }; });
+  FT.investments('hogar').forEach(function (i) { items.push({ name: i.ticker || i.name || (es() ? 'Inversión' : 'Investment') }); });
   return items;
 }
 function reviewCardsHtml(partnerName) {
@@ -458,12 +465,14 @@ function reviewCardsHtml(partnerName) {
   }
   // 2) La respuesta de mi pareja a lo que yo configuré
   var pp = FT.partnerProfile(), rv = pp && pp.data && pp.data.hogarReview;
-  if (rv && rv.at && FT.getRaw('ft_hogar_review_seen') !== rv.at) {
+  var rvAt = rv && rv.at ? String(rv.at).replace(/[^0-9TZ:.\-]/g, '') : '';
+  // Solo se muestra la respuesta si corresponde a lo que tengo configurado ahora (misma firma).
+  if (rv && rvAt && (!rv.sig || rv.sig === _revSig(_mySetup())) && FT.getRaw('ft_hogar_review_seen') !== rvAt) {
     out += '<div class="ft-card" style="background:' + (rv.status === 'fix' ? 'var(--amber-bg,#FBF0DD)' : 'var(--g-light)') + '">' +
       '<div style="font-size:13px;font-weight:800;margin-bottom:4px">' + (rv.status === 'fix' ? '⚠️ ' + (L ? partnerName + ' pidió corregir algo del hogar' : partnerName + ' asked to fix something') : '✅ ' + (L ? partnerName + ' confirmó lo del hogar' : partnerName + ' confirmed the household setup')) + '</div>' +
       (rv.note ? '<div style="font-size:12.5px;color:var(--text2);margin-bottom:8px">“' + _escHg(rv.note) + '”</div>' : '') +
-      '<div style="display:flex;gap:8px">' + (rv.status === 'fix' ? '<button class="ft-btn ft-btn-primary tap" style="margin:0;flex:1" onclick="FT.setRaw(\'ft_hogar_review_seen\',\'' + rv.at + '\');FT.checkingAccountsScreen(true);render()">✏️ ' + (L ? 'Editar cuentas del hogar' : 'Edit household accounts') + '</button>' : '') +
-      '<button class="ft-btn ft-btn-ghost tap" style="margin:0;flex:1" onclick="FT.setRaw(\'ft_hogar_review_seen\',\'' + rv.at + '\');render()">' + (L ? 'Entendido' : 'Got it') + '</button></div></div>';
+      '<div style="display:flex;gap:8px">' + (rv.status === 'fix' ? '<button class="ft-btn ft-btn-primary tap" style="margin:0;flex:1" onclick="FT.setRaw(\'ft_hogar_review_seen\',\'' + rvAt + '\');FT.checkingAccountsScreen(true);render()">✏️ ' + (L ? 'Editar cuentas del hogar' : 'Edit household accounts') + '</button>' : '') +
+      '<button class="ft-btn ft-btn-ghost tap" style="margin:0;flex:1" onclick="FT.setRaw(\'ft_hogar_review_seen\',\'' + rvAt + '\');render()">' + (L ? 'Entendido' : 'Got it') + '</button></div></div>';
   }
   return out;
 }
@@ -472,7 +481,7 @@ function answerReview(status) {
   var L = es(), sig = _revSig(_partnerSetup());
   function send(note) {
     FT.setRaw('ft_hogar_review_ack', sig);
-    var h = FT.hogar(); h.myReview = { status: status, note: note || '', at: new Date().toISOString() };
+    var h = FT.hogar(); h.myReview = { status: status, note: note || '', sig: sig, at: new Date().toISOString() };
     FT.saveHogar(h);
     FT.toast(status === 'ok' ? (L ? '✅ Confirmado' : '✅ Confirmed') : (L ? '📨 Le avisamos a tu pareja' : '📨 We let your partner know'));
     render();

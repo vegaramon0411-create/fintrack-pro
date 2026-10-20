@@ -76,7 +76,8 @@ var CAT_PASTEL = {
    ($1,200.00) y se puede cambiar en Perfil (user.numFormat: 'us' | 'latam',
    user.currencySymbol). Antes estaba fijo en LatAm ($1.200,00). */
 FT.numFormat = function () { var f; try { f = (FT.user() || {}).numFormat; } catch (e) {} return f === 'latam' ? 'latam' : 'us'; };
-FT.currencySymbol = function () { var s; try { s = (FT.user() || {}).currencySymbol; } catch (e) {} return s ? String(s) : '$'; };
+var _CUR_SYM = { USD: '$', MXN: '$', CAD: '$', COP: '$', ARS: '$', CLP: '$', EUR: '€', GBP: '£', JPY: '¥', PEN: 'S/', BRL: 'R$', GTQ: 'Q', CRC: '₡', CHF: 'CHF' };
+FT.currencySymbol = function () { var u = {}; try { u = FT.user() || {}; } catch (e) {} return u.currencySymbol ? String(u.currencySymbol) : (_CUR_SYM[u.currency] || '$'); };
 function _seps() { return FT.numFormat() === 'latam' ? { group: '.', dec: ',' } : { group: ',', dec: '.' }; }
 function groupInt(s) { return String(s).replace(/\B(?=(\d{3})+(?!\d))/g, _seps().group); }
 
@@ -124,7 +125,9 @@ FT.numMoney = function (v) {
   } else if (hasComma || hasDot) {
     var sep = hasComma ? ',' : '.';
     var parts = v.split(sep);
-    var looksGrouped = parts.length > 1 && parts.slice(1).every(function (p) { return p.length === 3; }) && parts[0].length <= 3;
+    var looksGrouped = parts.length > 1 && parts.slice(1).every(function (p) { return p.length === 3; }) && parts[0].replace('-', '').length <= 3;
+    // Un solo punto con 3 dígitos: en formato EE.UU. es un decimal (1.200 = 1.2), no un millar.
+    if (looksGrouped && parts.length === 2 && ((sep === '.' && FT.numFormat() === 'us') || (sep === ',' && FT.numFormat() === 'latam'))) looksGrouped = false;
     v = looksGrouped ? parts.join('') : parts.join('.');
   }
   var n = parseFloat(v);
@@ -869,6 +872,7 @@ function _deleteCuenta(acct) {
     var fresh = FT.checking().find(function (a) { return String(a.id) === id; });
     if (!fresh || Math.abs(parseFloat(fresh.amount) || 0) >= 0.005 || FT.accountVaults(id).length) { FT.toast(L ? 'Esta cuenta ya no está en $0 o sin vínculos' : 'This account is no longer at $0 or unlinked'); return; }
     FT.saveChecking(FT.checking().filter(function (a) { return String(a.id) !== id; }));
+    var uD = FT.user(); if (uD.defaultAccountId && String(uD.defaultAccountId) === id) { uD.defaultAccountId = null; FT.saveUser(uD); }
     FT.toast(L ? 'Eliminada' : 'Deleted');
   });
 }
@@ -927,7 +931,7 @@ function _openReglaCuenta(acct) {
       });
     },
     onSave: function (body) {
-      var val = parseFloat((body.querySelector('#crVal').value || '').replace(/,/g, '')) || 0;
+      var val = FT.numMoney(body.querySelector('#crVal').value) || 0;
       var accts = FT.checking();
       var a = accts.find(function (x) { return String(x.id) === String(acct.id); });
       if (!a) return;
@@ -1018,7 +1022,7 @@ function _openAjusteSaldoCuenta(acct) {
       var inp = body.querySelector('#abSaldo'), prev = body.querySelector('#abPrev');
       if (!inp || !prev) return;
       function upd() {
-        var v = parseFloat((inp.value || '').replace(/,/g, ''));
+        var v = FT.numMoney(inp.value);
         if (isNaN(v)) { prev.textContent = ''; return; }
         var ap = FT.accountEarmarked(acct.id), nl = +(v - ap).toFixed(2);
         prev.style.color = nl < -0.005 ? 'var(--red)' : 'var(--g-main)';
@@ -1041,7 +1045,7 @@ function _openAjusteSaldoCuenta(acct) {
       '<p style="font-size:10.5px;color:var(--text3)">' + (L ? 'Escribe lo que de verdad dice tu banco -- esto reemplaza el número, no lo suma. Útil si un depósito automático no aplicó (ej. un cheque que registraste antes de poner la regla).' : "Type what your bank actually shows -- this replaces the number, it doesn't add to it. Useful if an auto-deposit didn't apply (e.g. a paycheck logged before you set the rule).") + '</p>',
     saveLabel: L ? 'Guardar saldo' : 'Save balance',
     onSave: function (body) {
-      var val = parseFloat((body.querySelector('#abSaldo').value || '').replace(/,/g, ''));
+      var val = FT.numMoney(body.querySelector('#abSaldo').value);
       if (isNaN(val) || val < 0) { FT.toast(L ? 'Ingresa un saldo válido' : 'Enter a valid balance'); return true; }
       var motivo = (body.querySelector('#abMotivo').value || '').trim();
       var freshApartado = FT.accountEarmarked(acct.id); // fresco, no el capturado al abrir
@@ -2422,12 +2426,12 @@ FT.resolveDebtApproval = function (debtId, abonoId, approve) {
    viejos se etiquetan: lo inequívoco solo (por descripción/nota), el resto se
    le pregunta al usuario UNA vez con FT.reviewIncomeKinds(). */
 FT.autoTagIncomes = function () {
-  var d = FT.data(), n = 0;
+  var d = FT.data(), n = 0, chequeRows = FT.cheques() || [];
   (d.transactions || []).forEach(function (t) {
     if (t.type !== 'ingreso' || t.incomeKind) return;
     var desc = String(t.desc || ''), note = String(t.note || ''), k = null;
     if (t.cobId || /^(Cobertura|Coverage):/i.test(desc)) k = 'cobertura';
-    else if (/^(Cheque recibido|Paycheck received)/i.test(desc)) k = 'cheque';
+    else if (/^(Cheque recibido|Paycheck received)/i.test(desc) || chequeRows.some(function (c) { return String(c.txId) === String(t.id) || (c.fecha === t.date && Math.abs((parseFloat(c.monto) || 0) - (parseFloat(t.amount) || 0)) < 0.01); })) k = 'cheque';
     else if (note === 'Venta Fidelity') k = 'venta';
     else if (note === 'Fidelity dividend') k = 'extra';
     if (k) { t.incomeKind = k; n++; }
@@ -2777,7 +2781,7 @@ FT.openTransfer = function (opts) {
       });
     },
     onSave: function (body) {
-      var amt = parseFloat((body.querySelector('#xfAmt').value || '').replace(/,/g, '')) || 0;
+      var amt = FT.numMoney(body.querySelector('#xfAmt').value) || 0;
       if (!amt || amt <= 0) { FT.toast(L ? 'Ingresa un monto' : 'Enter an amount'); return true; }
       var fi = +body.querySelector('#xfFrom').value, ti = +body.querySelector('#xfTo').value;
       if (fi === ti) { FT.toast(L ? 'Elige un origen y un destino distintos' : 'Pick a different origin and destination'); return true; }
@@ -3284,7 +3288,7 @@ FT.syncPartner = function () {
       // solo se conserva lo que la pareja puede ver (hogar y cheques).
       var oldOtherMonths = (od.transactions || []).filter(function (t) { return String(t.date || '').slice(0, 7) !== thisMonthKey && (t.hogar === true || t.isHogar || (t.type === 'ingreso' && t.incomeKind === 'cheque')); });
       var merged = {
-        transactions: oldOtherMonths.concat(nd.transactions || []),
+        transactions: oldOtherMonths.concat((nd.transactions || []).filter(function (t) { return t && (t.hogar === true || t.isHogar === true || (t.type === 'ingreso' && t.incomeKind === 'cheque')); })), // filtrar también al recibir: un cliente viejo subía todo
         emergency: (nd.emergency != null ? nd.emergency : od.emergency) || 0,
         personalSpentThisMonth: (nd.personalSpentThisMonth != null ? nd.personalSpentThisMonth : od.personalSpentThisMonth) || 0,
         subscriptions: _mergeById(od.subscriptions, nd.subscriptions),
@@ -3313,7 +3317,7 @@ FT.syncPartner = function () {
           FT.saveServicios(Object.keys(byIdServ).map(function (k) { return byIdServ[k]; }));
         } catch (e) {}
       }
-      if (nd.checking) { try { FT.set(K.partnerChecking, nd.checking); } catch (e) {} }
+      if (nd.checking) { try { FT.set(K.partnerChecking, (Array.isArray(nd.checking) ? nd.checking : [nd.checking]).filter(function (c) { return c && c.hogar; })); } catch (e) {} }
 
       FT._changed();
     }).catch(function () {});
@@ -3362,7 +3366,7 @@ FT.pushProfileToGAS = function () {
     var limited = {
       transactions: (data.transactions || []).filter(function (t) { return String(t.date || '').startsWith(thisMonth) && (t.hogar === true || (t.type === 'ingreso' && t.incomeKind === 'cheque')); }),
       emergency: 0,
-      subscriptions: (data.subscriptions || []).slice(-10),
+      subscriptions: (data.subscriptions || []).filter(function (s) { return s && s.hogar === true; }).slice(-10),
       sharedDebts: sharedDebts.slice(-20),
       hogarInv: hogarInv.slice(-20),
       fondos: FT.hogarFondos(),
@@ -3372,7 +3376,7 @@ FT.pushProfileToGAS = function () {
       checking: FT.checking().filter(function (c) { return c.hogar; }),
       hogarReview: FT.hogar().myReview || null // mi respuesta a lo que mi pareja configuró del hogar (ver hogar.html)
     };
-    var params = new URLSearchParams({ action: 'saveProfile', email: u.email, name: u.name || '', income: u.income || 0, needs: u.needs || 0, wants: u.wants || 0, savings: u.savings || 0, dataJson: JSON.stringify(limited) });
+    var params = new URLSearchParams({ action: 'saveProfile', email: u.email, name: u.name || '', income: u.income || 0, needs: 0, wants: 0, savings: 0, dataJson: JSON.stringify(limited) }); // needs/wants/savings personales ya no se suben (nadie los usa del otro lado)
     fetch(FT.GAS_URL + '?' + params.toString()).catch(function () {});
   } catch (e) {}
 };
@@ -3880,7 +3884,7 @@ FT.catBars = function (items, o) {
     var spentH = Math.max(66 / 196 * 100, (it.spent || 0) / maxRef * 100);
     var budH = it.budget ? (it.budget / maxRef * 100) : 0;
     var pctTotal = Math.round((it.spent || 0) / total * 100);
-    return '<div class="ft-catcol ' + meta.pastel + '" data-cat="' + (it.cat || meta.label) + '">' +
+    return '<div class="ft-catcol ' + meta.pastel + '" data-cat="' + _escH(it.cat || meta.label) + '" role="button" tabindex="0">' +
       (budH > spentH ? '<div class="ft-catbudget" style="height:' + budH + '%"></div>' : '') +
       '<div class="ft-catfill tap" style="height:' + spentH + '%">' +
         '<span class="emo">' + (meta.emoji || '•') + '</span>' +
@@ -3890,6 +3894,9 @@ FT.catBars = function (items, o) {
   }).join('') + '</div>';
 };
 
+document.addEventListener('keydown', function (e) {
+  if ((e.key === 'Enter' || e.key === ' ') && e.target && e.target.getAttribute && e.target.getAttribute('role') === 'button' && e.target.tagName !== 'BUTTON') { e.preventDefault(); e.target.click(); }
+});
 document.addEventListener('click', function (e) {
   var col = e.target && e.target.closest ? e.target.closest('.ft-catcol') : null;
   if (!col) return;
@@ -3940,14 +3947,14 @@ FT.txRow = function (t, idx, o) {
       if (/autom[aá]tic/i.test(dsc)) chip = es ? '⭐ Ahorro automático' : '⭐ Automatic savings';
       else if (dsc.indexOf('Reparto de cheque') === 0 || dsc.indexOf('Paycheck allocation') === 0) chip = es ? '💵 A tu fondo' : '💵 To your fund';
     }
-    mid = '<div class="ft-tx-name">' + (t.desc || meta.label) + '</div>' +
+    mid = '<div class="ft-tx-name">' + _escH(t.desc || meta.label) + '</div>' +
           (chip ? '<span class="ft-hashtag">' + chip + '</span>'
                 : '<span class="ft-hashtag">#' + (meta.label || 'gasto').toLowerCase().replace(/\s+/g, '') + '</span>');
   }
   var esHogarRow = t.hogar === true || t.isHogar === true;
-  var who = (o.partner && t.createdBy) ? ' · ' + t.createdBy : '';
+  var who = (o.partner && t._partner && t.createdBy) ? ' · ' + _escH(t.createdBy) : '';
   var lbl = meta.label + (esHogarRow ? ' · 🏠 ' + (es ? 'Hogar' : 'Household') : '') + who;
-  return '<div class="ft-tx tap" data-txid="' + t.id + '"' + (t._partner ? ' style="cursor:default"' : '') + '>' +
+  return '<div class="ft-tx tap" data-txid="' + t.id + '" role="button" tabindex="0"' + (t._partner ? ' style="cursor:default"' : '') + '>' +
     '<div class="ft-tx-top"><span class="ft-pill">' + FT.date(t.date) + '</span>' +
       '<span class="ft-pill"' + (isIn ? ' style="color:var(--g-main)"' : '') + '>' + (isIn ? '+' : (neutralSign ? '' : '−')) + FT.money(t.amount, { cents: true, noSymbol: false }).replace('−', '') + '</span></div>' +
     '<div class="ft-tx-body">' +
@@ -4015,14 +4022,13 @@ function _editTxDetail(tx) {
   // corregirlos, se eliminan y se registran de nuevo.
   var kindHtml = '';
   if (tx.type === 'ingreso') {
-    var lockedKind = tx.incomeKind === 'cobertura' || !!tx.cobId ||
-      (tx.incomeKind === 'cheque' && FT.cheques().some(function (c) { return String(c.txId) === String(tx.id); }));
+    var lockedKind = tx.incomeKind === 'cobertura' || !!tx.cobId || tx.incomeKind === 'cheque';
     var kindNames = { cheque: es ? '🏠 Cheque (se reparte con el hogar)' : '🏠 Paycheck (split with household)', extra: es ? '🎁 100% mío' : '🎁 100% mine', venta: es ? '🔄 Venta de inversión (no suma)' : '🔄 Investment sale (not counted)', cobertura: es ? '💵 Cobertura (100% mío)' : '💵 Coverage (100% mine)' };
     var curKind = tx.incomeKind || 'extra';
     kindHtml = lockedKind
-      ? '<div class="ft-field"><label>' + (es ? 'Tipo de ingreso' : 'Income type') + '</label><div style="font-size:13px;color:var(--text2)">' + (kindNames[curKind] || curKind) + '</div><p style="font-size:10px;color:var(--text3);margin-top:4px">' + (es ? 'Este tipo ya movió dinero. Para cambiarlo, elimínalo y regístralo de nuevo.' : 'This type already moved money. To change it, delete it and record it again.') + '</p></div>'
+      ? '<div class="ft-field"><label>' + (es ? 'Tipo de ingreso' : 'Income type') + '</label><div style="font-size:13px;color:var(--text2)">' + (kindNames[curKind] || curKind) + '</div><p style="font-size:10px;color:var(--text3);margin-top:4px">' + (es ? 'Este tipo ya movió dinero. Para cambiarlo, elimínalo y regístralo de nuevo (un cheque, con «Recibí mi cheque»).' : 'This type already moved money. To change it, delete it and record it again (a paycheck, with "I got paid").') + '</p></div>'
       : '<div class="ft-field"><label>' + (es ? 'Tipo de ingreso' : 'Income type') + '</label><select id="etKind">' +
-        ['extra', 'cheque', 'venta'].map(function (k) { return '<option value="' + k + '"' + (k === curKind ? ' selected' : '') + '>' + kindNames[k] + '</option>'; }).join('') + '</select></div>';
+        ['extra', 'venta'].map(function (k) { return '<option value="' + k + '"' + (k === curKind ? ' selected' : '') + '>' + kindNames[k] + '</option>'; }).join('') + '</select></div>';
   }
   FT.modal({
     title: es ? 'Editar registro' : 'Edit entry',
@@ -4642,8 +4648,8 @@ FT.balanceScreen = function (opts) {
       onSave: function (body) {
         var name = (body.querySelector('#fdName').value || '').trim();
         if (!name) { FT.toast(L ? 'Ingresa un nombre' : 'Enter a name'); return true; }
-        var metaVal = parseFloat((body.querySelector('#fdMeta').value || '').replace(/,/g, '')) || 0;
-        var ruleVal = parseFloat((body.querySelector('#fdRuleVal').value || '').replace(/,/g, '')) || 0;
+        var metaVal = FT.numMoney(body.querySelector('#fdMeta').value) || 0;
+        var ruleVal = FT.numMoney(body.querySelector('#fdRuleVal').value) || 0;
         var rule = chosenRule === 'remainder' ? { type: 'remainder' } : (chosenRule !== 'none' && ruleVal > 0) ? { type: chosenRule, value: ruleVal } : null;
         var funds2 = FT.savingsFunds();
         if (editing) {

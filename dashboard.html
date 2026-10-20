@@ -243,7 +243,7 @@ function hogarCatItems() {
   var all = monthTxs().concat(partnerTxs);
   return Object.keys(byCat).map(function (l) {
     var emojiMatch = all.find(function (x) { return x.hogar === true && catLabel(x.cat) === l; });
-    var em = emojiMatch ? (String(emojiMatch.cat).match(/^(\S+)/) || [''])[0] : '';
+    var em = emojiMatch ? (String(emojiMatch.cat).match(/^(\S+)\s/) || ['', ''])[1] : '';
     return { cat: (em ? em + ' ' : '') + l, spent: byCat[l] };
   });
 }
@@ -351,7 +351,7 @@ function render() {
     });
     catItems = Object.keys(byCat).map(function (l) {
       var emojiMatch = t.txs.find(function (x) { return _CAT_EXPENSE_TYPES[x.type] && catLabel(x.cat) === l; });
-      var em = emojiMatch ? (String(emojiMatch.cat).match(/^(\S+)/) || [''])[0] : '';
+      var em = emojiMatch ? (String(emojiMatch.cat).match(/^(\S+)\s/) || ['', ''])[1] : '';
       return { cat: (em ? em + ' ' : '') + l, spent: byCat[l], budget: budgets[l] || 0 };
     });
     var ahorroLbl = es ? 'Ahorro' : 'Savings', invLbl = es ? 'Inversión' : 'Investment';
@@ -647,7 +647,7 @@ function renderAcctStatus(body, getAmount, onMoved) {
   var es = FT.lang === 'es', wrap = body.querySelector('#eAcctPersWrap');
   box.innerHTML = '';
   if (!sel || !sel.value || (wrap && wrap.style.display === 'none')) return;
-  var amt = parseFloat(String(getAmount()).replace(/,/g, '')) || 0;
+  var amt = FT.numMoney(getAmount());
   if (amt <= 0) return;
   var cov = FT.accountCoverage(sel.value, amt);
   if (cov.ok) return;
@@ -667,7 +667,7 @@ function renderAcctStatus(body, getAmount, onMoved) {
         // Se recalcula el faltante al ejecutar (no el capturado al dibujar el
         // aviso): con la confirmación de Emergencia (asíncrona) un doble toque
         // movería el mismo monto dos veces y dejaría el disponible de más.
-        var fresh = FT.accountCoverage(sel.value, getAmount().toString().replace(/,/g, '')).shortfall;
+        var fresh = FT.accountCoverage(sel.value, FT.numMoney(getAmount())).shortfall;
         if (fresh <= 0.004) { renderAcctStatus(body, getAmount, onMoved); return; }
         var r = FT.coverFromFunds(sel.value, fresh, { useEmergency: useEmerg }); FT.toast((es ? 'Pasaron ' : 'Moved ') + FT.money(r.moved, { cents: true }) + (es ? ' al disponible de ' : ' to available in ') + (acct.name || ''), { icon: '🔁', ms: 3200 }); if (onMoved) onMoved(); renderAcctStatus(body, getAmount, onMoved); };
       if (canEmerg) FT.confirm(es ? 'Esto usa tu fondo de Emergencia, que es solo para emergencias reales. ¿Continuar?' : 'This uses your Emergency fund, which is only for real emergencies. Continue?').then(function (ok) { if (ok) run(true); });
@@ -835,11 +835,12 @@ function openEntry(type) {
       // Aporte al hogar: se anota como aporte del hogar, sin tocar el presupuesto personal.
       if (realType === 'ingreso' && state.incomeHogar) {
         var esA = FT.lang === 'es', amtA = FT.numMoney(o.amount);
+        if (!(amtA > 0)) { FT.toast(esA ? 'El monto debe ser mayor a 0' : 'Amount must be greater than 0'); return true; }
         var acctH = body.querySelector('#eAcctH') ? (body.querySelector('#eAcctH').value || '') : '';
         if (acctH) FT.creditChecking(acctH, amtA);
         var dA = FT.data();
         dA.transactions.push({ id: Date.now(), type: 'ahorro', desc: (esA ? 'Aporte al hogar — ' : 'Household contribution — ') + o.desc, amount: amtA, date: o.date, cat: '🏠 Hogar', hogar: true, createdBy: FT.userName(),
-          checkingAccountId: acctH || undefined, acctCredited: acctH ? true : undefined });
+          checkingAccountId: acctH || undefined, acctCredited: acctH ? true : undefined, aporteManual: true });
         FT.saveData(dA);
         FT.toast((esA ? 'Aporte al hogar · ' : 'Household contribution · ') + FT.money(amtA, { cents: true }), { icon: '🏠' });
         render();

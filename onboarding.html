@@ -243,7 +243,8 @@ function acctHtml(a) {
 function savHtml(a) {
   var k = SAV_KINDS[a.kind];
   return '<div class="item" data-list="savings">' + head(k.ico, T(k.es, k.en), 'savings', a) +
-    nameField(a, a.kind === 'meta' ? T('Ej. Vacaciones', 'E.g. Vacation') : '') + amtField(a, T('¿Cuánto tienes ahí hoy?', 'How much is in it today?')) + '</div>';
+    nameField(a, a.kind === 'meta' ? T('Ej. Vacaciones', 'E.g. Vacation') : '') + amtField(a, T('¿Cuánto tienes ahí hoy?', 'How much is in it today?')) +
+    (a.kind === 'meta' ? '<label>' + T('¿Cuánto quieres juntar? (opcional)', 'How much do you want to save? (optional)') + '</label><input data-f="target" data-uid="' + a.uid + '" type="text" inputmode="decimal" placeholder="$0.00" value="' + esc(a.target || '') + '">' : '') + '</div>';
 }
 function invHtml(a) {
   return '<div class="item" data-list="invs">' + head(a.hogar ? '🏠' : '📈', a.hogar ? T('Inversión del hogar', 'Household investment') : T('Inversión personal', 'Personal investment'), 'invs', a) +
@@ -302,7 +303,7 @@ document.getElementById('stepBody').addEventListener('input', function (e) {
   if (!f) return;
   var list = el.closest('.item').getAttribute('data-list'), it = findItem(list, uid);
   if (!it) return;
-  it[f] = el.value;
+  it[f] = el.value; it._touched = true;
   if (f === 'amount') updTotals();
 });
 document.getElementById('stepBody').addEventListener('click', function (e) {
@@ -445,26 +446,34 @@ function obDetectExisting() {
 }
 
 function skipOnboarding() {
-  FT.setRaw('ft_onboarding_saldos_done', '1');
-  location.replace('dashboard.html');
+  function leave() { FT.setRaw('ft_onboarding_saldos_done', '1'); location.replace('dashboard.html'); }
+  var typed = ['accounts', 'savings', 'invs', 'debts'].some(function (l) { return S[l].some(function (a) { return a._touched; }); });
+  if (!typed) { leave(); return; }
+  FT.confirm(T('¿Salir sin guardar lo que escribiste?', 'Leave without saving what you typed?')).then(function (ok) { if (ok) leave(); });
 }
 
 /* ─── Guardar: SOLO lo nuevo (nada de lo ya registrado se toca ni se duplica) ─── */
 function saveOnboarding() {
   if (_saving) return;
   _saving = true;
+  try { doSaveOnboarding(); } catch (e) { _saving = false; console.error('onboarding save', e); FT.toast(T('⚠️ No se pudo guardar. Intenta de nuevo.', '⚠️ Could not save. Try again.')); }
+}
+function doSaveOnboarding() {
   var hoy = FT.todayISO(), user = FT.user(), L = FT.lang === 'es', hogarOn = FT.hogarConnected();
   function rid(p) { return p + Date.now() + '_' + Math.random().toString(36).slice(2, 7); }
 
   // Cuentas (cheques, efectivo, otra)
-  var nuevas = S.accounts.map(function (a) {
+  var nuevas = S.accounts.filter(function (a) {
+    // La cuenta de ejemplo que aparece al inicio, sin tocar, no se guarda como una cuenta en $0.
+    return !(String(a.amount).trim() === '' && (a.name || '').trim() === T(ACCT_KINDS[a.kind].defEs, ACCT_KINDS[a.kind].defEn) && !a._touched);
+  }).map(function (a) {
     var k = ACCT_KINDS[a.kind];
     return { id: rid('chk_'), name: (a.name || '').trim() || (L ? k.es : k.en), amount: num(a.amount), hogar: !!(a.hogar && hogarOn), kind: a.kind, updatedAt: hoy };
   });
   if (nuevas.length) FT.saveChecking(FT.checking().concat(nuevas));
 
   // Ahorros: libre, emergencia (saldo inicial) y metas/apartados
-  var fondos = null, metasAdded = false;
+  var personalGoals = null, goalsAdded = false;
   S.savings.forEach(function (a, i) {
     var monto = num(a.amount), nombre = (a.name || '').trim();
     if (monto <= 0) return;
@@ -472,13 +481,14 @@ function saveOnboarding() {
     if (a.kind === 'ahorro') FT.addSavings({ id: rid('onb_'), amount: monto, date: hoy, tipo: 'deposito', note: note });
     else if (a.kind === 'emergencia') FT.addEmergency({ id: rid('onb_'), amount: monto, date: hoy, tipo: 'deposito', note: note });
     else {
-      if (!fondos) fondos = FT.hogarFondos();
-      metasAdded = true;
-      fondos.metas.push({ id: rid('m_onb_'), nombre: nombre || (L ? 'Meta' : 'Goal'), meta: 0, actual: monto, fecha: '',
-        hist: [{ id: rid('onb_'), monto: monto, fecha: hoy, desdePres: false, nota: L ? 'Saldo inicial' : 'Starting balance' }] });
+      // Meta personal (aparece en Metas y en tu patrimonio). Antes se guardaba como
+      // meta del HOGAR: sin hogar no se podía ver ni editar, y con hogar se compartía.
+      if (!personalGoals) personalGoals = FT.goals();
+      goalsAdded = true;
+      personalGoals.push({ id: rid('g_'), name: nombre || (L ? 'Meta' : 'Goal'), target: num(a.target) || monto, saved: monto, deadline: '', icon: '🎯', recurring: false, createdAt: new Date().toISOString() });
     }
   });
-  if (metasAdded) FT.saveHogarFondos(fondos);
+  if (goalsAdded) FT.saveGoals(personalGoals);
 
   // Inversiones
   ['', 'hogar'].forEach(function (scope) {
@@ -500,7 +510,8 @@ function saveOnboarding() {
     debts.forEach(function (a) {
       var k = DEBT_KINDS[a.kind], bal = num(a.amount);
       all.push({ id: Date.now() + Math.floor(Math.random() * 100000), type: a.kind, name: (a.name || '').trim() || (L ? k.es : k.en), balance: bal, payment: num(a.payment), apr: 0, term: 0,
-        original: bal, limit: 0, minPayment: 0, kind: k.kind, abonos: [], paidMonths: {}, owner: 'me', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+        original: bal, limit: 0, minPayment: 0, kind: k.kind, abonos: [], paidMonths: {}, owner: (hogarOn && a.kind === 'hipoteca') ? 'both' : 'me', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+      if (hogarOn && a.kind === 'hipoteca') { var dl = all[all.length - 1]; dl.splitMe = 50; dl.splitPartner = 50; dl.splitMode = 'equal'; }
     });
     FT.saveDebts(all);
   }

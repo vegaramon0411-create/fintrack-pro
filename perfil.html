@@ -73,7 +73,7 @@ function computeStats() {
   var u = FT.user();
   var created = u.createdAt ? new Date(u.createdAt) : new Date();
   var monthsActive = Math.max(1, Math.round((new Date() - created) / (1000 * 60 * 60 * 24 * 30)));
-  var totalSaved = txs.filter(function (t) { return t.type === 'ahorro' || t.type === 'inversion'; }).reduce(function (s, t) { return s + (parseFloat(t.amount) || 0); }, 0);
+  var totalSaved = txs.filter(function (t) { return (t.type === 'ahorro' || t.type === 'inversion') && t.aporteManual !== true; }).reduce(function (s, t) { return s + (parseFloat(t.amount) || 0); }, 0);
   var totalInvested = invs.reduce(function (s, i) { return s + (parseFloat(i.amount) || 0); }, 0);
   var uniqueDays = new Set(txs.map(function (t) { return t.date; })).size;
   var totalTx = txs.length;
@@ -379,9 +379,10 @@ function render() {
       '<select id="numFmtSel" onchange="saveNumFormat(this.value)" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;background:white">' +
         '<option value="us"' + (FT.numFormat() === 'us' ? ' selected' : '') + '>1,200.00</option>' +
         '<option value="latam"' + (FT.numFormat() === 'latam' ? ' selected' : '') + '>1.200,00</option></select></div>' +
-      '<div><label for="curSymSel" style="font-size:11px;font-weight:700;color:var(--g-dark);display:block;margin-bottom:6px">' + (L ? 'Símbolo' : 'Symbol') + '</label>' +
-      '<select id="curSymSel" onchange="saveCurrencySym(this.value)" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;background:white">' +
-        ['$', '€', '£', '¥', 'S/', 'R$', 'Q', '₡', 'CHF'].map(function (s) { return '<option value="' + s + '"' + (FT.currencySymbol() === s ? ' selected' : '') + '>' + s + '</option>'; }).join('') + '</select></div>' +
+      '<div><label style="font-size:11px;font-weight:700;color:var(--g-dark);display:block;margin-bottom:6px">' + (L ? 'Moneda' : 'Currency') + '</label>' +
+      // La moneda (y su símbolo) se cambia en un solo lugar: Configuración.
+      '<button type="button" class="tap" onclick="go(\'config.html\')" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;background:white;text-align:left;cursor:pointer;font-size:14px">' + (FT.user().currency || 'USD') + ' (' + FT.currencySymbol() + ') ›</button></div>' +
+
     '</div>' +
     '<div style="font-size:12px;color:var(--text3)">' + (L ? 'Así se verá:' : 'Preview:') + ' <b style="color:var(--ink)">' + FT.money(1234.5, { cents: true }) + '</b></div></div>' +
 
