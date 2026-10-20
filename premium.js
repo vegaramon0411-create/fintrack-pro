@@ -4987,39 +4987,45 @@ FT.recurringItemsScreen = function (opts) {
     });
   }
 
+  /* 19-oct-2026, a petición de Ramón: "al ingresar un servicio, que salga todo
+     lo necesario de una vez: cada cuándo se cobra o si es una sola vez... el
+     botón de autopay se siente confuso sin saber cada cuándo es recurrente".
+     Tres preguntas, en este orden y en un mismo paso:
+       1) ¿Se repite o es un pago único?  2) ¿Cada cuándo y desde qué fecha?
+       3) ¿Quién lo cobra: yo cada vez, o se cobra solo (autopay)?
+     Pago único NO crea un recurrente: se registra como un gasto normal en esa
+     fecha (así no hace falta una frecuencia nueva en ningún otro lugar). */
+  function segBtns(attr, items, cur) {
+    return '<div style="display:grid;grid-template-columns:repeat(' + items.length + ',1fr);gap:6px">' + items.map(function (it) {
+      var on = it[0] === cur;
+      return '<button type="button" data-' + attr + '="' + it[0] + '" class="tap' + (on ? ' on' : '') + '" style="padding:10px 6px;border-radius:10px;border:1.5px solid ' + (on ? 'var(--g-main)' : 'var(--hair)') + ';background:' + (on ? 'var(--g-light)' : 'var(--sunk)') + ';color:' + (on ? 'var(--g-dark)' : 'var(--text2)') + ';font-family:inherit;font-size:12px;font-weight:800;cursor:pointer">' + it[1] + '</button>';
+    }).join('') + '</div>';
+  }
   function formFields(s) {
-    var L = es();
-    return '<div class="ft-field"><label>' + (L ? 'Nombre' : 'Name') + '</label><input id="siName" value="' + (s ? s.name || '' : '') + '" placeholder="' + (isSub ? 'Netflix, Spotify...' : (L ? 'Luz, Agua, Internet...' : 'Power, Water, Internet...')) + '"></div>' +
-      '<div class="ft-field"><label>' + (L ? 'Monto' : 'Amount') + ' ($)</label><input id="siAmount" type="number" step="0.01" min="0" value="' + (s ? s.amount : '') + '"></div>' +
+    var L = es(), isNew = !s;
+    return '<div class="ft-field"><label>' + (L ? 'Nombre' : 'Name') + '</label><input id="siName" value="' + (s ? String(s.name || '').replace(/"/g, '&quot;') : '') + '" placeholder="' + (isSub ? 'Netflix, Spotify...' : (L ? 'Luz, Agua, Internet...' : 'Power, Water, Internet...')) + '"></div>' +
+      '<div class="ft-field"><label>' + (L ? 'Monto' : 'Amount') + ' ($)</label><input id="siAmount" type="number" inputmode="decimal" step="0.01" min="0" value="' + (s ? s.amount : '') + '"></div>' +
+      (isNew ? '<div class="ft-field"><label>' + (L ? '¿Se repite?' : 'Does it repeat?') + '</label>' + segBtns('st', [['rep', '🔁 ' + (L ? 'Se repite' : 'Repeats')], ['once', '1️⃣ ' + (L ? 'Pago único' : 'One time')]], 'rep') + '</div>' : '') +
       // Personalizado (12-oct-2026, a petición de Ramón: "un pago de la
       // basura que se cobra cada 4 meses" -- no entra en mensual/anual/
-      // semanal). Marcado "selected" si ya es custom al editar, para que
-      // el <select> arranque mostrando la opción correcta.
-      '<div class="ft-field"><label>' + (L ? 'Frecuencia' : 'Frequency') + '</label><select id="siFreq">' +
+      // semanal). Marcado "selected" si ya es custom al editar.
+      '<div class="ft-field" id="siRepWrap"><label>' + (L ? '¿Cada cuándo se cobra?' : 'How often is it charged?') + '</label><select id="siFreq">' +
         ['monthly', 'annual', 'weekly'].map(function (f) { return '<option value="' + f + '" ' + (s && s.freq === f ? 'selected' : '') + '>' + freqLbl(f) + '</option>'; }).join('') +
-        '<option value="custom"' + (s && typeof s.freq === 'string' && s.freq.indexOf('custom:') === 0 ? ' selected' : '') + '>' + (L ? 'Personalizado' : 'Custom') + '</option></select>' +
+        '<option value="custom"' + (s && typeof s.freq === 'string' && s.freq.indexOf('custom:') === 0 ? ' selected' : '') + '>' + (L ? 'Personalizado (cada X días, semanas, meses…)' : 'Custom (every X days, weeks, months…)') + '</option></select>' +
         FT.customFreqSubFormHTML('si', s && s.freq) + '</div>' +
-      '<div class="ft-field"><label>' + (L ? 'Fecha de cobro' : 'Billing date') + '</label><input id="siDate" type="date" value="' + (s ? s.date : FT.todayISO()) + '"></div>' +
-      // 15-oct-2026: CATS ahora varía según FT.lang (antes era un único
-      // arreglo en español sin importar el idioma -- fuga de texto en
-      // español para usuarios en inglés, ver la traducción de arriba). Pero
-      // si editas un artículo guardado en el OTRO idioma, su s.cat guardado
-      // ya no aparece en CATS del idioma actual -- sin esto, el <select> no
-      // seleccionaba nada (el navegador cae en la primera opción) y GUARDAR
-      // sin tocar la categoría la sobreescribía en silencio. Si s.cat no
-      // está en CATS, se agrega como su propia opción extra para que se
-      // mantenga seleccionada y no se pierda sin que el usuario la cambie
-      // a propósito (revisión independiente encontró este caso).
+      '<div class="ft-field"><label id="siDateLbl">' + (L ? 'Próxima fecha de cobro' : 'Next billing date') + '</label><input id="siDate" type="date" value="' + (s ? s.date : FT.todayISO()) + '"></div>' +
+      // CATS varía según FT.lang. Si editas un artículo guardado en el OTRO
+      // idioma, su s.cat guardado no aparece en CATS del idioma actual -- se
+      // agrega como opción extra para que no se pierda en silencio al guardar.
       '<div class="ft-field"><label>' + (L ? 'Categoría' : 'Category') + '</label><select id="siCat">' +
         (s && s.cat && CATS.indexOf(s.cat) === -1 ? '<option selected>' + s.cat + '</option>' : '') +
         CATS.map(function (c) { return '<option ' + (s && s.cat === c ? 'selected' : '') + '>' + c + '</option>'; }).join('') + '</select></div>' +
-      // Autopay (15-oct-2026, a petición de Ramón): si el banco/proveedor
-      // ya lo cobra solo, un recordatorio es solo informativo; si NO, el
-      // recordatorio debe dejar claro que hay que pagarlo a mano. No tiene
-      // relación con "recurrente" de la app (eso es si ESTA app genera el
-      // cargo sola en Historial) -- autopay es si quien de verdad cobra
-      // (tu banco, Netflix, etc.) lo hace solo, fuera de la app.
-      '<label class="ft-field" style="display:flex;align-items:center;gap:9px;cursor:pointer;background:var(--sunk);border-radius:10px;padding:10px 12px"><input type="checkbox" id="siAutopay" ' + (s && s.autopay ? 'checked' : '') + ' style="width:18px;height:18px;flex-shrink:0"><span style="font-size:12px;font-weight:700">' + (L ? 'Se cobra solo (autopay con el banco/proveedor)' : "Charged automatically (autopay with the bank/provider)") + '</span></label>';
+      // Autopay (15-oct-2026): NO tiene relación con "recurrente" de la app
+      // (si ESTA app genera el cargo) -- es si quien de verdad cobra (tu banco,
+      // Netflix, etc.) lo hace solo, fuera de la app.
+      '<div class="ft-field" id="siApWrap"><label>' + (L ? '¿Quién lo cobra?' : 'Who charges it?') + '</label>' +
+        segBtns('ap', [['0', '✋ ' + (L ? 'Yo lo pago' : 'I pay it')], ['1', '🔁 ' + (L ? 'Se cobra solo' : 'Auto-charged')]], s && s.autopay ? '1' : '0') +
+        '<p id="siApNote" style="font-size:10.5px;color:var(--text3);margin:6px 0 0"></p></div>';
   }
 
   function openForm(id) {
@@ -5030,24 +5036,56 @@ FT.recurringItemsScreen = function (opts) {
       onOpen: function (body) {
         var cf = FT.wireCustomFreqSubForm(body, 'si');
         var sel = body.querySelector('#siFreq');
-        cf.show(sel.value === 'custom');
-        sel.addEventListener('change', function () { cf.show(sel.value === 'custom'); });
+        var st = 'rep', ap = s && s.autopay ? '1' : '0';
+        function paint(attr, val) {
+          body.querySelectorAll('[data-' + attr + ']').forEach(function (b) {
+            var on = b.getAttribute('data-' + attr) === val;
+            b.style.borderColor = on ? 'var(--g-main)' : 'var(--hair)'; b.style.background = on ? 'var(--g-light)' : 'var(--sunk)'; b.style.color = on ? 'var(--g-dark)' : 'var(--text2)';
+          });
+        }
+        function sync() {
+          var once = st === 'once';
+          body.querySelector('#siRepWrap').style.display = once ? 'none' : '';
+          body.querySelector('#siApWrap').style.display = once ? 'none' : '';
+          cf.show(!once && sel.value === 'custom');
+          body.querySelector('#siDateLbl').textContent = once ? (L ? 'Fecha del pago' : 'Payment date') : (L ? 'Próxima fecha de cobro' : 'Next billing date');
+          body.querySelector('#siApNote').textContent = ap === '1'
+            ? (L ? 'Tu banco o el proveedor lo cobra solo. La app solo lo anota en tu historial.' : 'Your bank or the provider charges it on its own. The app just records it.')
+            : (L ? 'Tú lo pagas cada vez. La app te lo recuerda antes de la fecha.' : 'You pay it each time. The app reminds you before the date.');
+          paint('st', st); paint('ap', ap);
+        }
+        body.querySelectorAll('[data-st]').forEach(function (b) { b.onclick = function () { st = b.getAttribute('data-st'); sync(); }; });
+        body.querySelectorAll('[data-ap]').forEach(function (b) { b.onclick = function () { ap = b.getAttribute('data-ap'); sync(); }; });
+        sel.addEventListener('change', sync);
+        body._ftGet = function () { return { st: st, ap: ap }; };
+        sync();
       },
       onSave: function (body) {
         // Doble-tap en "Guardar" podía crear dos suscripciones/servicios
         // idénticos -- luego cada uno acumula sus propios cargos por
-        // separado (mismo patrón ya blindado en el abono de deudas con
-        // window._savingAbono).
+        // separado (mismo patrón ya blindado en el abono de deudas).
         if (window._savingSubServ) return true;
         window._savingSubServ = true;
         setTimeout(function () { window._savingSubServ = false; }, 800);
         var name = body.querySelector('#siName').value.trim();
         var amount = parseFloat(body.querySelector('#siAmount').value) || 0;
-        if (!name || !amount) { FT.toast(L ? '⚠️ Llena todos los campos' : '⚠️ Fill all fields'); window._savingSubServ = false; return true; }
+        if (!name || !amount) { FT.toast(L ? '⚠️ Llena nombre y monto' : '⚠️ Fill name and amount'); window._savingSubServ = false; return true; }
+        var sv = body._ftGet ? body._ftGet() : { st: 'rep', ap: '0' };
+        var date = body.querySelector('#siDate').value, cat = body.querySelector('#siCat').value;
+        if (!date) { FT.toast(L ? '⚠️ Elige una fecha' : '⚠️ Pick a date'); window._savingSubServ = false; return true; }
+
+        // Pago único: se anota como un gasto normal en esa fecha, sin recurrente.
+        if (!s && sv.st === 'once') {
+          FT.addEntry({ type: 'gasto', desc: name, amount: amount, date: date, cat: cat, hogar: !isSub });
+          FT.toast(L ? '✅ Pago único registrado' : '✅ One-time payment recorded');
+          render();
+          FT.closeTop();
+          return true;
+        }
+
         var freq = body.querySelector('#siFreq').value;
         if (freq === 'custom') freq = FT.wireCustomFreqSubForm(body, 'si').getFreq();
-        var date = body.querySelector('#siDate').value, cat = body.querySelector('#siCat').value;
-        var autopay = !!(body.querySelector('#siAutopay') && body.querySelector('#siAutopay').checked);
+        var autopay = sv.ap === '1';
 
         function doSave() {
           var l = list();
@@ -5070,8 +5108,7 @@ FT.recurringItemsScreen = function (opts) {
         // nombre muy parecido (ella tiene "Home At&t", tú vas a crear "Home
         // ATT"), lo más probable es que ambos hayan configurado el MISMO
         // gasto real por separado sin darse cuenta -- eso genera un cargo
-        // doble cada mes (uno por cada quien). Solo se checa al CREAR, no
-        // al editar, y solo si el hogar está conectado.
+        // doble cada mes. Solo se checa al CREAR y con el hogar conectado.
         if (!s && FT.hogarConnected()) {
           var norm = function (x) { return String(x || '').toLowerCase().replace(/[^a-z0-9]/g, ''); };
           var nNorm = norm(name);
