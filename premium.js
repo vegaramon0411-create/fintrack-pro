@@ -2395,7 +2395,7 @@ FT.linkHogarFondo = function (kind, id, acctId) {
   if (item.accountId && cur) { FT.creditChecking(item.accountId, cur); log.push({ date: today, acctId: item.accountId, amount: cur, note: 'release' }); }
   if (cur) { FT.deductChecking(acctId, cur); log.push({ date: today, acctId: acctId, amount: -cur, note: 'absorb' }); }
   var hf2 = FT.hogarFondos(), it2 = kind === 'hogaremerg' ? hf2.emerg : (hf2.metas || []).find(function (m) { return m.id === id; });
-  it2.accountId = acctId;
+  it2.accountId = acctId; it2.foreign = undefined;   // la cuenta nueva absorbió todo lo ya apartado
   if (log.length) it2.vaultLog = (it2.vaultLog || []).concat(log).slice(-40);
   FT.saveHogarFondos(hf2);
   return true;
@@ -2411,7 +2411,7 @@ FT.hogarAbsorbNeed = function (kind, id, acctId) {
 FT.unlinkHogarFondo = function (kind, id) {
   var hf = FT.hogarFondos(), item = kind === 'hogaremerg' ? hf.emerg : (hf.metas || []).find(function (m) { return m.id === id; });
   if (!item || !item.accountId) return false;
-  var cur = parseFloat(item.actual) || 0;
+  var cur = Math.max(0, (parseFloat(item.actual) || 0) - (parseFloat(item.foreign) || 0));
   if (cur) FT.creditChecking(item.accountId, cur);
   var hf2 = FT.hogarFondos(), it2 = kind === 'hogaremerg' ? hf2.emerg : (hf2.metas || []).find(function (m) { return m.id === id; });
   it2.accountId = null;
@@ -4096,6 +4096,7 @@ function _mergeFondosInto(myFondos, partnerFondos) {
     meta: (myFondos.emerg && myFondos.emerg.meta) || (partnerFondos.emerg && partnerFondos.emerg.meta) || 0,
     fecha: (myFondos.emerg && myFondos.emerg.fecha) || (partnerFondos.emerg && partnerFondos.emerg.fecha) || '',
     hist: emergHist,
+    foreign: ((parseFloat(myFondos.emerg && myFondos.emerg.foreign) || 0) + Math.max(0, emergHist.reduce(function (a, h) { return a + (h.monto || 0); }, 0) - ((myFondos.emerg && myFondos.emerg.hist) || []).reduce(function (a, h) { return a + (h.monto || 0); }, 0))) || undefined,
     actual: emergHist.reduce(function (a, h) { return a + (h.monto || 0); }, 0),
     accountId: (myFondos.emerg && myFondos.emerg.accountId) || null,   // el apartado es de MI cuenta: nunca se toma del otro lado
     vaultLog: (myFondos.emerg && myFondos.emerg.vaultLog) || undefined
@@ -4113,8 +4114,11 @@ function _mergeFondosInto(myFondos, partnerFondos) {
       // sync quedaba marcada como ajena, y la poda de abajo podía borrarla
       // (encontrado por revisión independiente).
       var mine = metasById[m.id], hist = _mergeHistByKey(mine.hist, m.hist);
-      metasById[m.id] = Object.assign({}, mine, m, { nombre: mine.nombre || m.nombre, hist: hist, actual: hist.reduce(function (a, h) { return a + (h.monto || 0); }, 0), _fromPartner: mine._fromPartner, accountId: mine.accountId || null, vaultLog: mine.vaultLog });
-    } else metasById[m.id] = Object.assign({}, m, { _fromPartner: true, accountId: null, vaultLog: undefined });
+      var sumH = function (l) { return (l || []).reduce(function (a, h) { return a + (h.monto || 0); }, 0); };
+      // `foreign`: lo que llegó de mi pareja y NO salió de mi cuenta; no se acredita al soltar/desvincular.
+      var foreign = (parseFloat(mine.foreign) || 0) + Math.max(0, sumH(hist) - sumH(mine.hist));
+      metasById[m.id] = Object.assign({}, mine, m, { foreign: foreign || undefined, nombre: mine.nombre || m.nombre, hist: hist, actual: hist.reduce(function (a, h) { return a + (h.monto || 0); }, 0), _fromPartner: mine._fromPartner, accountId: mine.accountId || null, vaultLog: mine.vaultLog });
+    } else metasById[m.id] = Object.assign({}, m, { _fromPartner: true, accountId: null, vaultLog: undefined, foreign: undefined });
   });
   // Igual que deudas/recurrentes/servicios: si `partnerFondos` trae `metas`
   // (aunque sea vacío -- es la lista completa y actual de mi pareja, no un
@@ -4124,7 +4128,8 @@ function _mergeFondosInto(myFondos, partnerFondos) {
   if (Array.isArray(partnerFondos.metas)) {
     metasOut = metasOut.filter(function (m) {
       var drop = m._fromPartner && !partnerMetaIds[String(m.id)];
-      if (drop && m.accountId && (parseFloat(m.actual) || 0)) { try { FT.creditChecking(m.accountId, parseFloat(m.actual) || 0); } catch (e) {} } // libera el apartado antes de soltar la meta
+      var back = Math.max(0, (parseFloat(m.actual) || 0) - (parseFloat(m.foreign) || 0));
+      if (drop && m.accountId && back) { try { FT.creditChecking(m.accountId, back); } catch (e) {} } // libera el apartado antes de soltar la meta
       return !drop;
     });
   }
@@ -4321,8 +4326,8 @@ FT.pushProfileToGAS = function () {
       hogarInv: hogarInv.slice(-20),
       fondos: (function () {
         var f = FT.hogarFondos();   // sin accountId/vaultLog: son de MIS cuentas y no deben viajar al otro teléfono
-        return { emerg: Object.assign({}, f.emerg, { accountId: undefined, vaultLog: undefined }),
-          metas: (f.metas || []).map(function (m) { return Object.assign({}, m, { accountId: undefined, vaultLog: undefined }); }) };
+        return { emerg: Object.assign({}, f.emerg, { accountId: undefined, vaultLog: undefined, foreign: undefined }),
+          metas: (f.metas || []).map(function (m) { return Object.assign({}, m, { accountId: undefined, vaultLog: undefined, foreign: undefined }); }) };
       })(),
       personalSpentThisMonth: 0,
       sharedRecurring: sharedRecurring,

@@ -1085,16 +1085,27 @@ function moverSobranteAMetas(monto) {
     if (!f.metas.length) { FT.toast(L ? '⚠️ No tienes metas creadas todavía — créala primero en la pestaña Metas' : "⚠️ You don't have any goals yet — create one first in the Goals tab"); return; }
     var meta = f.metas.find(function (m) { return (m.actual || 0) < (m.meta || Infinity); }) || f.metas[0];
     // Si la meta es un apartado de una cuenta, el sobrante sale de su disponible (el total de la cuenta no cambia).
-    if (meta.accountId && FT.checking().some(function (a) { return String(a.id) === String(meta.accountId); })) FT.deductChecking(meta.accountId, monto, hoy);
-    f = FT.hogarFondos(); meta = f.metas.find(function (m) { return m.id === meta.id; });
-    meta.hist = meta.hist || [];
-    meta.hist.push({ id: 'sob_' + Date.now(), monto: monto, fecha: hoy, nota: L ? 'Sobrante del hogar' : 'Household surplus' });
-    meta.actual = meta.hist.reduce(function (a, h) { return a + (h.monto || 0); }, 0);
-    FT.saveHogarFondos(f);
-    FT.setRaw('ft_hogar_surplus_' + mesActual, JSON.stringify({ tipo: 'metas', monto: monto, fecha: hoy }));
-    FT.toast('✅ ' + FT.money(monto) + (L ? ' movido a "' + meta.nombre + '"' : ' moved to "' + meta.nombre + '"'));
-    switchTab('distribucion');
+    var linkedAcct = meta.accountId && FT.checking().some(function (a) { return String(a.id) === String(meta.accountId); }) ? meta.accountId : null;
+    var chkS = linkedAcct ? FT.checkOverdraft(linkedAcct, monto) : { ok: true };
+    var metaId = meta.id;
+    var go = function () {
+      if (linkedAcct) FT.deductChecking(linkedAcct, monto, hoy);
+      var f = FT.hogarFondos(), meta = f.metas.find(function (m) { return m.id === metaId; });
+      if (!meta) return;
+      moverSobranteApply(f, meta, monto, hoy, mesActual, L);
+    };
+    if (!chkS.ok) { FT.confirm(L ? 'La cuenta de esa meta quedaría en negativo (te faltan ' + FT.money(chkS.shortfall, { cents: true }) + '). ¿Continuar?' : "That goal's account would go negative (short " + FT.money(chkS.shortfall, { cents: true }) + '). Continue?').then(function (okS) { if (okS) go(); }); return; }
+    go();
   });
+}
+function moverSobranteApply(f, meta, monto, hoy, mesActual, L) {
+  meta.hist = meta.hist || [];
+  meta.hist.push({ id: 'sob_' + Date.now(), monto: monto, fecha: hoy, nota: L ? 'Sobrante del hogar' : 'Household surplus' });
+  meta.actual = meta.hist.reduce(function (a, h) { return a + (h.monto || 0); }, 0);
+  FT.saveHogarFondos(f);
+  FT.setRaw('ft_hogar_surplus_' + mesActual, JSON.stringify({ tipo: 'metas', monto: monto, fecha: hoy }));
+  FT.toast('✅ ' + FT.money(monto) + (L ? ' movido a "' + meta.nombre + '"' : ' moved to "' + meta.nombre + '"'));
+  switchTab('distribucion');
 }
 function repartirSobranteIgual(monto) {
   var L = es(), hoy = FT.todayISO(), mesActual = hoy.slice(0, 7), miParte = monto / 2;
