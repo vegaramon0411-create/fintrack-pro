@@ -77,7 +77,7 @@ function daysLeft() {
 /* ── cálculos ── */
 function monthTxs(off) {
   var mk = monthKey(off);
-  return FT.txs().filter(function (t) { return String(t.date || '').slice(0, 7) === mk; });
+  return FT.txsCounted().filter(function (t) { return String(t.date || '').slice(0, 7) === mk; });
 }
 function totals() {
   var txs = monthTxs();
@@ -156,7 +156,7 @@ function limits() {
 function patrimonio() {
   var invVal = FT.investments().reduce(function (s, i) { return s + FT.investmentValue(i); }, 0);
   var mk = monthKey();
-  var inc = FT.txs().filter(function (t) { return t.type === 'ingreso' && String(t.date || '').slice(0, 7) === mk; });
+  var inc = FT.txsCounted().filter(function (t) { return t.type === 'ingreso' && String(t.date || '').slice(0, 7) === mk; });
   // 19-oct-2026: misma regla que FT.personalAvailable() -- solo 'cheque' se
   // reparte; el resto es 100% tuyo; 'venta' no cuenta (no es dinero nuevo).
   var cheque = inc.filter(function (t) { return t.incomeKind === 'cheque'; }).reduce(function (s, t) { return s + (parseFloat(t.amount) || 0); }, 0);
@@ -396,6 +396,7 @@ function render() {
         // categorías de gasto genuinas se habrían quedado afuera por estas
         // dos nuevas.
         (catItems.length ? FT.catBars(catItems, { max: 6, scope: showHogarBudget ? 'hogar' : 'personal', month: monthKey() }) + (showHogarBudget ? '' : '<div class="d-legend"><i></i> ' + (es ? 'contorno = tu promedio de 3 meses' : 'outline = your 3-month average') + '</div>') : '<div class="d-empty">' + (showHogarBudget ? (es ? 'Sin gastos de hogar este mes' : 'No household spending this month') : (es ? 'Sin gastos personales este mes' : 'No personal spending this month')) + '</div>') +
+        pendingBlockHTML(es) +
         '<div class="ft-section"><div class="ft-section-head"><h3>' + (es ? 'Últimos movimientos' : 'Recent activity') + '</h3><button class="link" onclick="FT.go(\'historial.html?f=' + (showHogarBudget ? 'hogar' : 'personal') + '&m=' + monthKey() + '\')">' + (es ? 'Ver todos' : 'See all') + '</button></div>' +
           (lastTxs.length ? lastTxs.map(function (x, i) { return FT.txRow(x, i); }).join('') : '<div class="d-empty">' + (es ? 'Aún no hay movimientos' : 'No activity yet') + '</div>') + '</div>' +
       '</div>' +
@@ -440,6 +441,14 @@ function render() {
   }
 }
 
+/* Próximos (20-oct-2026): gastos/ingresos con fecha futura, todavía no mueven cuentas ni presupuesto. */
+function pendingBlockHTML(es) {
+  var list = FT.txs().filter(FT.isPending).sort(function (a, b) { return String(a.date).localeCompare(String(b.date)); }).slice(0, 5);
+  if (!list.length) return '';
+  return '<div class="ft-section"><div class="ft-section-head"><h3>⏳ ' + (es ? 'Próximos' : 'Upcoming') + '</h3></div>' +
+    '<div class="sm" style="font-size:11px;color:var(--text3);margin:-4px 0 6px">' + (es ? 'Todavía no mueven tu cuenta ni tu presupuesto: se aplican solos ese día.' : 'They do not move your account or budget yet: they apply on their own that day.') + '</div>' +
+    list.map(function (x, i) { return FT.txRow(x, i); }).join('') + '</div>';
+}
 function mrow(label, key, spent, limit, pct, color) {
   var es = FT.lang === 'es';
   if (pct >= 90) color = 'var(--red)';
@@ -1002,9 +1011,8 @@ function openCheque() {
         // dentro del % de hogar. Aviso aparte para no perderlo en el toast
         // principal (que ya se cierra solo a los pocos segundos).
         if (r.hogarSinAsignar > 0.5) {
-          setTimeout(function () {
-            FT.toast((es ? '🏠 ' + FT.money(r.hogarSinAsignar) + ' de tu aporte hogar sin asignar a ninguna cuenta' : '🏠 ' + FT.money(r.hogarSinAsignar) + " of your household share isn't assigned to any account"), { ms: 4500 });
-          }, 3200);
+          // 20-oct-2026: en vez de un aviso que se va en 4 segundos, se abre la hoja para asignar ese dinero.
+          setTimeout(function () { try { FT.openAsignar({ target: 'mine', chequeId: r.chequeId, monto: r.hogarSinAsignar, fecha: r.fecha }); } catch (e) {} }, 900);
         }
         // 15-oct-2026: el reparto a fondos de Ahorro libre ahora se aplica
         // solo (ver FT.recordCheque) -- este aviso es el equivalente al de

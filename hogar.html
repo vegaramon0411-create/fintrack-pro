@@ -59,7 +59,7 @@ function getSharedExpenses() {
   // [mes]", que solo cuenta gasto/suscripcion/hipoteca -- ver totals() en
   // dashboard.html).
   return (d.transactions || []).filter(function (t) {
-    return t.date && String(t.date).startsWith(thisMonth) &&
+    return t.date && !FT.isPending(t) && String(t.date).startsWith(thisMonth) &&
       (t.type === 'gasto' || t.type === 'suscripcion' || t.type === 'hipoteca') && t.hogar === true;
   });
 }
@@ -69,7 +69,7 @@ function getPersonalExpenses() {
     if (!t.date) return false;
     var p = String(t.date).split(/[-T]/);
     if (parseInt(p[0], 10) !== y || parseInt(p[1], 10) - 1 !== m) return false;
-    if (t.hogar === true) return false;
+    if (t.hogar === true || FT.isPending(t)) return false;
     return t.type === 'gasto' || t.type === 'inversion' || (t.type === 'ahorro' && t.hogar !== true);
   });
 }
@@ -354,6 +354,8 @@ function renderDashboard(hogar) {
   _patriH = { checkTotal: checkTotal, invTotal: invTotal, metasTotal: metasTotal, emergTotal: emergTotal, total: patrimonioHogar };
 
   var h =
+    unassignedCardsHtml(partnerName) +
+    changeCardsHtml(partnerName) +
     reviewCardsHtml(partnerName) +
     '<div class="hg-hero">' +
       '<div class="lbl">' + (L ? 'Gastado del hogar en ' + mesNameH : 'Household spending in ' + mesNameH) + '</div>' +
@@ -446,6 +448,58 @@ function _mySetup() {
   FT.investments('hogar').forEach(function (i) { items.push({ name: i.ticker || i.name || (es() ? 'Inversión' : 'Investment') }); });
   return items;
 }
+/* ── DINERO SIN ASIGNAR Y CAMBIOS ENTRE LOS DOS (20-oct-2026) ── */
+function _safeId(x) { return String(x == null ? '' : x).replace(/[^\w\-]/g, ''); }
+function _sentFor(chequeId) { return FT.sentHogarEdits().filter(function (e) { return e.op === 'assign' && String(e.chequeId) === String(chequeId) && !e.undone; })[0]; }
+function unassignedCardsHtml(partnerName) {
+  var L = es(), out = '';
+  function card(u, who, js, sentEdit) {
+    return '<div class="ft-card" style="border:1.5px solid var(--amber,#E8A33D);background:var(--amber-bg,#FFF3DF)"><div style="display:flex;align-items:center;justify-content:space-between;gap:10px">' +
+      '<div style="min-width:0"><div class="ft-num" style="font-size:22px">' + FT.money(u.monto, { cents: true }) + '</div><div style="font-size:11.5px;color:var(--text2)"><b>' + (L ? 'sin asignar' : 'unassigned') + '</b> · ' + who + ' ' + (L ? 'del ' : 'of ') + FT.date(u.fecha) + '</div></div>' +
+      (sentEdit ? '<span style="font-size:11px;font-weight:800;color:var(--amber,#8a5a00)">⏳ ' + (L ? 'Enviado' : 'Sent') + '</span>'
+        : '<button class="ft-btn ft-btn-primary tap" style="margin:0;width:auto;padding:10px 16px" onclick="' + js + '">' + (L ? 'Asignar' : 'Assign') + '</button>') + '</div></div>';
+  }
+  FT.hogarUnassigned().forEach(function (u) { out += card(u, L ? 'tu cheque' : 'your paycheck', 'asignarMio(\'' + _safeId(u.id) + '\')'); });
+  FT.partnerUnassigned().forEach(function (u) { out += card(u, L ? 'cheque de ' + partnerName : partnerName + "'s paycheck", 'asignarPareja(\'' + _safeId(u.id) + '\')', _sentFor(u.id)); });
+  return out;
+}
+function asignarMio(id) { var u = FT.hogarUnassigned().find(function (x) { return _safeId(x.id) === id; }); if (u) FT.openAsignar({ target: 'mine', chequeId: u.id, monto: u.monto, fecha: u.fecha }); }
+function asignarPareja(id) { var u = FT.partnerUnassigned().find(function (x) { return _safeId(x.id) === id; }); if (u) FT.openAsignar({ target: 'partner', chequeId: u.id, monto: u.monto, fecha: u.fecha, partnerName: FT.hogar().partnerName }); }
+function cambiarReparto(chequeId) {
+  var row = FT.cheques().find(function (c) { return _safeId(c.id) === chequeId; });
+  if (!row) return;
+  FT.confirm(es() ? 'Esto deshace el reparto actual de este cheque y te deja volver a asignarlo. ¿Continuar?' : 'This undoes the current split of this paycheck so you can assign it again. Continue?').then(function (ok) {
+    if (!ok) return;
+    var r = FT.unassignHogar(row.id);
+    if (r.ok) { var u = FT.hogarUnassigned().find(function (x) { return String(x.id) === String(row.id); }); if (u) FT.openAsignar({ target: 'mine', chequeId: u.id, monto: u.monto, fecha: u.fecha }); }
+  });
+}
+function _allocText(allocs) { return (allocs || []).map(function (a) { return _escHg(a.name || a.acctName) + ' +' + FT.money(a.amount, { cents: true }); }).join(' · '); }
+function changeCardsHtml(partnerName) {
+  var L = es(), out = '';
+  FT.hogarNotices().forEach(function (nt) {
+    var by = _escHg(nt.by || partnerName), id = _safeId(nt.id);
+    var title = nt.kind === 'assign' ? (L ? by + ' asignó tu cheque' + (nt.fecha ? ' del ' + FT.date(nt.fecha) : '') : by + ' assigned your paycheck' + (nt.fecha ? ' of ' + FT.date(nt.fecha) : ''))
+      : nt.kind === 'undo' ? (L ? by + ' deshizo un reparto del hogar' : by + ' undid a household split') : (L ? by + ' cambió tu regla de reparto' : by + ' changed your split rule');
+    out += '<div class="ft-card" style="background:var(--g-light)"><div style="font-size:13px;font-weight:800;margin-bottom:3px">🏠 ' + title + '</div>' +
+      (nt.allocs ? '<div style="font-size:12px;color:var(--text2)">' + _allocText(nt.allocs) + '</div>' : '') +
+      (nt.rule ? '<div style="font-size:11.5px;color:var(--text2);margin-top:3px">' + (L ? 'Y dejó este reparto como tu regla: tus próximos cheques se reparten solos. Puedes cambiarlo en Cuentas conjuntas.' : 'And set this split as your rule: your next paychecks split on their own. You can change it in Joint accounts.') + '</div>' : '') +
+      '<div style="display:flex;gap:8px;margin-top:8px"><button class="ft-btn ft-btn-ghost tap" style="margin:0;flex:1" onclick="FT.markNoticeSeen(\'' + id + '\')">' + (L ? 'Entendido' : 'Got it') + '</button>' +
+      (nt.kind === 'assign' ? '<button class="ft-btn ft-btn-ghost tap" style="margin:0;flex:1" onclick="deshacerAviso(\'' + id + '\')">' + (L ? 'Deshacer' : 'Undo') + '</button>' : '') + '</div></div>';
+  });
+  var sent = FT.sentHogarEdits().filter(function (e) { return !e.undone && new Date(e.at).getTime() > Date.now() - 3 * 86400000; });
+  if (sent.length) {
+    out += '<div class="ft-card" style="padding:10px 14px"><div style="font-size:11px;font-weight:800;color:var(--text3);text-transform:uppercase;margin-bottom:4px">' + (L ? 'Tus cambios a lo de ' + partnerName : 'Your changes to ' + partnerName + "'s") + '</div>' +
+      sent.map(function (e) {
+        var chip = e.status === 'ok' ? '✅ ' + (L ? 'Aplicado' : 'Applied') : e.status === 'failed' ? '⚠️ ' + (L ? 'No se pudo aplicar' : 'Could not apply') : e.status === 'undone' ? '↩ ' + (L ? 'Lo deshizo ' + partnerName : partnerName + ' undid it') : '⏳ ' + (L ? 'Enviado · lo verá al abrir la app' : 'Sent · they will see it when they open the app');
+        return '<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;padding:5px 0;font-size:12px"><span style="min-width:0">' + (L ? 'Asignaste ' : 'You assigned ') + _allocText(e.allocations) + '</span><span style="white-space:nowrap;font-weight:700">' + chip +
+          (e.status === 'ok' ? ' <button class="tap" style="background:none;border:none;color:var(--blue);font-weight:800;font-size:11px;cursor:pointer" onclick="deshacerEnviado(\'' + _safeId(e.id) + '\')">' + (L ? 'Deshacer' : 'Undo') + '</button>' : '') + '</span></div>';
+      }).join('') + '</div>';
+  }
+  return out;
+}
+function deshacerAviso(id) { FT.confirm(es() ? '¿Deshacer este reparto? El dinero vuelve a quedar sin asignar.' : 'Undo this split? The money goes back to unassigned.').then(function (ok) { if (ok) { FT.undoNotice(id); FT.toast(es() ? '↩ Reparto deshecho' : '↩ Split undone'); } }); }
+function deshacerEnviado(id) { FT.confirm(es() ? '¿Deshacer este reparto en el teléfono de tu pareja? Se aplicará cuando abra la app.' : 'Undo this split on your partner\'s phone? It applies when they open the app.').then(function (ok) { if (ok) { FT.undoSentEdit(id); FT.toast(es() ? '↩ Enviado' : '↩ Sent'); render(); } }); }
 function reviewCardsHtml(partnerName) {
   var L = es(), out = '';
   // 1) Lo que mi pareja configuró del hogar y yo aún no he revisado
@@ -853,13 +907,27 @@ function tabDepositos() {
       return '<div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--sunk);border-radius:12px;margin-bottom:8px">' +
         '<div class="ic ft-tx-ico ' + (t.mine ? 'mint' : 'sky') + '">💵</div>' +
         '<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:700">' + (t.mine ? (FT.userName() || 'Tú') : partnerName) + ' · ' + FT.money(t.amount) + '</div>' +
-        '<div style="font-size:10px;color:var(--text3)">' + t.date + ' · 🏠 ' + FT.money(hogarPart) + ' · 👤 ' + FT.money(persPart) + '</div></div>' +
+        '<div style="font-size:10px;color:var(--text3)">' + t.date + ' · 🏠 ' + FT.money(hogarPart) + ' · 👤 ' + FT.money(persPart) + '</div>' + _depAsignarHtml(t) + '</div>' +
         (t.mine ? '<div class="tap" style="cursor:pointer;color:var(--text3)" onclick="deleteMyIncomeTx(\'' + t.id + '\')">🗑</div>' : '') +
       '</div>';
     }).join('') + (all.length > _depositosLimit ? '<button class="ft-btn ft-btn-ghost tap" onclick="_depositosLimit+=10;switchTab(\'depositos\')">' + (L ? 'Ver más (' + (all.length - _depositosLimit) + ' más)' : 'See more (' + (all.length - _depositosLimit) + ' more)') + '</button>' : '')
       : '<div class="ft-empty">' + (L ? 'Sin depósitos registrados este mes' : 'No deposits recorded this month') + '</div>') +
   '</div>';
   return depCard;
+}
+function _depAsignarHtml(t) {
+  var L = es();
+  if (t.mine) {
+    var row = FT.cheques().find(function (c) { return String(c.txId) === String(t.id); });
+    if (!row) return '';
+    var sin = parseFloat(row.hogarSinAsignar) || 0;
+    if (sin > 0.5) return '<div style="font-size:11px;margin-top:3px"><b style="color:var(--amber,#8a5a00)">' + FT.money(sin, { cents: true }) + ' ' + (L ? 'sin asignar' : 'unassigned') + '</b> · <span class="tap" style="color:var(--blue);font-weight:800;cursor:pointer" onclick="asignarMio(\'' + _safeId(row.id) + '\')">' + (L ? 'Asignar' : 'Assign') + '</span></div>';
+    if ((row.asignaciones || []).length) return '<div style="font-size:11px;margin-top:3px"><span class="tap" style="color:var(--blue);font-weight:800;cursor:pointer" onclick="cambiarReparto(\'' + _safeId(row.id) + '\')">' + (L ? 'Cambiar reparto' : 'Change split') + '</span></div>';
+    return '';
+  }
+  var u = FT.partnerUnassigned().find(function (x) { return String(x.txId) === String(t.id); });
+  if (!u) return '';
+  return '<div style="font-size:11px;margin-top:3px"><b style="color:var(--amber,#8a5a00)">' + FT.money(u.monto, { cents: true }) + ' ' + (L ? 'sin asignar' : 'unassigned') + '</b> · ' + (_sentFor(u.id) ? '⏳ ' + (L ? 'Enviado' : 'Sent') : '<span class="tap" style="color:var(--blue);font-weight:800;cursor:pointer" onclick="asignarPareja(\'' + _safeId(u.id) + '\')">' + (L ? 'Asignar' : 'Assign') + '</span>') + '</div>';
 }
 function deleteMyIncomeTx(id) {
   var L = es();
