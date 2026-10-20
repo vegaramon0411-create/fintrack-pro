@@ -9,16 +9,12 @@
 <script src="premium.js"></script>
 <style>
   /* onboarding.html — usa los tokens de premium.js */
-  .ob-top{padding:26px 20px 14px;}
+  .ob-top{padding:22px 20px 10px;}
   .ob-top h1{font-family:var(--round-font);font-weight:900;font-size:21px;letter-spacing:-.8px;}
   .ob-top p{font-size:12.5px;color:var(--text3);line-height:1.5;margin-top:6px;}
-  .ob-page{padding:8px 18px 130px;}
+  .ob-page{padding:6px 18px 140px;}
 
-  /* 15-oct-2026, a petición de Ramón: "Saldos iniciales" se sentía como
-     una pantalla sorpresa después del "¡Todo listo!" del registro -- este
-     tracker es el mismo .wz-steps de login.html (copiado, no importado --
-     son archivos independientes) para que se sienta como el paso 5 del
-     mismo recorrido, no como algo aparte. */
+  /* Tracker global del registro (mismo .wz-steps de login.html) */
   .ob-steps{display:flex;align-items:center;padding:0 20px;margin-bottom:4px;}
   .ob-steps .st{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;position:relative;}
   .ob-steps .st:not(:last-child)::after{content:"";position:absolute;top:11px;left:60%;width:80%;height:2px;background:var(--g-main);}
@@ -26,25 +22,49 @@
   .ob-steps .st.on .n{box-shadow:0 0 0 4px var(--g-light);}
   .ob-steps .st .l{font-size:7.5px;font-weight:700;color:var(--g-main);}
 
+  /* 19-oct-2026, a petición de Ramón: "muy confuso, te pierdes, no sabes cómo
+     agregar otra cuenta". Ahora son 5 pasitos con su propio indicador, una
+     sola cosa por pantalla y el botón de agregar siempre visible. */
+  .sub-steps{display:flex;gap:6px;margin:4px 0 14px;}
+  .sub-steps .ss{flex:1;text-align:center;font-size:10px;font-weight:800;color:var(--text3);}
+  .sub-steps .ss .bar{height:5px;border-radius:99px;background:var(--hair);margin-bottom:5px;}
+  .sub-steps .ss.done .bar,.sub-steps .ss.on .bar{background:var(--g-main);}
+  .sub-steps .ss.on{color:var(--g-dark);}
+
   .ob-card{border:1px solid var(--hair);border-radius:16px;padding:15px;margin-bottom:12px;box-shadow:0 2px 10px -5px rgba(20,20,30,.06);}
   .ob-card .ch{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
   .ob-card .ch .ci{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;font-size:17px;flex-shrink:0;}
   .ob-card .ch b{font-family:var(--round-font);font-weight:900;font-size:13.5px;}
   .ob-card .ch small{display:block;font-size:10px;color:var(--text3);font-weight:600;margin-top:1px;}
 
-  .acct{background:var(--sunk);border-radius:12px;padding:11px;margin-bottom:9px;}
-  .acct .top{display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;}
-  .acct .top input,.acct .top select{background:#fff;border:1.5px solid var(--hair);border-radius:8px;padding:8px 9px;font-size:13px;font-family:var(--ui-font);min-width:0;}
-  .acct .top .nm{flex:1.3;} .acct .top .ty{flex:1.2;} .acct .top .mo{width:84px;flex:0 0 84px;}
-  .acct .dest{display:grid;grid-template-columns:1fr 1fr auto;gap:6px;align-items:center;}
-  .acct .dest button{padding:7px 4px;border-radius:8px;border:1.5px solid var(--hair);background:#fff;font-size:10.5px;font-weight:800;font-family:var(--ui-font);color:var(--text2);cursor:pointer;}
-  .acct .dest button.on{border-color:var(--g-main);background:var(--g-light);color:var(--g-dark);}
-  .acct .dest .rm{color:var(--text3);cursor:pointer;font-size:15px;padding:0 4px;background:none;border:none;}
-  .meta-row{display:flex;gap:7px;align-items:center;background:var(--sunk);border-radius:12px;padding:10px;margin-bottom:8px;}
-  .meta-row input{background:#fff;border:1.5px solid var(--hair);border-radius:8px;padding:8px 10px;font-size:13px;font-family:var(--ui-font);}
-  .meta-row input.mn{flex:1;} .meta-row input.mo{width:96px;}
-  .add-row{width:100%;background:none;border:1.5px dashed var(--hair);border-radius:11px;padding:10px;font-size:12px;font-weight:800;color:var(--text3);cursor:pointer;font-family:var(--ui-font);}
+  .done-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:var(--g-light);margin-bottom:8px;}
+  .done-row .nm{flex:1;min-width:0;font-size:13px;font-weight:700;color:var(--g-dark);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .done-row .am{font-size:13px;font-weight:800;color:var(--g-dark);}
+  .link-btn{background:none;border:none;color:var(--blue);font-weight:800;font-size:12px;cursor:pointer;font-family:var(--ui-font);padding:6px 0;}
+
+  .item{background:var(--sunk);border-radius:14px;padding:13px;margin-bottom:10px;}
+  .item .hd{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+  .item .hd .ic{width:32px;height:32px;border-radius:10px;background:#fff;display:grid;place-items:center;font-size:16px;flex-shrink:0;}
+  .item .hd .kind{flex:1;font-size:11px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.3px;}
+  .item .hd .rm{background:none;border:none;color:var(--red);font-size:12px;font-weight:800;cursor:pointer;font-family:var(--ui-font);padding:4px 6px;}
+  .item label{display:block;font-size:11px;font-weight:800;color:var(--text2);margin:8px 0 4px;}
+  .item input,.item select{width:100%;box-sizing:border-box;background:#fff;border:1.5px solid var(--hair);border-radius:10px;padding:11px 12px;font-size:14px;font-family:var(--ui-font);min-width:0;}
+  .item .seg{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+  .item .seg button{padding:9px 4px;border-radius:10px;border:1.5px solid var(--hair);background:#fff;font-size:12px;font-weight:800;font-family:var(--ui-font);color:var(--text2);cursor:pointer;}
+  .item .seg button.on{border-color:var(--g-main);background:var(--g-light);color:var(--g-dark);}
+
+  .addbar{border:1.5px dashed var(--g-main);border-radius:14px;padding:12px;background:#fff;margin-bottom:12px;}
+  .addbar .t{font-size:11.5px;font-weight:800;color:var(--g-dark);margin-bottom:8px;}
+  .addbar .chips{display:flex;flex-wrap:wrap;gap:7px;}
+  .addbar .chips button{border:1.5px solid var(--g-main);background:var(--g-light);color:var(--g-dark);border-radius:99px;padding:9px 13px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:var(--ui-font);}
+  .tot{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-radius:12px;background:var(--sunk);font-size:12.5px;font-weight:700;margin-bottom:12px;}
+  .tot b{font-size:15px;font-weight:900;}
   .mini-note{font-size:11.5px;color:var(--text3);line-height:1.5;}
+  .add-row{width:100%;background:none;border:1.5px dashed var(--hair);border-radius:11px;padding:10px;font-size:12px;font-weight:800;color:var(--text3);cursor:pointer;font-family:var(--ui-font);}
+  .rev-sec{margin-bottom:12px;}
+  .rev-sec h4{font-size:11px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin:0 0 6px;display:flex;justify-content:space-between;align-items:center;}
+  .rev-row{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--hair);font-size:13px;}
+  .rev-row:last-child{border-bottom:none;}
 
   .ob-foot{position:fixed;left:0;right:0;bottom:0;max-width:var(--ft-appw,480px);margin:0 auto;background:#fff;border-top:1px solid var(--hair);display:flex;gap:10px;padding:13px 18px calc(13px + env(safe-area-inset-bottom));z-index:80;}
   .ob-foot button{border:none;border-radius:14px;padding:13px;font-size:13px;font-weight:800;cursor:pointer;font-family:var(--ui-font);}
@@ -63,124 +83,240 @@
     <div class="st on"><div class="n">5</div><div class="l" data-es="Saldos" data-en="Balances">Saldos</div></div>
   </div>
   <div class="ob-top">
-    <h1 data-es="💰 ¿Con qué arrancas?" data-en="💰 What are you starting with?">💰 ¿Con qué arrancas?</h1>
-    <p data-es="Paso 5 de 5 — pon lo que ya tienes hoy en cada lugar, así tus números salen exactos desde el día 1. Editable después desde Configuración → Saldos iniciales." data-en="Step 5 of 5 — enter what you have today in each place, so your numbers are exact from day 1. Editable later from Settings → Starting balances.">Paso 5 de 5 — pon lo que ya tienes hoy en cada lugar, así tus números salen exactos desde el día 1. Editable después desde Configuración → Saldos iniciales.</p>
+    <h1 id="obTitle"></h1>
+    <p id="obSub"></p>
   </div>
 
   <div class="ob-page">
-
-    <!-- 15-oct-2026, a petición de Ramón: poder conectar Hogar desde aquí
-         mismo (no solo mencionarlo), con detección automática si ya tenía
-         uno de antes -- reutiliza exactamente el mismo mecanismo de
-         hogar.html (FT.createInvite/acceptInvite/checkPartner, FT.hogar()),
-         no una versión aparte. -->
-    <div class="ob-card" id="hogarCard"></div>
-
-    <div class="ob-card">
-      <div class="ch"><div class="ci" style="background:var(--sky-bg)">🏦</div>
-        <div><b data-es="Tus cuentas" data-en="Your accounts">Tus cuentas</b>
-          <small data-es="Cheques, ahorro, emergencia, inversión — personales o conjuntas" data-en="Checking, savings, emergency, investment — personal or joint">Cheques, ahorro, emergencia, inversión — personales o conjuntas</small></div>
-      </div>
-      <div id="cuentasList"></div>
-      <button class="add-row" onclick="addCuenta()">＋ <span data-es="Agregar cuenta" data-en="Add account">Agregar cuenta</span></button>
-    </div>
-
-    <div class="ob-card">
-      <div class="ch"><div class="ci" style="background:var(--pink-bg)">🎯</div>
-        <div><b data-es="Apartados para metas" data-en="Money set aside for goals">Apartados para metas</b>
-          <small data-es="Vacaciones, boda, lo que ya estés guardando aparte" data-en="Vacation, wedding, anything you're already saving separately">Vacaciones, boda, lo que ya estés guardando aparte</small></div>
-      </div>
-      <div id="metasList"></div>
-      <button class="add-row" onclick="addMeta()">＋ <span data-es="Agregar apartado" data-en="Add savings goal">Agregar apartado</span></button>
-    </div>
-
-    <div class="ob-card">
-      <div class="ch"><div class="ci" style="background:var(--coral-bg)">💳</div>
-        <div><b data-es="Deudas" data-en="Debts">Deudas</b>
-          <small data-es="Tarjetas, préstamos, hipotecas" data-en="Cards, loans, mortgages">Tarjetas, préstamos, hipotecas</small></div>
-      </div>
-      <div class="mini-note" data-es="Se agregan con detalle (pagos, fechas, amortización) directo en Deudas — puedes hacerlo justo después de esto." data-en="Add these with detail (payments, dates, amortization) directly in Debts — you can do it right after this.">Se agregan con detalle (pagos, fechas, amortización) directo en Deudas — puedes hacerlo justo después de esto.</div>
-    </div>
-
+    <div class="sub-steps" id="subSteps"></div>
+    <div id="stepBody"></div>
   </div>
 
-  <div class="ob-foot">
-    <button class="skip" onclick="skipOnboarding()" data-es="Saltar" data-en="Skip">Saltar</button>
-    <button class="save" onclick="saveOnboarding()" data-es="Guardar y continuar" data-en="Save and continue">Guardar y continuar</button>
-  </div>
+  <div class="ob-foot" id="obFoot"></div>
 </div>
 
 <script>
-var CUENTA_TIPOS = [
-  { v: 'checking',   es: '🏦 Cuenta de cheques', en: '🏦 Checking account' },
-  { v: 'ahorro',     es: '💵 Ahorro libre',      en: '💵 Free savings' },
-  { v: 'emergencia', es: '🛡️ Fondo de emergencia', en: '🛡️ Emergency fund' },
-  { v: 'inversion',  es: '📈 Inversión',          en: '📈 Investment' }
+function T(es, en) { return FT.lang === 'es' ? es : en; }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+function num(v) { return FT.numMoney ? FT.numMoney(v) : (parseFloat(v) || 0); }
+
+/* Tipos que se pueden agregar. Tarjeta/préstamo/auto/hipoteca son DEUDAS (lo que debes), no cuentas. */
+var ACCT_KINDS = {
+  checking: { ico: '🏦', es: 'Cuenta de cheques', en: 'Checking account', defEs: 'Cuenta de cheques', defEn: 'Checking account' },
+  cash:     { ico: '💵', es: 'Efectivo', en: 'Cash', defEs: 'Efectivo', defEn: 'Cash' },
+  other:    { ico: '➕', es: 'Otra cuenta', en: 'Other account', defEs: '', defEn: '' }
+};
+var SAV_KINDS = {
+  ahorro:     { ico: '💵', es: 'Ahorro libre', en: 'Free savings', defEs: 'Ahorro libre', defEn: 'Free savings' },
+  emergencia: { ico: '🛡️', es: 'Fondo de emergencia', en: 'Emergency fund', defEs: 'Fondo de emergencia', defEn: 'Emergency fund' },
+  meta:       { ico: '🎯', es: 'Meta o apartado', en: 'Goal or set-aside', defEs: '', defEn: '' }
+};
+var DEBT_KINDS = {
+  tarjeta:  { ico: '💳', es: 'Tarjeta de crédito', en: 'Credit card', kind: 'wants' },
+  auto:     { ico: '🚗', es: 'Auto', en: 'Vehicle', kind: 'needs' },
+  hipoteca: { ico: '🏠', es: 'Hipoteca', en: 'Mortgage', kind: 'needs' },
+  personal: { ico: '📦', es: 'Préstamo personal', en: 'Personal loan', kind: 'needs' }
+};
+var STEPS = [
+  { k: 'cuentas', es: 'Cuentas', en: 'Accounts' }, { k: 'ahorros', es: 'Ahorros', en: 'Savings' },
+  { k: 'inversion', es: 'Inversión', en: 'Investing' }, { k: 'deudas', es: 'Deudas', en: 'Debts' }, { k: 'revisar', es: 'Revisar', en: 'Review' }
 ];
-var nCuenta = 0, nMeta = 0;
+var S = { step: 0, accounts: [], savings: [], invs: [], debts: [] };
+var _uid = 0, _saving = false;
 
-function addCuenta(nombre, tipo, monto, hogar) {
-  nCuenta++;
-  var id = 'c' + nCuenta;
-  var es = FT.lang === 'es';
-  var opts = CUENTA_TIPOS.map(function (t) {
-    return '<option value="' + t.v + '"' + (tipo === t.v ? ' selected' : '') + '>' + (es ? t.es : t.en) + '</option>';
+/* ─── Estado ya guardado (re-edición desde Configuración o sesión restaurada) ───
+   Esto YA está en la app: se muestra de solo lectura y NUNCA se vuelve a agregar
+   (antes, abrir "Saldos iniciales" de nuevo duplicaba cada cuenta y cada saldo). */
+function existing() {
+  var emerg = 0; try { emerg = parseFloat(FT.data().emergency) || 0; } catch (e) {}
+  return {
+    accounts: FT.checking() || [],
+    savings: FT.savingsBalance ? FT.savingsBalance() : 0,
+    emerg: emerg,
+    invs: (FT.investments('') || []).length + (FT.investments('hogar') || []).length,
+    debts: (FT.debts() || [])
+  };
+}
+
+function addItem(list, kind) {
+  var it = { uid: ++_uid, kind: kind, name: '', amount: '', hogar: false, payment: '' };
+  if (list === 'accounts') it.name = T(ACCT_KINDS[kind].defEs, ACCT_KINDS[kind].defEn);
+  if (list === 'savings') it.name = T(SAV_KINDS[kind].defEs, SAV_KINDS[kind].defEn);
+  if (list === 'invs') { it.hogar = kind === 'hogar'; }
+  S[list].push(it);
+  renderStep();
+  var items = document.querySelectorAll('#stepBody .item'); var last = items.length ? items[items.length - 1].querySelector('input[data-f="name"]') : null;
+  if (last) { try { last.focus(); last.select(); } catch (e) {} }
+}
+function removeItem(list, uid) {
+  S[list] = S[list].filter(function (x) { return x.uid !== uid; });
+  renderStep();
+}
+function findItem(list, uid) { return S[list].find(function (x) { return x.uid === uid; }); }
+
+/* ─── Render ─── */
+function renderStep() {
+  var st = STEPS[S.step], L = FT.lang === 'es';
+  var titles = {
+    cuentas: ['🏦 ¿Dónde tienes tu dinero?', '🏦 Where is your money?', 'Agrega cada cuenta de tu banco o tu efectivo, con lo que tiene hoy. Puedes agregar todas las que quieras.', 'Add each bank account or your cash, with what it holds today. You can add as many as you want.'],
+    ahorros: ['💵 ¿Qué tienes ahorrado?', '💵 What have you saved?', 'Ahorro libre, fondo de emergencia o dinero apartado para algo. Si no tienes, sigue al siguiente.', 'Free savings, emergency fund or money set aside for something. If you have none, go on to the next one.'],
+    inversion: ['📈 ¿Tienes inversiones?', '📈 Do you have investments?', 'Acciones, fondos, cripto, lo que sea. Pon cuánto vale hoy. Si no tienes, sigue.', 'Stocks, funds, crypto, anything. Enter what it is worth today. If you have none, move on.'],
+    deudas: ['💳 ¿Debes algo?', '💳 Do you owe anything?', 'Tarjetas, auto, hipoteca o préstamos. Pon cuánto debes hoy. El detalle (interés, fechas) lo completas después en Deudas.', 'Cards, car, mortgage or loans. Enter what you owe today. You can add the details (interest, dates) later in Debts.'],
+    revisar: ['✅ Revisa y confirma', '✅ Review and confirm', 'Esto es lo que vas a guardar. Todo se puede editar, pausar o eliminar después.', 'This is what you will save. Everything can be edited, paused or deleted later.']
+  }[st.k];
+  document.getElementById('obTitle').textContent = L ? titles[0] : titles[1];
+  document.getElementById('obSub').textContent = L ? titles[2] : titles[3];
+  document.getElementById('subSteps').innerHTML = STEPS.map(function (s, i) {
+    return '<div class="ss ' + (i < S.step ? 'done' : (i === S.step ? 'on' : '')) + '"><div class="bar"></div>' + (i + 1) + '. ' + (L ? s.es : s.en) + '</div>';
   }).join('');
-  // 15-oct-2026 (hallazgo real, revisión): antes "Conjunta" aparecía
-  // SIEMPRE aquí aunque todavía no existiera ningún hogar conectado -- un
-  // toque sin querer creaba un dato de hogar huérfano, sin pareja con
-  // quien compartirlo. Ahora, sin hogar conectado, no se ofrece el botón
-  // (la cuenta solo puede ser personal) -- en cuanto conectas Hogar con
-  // la tarjeta de arriba, las cuentas que agregues DESPUÉS ya lo ofrecen.
-  var hogarOn = FT.hogarConnected();
-  var div = document.createElement('div');
-  div.className = 'acct'; div.id = id;
-  div.dataset.hogar = (hogar && hogarOn) ? '1' : '0';
-  div.innerHTML =
-    '<div class="top">' +
-      '<input class="nm" type="text" placeholder="' + (es ? 'Nombre (ej. Cuenta conjunta)' : 'Name (e.g. Joint account)') + '" value="' + (nombre || '') + '">' +
-      '<select class="ty">' + opts + '</select>' +
-      '<input class="mo" type="number" inputmode="decimal" step="0.01" min="0" placeholder="$0" value="' + (monto || '') + '">' +
-    '</div>' +
-    '<div class="dest">' +
-      (hogarOn
-        ? '<button type="button" data-p class="' + (!hogar ? 'on' : '') + '">👤 ' + (es ? 'Personal' : 'Personal') + '</button>' +
-          '<button type="button" data-h class="' + (hogar ? 'on' : '') + '">🏠 ' + (es ? 'Conjunta' : 'Joint') + '</button>'
-        : '<button type="button" class="on" style="grid-column:span 2;cursor:default">👤 ' + (es ? 'Personal' : 'Personal') + '</button>') +
-      '<button type="button" class="rm" aria-label="' + (es ? 'Quitar' : 'Remove') + '">✕</button>' +
-    '</div>';
-  if (hogarOn) {
-    div.querySelector('[data-p]').onclick = function () { setDest(id, false); };
-    div.querySelector('[data-h]').onclick = function () { setDest(id, true); };
+
+  var body = document.getElementById('stepBody'), h = '';
+  var ex = existing();
+
+  if (st.k === 'cuentas') {
+    h += '<div class="ob-card" id="hogarCard"></div>';
+    if (ex.accounts.length) {
+      h += '<div class="ob-card"><div class="ch"><div class="ci" style="background:var(--g-light)">✅</div><div><b>' + T('Ya tienes registradas', 'Already registered') + '</b><small>' + T('No se vuelven a agregar. Para cambiarlas usa «Mis cuentas».', 'They are not added again. To change them use "My accounts".') + '</small></div></div>' +
+        ex.accounts.map(function (c) { return '<div class="done-row"><span>' + (c.hogar ? '🏠' : '🏦') + '</span><span class="nm">' + esc(c.name || T('Cuenta', 'Account')) + '</span><span class="am">' + FT.money(FT.accountTotal ? FT.accountTotal(c) : (c.amount || 0), { cents: true }) + '</span></div>'; }).join('') +
+        '<button type="button" class="link-btn" onclick="FT.checkingAccountsScreen(false)">' + T('Editar o eliminar mis cuentas ›', 'Edit or delete my accounts ›') + '</button>' +
+        (FT.hogarConnected() ? '<br><button type="button" class="link-btn" onclick="FT.checkingAccountsScreen(true)">' + T('Editar cuentas conjuntas ›', 'Edit joint accounts ›') + '</button>' : '') +
+        '</div>';
+    }
+    h += S.accounts.map(function (a) { return acctHtml(a); }).join('');
+    h += '<div class="addbar"><div class="t">' + T('＋ Agregar otra cuenta:', '＋ Add another account:') + '</div><div class="chips">' +
+      Object.keys(ACCT_KINDS).map(function (k) { return '<button type="button" data-add="accounts:' + k + '">' + ACCT_KINDS[k].ico + ' ' + T(ACCT_KINDS[k].es, ACCT_KINDS[k].en) + '</button>'; }).join('') +
+      '</div></div>';
+    h += '<div class="tot"><span>' + T('Total en estas cuentas nuevas', 'Total in these new accounts') + '</span><b id="totAccounts"></b></div>';
+    h += '<div class="mini-note">' + T('¿Tarjeta de crédito o préstamo? Eso es una deuda: se agrega en el paso 4.', 'Credit card or loan? That is a debt: add it in step 4.') + '</div>';
   }
-  div.querySelector('.rm').onclick = function () { div.remove(); };
-  document.getElementById('cuentasList').appendChild(div);
-}
-function setDest(id, hogar) {
-  var row = document.getElementById(id);
-  row.dataset.hogar = hogar ? '1' : '0';
-  row.querySelector('[data-p]').classList.toggle('on', !hogar);
-  row.querySelector('[data-h]').classList.toggle('on', hogar);
-}
-function addMeta(nombre, monto) {
-  nMeta++;
-  var id = 'm' + nMeta;
-  var es = FT.lang === 'es';
-  var div = document.createElement('div');
-  div.className = 'meta-row'; div.id = id;
-  div.innerHTML =
-    '<input class="mn" type="text" placeholder="' + (es ? 'Nombre (ej. Vacaciones)' : 'Name (e.g. Vacation)') + '" value="' + (nombre || '') + '">' +
-    '<input class="mo" type="number" inputmode="decimal" step="0.01" min="0" placeholder="$0" value="' + (monto || '') + '">' +
-    '<button type="button" class="rm" style="background:none;border:none;color:var(--text3);font-size:15px;cursor:pointer">✕</button>';
-  div.querySelector('.rm').onclick = function () { div.remove(); };
-  document.getElementById('metasList').appendChild(div);
+
+  if (st.k === 'ahorros') {
+    if (ex.savings > 0 || ex.emerg > 0) {
+      h += '<div class="ob-card"><div class="ch"><div class="ci" style="background:var(--g-light)">✅</div><div><b>' + T('Ya tienes registrado', 'Already registered') + '</b><small>' + T('No se vuelve a agregar.', 'It is not added again.') + '</small></div></div>' +
+        (ex.savings > 0 ? '<div class="done-row"><span>💵</span><span class="nm">' + T('Ahorro libre', 'Free savings') + '</span><span class="am">' + FT.money(ex.savings, { cents: true }) + '</span></div>' : '') +
+        (ex.emerg > 0 ? '<div class="done-row"><span>🛡️</span><span class="nm">' + T('Fondo de emergencia', 'Emergency fund') + '</span><span class="am">' + FT.money(ex.emerg, { cents: true }) + '</span></div>' : '') + '</div>';
+    }
+    h += S.savings.map(function (a) { return savHtml(a); }).join('');
+    h += '<div class="addbar"><div class="t">' + T('＋ Agregar:', '＋ Add:') + '</div><div class="chips">' +
+      Object.keys(SAV_KINDS).map(function (k) { return '<button type="button" data-add="savings:' + k + '">' + SAV_KINDS[k].ico + ' ' + T(SAV_KINDS[k].es, SAV_KINDS[k].en) + '</button>'; }).join('') + '</div></div>';
+    h += '<div class="tot"><span>' + T('Total ahorrado (nuevo)', 'Total saved (new)') + '</span><b id="totSavings"></b></div>';
+  }
+
+  if (st.k === 'inversion') {
+    if (ex.invs) h += '<div class="ob-card"><div class="ch"><div class="ci" style="background:var(--g-light)">✅</div><div><b>' + T('Ya tienes ', 'You already have ') + ex.invs + T(' inversión(es) registrada(s)', ' investment(s) registered') + '</b><small>' + T('No se vuelven a agregar. Se editan en Inversiones.', 'They are not added again. Edit them in Investments.') + '</small></div></div></div>';
+    h += S.invs.map(function (a) { return invHtml(a); }).join('');
+    h += '<div class="addbar"><div class="t">' + T('＋ Agregar inversión:', '＋ Add investment:') + '</div><div class="chips">' +
+      '<button type="button" data-add="invs:personal">👤 ' + T('Personal', 'Personal') + '</button>' +
+      (FT.hogarConnected() ? '<button type="button" data-add="invs:hogar">🏠 ' + T('Del hogar', 'Household') + '</button>' : '') + '</div></div>';
+    h += '<div class="tot"><span>' + T('Total invertido (nuevo)', 'Total invested (new)') + '</span><b id="totInvs"></b></div>';
+  }
+
+  if (st.k === 'deudas') {
+    if (ex.debts.length) h += '<div class="ob-card"><div class="ch"><div class="ci" style="background:var(--g-light)">✅</div><div><b>' + T('Ya tienes ', 'You already have ') + ex.debts.length + T(' deuda(s) registrada(s)', ' debt(s) registered') + '</b><small>' + T('No se vuelven a agregar. Se editan en Deudas.', 'They are not added again. Edit them in Debts.') + '</small></div></div></div>';
+    h += S.debts.map(function (a) { return debtHtml(a); }).join('');
+    h += '<div class="addbar"><div class="t">' + T('＋ Agregar deuda:', '＋ Add debt:') + '</div><div class="chips">' +
+      Object.keys(DEBT_KINDS).map(function (k) { return '<button type="button" data-add="debts:' + k + '">' + DEBT_KINDS[k].ico + ' ' + T(DEBT_KINDS[k].es, DEBT_KINDS[k].en) + '</button>'; }).join('') + '</div></div>';
+    h += '<div class="tot"><span>' + T('Total que debes (nuevo)', 'Total you owe (new)') + '</span><b id="totDebts"></b></div>';
+  }
+
+  if (st.k === 'revisar') h += reviewHtml();
+
+  body.innerHTML = h;
+  if (st.k === 'cuentas') { renderHogarCard(); }
+  updTotals();
+  renderFoot();
+  try { window.scrollTo(0, 0); } catch (e) {}
 }
 
-/* ─── HOGAR (opcional, 15-oct-2026, a petición de Ramón) ───
-   Mismo mecanismo que hogar.html (FT.createInvite/acceptInvite/
-   checkPartner/saveHogar/FT.hogar()) -- no una versión aparte, así lo que
-   se arranque aquí se sigue viendo y gestionando normal después desde
-   Hogar. */
+function nameField(a, ph) { return '<label>' + T('Nombre', 'Name') + '</label><input data-f="name" data-uid="' + a.uid + '" type="text" placeholder="' + esc(ph || '') + '" value="' + esc(a.name) + '">'; }
+function amtField(a, label) { return '<label>' + label + '</label><input data-f="amount" data-uid="' + a.uid + '" type="text" inputmode="decimal" placeholder="$0.00" value="' + esc(a.amount) + '">'; }
+function head(ico, kindLbl, list, a) { return '<div class="hd"><div class="ic">' + ico + '</div><div class="kind">' + kindLbl + '</div><button type="button" class="rm" data-rm="' + list + ':' + a.uid + '">✕ ' + T('Quitar', 'Remove') + '</button></div>'; }
+
+function acctHtml(a) {
+  var k = ACCT_KINDS[a.kind];
+  return '<div class="item" data-list="accounts">' + head(k.ico, T(k.es, k.en), 'accounts', a) +
+    nameField(a, T('Ej. Mi cuenta de SoFi', 'E.g. My SoFi account')) + amtField(a, T('¿Cuánto tiene hoy?', 'How much is in it today?')) +
+    (FT.hogarConnected()
+      ? '<label>' + T('¿De quién es?', 'Whose is it?') + '</label><div class="seg"><button type="button" data-own="' + a.uid + ':0" class="' + (!a.hogar ? 'on' : '') + '">👤 ' + T('Mía', 'Mine') + '</button><button type="button" data-own="' + a.uid + ':1" class="' + (a.hogar ? 'on' : '') + '">🏠 ' + T('Conjunta', 'Joint') + '</button></div>'
+      : '') + '</div>';
+}
+function savHtml(a) {
+  var k = SAV_KINDS[a.kind];
+  return '<div class="item" data-list="savings">' + head(k.ico, T(k.es, k.en), 'savings', a) +
+    nameField(a, a.kind === 'meta' ? T('Ej. Vacaciones', 'E.g. Vacation') : '') + amtField(a, T('¿Cuánto tienes ahí hoy?', 'How much is in it today?')) + '</div>';
+}
+function invHtml(a) {
+  return '<div class="item" data-list="invs">' + head(a.hogar ? '🏠' : '📈', a.hogar ? T('Inversión del hogar', 'Household investment') : T('Inversión personal', 'Personal investment'), 'invs', a) +
+    nameField(a, T('Ej. Fidelity, VOO, Bitcoin', 'E.g. Fidelity, VOO, Bitcoin')) + amtField(a, T('¿Cuánto vale hoy?', 'What is it worth today?')) + '</div>';
+}
+function debtHtml(a) {
+  var k = DEBT_KINDS[a.kind];
+  return '<div class="item" data-list="debts">' + head(k.ico, T(k.es, k.en), 'debts', a) +
+    nameField(a, T('Ej. Visa Chase', 'E.g. Chase Visa')) + amtField(a, T('¿Cuánto debes hoy?', 'How much do you owe today?')) +
+    '<label>' + T('Pago mensual (opcional)', 'Monthly payment (optional)') + '</label><input data-f="payment" data-uid="' + a.uid + '" type="text" inputmode="decimal" placeholder="$0.00" value="' + esc(a.payment) + '"></div>';
+}
+
+function sumList(list) { return S[list].reduce(function (s, a) { return s + (num(a.amount) || 0); }, 0); }
+function updTotals() {
+  var m = { totAccounts: 'accounts', totSavings: 'savings', totInvs: 'invs', totDebts: 'debts' };
+  Object.keys(m).forEach(function (id) { var el = document.getElementById(id); if (el) el.textContent = FT.money(sumList(m[id]), { cents: true }); });
+}
+
+function reviewHtml() {
+  var h = '', any = false;
+  function sec(title, rows, step) {
+    if (!rows.length) return '';
+    any = true;
+    return '<div class="ob-card rev-sec"><h4><span>' + title + '</span><button type="button" class="link-btn" data-goto="' + step + '">' + T('Editar', 'Edit') + '</button></h4>' + rows.join('') + '</div>';
+  }
+  function row(ico, nm, amt) { return '<div class="rev-row"><span>' + ico + ' ' + esc(nm) + '</span><b>' + FT.money(amt, { cents: true }) + '</b></div>'; }
+  var accts = S.accounts.map(function (a) { return row(a.hogar ? '🏠' : ACCT_KINDS[a.kind].ico, a.name || T(ACCT_KINDS[a.kind].es, ACCT_KINDS[a.kind].en), num(a.amount)); });
+  var sav = S.savings.map(function (a) { return row(SAV_KINDS[a.kind].ico, a.name || T(SAV_KINDS[a.kind].es, SAV_KINDS[a.kind].en), num(a.amount)); });
+  var inv = S.invs.map(function (a) { return row(a.hogar ? '🏠' : '📈', a.name || T('Inversión', 'Investment'), num(a.amount)); });
+  var debts = S.debts.map(function (a) { return row(DEBT_KINDS[a.kind].ico, a.name || T(DEBT_KINDS[a.kind].es, DEBT_KINDS[a.kind].en), num(a.amount)); });
+  h += sec('🏦 ' + T('Cuentas', 'Accounts'), accts, 0) + sec('💵 ' + T('Ahorros', 'Savings'), sav, 1) + sec('📈 ' + T('Inversiones', 'Investments'), inv, 2) + sec('💳 ' + T('Deudas', 'Debts'), debts, 3);
+  if (!any) h += '<div class="ob-card"><div class="mini-note">' + T('No agregaste nada nuevo. Puedes continuar y agregar tus datos después desde Más → Saldos iniciales, o desde cada sección.', 'You did not add anything new. You can continue and add your data later from More → Starting balances, or from each section.') + '</div></div>';
+  else {
+    var assets = sumList('accounts') + sumList('savings') + sumList('invs'), owed = sumList('debts');
+    h += '<div class="tot"><span>' + T('Tienes (nuevo)', 'You have (new)') + '</span><b>' + FT.money(assets, { cents: true }) + '</b></div>' +
+      '<div class="tot"><span>' + T('Debes (nuevo)', 'You owe (new)') + '</span><b>' + FT.money(owed, { cents: true }) + '</b></div>';
+  }
+  if (FT.hogarConnected() && (S.accounts.some(function (a) { return a.hogar; }) || S.invs.some(function (a) { return a.hogar; }))) {
+    h += '<div class="ob-card" style="background:var(--g-light)"><div class="mini-note" style="color:var(--g-dark)">🏠 ' + T('Lo que marcaste como del hogar lo verá tu pareja, y podrá confirmarlo o corregirlo. Lo personal nunca se comparte.', 'What you marked as household will be shown to your partner, who can confirm or correct it. Personal items are never shared.') + '</div></div>';
+  }
+  return h;
+}
+
+function renderFoot() {
+  var f = document.getElementById('obFoot'), last = S.step === STEPS.length - 1;
+  f.innerHTML =
+    (S.step === 0 ? '<button class="skip" onclick="skipOnboarding()">' + T('Saltar', 'Skip') + '</button>' : '<button class="skip" onclick="goStep(' + (S.step - 1) + ')">← ' + T('Atrás', 'Back') + '</button>') +
+    (last ? '<button class="save" onclick="saveOnboarding()">' + T('Confirmar y empezar', 'Confirm and start') + '</button>'
+          : '<button class="save" onclick="goStep(' + (S.step + 1) + ')">' + T('Siguiente', 'Next') + ' →</button>');
+}
+function goStep(i) { S.step = Math.max(0, Math.min(STEPS.length - 1, i)); renderStep(); }
+
+/* ─── Eventos (delegados: escribir NO re-dibuja, así no se pierde el cursor) ─── */
+document.getElementById('stepBody').addEventListener('input', function (e) {
+  var el = e.target, uid = parseInt(el.getAttribute('data-uid'), 10), f = el.getAttribute('data-f');
+  if (!f) return;
+  var list = el.closest('.item').getAttribute('data-list'), it = findItem(list, uid);
+  if (!it) return;
+  it[f] = el.value;
+  if (f === 'amount') updTotals();
+});
+document.getElementById('stepBody').addEventListener('click', function (e) {
+  var b = e.target.closest('button'); if (!b) return;
+  var a = b.getAttribute('data-add'), r = b.getAttribute('data-rm'), o = b.getAttribute('data-own'), g = b.getAttribute('data-goto');
+  if (a) { var p = a.split(':'); addItem(p[0], p[1]); }
+  else if (r) { var q = r.split(':'); removeItem(q[0], parseInt(q[1], 10)); }
+  else if (o) { var w = o.split(':'), it = findItem('accounts', parseInt(w[0], 10)); if (it) { it.hogar = w[1] === '1'; renderStep(); } }
+  else if (g != null) goStep(parseInt(g, 10));
+});
+
+/* ─── HOGAR (opcional) ───
+   Mismo mecanismo que hogar.html (FT.createInvite/acceptInvite/checkPartner/
+   saveHogar/FT.hogar()), no una versión aparte. */
 var _obPollTimer = null;
 function renderHogarCard() {
   var L = FT.lang === 'es';
@@ -191,8 +327,8 @@ function renderHogarCard() {
     el.innerHTML =
       '<div class="ch"><div class="ci" style="background:var(--g-light)">🏠</div>' +
         '<div><b>' + (L ? 'Hogar conectado' : 'Household connected') + '</b>' +
-        '<small>' + (L ? 'Con ' : 'With ') + (h.partnerName || (L ? 'tu pareja' : 'your partner')) + '</small></div></div>' +
-      '<div class="mini-note">' + (L ? 'Ya puedes marcar cuentas como "Conjunta" abajo.' : 'You can now mark accounts as "Joint" below.') + '</div>';
+        '<small>' + (L ? 'Con ' : 'With ') + esc(h.partnerName || (L ? 'tu pareja' : 'your partner')) + '</small></div></div>' +
+      '<div class="mini-note">' + (L ? 'Ya puedes marcar cuentas como "Conjunta".' : 'You can now mark accounts as "Joint".') + '</div>';
     return;
   }
   if (h.pendingInvite) {
@@ -201,9 +337,9 @@ function renderHogarCard() {
         '<div><b>' + (L ? 'Invitación enviada' : 'Invitation sent') + '</b>' +
         '<small>' + (L ? 'Comparte este código con tu pareja' : 'Share this code with your partner') + '</small></div></div>' +
       '<div style="background:var(--sunk);border:2px dashed var(--hair);border-radius:14px;padding:16px;text-align:center;margin-bottom:10px">' +
-        '<div class="ft-num" style="font-size:22px;letter-spacing:3px;color:var(--g-main)">' + (h.inviteCode || '—') + '</div></div>' +
+        '<div class="ft-num" style="font-size:22px;letter-spacing:3px;color:var(--g-main)">' + esc(h.inviteCode || '—') + '</div></div>' +
       '<div style="display:flex;gap:8px">' +
-        '<button type="button" class="add-row" style="flex:1;border-style:solid;color:var(--g-dark);border-color:var(--g-main)" onclick="obCopyCode(\'' + (h.inviteCode || '') + '\')">📋 ' + (L ? 'Copiar código' : 'Copy code') + '</button>' +
+        '<button type="button" class="add-row" style="flex:1;border-style:solid;color:var(--g-dark);border-color:var(--g-main)" onclick="obCopyCode(\'' + esc(h.inviteCode || '') + '\')">📋 ' + (L ? 'Copiar código' : 'Copy code') + '</button>' +
         '<button type="button" class="add-row" style="flex:0 0 100px;color:var(--red)" onclick="obCancelInvite()">' + (L ? 'Cancelar' : 'Cancel') + '</button>' +
       '</div>';
     startObPolling();
@@ -211,8 +347,8 @@ function renderHogarCard() {
   }
   el.innerHTML =
     '<div class="ch"><div class="ci" style="background:var(--pink-bg,#FDEAF1)">🏠</div>' +
-      '<div><b>' + (L ? 'Hogar' : 'Household') + '</b>' +
-      '<small>' + (L ? 'Comparte gastos e ingresos con tu pareja (opcional)' : 'Share expenses and income with your partner (optional)') + '</small></div></div>' +
+      '<div><b>' + (L ? 'Hogar (opcional)' : 'Household (optional)') + '</b>' +
+      '<small>' + (L ? 'Comparte gastos e ingresos con tu pareja' : 'Share expenses and income with your partner') + '</small></div></div>' +
     '<div style="display:flex;gap:8px">' +
       '<button type="button" class="add-row" style="flex:1" onclick="obStartInvite()">+ ' + (L ? 'Invitar a mi hogar' : 'Invite to my household') + '</button>' +
       '<button type="button" class="add-row" style="flex:1" onclick="obShowAcceptCode()">' + (L ? 'Ya tengo un código' : 'I have a code') + '</button>' +
@@ -244,8 +380,7 @@ function startObPolling() {
         FT.saveHogar(h2);
         FT.toast('🏠 ' + (FT.lang === 'es' ? '¡Conectado! ' : 'Connected! ') + (data.partnerName || (FT.lang === 'es' ? 'tu pareja' : 'your partner')));
         FT.syncPartner();
-        renderHogarCard();
-        refreshCuentasToggles();
+        renderStep();
       }
     }).catch(function () {});
   }, 4000);
@@ -278,25 +413,13 @@ function obAcceptCode(raw) {
     FT.saveHogar(hg);
     FT.toast('🏠 ' + (L ? '¡Conectado! ' : 'Connected! ') + (data.partnerName || (L ? 'tu pareja' : 'your partner')));
     FT.syncPartner();
-    renderHogarCard();
-    refreshCuentasToggles();
+    renderStep();
   }).catch(function () { _obAcceptingCode = false; FT.toast(L ? '❌ Error de conexión — intenta de nuevo' : '❌ Connection error — try again'); });
   return false;
 }
-/** Vuelve a dibujar las filas de cuentas ya agregadas, ahora que hay hogar
- *  conectado (antes no ofrecían "Conjunta") -- conserva lo que ya se
- *  había escrito en cada fila. */
-function refreshCuentasToggles() {
-  var rows = Array.prototype.slice.call(document.querySelectorAll('#cuentasList .acct')).map(function (row) {
-    return { nombre: row.querySelector('.nm').value, tipo: row.querySelector('.ty').value, monto: row.querySelector('.mo').value, hogar: row.dataset.hogar === '1' };
-  });
-  document.getElementById('cuentasList').innerHTML = '';
-  rows.forEach(function (r) { addCuenta(r.nombre, r.tipo, r.monto, r.hogar); });
-}
 /** Detecta, al llegar aquí, si este correo ya tenía un hogar conectado de
- *  antes (otro dispositivo, o se registró de nuevo) -- mismo patrón ya
- *  usado y revisado en hogar.html: nunca reconecta en silencio, siempre
- *  pregunta primero. */
+ *  antes (otro dispositivo, o se registró de nuevo) -- nunca reconecta en
+ *  silencio, siempre pregunta primero. */
 function obDetectExisting() {
   if (!FT.user().email) return;
   var h = FT.hogar();
@@ -316,8 +439,7 @@ function obDetectExisting() {
       h3.partnerName = pname; h3.connectedAt = new Date().toISOString();
       FT.saveHogar(h3);
       FT.syncPartner();
-      renderHogarCard();
-      refreshCuentasToggles();
+      renderStep();
     });
   }).catch(function () {});
 }
@@ -327,58 +449,61 @@ function skipOnboarding() {
   location.replace('dashboard.html');
 }
 
+/* ─── Guardar: SOLO lo nuevo (nada de lo ya registrado se toca ni se duplica) ─── */
 function saveOnboarding() {
-  var hoy = FT.todayISO();
-  var user = FT.user();
+  if (_saving) return;
+  _saving = true;
+  var hoy = FT.todayISO(), user = FT.user(), L = FT.lang === 'es', hogarOn = FT.hogarConnected();
+  function rid(p) { return p + Date.now() + '_' + Math.random().toString(36).slice(2, 7); }
 
-  // ── Cuentas ──
-  var checkingNuevas = [];
-  document.querySelectorAll('#cuentasList .acct').forEach(function (row) {
-    var nombre = row.querySelector('.nm').value.trim();
-    var tipo = row.querySelector('.ty').value;
-    var monto = parseFloat(row.querySelector('.mo').value) || 0;
-    var hogar = row.dataset.hogar === '1';
-    if (!nombre || monto <= 0) return;
+  // Cuentas (cheques, efectivo, otra)
+  var nuevas = S.accounts.map(function (a) {
+    var k = ACCT_KINDS[a.kind];
+    return { id: rid('chk_'), name: (a.name || '').trim() || (L ? k.es : k.en), amount: num(a.amount), hogar: !!(a.hogar && hogarOn), kind: a.kind, updatedAt: hoy };
+  });
+  if (nuevas.length) FT.saveChecking(FT.checking().concat(nuevas));
 
-    if (tipo === 'checking') {
-      checkingNuevas.push({ id: 'chk_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7), name: nombre, amount: monto, hogar: hogar, updatedAt: hoy });
-
-    } else if (tipo === 'ahorro') {
-      FT.addSavings({ id: 'onb_' + Date.now() + '_' + Math.random().toString(36).slice(2, 5), amount: monto, date: hoy, tipo: 'deposito', note: (FT.lang === 'es' ? 'Saldo inicial: ' : 'Starting balance: ') + nombre });
-
-    } else if (tipo === 'emergencia') {
-      // Fondo de emergencia PERSONAL → ft_data.emergency + historial. NUNCA ft_hogar_fondos.
-      FT.addEmergency({ id: 'onb_' + Date.now() + '_' + Math.random().toString(36).slice(2, 5), amount: monto, date: hoy, tipo: 'deposito', note: (FT.lang === 'es' ? 'Saldo inicial: ' : 'Starting balance: ') + nombre });
-
-    } else if (tipo === 'inversion') {
-      var scope = hogar ? 'hogar' : '';
-      var list = FT.investments(scope);
-      list.push({
-        id: 'i_onb_' + Date.now() + '_' + Math.random().toString(36).slice(2, 5),
-        ticker: nombre.toUpperCase(), type: 'other', shares: 1, avgPrice: monto, curPrice: monto, amount: monto,
-        platform: '', modo: 'yaLaTenia', fecha: hoy, addedBy: user.name || '', addedAt: new Date().toISOString()
-      });
-      FT.saveInvestments(list, scope);
+  // Ahorros: libre, emergencia (saldo inicial) y metas/apartados
+  var fondos = null, metasAdded = false;
+  S.savings.forEach(function (a, i) {
+    var monto = num(a.amount), nombre = (a.name || '').trim();
+    if (monto <= 0) return;
+    var note = (L ? 'Saldo inicial: ' : 'Starting balance: ') + (nombre || (L ? SAV_KINDS[a.kind].es : SAV_KINDS[a.kind].en));
+    if (a.kind === 'ahorro') FT.addSavings({ id: rid('onb_'), amount: monto, date: hoy, tipo: 'deposito', note: note });
+    else if (a.kind === 'emergencia') FT.addEmergency({ id: rid('onb_'), amount: monto, date: hoy, tipo: 'deposito', note: note });
+    else {
+      if (!fondos) fondos = FT.hogarFondos();
+      metasAdded = true;
+      fondos.metas.push({ id: rid('m_onb_'), nombre: nombre || (L ? 'Meta' : 'Goal'), meta: 0, actual: monto, fecha: '',
+        hist: [{ id: rid('onb_'), monto: monto, fecha: hoy, desdePres: false, nota: L ? 'Saldo inicial' : 'Starting balance' }] });
     }
   });
-  if (checkingNuevas.length) {
-    FT.saveChecking(FT.checking().concat(checkingNuevas));
-  }
+  if (metasAdded) FT.saveHogarFondos(fondos);
 
-  // ── Apartados / metas del hogar ──
-  var fondos = FT.hogarFondos();
-  var added = false;
-  document.querySelectorAll('#metasList .meta-row').forEach(function (row, i) {
-    var nombre = row.querySelector('.mn').value.trim();
-    var monto = parseFloat(row.querySelector('.mo').value) || 0;
-    if (!nombre || monto <= 0) return;
-    added = true;
-    fondos.metas.push({
-      id: 'm_onb_' + Date.now() + '_' + i, nombre: nombre, meta: 0, actual: monto, fecha: '',
-      hist: [{ id: 'onb_' + Date.now() + '_' + i, monto: monto, fecha: hoy, desdePres: false, nota: (FT.lang === 'es' ? 'Saldo inicial' : 'Starting balance') }]
+  // Inversiones
+  ['', 'hogar'].forEach(function (scope) {
+    var rows = S.invs.filter(function (a) { return ((scope === 'hogar') === !!(a.hogar && hogarOn)) && num(a.amount) > 0; });
+    if (!rows.length) return;
+    var list = FT.investments(scope);
+    rows.forEach(function (a) {
+      var monto = num(a.amount);
+      list.push({ id: rid('i_onb_'), ticker: ((a.name || '').trim() || (L ? 'Inversión' : 'Investment')).toUpperCase(), type: 'other', shares: 1, avgPrice: monto, curPrice: monto, amount: monto,
+        platform: '', modo: 'yaLaTenia', fecha: hoy, addedBy: user.name || '', addedAt: new Date().toISOString() });
     });
+    FT.saveInvestments(list, scope);
   });
-  if (added) FT.saveHogarFondos(fondos);
+
+  // Deudas (lo básico; el detalle se completa en Deudas)
+  var debts = S.debts.filter(function (a) { return num(a.amount) > 0; });
+  if (debts.length) {
+    var all = FT.debts();
+    debts.forEach(function (a) {
+      var k = DEBT_KINDS[a.kind], bal = num(a.amount);
+      all.push({ id: Date.now() + Math.floor(Math.random() * 100000), type: a.kind, name: (a.name || '').trim() || (L ? k.es : k.en), balance: bal, payment: num(a.payment), apr: 0, term: 0,
+        original: bal, limit: 0, minPayment: 0, kind: k.kind, abonos: [], paidMonths: {}, owner: 'me', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+    });
+    FT.saveDebts(all);
+  }
 
   FT.setRaw('ft_onboarding_saldos_done', '1');
   location.replace('dashboard.html');
@@ -387,29 +512,11 @@ function saveOnboarding() {
 /* ─── INIT ─── */
 (function initOnboarding() {
   FT.applyLang(document);
-
-  renderHogarCard();
   obDetectExisting();
-
-  // Re-edición desde Configuración: precargar las cuentas de cheques ya guardadas
-  var existing = FT.checking();
-  if (existing.length) {
-    document.getElementById('cuentasList').innerHTML = '';
-    existing.forEach(function (c) { addCuenta(c.name, 'checking', c.amount, c.hogar); });
-  } else {
-    addCuenta(FT.lang === 'es' ? 'Cuenta personal' : 'Personal account', 'checking', '', false);
-    addCuenta(FT.lang === 'es' ? 'Ahorro libre' : 'Free savings', 'ahorro', '', false);
-  }
-  addMeta();
-
-  document.addEventListener('ft:langchange', function () {
-    // Re-etiquetar selects de tipo al cambiar idioma
-    var es = FT.lang === 'es';
-    document.querySelectorAll('#cuentasList .ty').forEach(function (sel) {
-      var val = sel.value;
-      sel.innerHTML = CUENTA_TIPOS.map(function (t) { return '<option value="' + t.v + '"' + (val === t.v ? ' selected' : '') + '>' + (es ? t.es : t.en) + '</option>'; }).join('');
-    });
-  });
+  var ex = existing();
+  // Primera vez (sin cuentas): ya hay una cuenta de cheques lista para llenar.
+  if (!ex.accounts.length) addItem('accounts', 'checking'); else renderStep();
+  document.addEventListener('ft:langchange', function () { renderStep(); });
 })();
 </script>
 </body>
