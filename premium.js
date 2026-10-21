@@ -1424,10 +1424,32 @@ FT.exportBackup = function () {
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
 };
-/** Descarga SOLO mis movimientos (sin cuentas, deudas ni ajustes). fmt: 'csv' (abre en Excel) o 'json' (para volver a importarlos). Solo los míos: nunca los de mi pareja. */
-FT.exportMovements = function (fmt) {
+﻿/* ── Movimientos: exportar / importar escogiendo qué (21-oct-2026) ──
+   Grupos: gastos, ingresos (extras/ventas), cheques, ahorros (ahorro + emergencia), inversiones, transferencias. Ámbito: todo / solo hogar / solo personal. */
+FT.MOV_GROUPS = [
+  { k: 'gastos', ico: '💸', es: 'Gastos', en: 'Expenses', impDef: true },
+  { k: 'ingresos', ico: '💰', es: 'Ingresos (extras, ventas)', en: 'Income (extras, sales)', impDef: true },
+  { k: 'cheques', ico: '🧾', es: 'Cheques', en: 'Paychecks', impDef: false },
+  { k: 'ahorros', ico: '💵', es: 'Ahorro y emergencia', en: 'Savings and emergency', impDef: false },
+  { k: 'inversiones', ico: '📈', es: 'Inversiones', en: 'Investments', impDef: false },
+  { k: 'transferencias', ico: '🔁', es: 'Transferencias', en: 'Transfers', impDef: false }
+];
+FT.movGroup = function (t) {
+  if (t.type === 'ingreso') return t.incomeKind === 'cheque' ? 'cheques' : 'ingresos';
+  if (t.type === 'ahorro') return 'ahorros';
+  if (t.type === 'inversion') return 'inversiones';
+  if (t.type === 'transferencia') return 'transferencias';
+  return 'gastos';
+};
+FT.movScope = function (t) { return (t.hogar === true || t.isHogar) ? 'hogar' : 'personal'; };
+function _movPick(txs, groups, scope) {
+  return txs.filter(function (t) { return t && (!groups || groups.indexOf(FT.movGroup(t)) > -1) && (!scope || scope === 'all' || FT.movScope(t) === scope); });
+}
+/** Descarga SOLO movimientos míos (nunca los de mi pareja). fmt 'csv' | 'json'; o = { groups:[...], scope:'all'|'hogar'|'personal' } */
+FT.exportMovements = function (fmt, o) {
+  o = o || {};
   var es = FT.lang === 'es', accts = FT.checking(), nameOf = function (id) { var a = accts.find(function (x) { return String(x.id) === String(id); }); return a ? a.name : ''; };
-  var txs = (FT.data().transactions || []).filter(function (t) { return t && !t._partner; }).slice().sort(function (a, b) { return String(a.date || '').localeCompare(String(b.date || '')); });
+  var txs = _movPick((FT.data().transactions || []).filter(function (t) { return t && !t._partner; }), o.groups, o.scope).sort(function (a, b) { return String(a.date || '').localeCompare(String(b.date || '')); });
   var stamp = FT.todayISO(), blob, name;
   if (fmt === 'json') {
     blob = new Blob([JSON.stringify({ _meta: { app: 'FinTrack Pro', kind: 'movimientos', version: 1, exportedAt: new Date().toISOString(), user: FT.userName() || '', count: txs.length }, transactions: txs }, null, 2)], { type: 'application/json' });
@@ -1436,16 +1458,109 @@ FT.exportMovements = function (fmt) {
     var head = es ? ['Fecha', 'Tipo', 'Descripción', 'Monto', 'Categoría', 'Ámbito', 'Cuenta', 'Estado', 'Registrado por', 'Nota', 'Id'] : ['Date', 'Type', 'Description', 'Amount', 'Category', 'Scope', 'Account', 'Status', 'Logged by', 'Note', 'Id'];
     var cell = function (v) { var s = String(v == null ? '' : v); if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; return '"' + s.replace(/"/g, '""') + '"'; };
     var rows = txs.map(function (t) {
-      return [t.date || '', t.type === 'ingreso' && t.incomeKind ? t.type + ' (' + t.incomeKind + ')' : (t.type || ''), t.desc || '', (parseFloat(t.amount) || 0).toFixed(2), t.cat || '', (t.hogar === true || t.isHogar) ? (es ? 'Hogar' : 'Household') : (es ? 'Personal' : 'Personal'), nameOf(t.checkingAccountId), FT.isPending(t) ? (es ? 'Pendiente' : 'Pending') : '', t.createdBy || '', t.note || '', t.id]
+      return [t.date || '', t.type === 'ingreso' && t.incomeKind ? t.type + ' (' + t.incomeKind + ')' : (t.type || ''), t.desc || '', (parseFloat(t.amount) || 0).toFixed(2), t.cat || '', FT.movScope(t) === 'hogar' ? (es ? 'Hogar' : 'Household') : 'Personal', nameOf(t.checkingAccountId), FT.isPending(t) ? (es ? 'Pendiente' : 'Pending') : '', t.createdBy || '', t.note || '', t.id]
         .map(function (v, i) { return i === 3 ? String(v) : cell(v); }).join(',');
     });
-    blob = new Blob(['﻿' + [head.map(cell).join(',')].concat(rows).join('\r\n')], { type: 'text/csv;charset=utf-8' });
+    blob = new Blob(['\ufeff' + [head.map(cell).join(',')].concat(rows).join('\r\n')], { type: 'text/csv;charset=utf-8' });
     name = 'fintrack-movimientos-' + stamp + '.csv';
   }
   var url = URL.createObjectURL(blob), a = document.createElement('a');
   a.href = url; a.download = name; document.body.appendChild(a); a.click(); document.body.removeChild(a);
   setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
   return txs.length;
+};
+/** Selector de lo que quiero descargar: grupos + ámbito + formato. */
+FT.openExportMovements = function () {
+  var L = FT.lang === 'es', all = (FT.data().transactions || []).filter(function (t) { return t && !t._partner; });
+  var st = { on: {}, scope: 'all' };
+  FT.MOV_GROUPS.forEach(function (g) { st.on[g.k] = true; });
+  function counts() { var c = {}; _movPick(all, null, st.scope).forEach(function (t) { var k = FT.movGroup(t); c[k] = (c[k] || 0) + 1; }); return c; }
+  var ov = FT.sheet({ title: '📊 ' + (L ? 'Descargar movimientos' : 'Download movements'), html: '<div id="exBody"></div>', onOpen: function (body) { paint(body.querySelector('#exBody')); },
+    actions: [
+      { label: '📄 Excel (CSV)', primary: true, onClick: function () { go('csv'); } },
+      { label: '🗂️ ' + (L ? 'JSON (para volver a importarlos)' : 'JSON (to import again)'), onClick: function () { go('json'); } }
+    ] });
+  function chosen() { return FT.MOV_GROUPS.filter(function (g) { return st.on[g.k]; }).map(function (g) { return g.k; }); }
+  function go(fmt) {
+    var g = chosen(); if (!g.length) { FT.toast(L ? 'Elige al menos un tipo de movimiento' : 'Pick at least one type'); return; }
+    var n = FT.exportMovements(fmt, { groups: g, scope: st.scope });
+    FT.toast((L ? '✅ Descargados ' : '✅ Downloaded ') + n + (L ? ' movimientos' : ' movements'));
+  }
+  function paint(box) {
+    var c = counts();
+    box.innerHTML = '<p style="font-size:12.5px;color:var(--text2);margin:0 0 8px;line-height:1.5">' + (L ? 'Escoge qué descargar. No incluye cuentas, deudas ni ajustes y no cambia nada en la app.' : 'Pick what to download. Accounts, debts and settings are not included and nothing changes in the app.') + '</p>' +
+      '<div style="display:flex;gap:6px;margin-bottom:8px">' + [['all', L ? 'Todo' : 'All'], ['hogar', L ? 'Solo hogar' : 'Household only'], ['personal', L ? 'Solo personal' : 'Personal only']].map(function (s) { var on = st.scope === s[0]; return '<button type="button" data-sc="' + s[0] + '" class="tap" style="flex:1;padding:8px 4px;border-radius:10px;border:1.5px solid ' + (on ? 'var(--g-main)' : 'var(--hair)') + ';background:' + (on ? 'var(--g-light)' : 'var(--card,#fff)') + ';color:var(--ink);font:700 12px inherit;font-family:inherit;cursor:pointer">' + s[1] + '</button>'; }).join('') + '</div>' +
+      FT.MOV_GROUPS.map(function (g) { return '<label style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--hair);cursor:pointer"><input type="checkbox" data-g="' + g.k + '"' + (st.on[g.k] ? ' checked' : '') + ' style="width:18px;height:18px"><span style="flex:1;font-size:13px">' + g.ico + ' ' + (L ? g.es : g.en) + '</span><span style="font-size:12px;color:var(--text3)">' + (c[g.k] || 0) + '</span></label>'; }).join('');
+    box.querySelectorAll('[data-sc]').forEach(function (b) { b.onclick = function () { st.scope = b.getAttribute('data-sc'); paint(box); }; });
+    box.querySelectorAll('[data-g]').forEach(function (i) { i.onchange = function () { st.on[i.getAttribute('data-g')] = i.checked; }; });
+  }
+  return ov;
+};
+/** Lee un archivo de movimientos (.json de FT.exportMovements o un respaldo completo) SIN importar nada. Resuelve { meta, txs }. */
+FT.parseMovementsFile = function (file) {
+  return new Promise(function (resolve, reject) {
+    if (!file) { reject(new Error('no_file')); return; }
+    var reader = new FileReader();
+    reader.onload = function (e) {
+      var raw; try { raw = JSON.parse(e.target.result); } catch (err) { reject(new Error('invalid_json')); return; }
+      var txs = null, meta = (raw && raw._meta) || {};
+      if (raw && Array.isArray(raw.transactions)) txs = raw.transactions;
+      else if (raw && raw.data && raw.data[K.data]) { try { var d = typeof raw.data[K.data] === 'string' ? JSON.parse(raw.data[K.data]) : raw.data[K.data]; if (d && Array.isArray(d.transactions)) txs = d.transactions; } catch (err2) {} }
+      if (!txs) { reject(new Error('invalid_movements')); return; }
+      var TYPES = ['gasto', 'ingreso', 'ahorro', 'inversion', 'suscripcion', 'hipoteca', 'transferencia', 'servicio'];
+      txs = txs.filter(function (t) { return t && typeof t === 'object' && TYPES.indexOf(t.type) > -1 && isFinite(parseFloat(t.amount)) && /^\d{4}-\d{2}-\d{2}$/.test(String(t.date || '')); });
+      resolve({ meta: meta, txs: txs });
+    };
+    reader.onerror = function () { reject(new Error('read_error')); };
+    reader.readAsText(file);
+  });
+};
+function _movKey(t) { return String(t.date) + '|' + t.type + '|' + (parseFloat(t.amount) || 0).toFixed(2) + '|' + String(t.desc || '').trim().toLowerCase(); }
+/** Importa solo los grupos/ámbito escogidos. NO mueve saldos: se quita todo vínculo a cuentas, fondos, deudas o cheques. Omite los que ya existen. */
+FT.importMovements = function (txs, o) {
+  o = o || {};
+  var d = FT.data(), have = {}, ids = {}, added = 0, dup = 0, today = FT.todayISO();
+  (d.transactions || []).forEach(function (t) { have[_movKey(t)] = true; ids[String(t.id)] = true; });
+  var STRIP = ['checkingAccountId', 'acctCredited', 'acctPending', 'chequeId', 'fundSource', 'fundId', 'cobId', 'recId', 'editId', 'txId', 'auto', '_partner', 'goalId', 'debtId', 'dest'];
+  _movPick(txs, o.groups, o.scope).forEach(function (t) {
+    var k = _movKey(t); if (have[k]) { dup++; return; }
+    var n = JSON.parse(JSON.stringify(t));
+    STRIP.forEach(function (f) { delete n[f]; });
+    n.desc = String(n.desc || '').slice(0, 200); n.amount = parseFloat(n.amount);
+    if (!n.pendiente || String(n.date) <= today) delete n.pendiente;
+    var id = n.id; if (id == null || ids[String(id)]) id = _uidMono();
+    n.id = id; n.imported = true; ids[String(id)] = true; have[k] = true;
+    d.transactions.push(n); added++;
+  });
+  if (added) FT.saveData(d);
+  return { added: added, dup: dup };
+};
+/** Importar escogiendo qué: lee el archivo, muestra qué trae por grupo y lo que ya existe, y solo entonces importa. */
+FT.openImportMovements = function (file) {
+  var L = FT.lang === 'es';
+  FT.parseMovementsFile(file).then(function (res) {
+    var st = { on: {}, scope: 'all' };
+    FT.MOV_GROUPS.forEach(function (g) { st.on[g.k] = g.impDef; });
+    var haveKeys = {}; (FT.data().transactions || []).forEach(function (t) { haveKeys[_movKey(t)] = true; });
+    function stats() { var c = {}, du = {}; _movPick(res.txs, null, st.scope).forEach(function (t) { var k = FT.movGroup(t); c[k] = (c[k] || 0) + 1; if (haveKeys[_movKey(t)]) du[k] = (du[k] || 0) + 1; }); return { c: c, du: du }; }
+    function chosen() { return FT.MOV_GROUPS.filter(function (g) { return st.on[g.k]; }).map(function (g) { return g.k; }); }
+    FT.sheet({ title: '📥 ' + (L ? 'Importar movimientos' : 'Import movements'), html: '<div id="imBody"></div>', onOpen: function (body) { paint(body.querySelector('#imBody')); },
+      actions: [{ label: L ? 'Importar lo escogido' : 'Import selection', primary: true, onClick: function () {
+        var g = chosen(); if (!g.length) { FT.toast(L ? 'Elige al menos un tipo' : 'Pick at least one type'); return; }
+        var r = FT.importMovements(res.txs, { groups: g, scope: st.scope });
+        FT.toast((L ? '✅ Importados ' : '✅ Imported ') + r.added + (r.dup ? (L ? ' · ya existían ' : ' · already there ') + r.dup : ''));
+        setTimeout(function () { try { location.reload(); } catch (e) {} }, 900);
+      } }] });
+    function paint(box) {
+      var s = stats(), when = res.meta.exportedAt ? FT.date(String(res.meta.exportedAt).slice(0, 10)) : '';
+      box.innerHTML = '<p style="font-size:12.5px;color:var(--text2);margin:0 0 8px;line-height:1.5">' + (L ? 'El archivo trae ' + res.txs.length + ' movimientos' + (when ? ' (descargado el ' + when + ')' : '') + '. Escoge cuáles importar. Lo que ya existe se omite.' : 'The file has ' + res.txs.length + ' movements' + (when ? ' (downloaded ' + when + ')' : '') + '. Pick which to import. Anything already here is skipped.') + '</p>' +
+        '<div style="display:flex;gap:6px;margin-bottom:8px">' + [['all', L ? 'Todo' : 'All'], ['hogar', L ? 'Solo hogar' : 'Household only'], ['personal', L ? 'Solo personal' : 'Personal only']].map(function (x) { var on = st.scope === x[0]; return '<button type="button" data-sc="' + x[0] + '" class="tap" style="flex:1;padding:8px 4px;border-radius:10px;border:1.5px solid ' + (on ? 'var(--g-main)' : 'var(--hair)') + ';background:' + (on ? 'var(--g-light)' : 'var(--card,#fff)') + ';color:var(--ink);font:700 12px inherit;font-family:inherit;cursor:pointer">' + x[1] + '</button>'; }).join('') + '</div>' +
+        FT.MOV_GROUPS.map(function (g) { var n = s.c[g.k] || 0, dn = s.du[g.k] || 0; return '<label style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--hair);cursor:pointer;' + (n ? '' : 'opacity:.45') + '"><input type="checkbox" data-g="' + g.k + '"' + (st.on[g.k] ? ' checked' : '') + (n ? '' : ' disabled') + ' style="width:18px;height:18px"><span style="flex:1;font-size:13px">' + g.ico + ' ' + (L ? g.es : g.en) + '</span><span style="font-size:12px;color:var(--text3)">' + n + (dn ? ' · ' + dn + (L ? ' ya están' : ' exist') : '') + '</span></label>'; }).join('') +
+        '<div style="font-size:11px;color:var(--text3);line-height:1.45;margin-top:8px">' + (L ? 'Importar no cambia saldos ni fondos: los movimientos solo aparecen en tu historial y presupuesto. Cheques, ahorros, inversiones y transferencias quedan sin marcar porque dependen de cuentas y fondos que tendrás que crear de nuevo.' : 'Importing does not change balances or funds: movements only show in your history and budget. Paychecks, savings, investments and transfers are unchecked because they depend on accounts and funds you will recreate.') + '</div>';
+      box.querySelectorAll('[data-sc]').forEach(function (b) { b.onclick = function () { st.scope = b.getAttribute('data-sc'); paint(box); }; });
+      box.querySelectorAll('[data-g]').forEach(function (i) { i.onchange = function () { st.on[i.getAttribute('data-g')] = i.checked; }; });
+    }
+  }).catch(function () { FT.toast(L ? '⚠️ Ese archivo no es de movimientos de FinTrack Pro' : '⚠️ That is not a FinTrack Pro movements file'); });
 };
 /** Lee y valida un archivo de respaldo sin aplicarlo todavía — el caller decide
  *  cuándo confirmar con el usuario antes de llamar a FT.applyBackup(). */
