@@ -1994,7 +1994,7 @@ FT.openMisReglas = function (o) {
       '<button type="button" class="ft-btn ft-btn-primary tap" data-ok="1" style="margin-top:12px">' + (L ? 'Guardar reglas' : 'Save rules') + '</button>';
     box.innerHTML = h; preview(box);
     box.querySelector('#mrSample').oninput = function () { sample = FT.numMoney(this.value); preview(box); };
-    box.querySelectorAll('[data-t]').forEach(function (s) { s.onchange = function () { var r = rows[+s.getAttribute('data-t')]; r.t = s.value; if (s.value === 'remainder') rows.forEach(function (x) { if (x !== r && x.t === 'remainder') x.t = 'none'; }); paint(box); }; });
+    box.querySelectorAll('[data-t]').forEach(function (s) { s.onchange = function () { var r = rows[+s.getAttribute('data-t')]; if (r.t !== s.value) r.v = 0; r.t = s.value; if (s.value === 'remainder') rows.forEach(function (x) { if (x !== r && x.t === 'remainder') x.t = 'none'; }); paint(box); }; });
     box.querySelectorAll('[data-v]').forEach(function (inp) { inp.oninput = function () { rows[+inp.getAttribute('data-v')].v = FT.numMoney(inp.value); preview(box); }; });
     box.querySelector('[data-ok]').onclick = function () {
       FT.setAccountRules(rows.map(function (r) { return { acctId: r.id, rule: r.t === 'none' ? null : (r.t === 'remainder' ? { type: 'remainder' } : { type: r.t, value: Math.max(0, parseFloat(r.v) || 0) }) }; }));

@@ -360,6 +360,7 @@ function renderHogarCard() {
   }
   if (obDeclined()) {
     el.innerHTML = '<div class="ch"><div class="ci" style="background:var(--sunk)">🏠</div><div><b>' + (L ? 'Sin hogar por ahora' : 'No household for now') + '</b><small>' + (L ? 'Puedes crearlo después desde la pestaña Hogar' : 'You can create it later from the Household tab') + '</small></div></div>' +
+      (obPendingCode() ? '<button type="button" class="add-row" style="width:100%;margin-bottom:8px;border-style:solid;color:#fff;background:var(--g-main);border-color:var(--g-main)" onclick="obAcceptCode(\'' + esc(obPendingCode()) + '\')">🏠 ' + (L ? 'Tu pareja te invitó (' + esc(obPendingCode()) + ') · Unirme' : 'Your partner invited you (' + esc(obPendingCode()) + ') · Join') + '</button>' : '') +
       '<button type="button" class="link-btn" onclick="obSetDeclined(false)">' + (L ? 'Mejor sí quiero crear un hogar ›' : 'Actually, I want a household ›') + '</button>';
     return;
   }
@@ -401,7 +402,7 @@ function obStartInvite() {
 function obCopyCode(code) { navigator.clipboard && navigator.clipboard.writeText(code).catch(function () {}); FT.toast(FT.lang === 'es' ? '📋 Copiado' : '📋 Copied'); }
 function obCancelInvite() {
   if (_obPollTimer) { clearInterval(_obPollTimer); _obPollTimer = null; }
-  FT.saveHogar({ connected: false, pendingInvite: false, manuallyLeft: false });
+  FT.saveHogar({ connected: false, pendingInvite: false, manuallyLeft: false }); S.accounts.forEach(function (x) { x.hogar = false; }); try { var ck = FT.checking(); if (ck.some(function (x) { return x.hogar; })) { ck.forEach(function (x) { if (x.hogar) { x.hogar = false; delete x.rule; } }); FT.saveChecking(ck); } } catch (e) {}
   renderHogarCard();
 }
 function startObPolling() {

@@ -172,7 +172,7 @@ function showAcceptCode() {
   FT.modal({
     title: L ? 'Ingresar código' : 'Enter code',
     html: '<p style="font-size:12px;color:var(--text3);margin:0 0 14px">' + (L ? 'Pide el código a quien te invitó' : 'Ask the person who invited you for their code') + '</p>' +
-      '<div class="ft-field"><input id="codeInput" style="text-align:center;font-size:20px;font-weight:800;letter-spacing:3px" placeholder="FT-XXXX" value="' + (function () { try { return localStorage.getItem('ft_pending_code') || ''; } catch (e) { return ''; } })() + '" oninput="this.value=this.value.toUpperCase()"></div>',
+      '<div class="ft-field"><input id="codeInput" style="text-align:center;font-size:20px;font-weight:800;letter-spacing:3px" placeholder="FT-XXXX" value="' + (function () { try { var c = localStorage.getItem('ft_pending_code') || ''; return /^FT-[A-Z0-9]{4}$/.test(c) ? c : ''; } catch (e) { return ''; } })() + '" oninput="this.value=this.value.toUpperCase()"></div>',
     saveLabel: L ? 'Unirme al hogar' : 'Join household',
     onSave: function (body) { return acceptCode(body.querySelector('#codeInput').value); }
   });
@@ -510,9 +510,10 @@ function emergTileSub() {
   return FT.money(actual) + (meta > 0 ? ' · ' + Math.round(Math.min(100, actual / meta * 100)) + '%' : '');
 }
 function _myCheques() { return FT.cheques().filter(function (c) { return c.tipo === 'nuevo' && (parseFloat(c.hogarAmt) || 0) > 0; }).sort(function (a, b) { return String(b.fecha).localeCompare(String(a.fecha)); }); }
-function chequesTilePri() { return FT.hogarUnassigned().length ? 0 : 6; }
+function _pendingChq() { return _myCheques().slice(0, 8).filter(function (c) { return (parseFloat(c.hogarSinAsignar) || 0) > 0.5; }); }
+function chequesTilePri() { return _pendingChq().length ? 0 : 6; }
 function chequesTileSub() {
-  var n = FT.hogarUnassigned().length, L = es();
+  var n = _pendingChq().length, L = es();
   if (n) return '<span style="color:#B7791F;font-weight:800">' + n + (L ? ' sin asignar' : ' unassigned') + '</span>';
   return _myCheques().length ? (L ? 'Todo asignado' : 'All assigned') : (L ? 'Sin cheques' : 'No paychecks');
 }
