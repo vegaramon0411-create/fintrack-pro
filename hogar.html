@@ -511,9 +511,10 @@ function emergTileSub() {
 }
 function _myCheques() { return FT.cheques().filter(function (c) { return c.tipo === 'nuevo' && (parseFloat(c.hogarAmt) || 0) > 0; }).sort(function (a, b) { return String(b.fecha).localeCompare(String(a.fecha)); }); }
 function _pendingChq() { return _myCheques().slice(0, 8).filter(function (c) { return (parseFloat(c.hogarSinAsignar) || 0) > 0.5; }); }
-function chequesTilePri() { return _pendingChq().length ? 0 : 6; }
+function _pendingAll() { return _pendingChq().length + (FT.hogar().connected ? FT.partnerUnassigned().length : 0); }
+function chequesTilePri() { return _pendingAll() ? 0 : 6; }
 function chequesTileSub() {
-  var n = _pendingChq().length, L = es();
+  var n = _pendingAll(), L = es();
   if (n) return '<span style="color:#B7791F;font-weight:800">' + n + (L ? ' sin asignar' : ' unassigned') + '</span>';
   return _myCheques().length ? (L ? 'Todo asignado' : 'All assigned') : (L ? 'Sin cheques' : 'No paychecks');
 }
@@ -545,8 +546,18 @@ function openEmergDetail() {
     ]
   });
 }
+﻿function _partnerCheques() {
+  var pp = FT.partnerProfile(), tx = pp && pp.data && pp.data.transactions;
+  var known = !!(pp && pp.data && Array.isArray(pp.data.sinAsignar));   // su app ya manda el estado de reparto
+  var list = (tx || []).filter(function (t) { return t.type === 'ingreso' && t.incomeKind === 'cheque'; }).sort(function (a, b) { return String(b.date || '').localeCompare(String(a.date || '')); }).slice(0, 5);
+  return { known: known, list: list };
+}
 function openChequesSheet() {
-  var L = es(), list = _myCheques().slice(0, 8);
+  var L = es(), list = _myCheques().slice(0, 8), pn = _escHg(FT.hogar().partnerName || (L ? 'tu pareja' : 'your partner'));
+  var ph = _partnerCheques(), unP = FT.partnerUnassigned();
+  // Pendientes de la pareja que ya no vienen en sus movimientos sincronizados (mes anterior): también se listan.
+  unP.forEach(function (u) { if (!ph.list.some(function (t) { return String(t.id) === String(u.txId); })) ph.list.push({ id: u.txId, date: u.fecha, amount: u.total, _hogar: true }); });
+  var chip = function (txt, bg, col) { return '<span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:99px;background:' + bg + ';color:' + col + '">' + txt + '</span>'; };
   var rows = list.map(function (c) {
     var sin = parseFloat(c.hogarSinAsignar) || 0, names = (c.asignaciones || []).map(function (a) { return _escHg(a.acctName || '') + ' ' + FT.money(a.amount, { cents: true }); }).join(' · ');
     var id = _safeId(c.id);
@@ -555,17 +566,30 @@ function openChequesSheet() {
       (sin > 0.5 ? '<button type="button" class="ft-btn ft-btn-primary tap" data-asg="' + id + '" style="margin:0;width:auto;padding:7px 12px;font-size:12.5px">' + L2(L, 'Asignar', 'Assign') + '</button>'
         : ((c.asignaciones || []).length ? '<button type="button" class="tap" data-und="' + id + '" style="border:0;background:none;color:var(--blue);font-weight:700;font-size:12px;cursor:pointer;font-family:inherit">' + L2(L, 'Deshacer', 'Undo') + '</button>' : '')) + '</div>';
   }).join('');
+  var prow = ph.list.map(function (t) {
+    var u = unP.find(function (x) { return String(x.txId) === String(t.id); });
+    var right, sub;
+    if (u) { right = _sentFor(u.id) ? '<span style="font-size:12px;color:var(--text3)">⏳ ' + L2(L, 'Enviado', 'Sent') + '</span>' : '<button type="button" class="ft-btn ft-btn-primary tap" data-pasg="' + _safeId(u.id) + '" style="margin:0;width:auto;padding:7px 12px;font-size:12.5px">' + L2(L, 'Asignar', 'Assign') + '</button>'; sub = '<span style="color:#B7791F;font-weight:700">' + L2(L, 'Falta repartir ', 'Left to split ') + FT.money(u.monto, { cents: true }) + '</span>'; }
+    else if (ph.known) { right = ''; sub = L2(L, 'Repartido en sus cuentas', 'Split across their accounts'); }
+    else { right = ''; sub = L2(L, 'No sabemos si está repartido: ' + pn + ' debe abrir la app actualizada', 'Split status unknown: ' + pn + ' needs to open the updated app'); }
+    return '<div class="ft-row" style="align-items:center;gap:8px"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700">' + FT.date(t.date) + ' · ' + FT.money(parseFloat(t.amount) || 0, { cents: true }) + '</div><div style="font-size:11.5px;color:var(--text3)">' + sub + '</div></div>' + right + '</div>';
+  }).join('');
+  var sec = function (title, tagTxt, bg, col, note) { return '<div style="display:flex;justify-content:space-between;align-items:center;margin:12px 0 2px"><b style="font-size:13px">' + title + '</b>' + chip(tagTxt, bg, col) + '</div><div style="font-size:11px;color:var(--text3);margin-bottom:2px">' + note + '</div>'; };
+  var connected = FT.hogar().connected;
   FT.sheet({
     title: '🧾 ' + L2(L, 'Cheques del hogar', 'Household paychecks'),
-    html: '<p style="font-size:12.5px;color:var(--text2);margin:0 0 6px">' + L2(L, 'Asigna lo que falte, deshaz un reparto o cambia tus reglas. Los que faltan van primero.', 'Assign what is left, undo a split or change your rules. Unassigned ones come first.') + '</p>' +
-      (rows ? '<div id="chqRows">' + rows + '</div>' :'<div class="ft-empty">' + L2(L, 'Aún no has registrado cheques', 'No paychecks recorded yet') + '</div>') +
+    html: sec(L2(L, 'Tus cheques', 'Your paychecks'), L2(L, '👤 TUYOS', '👤 YOURS'), 'var(--sky-bg)', 'var(--blue)', L2(L, 'Lo que hagas aquí cambia solo TUS cuentas.', 'What you do here only changes YOUR accounts.')) +
+      (rows ? '<div id="chqRows">' + rows + '</div>' : '<div class="ft-empty">' + L2(L, 'Aún no has registrado cheques', 'No paychecks recorded yet') + '</div>') +
+      (connected ? sec(L2(L, 'Cheques de ' + pn, pn + "'s paychecks"), '🏠 ' + L2(L, 'DE ' + pn.toUpperCase(), 'THEIRS'), 'var(--g-light)', 'var(--g-dark)', L2(L, 'Si asignas aquí, se le envía a ' + pn + ': lo ve y puede deshacerlo.', 'If you assign here, it is sent to ' + pn + ': they see it and can undo it.')) +
+        (prow ? '<div id="chqRowsP">' + prow + '</div>' : '<div class="ft-empty">' + L2(L, 'Sin cheques de ' + pn + ' este mes', 'No paychecks from ' + pn + ' this month') + '</div>') : '') +
       '<p style="font-size:11px;color:var(--text3);margin:10px 0 0">' + L2(L, '¿Se registró mal un cheque? Elimínalo en Depósitos y regístralo de nuevo.', 'Recorded one wrong? Delete it in Deposits and record it again.') + '</p>',
     actions: [
-      { label: '⚙️ ' + L2(L, 'Cambiar mis reglas de reparto', 'Change my split rules'), primary: true, onClick: function () { FT.openMisReglas({ onDone: function () { render(); } }); } },
-      { label: L2(L, 'Ver depósitos', 'See deposits'), onClick: function () { switchTab('depositos'); } }
-    ],
+      { label: '＋ ' + L2(L, 'Registrar mi cheque', 'Log my paycheck'), primary: true, onClick: function () { FT.openCheque({ onDone: function () { render(); } }); } },
+      { label: '👤 ' + L2(L, 'Cambiar MIS reglas (mis cuentas)', 'Change MY rules (my accounts)'), onClick: function () { FT.openMisReglas({ onDone: function () { render(); } }); } }
+    ].concat(connected ? [{ label: '🏠 ' + L2(L, 'Cambiar las reglas de ' + pn, 'Change ' + pn + "'s rules"), onClick: function () { FT.openReglaPareja(); } }] : []),
     onOpen: function (body) {
       body.querySelectorAll('[data-asg]').forEach(function (b) { b.onclick = function () { var c = FT.cheques().find(function (x) { return _safeId(x.id) === b.getAttribute('data-asg'); }); if (!c) return; FT.closeTop(); FT.openAsignar({ target: 'mine', chequeId: c.id, monto: c.hogarSinAsignar, fecha: c.fecha, total: c.hogarAmt }); }; });
+      body.querySelectorAll('[data-pasg]').forEach(function (b) { b.onclick = function () { var u = FT.partnerUnassigned().find(function (x) { return _safeId(x.id) === b.getAttribute('data-pasg'); }); if (!u) return; FT.closeTop(); FT.openAsignar({ target: 'partner', chequeId: u.id, monto: u.monto, fecha: u.fecha, total: u.total, partnerName: FT.hogar().partnerName }); }; });
       body.querySelectorAll('[data-und]').forEach(function (b) { b.onclick = function () {
         var c = FT.cheques().find(function (x) { return _safeId(x.id) === b.getAttribute('data-und'); }); if (!c) return;
         FT.confirm(L2(L, '¿Deshacer el reparto de este cheque? El dinero vuelve a quedar sin asignar.', 'Undo the split of this paycheck? The money goes back to unassigned.')).then(function (ok) { if (!ok) return; FT.unassignHogar(c.id); FT.toast(L2(L, '↩ Reparto deshecho', '↩ Split undone')); FT.closeTop(); render(); openChequesSheet(); });
@@ -573,6 +597,7 @@ function openChequesSheet() {
     }
   });
 }
+
 function L2(L, es, en) { return L ? es : en; }
 function reviewCardsHtml(partnerName) {
   var L = es(), out = '';

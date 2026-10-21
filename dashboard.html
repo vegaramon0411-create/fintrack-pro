@@ -629,68 +629,7 @@ function openPicker() { FT.openPicker({ ctx: 'overview' }); }
 function openEntry(t, p) { FT.openEntry(t, p); }
 
 
-function openCheque() {
-  var es = FT.lang === 'es', h = FT.hogar(), u = FT.user();
-  var totH = (parseFloat(h.payPctHogar) || 50) + (parseFloat(h.saveHogarPct) || 10);
-  var checks = u.payFreq === 'weekly' ? 4 : u.payFreq === 'biweekly' ? 2 : 1;
-  var expected = (u.income || 0) / checks;
-  var st = { tipo: 'nuevo' };
-
-  var ov = FT.modal({
-    title: es ? 'Recibí mi cheque' : 'I got paid',
-    html:
-      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">' +
-        '<button type="button" id="cNuevo" class="tap" style="padding:9px;border-radius:10px;border:1.5px solid var(--g-main);background:var(--g-light);color:var(--g-dark);font-weight:800;font-family:var(--ui-font)">' + (es ? 'Nuevo (ingreso)' : 'New (income)') + '</button>' +
-        '<button type="button" id="cExist" class="tap" style="padding:9px;border-radius:10px;border:1px solid var(--hair);background:var(--sunk);color:var(--text2);font-weight:800;font-family:var(--ui-font)">' + (es ? 'Ya lo tenía' : 'Already had it') + '</button>' +
-      '</div>' +
-      '<div class="ft-field"><label>' + (es ? 'Monto recibido' : 'Amount received') + '</label><input id="cMonto" inputmode="decimal" value="' + (expected > 0 ? expected.toFixed(2) : '') + '"></div>' +
-      '<div id="cPrev" style="background:var(--sunk);border-radius:11px;padding:11px;font-size:11.5px;color:var(--text2);margin-bottom:6px"></div>',
-    saveLabel: es ? 'Registrar cheque' : 'Log paycheck',
-    onOpen: function (body) {
-      var n = body.querySelector('#cNuevo'), x = body.querySelector('#cExist'), inp = body.querySelector('#cMonto');
-      function sel(on, off) { on.style.borderColor = 'var(--g-main)'; on.style.background = 'var(--g-light)'; on.style.color = 'var(--g-dark)'; off.style.borderColor = 'var(--hair)'; off.style.background = 'var(--sunk)'; off.style.color = 'var(--text2)'; }
-      n.onclick = function () { st.tipo = 'nuevo'; sel(n, x); prev(); };
-      x.onclick = function () { st.tipo = 'existente'; sel(x, n); prev(); };
-      inp.oninput = prev;
-      function prev() {
-        var m = parseFloat(inp.value) || 0;
-        var hogarAmt = m * totH / 100, persAmt = m - hogarAmt;
-        var savPct = u.savingsPct != null ? u.savingsPct : 20;
-        body.querySelector('#cPrev').innerHTML = m > 0
-          ? (es ? 'Se reparte: ' : 'Split: ') + '<b>🏠 ' + FT.money(hogarAmt) + '</b> ' + (es ? 'hogar · ' : 'household · ') + '<b>👤 ' + FT.money(persAmt) + '</b> ' + (es ? 'personal' : 'personal') +
-            (st.tipo === 'nuevo' ? '<br>' + (es ? 'De tu parte personal, ' : 'Of your personal share, ') + '<b>' + FT.money(Math.round(persAmt * savPct / 100)) + '</b> (' + savPct + '%) ' + (es ? 'a Ahorro libre — «págate primero».' : 'to Free savings — "pay yourself first".') : '')
-          : '';
-      }
-      prev();
-    },
-    onSave: function (body) {
-      var m = parseFloat(body.querySelector('#cMonto').value);
-      if (!m || m <= 0) { FT.toast(es ? 'Ingresa el monto' : 'Enter the amount'); return true; }
-      var r = FT.recordCheque({ monto: m, tipo: st.tipo });
-      if (r) {
-        FT.toast('✅ ' + FT.money(r.monto) + (r.autoSaved > 0 ? ' · ' + FT.money(r.autoSaved) + (es ? ' a Ahorro libre' : ' to Free savings') : ''));
-        // Parte del aporte hogar que ninguna cuenta con regla cubrió -- antes
-        // este número no se veía en ningún lado, solo quedaba implícito
-        // dentro del % de hogar. Aviso aparte para no perderlo en el toast
-        // principal (que ya se cierra solo a los pocos segundos).
-        if (r.hogarSinAsignar > 0.5) {
-          // 20-oct-2026: en vez de un aviso que se va en 4 segundos, se abre la hoja para asignar ese dinero.
-          setTimeout(function () { try { FT.openAsignar({ target: 'mine', chequeId: r.chequeId, monto: r.hogarSinAsignar, fecha: r.fecha, total: r.hogarAmt }); } catch (e) {} }, 900);
-        }
-        // 15-oct-2026: el reparto a fondos de Ahorro libre ahora se aplica
-        // solo (ver FT.recordCheque) -- este aviso es el equivalente al de
-        // arriba, para que no se sienta silencioso solo porque ya no pide
-        // confirmar.
-        if (r.fondoSinAsignar > 0.5) {
-          setTimeout(function () {
-            FT.toast((es ? '💵 ' + FT.money(r.fondoSinAsignar) + ' sin repartir a ningún fondo -- sigue disponible en tu presupuesto' : '💵 ' + FT.money(r.fondoSinAsignar) + " not assigned to any fund -- still available in your budget"), { ms: 4500 });
-          }, 5700);
-        }
-      }
-      render();
-    }
-  });
-}
+function openCheque() { FT.openCheque({ onDone: render }); } // el cheque (monto sugerido por frecuencia) vive en premium.js: lo usan también el ＋ y Hogar
 
 /** Reparto de cheque a fondos de Ahorro libre (etapa 2) -- NUNCA se aplica
  *  solo: se sugiere según las reglas guardadas de cada fondo, el usuario
