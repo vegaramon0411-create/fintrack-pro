@@ -192,6 +192,7 @@ function renderStep() {
 
   if (st.k === 'ahorros') {
     h += obHogarEmergNote();
+    h += obHogarMetasHtml();
     if (ex.savings > 0 || ex.emerg > 0) {
       h += '<div class="ob-card"><div class="ch"><div class="ci" style="background:var(--g-light)">✅</div><div><b>' + T('Ya tienes registrado', 'Already registered') + '</b><small>' + T('No se vuelve a agregar.', 'It is not added again.') + '</small></div></div>' +
         (ex.savings > 0 ? '<div class="done-row"><span>💵</span><span class="nm">' + T('Ahorro libre', 'Free savings') + '</span><span class="am">' + FT.money(ex.savings, { cents: true }) + '</span></div>' : '') +
@@ -204,7 +205,7 @@ function renderStep() {
   }
 
   if (st.k === 'inversion') {
-    if (ex.invs) h += '<div class="ob-card"><div class="ch"><div class="ci" style="background:var(--g-light)">✅</div><div><b>' + T('Ya tienes ', 'You already have ') + ex.invs + T(' inversión(es) registrada(s)', ' investment(s) registered') + '</b><small>' + T('No se vuelven a agregar. Se editan en Inversiones.', 'They are not added again. Edit them in Investments.') + '</small></div></div></div>';
+    h += obInvEditHtml();
     h += S.invs.map(function (a) { return invHtml(a); }).join('');
     h += '<div class="addbar"><div class="t">' + T('＋ Agregar inversión:', '＋ Add investment:') + '</div><div class="chips">' +
       '<button type="button" data-add="invs:personal">👤 ' + T('Personal', 'Personal') + '</button>' +
@@ -213,7 +214,7 @@ function renderStep() {
   }
 
   if (st.k === 'deudas') {
-    if (ex.debts.length) h += '<div class="ob-card"><div class="ch"><div class="ci" style="background:var(--g-light)">✅</div><div><b>' + T('Ya tienes ', 'You already have ') + ex.debts.length + T(' deuda(s) registrada(s)', ' debt(s) registered') + '</b><small>' + T('No se vuelven a agregar. Se editan en Deudas.', 'They are not added again. Edit them in Debts.') + '</small></div></div></div>';
+    if (ex.debts.length) h += obDebtsListHtml(ex.debts);
     h += S.debts.map(function (a) { return debtHtml(a); }).join('');
     h += '<div class="addbar"><div class="t">' + T('＋ Agregar deuda:', '＋ Add debt:') + '</div><div class="chips">' +
       Object.keys(DEBT_KINDS).map(function (k) { return '<button type="button" data-add="debts:' + k + '">' + DEBT_KINDS[k].ico + ' ' + T(DEBT_KINDS[k].es, DEBT_KINDS[k].en) + '</button>'; }).join('') + '</div></div>';
@@ -349,6 +350,46 @@ function obHemInput() {
   if (raw === '') { S.hemTotal = null; document.getElementById('obHemNote').textContent = obHemNoteText(act, act); return; }   // campo vacío = sin cambio (nunca vaciar el fondo)
   var v = Math.max(0, FT.numMoney(raw) || 0);
   S.hemTotal = v; document.getElementById('obHemNote').textContent = obHemNoteText(v, act);
+}
+﻿var _obInp = 'width:100%;box-sizing:border-box;min-width:0;background:#fff;border:1.5px solid var(--hair);border-radius:10px;padding:9px 10px;font-size:14px;font-family:var(--ui-font)';
+var _obLab = 'display:block;font-size:11px;font-weight:800;color:var(--text2);margin:0 0 3px';
+/** Metas del hogar que ya existen: se muestran con su total y su objetivo, editables (solo se registra la diferencia; nunca se vuelve a depositar lo que ya estaba). */
+function obHogarMetasHtml() {
+  if (!obHogarOn()) return '';
+  var ms = FT.hogarFondos().metas || []; if (!ms.length) return '';
+  return '<div class="ob-card" style="padding:12px"><div style="font-size:12.5px;line-height:1.45"><b>🏠 ' + T('Metas del hogar ya registradas', 'Household goals already registered') + '</b><br><span style="color:var(--text3)">' + T('Ya están: no se vuelven a depositar. Corrige lo que no esté bien.', 'They are already there: not deposited again. Fix anything that is off.') + '</span></div>' +
+    ms.map(function (m, i) {
+      var st = (S.hm && S.hm[m.id]) || {}, tot = st.tot != null ? st.tot : (parseFloat(m.actual) || 0), tgt = st.tgt != null ? st.tgt : (parseFloat(m.meta) || 0);
+      return '<div style="margin-top:8px;border-top:1px solid var(--hair);padding-top:8px"><b style="font-size:13px">🎯 ' + esc(m.nombre || T('Meta', 'Goal')) + '</b>' +
+        '<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;margin-top:5px"><div><label style="' + _obLab + '">' + T('Ahorrado hoy', 'Saved today') + '</label><input type="text" inputmode="decimal" data-i="' + i + '" data-f="tot" value="' + esc(String(tot)) + '" oninput="obHmInput(this)" style="' + _obInp + '"></div>' +
+        '<div><label style="' + _obLab + '">' + T('Meta', 'Goal') + '</label><input type="text" inputmode="decimal" data-i="' + i + '" data-f="tgt" value="' + esc(String(tgt)) + '" oninput="obHmInput(this)" style="' + _obInp + '"></div></div>' +
+        '<div id="obHmNote' + i + '" style="font-size:11px;color:var(--text3);margin-top:3px">' + obHmNoteText(m, st) + '</div></div>';
+    }).join('') + '</div>';
+}
+function obHmNoteText(m, st) { var base = st.base != null ? st.base : (parseFloat(m.actual) || 0), d = st.tot != null ? +(st.tot - base).toFixed(2) : 0; return d === 0 ? T('Sin cambios.', 'No changes.') : T('Se registrará un ajuste de ', 'An adjustment of ') + (d > 0 ? '+' : '') + FT.money(d, { cents: true }) + '.'; }
+function obHmInput(el) {
+  var ms = FT.hogarFondos().metas || [], m = ms[parseInt(el.getAttribute('data-i'), 10)]; if (!m) return;
+  S.hm = S.hm || {}; var st = S.hm[m.id] = S.hm[m.id] || { base: parseFloat(m.actual) || 0 }, f = el.getAttribute('data-f'), raw = String(el.value || '').trim();
+  if (raw === '') delete st[f]; else st[f] = Math.max(0, FT.numMoney(raw) || 0);   // vacío = sin cambio
+  var n = document.getElementById('obHmNote' + el.getAttribute('data-i')); if (n) n.textContent = obHmNoteText(m, st);
+}
+/** Inversiones que ya tienes (personales y del hogar) con su valor, editable. */
+function obInvEditHtml() {
+  var all = [];
+  ['', 'hogar'].forEach(function (sc) { (FT.investments(sc) || []).forEach(function (it, i) { all.push({ sc: sc, i: i, it: it }); }); });
+  if (!all.length) return '';
+  return '<div class="ob-card" style="padding:12px"><div style="font-size:12.5px;line-height:1.45"><b>✅ ' + T('Ya tienes ', 'You already have ') + all.length + T(' inversión(es) registrada(s)', ' investment(s) registered') + '</b><br><span style="color:var(--text3)">' + T('No se vuelven a agregar. Corrige su valor si cambió.', 'They are not added again. Fix the value if it changed.') + '</span></div>' +
+    all.map(function (x) {
+      var key = x.sc + ':' + x.i, cur = (S.inv && S.inv[key] != null) ? S.inv[key] : (parseFloat(x.it.amount) || (parseFloat(x.it.shares) || 0) * (parseFloat(x.it.curPrice) || 0));
+      return '<div style="margin-top:8px;border-top:1px solid var(--hair);padding-top:8px"><label style="' + _obLab + '">' + (x.sc === 'hogar' ? '🏠 ' : '👤 ') + esc(x.it.ticker || x.it.name || T('Inversión', 'Investment')) + ' · ' + T('valor hoy', 'value today') + '</label><input type="text" inputmode="decimal" data-k="' + esc(key) + '" value="' + esc(String(cur)) + '" oninput="obInvInput(this)" style="' + _obInp + '"></div>';
+    }).join('') + '</div>';
+}
+function obInvInput(el) { S.inv = S.inv || {}; var raw = String(el.value || '').trim(); if (raw === '') delete S.inv[el.getAttribute('data-k')]; else S.inv[el.getAttribute('data-k')] = Math.max(0, FT.numMoney(raw) || 0); }
+/** Deudas que ya tienes: a la vista; el detalle (abonos, intereses) se edita en Deudas para no descuadrarlo. */
+function obDebtsListHtml(list) {
+  return '<div class="ob-card" style="padding:12px"><div style="font-size:12.5px;line-height:1.45"><b>✅ ' + T('Ya tienes ', 'You already have ') + list.length + T(' deuda(s) registrada(s)', ' debt(s) registered') + '</b><br><span style="color:var(--text3)">' + T('No se vuelven a agregar.', 'They are not added again.') + '</span></div>' +
+    list.map(function (d) { return '<div class="done-row"><span>' + (d.owner === 'both' ? '🏠' : '💳') + '</span><span class="nm">' + esc(d.name || T('Deuda', 'Debt')) + '</span><span class="am">' + FT.money(parseFloat(d.balance) || 0, { cents: true }) + '</span></div>'; }).join('') +
+    '<button type="button" class="link-btn" onclick="FT.go(\'deudas.html\')">' + T('Editar en Deudas ›', 'Edit in Debts ›') + '</button></div>';
 }
 /** Lo que el hogar ya tiene (fondos, metas, cuentas conjuntas, inversiones, deudas compartidas): aparece como dato por defecto y no se vuelve a agregar. */
 function obHogarExistingHtml() {
@@ -614,6 +655,10 @@ function doSaveOnboarding() {
   if (goalsAdded) FT.saveGoals(personalGoals);
   // Total del fondo de emergencia del hogar corregido en el paso de Ahorros: se registra solo la DIFERENCIA, nunca un depósito nuevo completo.
   if (S.hemTotal != null && hogarOn_) { var ff = FT.hogarFondos(), act0 = parseFloat((ff.emerg || {}).actual) || 0, dlt = +(S.hemTotal - (S.hemBase != null ? S.hemBase : act0)).toFixed(2); if (Math.abs(dlt) > 0.004) { ff.emerg = ff.emerg || { meta: 0, fecha: '', actual: 0, hist: [] }; ff.emerg.hist = (ff.emerg.hist || []).concat([{ id: ridH('adj_'), monto: dlt, fecha: hoy, desdePres: false, nota: T('Ajuste al configurar', 'Adjustment when setting up') }]); ff.emerg.actual = ff.emerg.hist.reduce(function (s, h) { return s + (h.monto || 0); }, 0); FT.saveHogarFondos(ff); } S.hemTotal = null; S.hemBase = null; }
+  // Metas del hogar corregidas: solo la diferencia (ajuste) y el objetivo nuevo; nunca un depósito completo.
+  if (S.hm && hogarOn_) { var fm = FT.hogarFondos(), chg = false; Object.keys(S.hm).forEach(function (id) { var st = S.hm[id], m = (fm.metas || []).find(function (x) { return String(x.id) === String(id); }); if (!m) return; if (st.tot != null) { var dl = +(st.tot - (st.base != null ? st.base : (parseFloat(m.actual) || 0))).toFixed(2); if (Math.abs(dl) > 0.004) { m.hist = (m.hist || []).concat([{ id: ridH('adj_'), monto: dl, fecha: hoy, desdePres: false, nota: T('Ajuste al configurar', 'Adjustment when setting up') }]); m.actual = m.hist.reduce(function (s, h) { return s + (h.monto || 0); }, 0); chg = true; } } if (st.tgt != null && st.tgt > 0 && st.tgt !== (parseFloat(m.meta) || 0)) { m.meta = st.tgt; chg = true; } }); if (chg) FT.saveHogarFondos(fm); S.hm = null; }
+  // Inversiones ya registradas con el valor corregido.
+  if (S.inv) { ['', 'hogar'].forEach(function (sc) { var li = FT.investments(sc) || [], ch2 = false; Object.keys(S.inv).forEach(function (k) { var p = k.split(':'); if (p[0] !== sc) return; var it = li[parseInt(p[1], 10)]; if (!it) return; var v = S.inv[k], sh = parseFloat(it.shares) || 1; if (v !== (parseFloat(it.amount) || 0)) { it.amount = v; it.curPrice = +(v / sh).toFixed(4); ch2 = true; } }); if (ch2) FT.saveInvestments(li, sc); }); S.inv = null; }
   S.savings.forEach(function (a) { if (a.kind === 'meta') a._saved = true; });
 
   // Inversiones
