@@ -48,6 +48,7 @@ function render() {
 
   '<div class="section"><div class="section-title">' + (L ? 'DATOS' : 'DATA') + '</div><div class="card">' +
     row('📤', 'var(--g-light)', L ? 'Exportar respaldo' : 'Export backup', L ? 'Todo tu historial, deudas, fondos e inversiones' : 'All your history, debts, funds and investments', 'exportData()') +
+    row('📊', 'var(--sunk)', L ? 'Descargar solo movimientos' : 'Download movements only', L ? 'Gastos e ingresos de hogar y personal, para Excel (CSV) o JSON' : 'Household and personal spending and income, as Excel (CSV) or JSON', "location.href='historial.html?tools=1'") +
     row('📥', 'var(--sky-bg)', L ? 'Restaurar respaldo' : 'Restore backup', L ? 'Desde un archivo .json exportado antes' : 'From a previously exported .json file', "document.getElementById('importFileInput').click()") +
     '<input type="file" id="importFileInput" accept=".json" style="display:none" onchange="importData(event)">' +
     '<div class="setting-row tap" style="cursor:pointer" onclick="clearData()"><div class="setting-ico" style="background:var(--red-dim)">🗑️</div><div class="setting-info"><div class="setting-label" style="color:var(--red)">' + (L ? 'Borrar todos mis datos' : 'Clear all my data') + '</div><div class="setting-sub">' + (L ? 'Esto no se puede deshacer' : 'This cannot be undone') + '</div></div><div class="setting-ctrl" style="color:var(--red)">›</div></div>' +

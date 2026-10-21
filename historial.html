@@ -24,6 +24,7 @@ var catFilter = '', acctFilter = '';
     if (/^\d{4}-(0[1-9]|1[0-2])$/.test(m || '')) selectedMonth = m;
     catFilter = q.get('cat') || '';
     acctFilter = q.get('acct') || '';
+    if (q.get('tools') === '1') document.addEventListener('ft:ready', function () { setTimeout(function () { if (typeof descargarMovimientos === 'function') descargarMovimientos(); }, 500); });
   } catch (e) {}
 })();
 function catMatches(t) {
@@ -171,6 +172,7 @@ function render() {
         '<button class="tap" style="background:var(--sunk);color:var(--text2);border:1.5px solid var(--hair);border-radius:12px;padding:11px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit" onclick="document.getElementById(\'inputRestaurar\').click()">📥 ' + (L ? 'Restaurar respaldo' : 'Restore backup') + '</button>' +
       '</div>' +
       '<input type="file" id="inputRestaurar" accept=".json" style="display:none" onchange="restaurarRespaldo(this.files[0])">' +
+      '<button class="tap" style="width:100%;background:var(--sunk);color:var(--text2);border:1.5px solid var(--hair);border-radius:12px;padding:11px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:8px" onclick="descargarMovimientos()">📊 ' + (L ? 'Descargar solo movimientos' : 'Download movements only') + '</button>' +
       '<div id="dupResults" style="margin-top:12px"></div>' +
     '</div></div>';
 
@@ -227,6 +229,18 @@ document.getElementById('root').addEventListener('click', function (e) {
 function exportarRespaldo() {
   FT.exportBackup();
   FT.toast(es() ? '✅ Respaldo descargado' : '✅ Backup downloaded');
+}
+/** Solo los movimientos (gastos, ingresos, ahorros… de hogar y personal), sin cuentas ni ajustes: para revisarlos en Excel o guardarlos antes de empezar de cero. */
+function descargarMovimientos() {
+  var L = es(), n = (FT.data().transactions || []).length;
+  FT.sheet({
+    title: '📊 ' + (L ? 'Descargar movimientos' : 'Download movements'),
+    html: '<p style="font-size:12.5px;color:var(--text2);margin:0 0 8px;line-height:1.5">' + (L ? 'Tus ' + n + ' movimientos, hogar y personal. No incluye cuentas, deudas ni ajustes, y no cambia nada en la app.' : 'Your ' + n + ' movements, household and personal. Accounts, debts and settings are not included, and nothing changes in the app.') + '</p>',
+    actions: [
+      { label: '📄 ' + (L ? 'Excel (CSV)' : 'Excel (CSV)'), primary: true, onClick: function () { FT.exportMovements('csv'); FT.toast(L ? '✅ Movimientos descargados' : '✅ Movements downloaded'); } },
+      { label: '🗂️ ' + (L ? 'JSON (para volver a importarlos)' : 'JSON (to import again)'), onClick: function () { FT.exportMovements('json'); FT.toast(L ? '✅ Movimientos descargados' : '✅ Movements downloaded'); } }
+    ]
+  });
 }
 function restaurarRespaldo(file) {
   var L = es();
