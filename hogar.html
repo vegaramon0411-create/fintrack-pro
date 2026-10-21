@@ -735,10 +735,11 @@ function tabResumen(calc) {
   return '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">' +
     '<div class="ft-card" style="margin-bottom:0"><div style="width:36px;height:36px;border-radius:50%;background:var(--g-main);color:#fff;display:grid;place-items:center;font-weight:800;margin-bottom:8px">' + (FT.userName() || 'T').charAt(0).toUpperCase() + '</div>' +
     '<div style="font-size:12px;font-weight:800">' + (FT.userName() || (L ? 'Tú' : 'You')) + '</div><div style="font-size:11px;color:var(--text3);margin-bottom:8px">' + FT.money(calc.myIncome) + '/mes</div>' +
-    '<div style="display:flex;justify-content:space-between;font-size:11px"><span style="color:var(--text3)">' + (L ? 'Aporte hogar' : 'Household share') + '</span><span style="font-weight:700">' + FT.money(calc.mySharedPart) + '</span></div></div>' +
+    '<div style="display:flex;justify-content:space-between;font-size:11px"><span style="color:var(--text3)">' + (L ? 'Tu parte del gasto' : 'Your share of spending') + '</span><span style="font-weight:700">' + FT.money(calc.mySharedPart) + '</span></div>' +
+    '<div style="display:flex;justify-content:space-between;font-size:11px;margin-top:3px"><span style="color:var(--text3)">' + (L ? 'Has aportado' : 'You contributed') + '</span><span style="font-weight:700">' + FT.money(calc.fondoAportado) + '</span></div></div>' +
     '<div class="ft-card" style="margin-bottom:0"><div style="width:36px;height:36px;border-radius:50%;background:var(--blue);color:#fff;display:grid;place-items:center;font-weight:800;margin-bottom:8px">' + _escHg((FT.hogar().partnerName || 'P').charAt(0).toUpperCase()) + '</div>' +
     '<div style="font-size:12px;font-weight:800">' + _escHg(FT.hogar().partnerName || (L ? 'Pareja' : 'Partner')) + '</div><div style="font-size:11px;color:var(--text3);margin-bottom:8px">' + FT.money(calc.partnerIncome) + '/mes</div>' +
-    '<div style="display:flex;justify-content:space-between;font-size:11px"><span style="color:var(--text3)">' + (L ? 'Aporte hogar' : 'Household share') + '</span><span style="font-weight:700">' + FT.money(calc.partnerSharedPart) + '</span></div></div>' +
+    '<div style="display:flex;justify-content:space-between;font-size:11px"><span style="color:var(--text3)">' + (L ? 'Su parte del gasto' : 'Their share of spending') + '</span><span style="font-weight:700">' + FT.money(calc.partnerSharedPart) + '</span></div></div>' +
   '</div>' +
   '<div class="ft-card" style="text-align:center;background:' + (sobrante < 0 ? 'var(--red-dim)' : 'var(--g-light)') + '">' +
     '<div style="font-size:11px;color:var(--text3);margin-bottom:2px">' + (L ? 'Cuánto te está sobrando a ti' : 'How much you have left over') + '</div>' +
