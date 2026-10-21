@@ -552,42 +552,46 @@ function openEmergDetail() {
   var list = (tx || []).filter(function (t) { return t.type === 'ingreso' && t.incomeKind === 'cheque'; }).sort(function (a, b) { return String(b.date || '').localeCompare(String(a.date || '')); }).slice(0, 5);
   return { known: known, list: list };
 }
-function openChequesSheet() {
-  var L = es(), list = _myCheques().slice(0, 8), pn = _escHg(FT.hogar().partnerName || (L ? 'tu pareja' : 'your partner'));
+﻿function openChequesSheet() {
+  var L = es(), list = _myCheques().slice(0, 8), pnFull = FT.hogar().partnerName || (L ? 'tu pareja' : 'your partner'), pn = _escHg(String(pnFull).split(' ')[0]);
   var ph = _partnerCheques(), unP = FT.partnerUnassigned();
   // Pendientes de la pareja que ya no vienen en sus movimientos sincronizados (mes anterior): también se listan.
   unP.forEach(function (u) { if (!ph.list.some(function (t) { return String(t.id) === String(u.txId); })) ph.list.push({ id: u.txId, date: u.fecha, amount: u.total, _hogar: true }); });
-  var chip = function (txt, bg, col) { return '<span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:99px;background:' + bg + ';color:' + col + '">' + txt + '</span>'; };
+  var SHOW = 3;
   var rows = list.map(function (c) {
     var sin = parseFloat(c.hogarSinAsignar) || 0, names = (c.asignaciones || []).map(function (a) { return _escHg(a.acctName || '') + ' ' + FT.money(a.amount, { cents: true }); }).join(' · ');
     var id = _safeId(c.id);
-    return '<div class="ft-row" style="align-items:center;gap:8px"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700">' + FT.date(c.fecha) + ' · ' + L2(L, 'Hogar ', 'Household ') + FT.money(parseFloat(c.hogarAmt) || 0, { cents: true }) + '</div>' +
+    return '<div class="ft-row" style="align-items:center;gap:8px"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700">' + FT.date(c.fecha) + ' · ' + FT.money(parseFloat(c.hogarAmt) || 0, { cents: true }) + '</div>' +
       '<div style="font-size:11.5px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + (sin > 0.5 ? '<span style="color:#B7791F;font-weight:700">' + L2(L, 'Falta repartir ', 'Left to split ') + FT.money(sin, { cents: true }) + '</span>' : (names || L2(L, 'Asignado', 'Assigned'))) + '</div></div>' +
       (sin > 0.5 ? '<button type="button" class="ft-btn ft-btn-primary tap" data-asg="' + id + '" style="margin:0;width:auto;padding:7px 12px;font-size:12.5px">' + L2(L, 'Asignar', 'Assign') + '</button>'
         : ((c.asignaciones || []).length ? '<button type="button" class="tap" data-und="' + id + '" style="border:0;background:none;color:var(--blue);font-weight:700;font-size:12px;cursor:pointer;font-family:inherit">' + L2(L, 'Deshacer', 'Undo') + '</button>' : '')) + '</div>';
-  }).join('');
+  });
   var prow = ph.list.map(function (t) {
     var u = unP.find(function (x) { return String(x.txId) === String(t.id); });
     var right, sub;
     if (u) { right = _sentFor(u.id) ? '<span style="font-size:12px;color:var(--text3)">⏳ ' + L2(L, 'Enviado', 'Sent') + '</span>' : '<button type="button" class="ft-btn ft-btn-primary tap" data-pasg="' + _safeId(u.id) + '" style="margin:0;width:auto;padding:7px 12px;font-size:12.5px">' + L2(L, 'Asignar', 'Assign') + '</button>'; sub = '<span style="color:#B7791F;font-weight:700">' + L2(L, 'Falta repartir ', 'Left to split ') + FT.money(u.monto, { cents: true }) + '</span>'; }
-    else if (ph.known) { right = ''; sub = L2(L, 'Repartido en sus cuentas', 'Split across their accounts'); }
-    else { right = ''; sub = L2(L, 'No sabemos si está repartido: ' + pn + ' debe abrir la app actualizada', 'Split status unknown: ' + pn + ' needs to open the updated app'); }
+    else if (ph.known) { right = ''; sub = L2(L, 'Repartido', 'Split'); }
+    else { right = ''; sub = L2(L, 'Sin dato: debe abrir la app actualizada', 'Unknown: needs the updated app'); }
     return '<div class="ft-row" style="align-items:center;gap:8px"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700">' + FT.date(t.date) + ' · ' + FT.money(parseFloat(t.amount) || 0, { cents: true }) + '</div><div style="font-size:11.5px;color:var(--text3)">' + sub + '</div></div>' + right + '</div>';
-  }).join('');
-  var sec = function (title, tagTxt, bg, col, note) { return '<div style="display:flex;justify-content:space-between;align-items:center;margin:12px 0 2px"><b style="font-size:13px">' + title + '</b>' + chip(tagTxt, bg, col) + '</div><div style="font-size:11px;color:var(--text3);margin-bottom:2px">' + note + '</div>'; };
+  });
+  // Primeros 3 visibles; el resto detrás de "Ver más".
+  function block(items, key) {
+    if (!items.length) return '';
+    return items.slice(0, SHOW).join('') + (items.length > SHOW ? '<div id="more_' + key + '" hidden>' + items.slice(SHOW).join('') + '</div><button type="button" class="tap" data-more="' + key + '" style="display:block;width:100%;border:0;background:none;color:var(--text3);font:600 12px inherit;font-family:inherit;cursor:pointer;padding:6px 0">' + L2(L, 'Ver más (' + (items.length - SHOW) + ')', 'Show more (' + (items.length - SHOW) + ')') + ' ▾</button>' : '');
+  }
+  var head = function (title, linkTxt, linkId, note) { return '<div style="display:flex;justify-content:space-between;align-items:center;margin:12px 0 2px"><b style="font-size:13.5px">' + title + '</b>' + (linkTxt ? '<button type="button" class="tap" id="' + linkId + '" style="border:0;background:none;color:var(--blue);font:700 12px inherit;font-family:inherit;cursor:pointer;padding:4px 0">⚙ ' + linkTxt + '</button>' : '') + '</div>' + (note ? '<div style="font-size:11px;color:var(--text3);margin-bottom:2px">' + note + '</div>' : ''); };
   var connected = FT.hogar().connected;
   FT.sheet({
     title: '🧾 ' + L2(L, 'Cheques del hogar', 'Household paychecks'),
-    html: sec(L2(L, 'Tus cheques', 'Your paychecks'), L2(L, '👤 TUYOS', '👤 YOURS'), 'var(--sky-bg)', 'var(--blue)', L2(L, 'Lo que hagas aquí cambia solo TUS cuentas.', 'What you do here only changes YOUR accounts.')) +
-      (rows ? '<div id="chqRows">' + rows + '</div>' : '<div class="ft-empty">' + L2(L, 'Aún no has registrado cheques', 'No paychecks recorded yet') + '</div>') +
-      (connected ? sec(L2(L, 'Cheques de ' + pn, pn + "'s paychecks"), '🏠 ' + L2(L, 'DE ' + pn.toUpperCase(), 'THEIRS'), 'var(--g-light)', 'var(--g-dark)', L2(L, 'Si asignas aquí, se le envía a ' + pn + ': lo ve y puede deshacerlo.', 'If you assign here, it is sent to ' + pn + ': they see it and can undo it.')) +
-        (prow ? '<div id="chqRowsP">' + prow + '</div>' : '<div class="ft-empty">' + L2(L, 'Sin cheques de ' + pn + ' este mes', 'No paychecks from ' + pn + ' this month') + '</div>') : '') +
-      '<p style="font-size:11px;color:var(--text3);margin:10px 0 0">' + L2(L, '¿Se registró mal un cheque? Elimínalo en Depósitos y regístralo de nuevo.', 'Recorded one wrong? Delete it in Deposits and record it again.') + '</p>',
-    actions: [
-      { label: '＋ ' + L2(L, 'Registrar mi cheque', 'Log my paycheck'), primary: true, onClick: function () { FT.openCheque({ onDone: function () { render(); } }); } },
-      { label: '👤 ' + L2(L, 'Cambiar MIS reglas (mis cuentas)', 'Change MY rules (my accounts)'), onClick: function () { FT.openMisReglas({ onDone: function () { render(); } }); } }
-    ].concat(connected ? [{ label: '🏠 ' + L2(L, 'Cambiar las reglas de ' + pn, 'Change ' + pn + "'s rules"), onClick: function () { FT.openReglaPareja(); } }] : []),
+    html: head('<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--blue);margin-right:6px"></span>' + L2(L, 'Tus cheques', 'Your paychecks'), L2(L, 'Mis reglas', 'My rules'), 'chqMyRules', '') +
+      (rows.length ? block(rows, 'm') : '<div class="ft-empty">' + L2(L, 'Aún no has registrado cheques', 'No paychecks recorded yet') + '</div>') +
+      (connected ? head('<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--g-main);margin-right:6px"></span>' + L2(L, 'Cheques de ' + pn, pn + "'s paychecks"), L2(L, 'Sus reglas', 'Their rules'), 'chqPartnerRules', L2(L, 'Lo que asignes se le envía a ' + pn + ' y puede deshacerlo.', 'What you assign is sent to ' + pn + ', who can undo it.')) +
+        (prow.length ? block(prow, 'p') : '<div class="ft-empty">' + L2(L, 'Sin cheques de ' + pn + ' este mes', 'No paychecks from ' + pn + ' this month') + '</div>') : ''),
+    actions: [{ label: '＋ ' + L2(L, 'Registrar mi cheque', 'Log my paycheck'), primary: true, onClick: function () { FT.openCheque({ onDone: function () { render(); } }); } }],
     onOpen: function (body) {
+      body.querySelectorAll('[data-more]').forEach(function (b) { b.onclick = function () { var m = body.querySelector('#more_' + b.getAttribute('data-more')); if (m) { m.hidden = false; b.remove(); } }; });
+      var mr = body.querySelector('#chqMyRules'); if (mr) mr.onclick = function () { FT.openMisReglas({ onDone: function () { render(); } }); };
+      var pr = body.querySelector('#chqPartnerRules'); if (pr) pr.onclick = function () { FT.openReglaPareja(); };
       body.querySelectorAll('[data-asg]').forEach(function (b) { b.onclick = function () { var c = FT.cheques().find(function (x) { return _safeId(x.id) === b.getAttribute('data-asg'); }); if (!c) return; FT.closeTop(); FT.openAsignar({ target: 'mine', chequeId: c.id, monto: c.hogarSinAsignar, fecha: c.fecha, total: c.hogarAmt }); }; });
       body.querySelectorAll('[data-pasg]').forEach(function (b) { b.onclick = function () { var u = FT.partnerUnassigned().find(function (x) { return _safeId(x.id) === b.getAttribute('data-pasg'); }); if (!u) return; FT.closeTop(); FT.openAsignar({ target: 'partner', chequeId: u.id, monto: u.monto, fecha: u.fecha, total: u.total, partnerName: FT.hogar().partnerName }); }; });
       body.querySelectorAll('[data-und]').forEach(function (b) { b.onclick = function () {
