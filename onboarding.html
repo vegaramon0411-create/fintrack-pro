@@ -326,6 +326,27 @@ document.getElementById('stepBody').addEventListener('click', function (e) {
    Mismo mecanismo que hogar.html (FT.createInvite/acceptInvite/checkPartner/
    saveHogar/FT.hogar()), no una versión aparte. */
 var _obPollTimer = null;
+/** % de cada cheque que va al hogar (gastos + ahorro del hogar) con el monto por cheque calculado de tu ingreso y frecuencia. */
+function obSplitHtml() {
+  var L = FT.lang === 'es', h = FT.hogar();
+  return '<div style="margin-top:12px;border-top:1px solid var(--hair);padding-top:10px"><b style="font-size:13px">' + (L ? '¿Qué parte de cada cheque va al hogar?' : 'What part of each paycheck goes to the household?') + '</b>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px"><div><label for="obPayPct">' + (L ? 'Gastos del hogar %' : 'Household bills %') + '</label><input id="obPayPct" type="text" inputmode="decimal" value="' + (parseFloat(h.payPctHogar) || 50) + '" oninput="obSplitInput()"></div>' +
+    '<div><label for="obSavePct">' + (L ? 'Ahorro del hogar %' : 'Household savings %') + '</label><input id="obSavePct" type="text" inputmode="decimal" value="' + (h.saveHogarPct != null ? parseFloat(h.saveHogarPct) : 10) + '" oninput="obSplitInput()"></div></div>' +
+    '<div id="obSplitPrev" class="mini-note" style="margin-top:8px">' + obSplitPrevText() + '</div></div>';
+}
+function obSplitPrevText() {
+  var L = FT.lang === 'es', h = FT.hogar(), u = FT.user(), inc = parseFloat(u.income) || 0, per = FT.checksPerMonth(u.payFreq), tot = (parseFloat(h.payPctHogar) || 50) + (h.saveHogarPct != null ? parseFloat(h.saveHogarPct) : 10);
+  var fq = L ? { weekly: 'semanal', biweekly: 'quincenal', monthly: 'mensual' }[u.payFreq || 'monthly'] : { weekly: 'weekly', biweekly: 'biweekly', monthly: 'monthly' }[u.payFreq || 'monthly'];
+  if (!inc) return L ? 'Cuando pongas tu ingreso (en Perfil) verás aquí cuánto es de cada cheque.' : 'Once you set your income (in Profile) you will see the per-paycheck amount here.';
+  var chk = inc / per;
+  return (L ? 'Cheque ' + fq + ' de ' : fq.charAt(0).toUpperCase() + fq.slice(1) + ' paycheck of ') + '<b>' + FT.money(chk) + '</b>: 🏠 <b>' + FT.money(chk * tot / 100) + '</b> ' + (L ? 'al hogar' : 'to household') + ' (' + tot + '%) · 👤 <b>' + FT.money(chk * (100 - tot) / 100) + '</b> ' + (L ? 'para ti' : 'for you');
+}
+function obSplitInput() {
+  var a = FT.numMoney(document.getElementById('obPayPct').value), b = FT.numMoney(document.getElementById('obSavePct').value);
+  a = Math.max(0, Math.min(100, a || 0)); b = Math.max(0, Math.min(100 - a, b || 0));
+  var h = FT.hogar(); h.payPctHogar = a; h.saveHogarPct = b; FT.saveHogar(h);
+  document.getElementById('obSplitPrev').innerHTML = obSplitPrevText();
+}
 function renderHogarCard() {
   var L = FT.lang === 'es';
   var h = FT.hogar();
@@ -336,7 +357,7 @@ function renderHogarCard() {
       '<div class="ch"><div class="ci" style="background:var(--g-light)">🏠</div>' +
         '<div><b>' + (L ? 'Hogar conectado' : 'Household connected') + '</b>' +
         '<small>' + (L ? 'Con ' : 'With ') + esc(h.partnerName || (L ? 'tu pareja' : 'your partner')) + '</small></div></div>' +
-      '<div class="mini-note">' + (L ? 'Ya puedes marcar cuentas como "Conjunta".' : 'You can now mark accounts as "Joint".') + '</div>';
+      '<div class="mini-note">' + (L ? 'Ya puedes marcar cuentas como "Conjunta".' : 'You can now mark accounts as "Joint".') + '</div>' + obSplitHtml();
     return;
   }
   if (h.pendingInvite) {
@@ -354,7 +375,7 @@ function renderHogarCard() {
         '<button type="button" class="add-row" style="flex:1;border-style:solid;color:var(--g-dark);border-color:var(--g-main)" onclick="obCopyCode(\'' + esc(link) + '\')">📋 ' + (L ? 'Copiar link' : 'Copy link') + '</button>' +
         '<button type="button" class="add-row" style="flex:0 0 100px;color:var(--red)" onclick="obCancelInvite()">' + (L ? 'Cancelar' : 'Cancel') + '</button>' +
       '</div>' +
-      '<div class="mini-note">' + (L ? 'Puedes seguir sin esperar: tu parte del hogar queda lista y se conecta cuando tu pareja entre.' : 'You can keep going: your household part is ready and connects when your partner joins.') + '</div>';
+      obSplitHtml() + '<div class="mini-note">' + (L ? 'Puedes seguir sin esperar: tu parte del hogar queda lista y se conecta cuando tu pareja entre.' : 'You can keep going: your household part is ready and connects when your partner joins.') + '</div>';
     startObPolling();
     return;
   }

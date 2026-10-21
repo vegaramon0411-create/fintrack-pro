@@ -1962,6 +1962,58 @@ FT.openReglaPareja = function () {
   }
   return ov;
 };
+/** Cheques por mes según la frecuencia de pago (semanal 4, quincenal 2, mensual 1). */
+FT.checksPerMonth = function (freq) { return freq === 'weekly' ? 4 : freq === 'biweekly' ? 2 : 1; };
+/** Monto sugerido de cada cheque: ingreso mensual ÷ cheques por mes. */
+FT.expectedCheque = function () { var u = FT.user(); return +((parseFloat(u.income) || 0) / FT.checksPerMonth(u.payFreq)).toFixed(2); };
+/** "Recibí mi cheque": el monto sale solo del ingreso y la frecuencia (semanal / quincenal / mensual); se puede cambiar. o = { onDone } */
+FT.openCheque = function (o) {
+  o = o || {};
+  var es = FT.lang === 'es', h = FT.hogar(), u = FT.user();
+  var totH = (parseFloat(h.payPctHogar) || 50) + (parseFloat(h.saveHogarPct) || 10);
+  var expected = FT.expectedCheque(), st = { tipo: 'nuevo' };
+  var freqName = es ? { weekly: 'semanal', biweekly: 'quincenal', monthly: 'mensual' }[u.payFreq || 'monthly'] : { weekly: 'weekly', biweekly: 'biweekly', monthly: 'monthly' }[u.payFreq || 'monthly'];
+  return FT.modal({
+    title: es ? 'Recibí mi cheque' : 'I got paid',
+    html:
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">' +
+        '<button type="button" id="cNuevo" class="tap" style="padding:9px;border-radius:10px;border:1.5px solid var(--g-main);background:var(--g-light);color:var(--g-dark);font-weight:800;font-family:var(--ui-font)">' + (es ? 'Nuevo (ingreso)' : 'New (income)') + '</button>' +
+        '<button type="button" id="cExist" class="tap" style="padding:9px;border-radius:10px;border:1px solid var(--hair);background:var(--sunk);color:var(--text2);font-weight:800;font-family:var(--ui-font)">' + (es ? 'Ya lo tenía' : 'Already had it') + '</button>' +
+      '</div>' +
+      '<div class="ft-field"><label>' + (es ? 'Monto recibido' : 'Amount received') + '</label><input id="cMonto" inputmode="decimal" value="' + (expected > 0 ? expected.toFixed(2) : '') + '"></div>' +
+      (expected > 0 ? '<div style="font-size:11px;color:var(--text3);margin:-6px 0 8px">' + (es ? 'Sugerido por tu ingreso: cheque ' + freqName + '. Si cobraste distinto, cámbialo.' : 'Suggested from your income: ' + freqName + ' paycheck. Change it if you got paid differently.') + '</div>'
+        : '<div style="font-size:11px;color:var(--amber,#8a5a00);margin:-6px 0 8px">' + (es ? 'Aún no hay ingreso configurado. Se define en Perfil.' : 'No income set yet. Set it in Profile.') + '</div>') +
+      '<div id="cPrev" style="background:var(--sunk);border-radius:11px;padding:11px;font-size:11.5px;color:var(--text2);margin-bottom:6px"></div>',
+    saveLabel: es ? 'Registrar cheque' : 'Log paycheck',
+    onOpen: function (body) {
+      var n = body.querySelector('#cNuevo'), x = body.querySelector('#cExist'), inp = body.querySelector('#cMonto');
+      function sel(on, off) { on.style.borderColor = 'var(--g-main)'; on.style.background = 'var(--g-light)'; on.style.color = 'var(--g-dark)'; off.style.borderColor = 'var(--hair)'; off.style.background = 'var(--sunk)'; off.style.color = 'var(--text2)'; }
+      n.onclick = function () { st.tipo = 'nuevo'; sel(n, x); prev(); };
+      x.onclick = function () { st.tipo = 'existente'; sel(x, n); prev(); };
+      inp.oninput = prev;
+      function prev() {
+        var m = FT.numMoney(inp.value) || 0, hogarAmt = m * totH / 100, persAmt = m - hogarAmt, savPct = u.savingsPct != null ? u.savingsPct : 20;
+        body.querySelector('#cPrev').innerHTML = m > 0
+          ? (es ? 'Se reparte: ' : 'Split: ') + '<b>🏠 ' + FT.money(hogarAmt) + '</b> ' + (es ? 'hogar · ' : 'household · ') + '<b>👤 ' + FT.money(persAmt) + '</b> ' + (es ? 'personal' : 'personal') +
+            (st.tipo === 'nuevo' ? '<br>' + (es ? 'De tu parte personal, ' : 'Of your personal share, ') + '<b>' + FT.money(Math.round(persAmt * savPct / 100)) + '</b> (' + savPct + '%) ' + (es ? 'a Ahorro libre — «págate primero».' : 'to Free savings — "pay yourself first".') : '')
+          : '';
+      }
+      prev();
+    },
+    onSave: function (body) {
+      var m = FT.numMoney(body.querySelector('#cMonto').value);
+      if (!m || m <= 0) { FT.toast(es ? 'Ingresa el monto' : 'Enter the amount'); return true; }
+      var r = FT.recordCheque({ monto: m, tipo: st.tipo });
+      if (r) {
+        FT.toast('✅ ' + FT.money(r.monto) + (r.autoSaved > 0 ? ' · ' + FT.money(r.autoSaved) + (es ? ' a Ahorro libre' : ' to Free savings') : ''));
+        // La parte del hogar que ninguna regla cubrió: se abre la hoja para asignarla en el momento (nunca se pierde).
+        if (r.hogarSinAsignar > 0.5) setTimeout(function () { try { FT.openAsignar({ target: 'mine', chequeId: r.chequeId, monto: r.hogarSinAsignar, fecha: r.fecha, total: r.hogarAmt }); } catch (e) {} }, 900);
+        if (r.fondoSinAsignar > 0.5) setTimeout(function () { FT.toast((es ? '💵 ' + FT.money(r.fondoSinAsignar) + ' sin repartir a ningún fondo -- sigue disponible en tu presupuesto' : '💵 ' + FT.money(r.fondoSinAsignar) + ' not assigned to any fund -- still available in your budget'), { ms: 4500 }); }, 5700);
+      }
+      if (o.onDone) o.onDone(r);
+    }
+  });
+};
 /** Mis reglas de reparto del hogar: una regla por cuenta conjunta (no recibe / monto fijo / porcentaje / lo que sobre),
  *  con una barra y montos de ejemplo que se mueven mientras escribes. Aplica a los PRÓXIMOS cheques. o = { onDone, sample } */
 FT.openMisReglas = function (o) {
@@ -1980,10 +2032,11 @@ FT.openMisReglas = function (o) {
     var left = +(sample - used).toFixed(2);
     box.querySelector('#mrBar').innerHTML = rows.map(function (r, i) { return '<i style="display:block;height:100%;width:' + (sample > 0 ? (out[r.id] || 0) / sample * 100 : 0) + '%;background:' + COLORS[i % COLORS.length] + '"></i>'; }).join('');
     box.querySelector('#mrLeg').innerHTML = rows.filter(function (r) { return (out[r.id] || 0) > 0.004; }).map(function (r) { var i = rows.indexOf(r); return '<div style="display:flex;justify-content:space-between;font-size:12.5px;padding:2px 0"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;background:' + COLORS[i % COLORS.length] + '"></span>' + _escH(r.name) + '</span><b>' + FT.money(out[r.id], { cents: true }) + '</b></div>'; }).join('') || '<div style="font-size:12px;color:var(--text3)">' + (L ? 'Ninguna cuenta recibe dinero todavía.' : 'No account receives money yet.') + '</div>';
-    box.querySelector('#mrWarn').innerHTML = left > 0.004 ? '<div style="font-size:12px;color:#8a5a00;background:#FFF3DF;border-radius:9px;padding:8px 10px;margin-top:8px">' + (L ? 'Sobrarían ' + FT.money(left, { cents: true }) + ' sin destino: quedarían "sin asignar". Pon "Lo que sobre" en una cuenta.' : FT.money(left, { cents: true }) + ' would be left unassigned. Set "The rest" on one account.') + '</div>' : '';
+    var req = 0; items().forEach(function (it) { if (it.rule && it.rule.type === 'fixed') req += it.rule.value; if (it.rule && it.rule.type === 'pct') req += sample * it.rule.value / 100; });
+    box.querySelector('#mrWarn').innerHTML = req > sample + 0.004 ? '<div style="font-size:12px;color:#8a5a00;background:#FFF3DF;border-radius:9px;padding:8px 10px;margin-top:8px">' + (L ? 'Pides ' + FT.money(req, { cents: true }) + ' y el ejemplo solo tiene ' + FT.money(sample, { cents: true }) + '. A cada cheque se le da lo que alcance, en orden: primero los montos fijos.' : 'You ask for ' + FT.money(req, { cents: true }) + ' but the example only has ' + FT.money(sample, { cents: true }) + '. Each paycheck gives what it can, fixed amounts first.') + '</div>' : left > 0.004 ? '<div style="font-size:12px;color:#8a5a00;background:#FFF3DF;border-radius:9px;padding:8px 10px;margin-top:8px">' + (L ? 'Sobrarían ' + FT.money(left, { cents: true }) + ' sin destino: quedarían "sin asignar". Pon "Lo que sobre" en una cuenta.' : FT.money(left, { cents: true }) + ' would be left unassigned. Set "The rest" on one account.') + '</div>' : '';
   }
   function paint(box) {
-    var h = '<p style="font-size:12.5px;color:var(--text2);margin:0 0 10px">' + (L ? 'Así se repartirá la parte del hogar de tus próximos cheques, sin que tengas que hacer nada. Los cheques ya asignados no cambian.' : 'This is how the household part of your next paychecks will split, with nothing for you to do. Already-assigned paychecks do not change.') + '</p>' +
+    var h = '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:99px;background:var(--sky-bg);color:var(--blue)">👤 ' + (L ? 'SOLO TUS CUENTAS' : 'ONLY YOUR ACCOUNTS') + '</span></div><p style="font-size:12.5px;color:var(--text2);margin:0 0 10px">' + (L ? 'Así se repartirá la parte del hogar de TUS próximos cheques entre tus cuentas conjuntas, sin que tengas que hacer nada. No cambia las reglas de tu pareja ni los cheques ya asignados.' : 'This is how the household part of YOUR next paychecks splits across your joint accounts, with nothing for you to do. It does not change your partner\'s rules or already-assigned paychecks.') + '</p>' +
       '<div class="ft-field"><label>' + (L ? 'Ejemplo: parte del hogar de un cheque' : 'Example: household part of a paycheck') + '</label><input id="mrSample" inputmode="decimal" value="' + sample + '"></div>';
     rows.forEach(function (r, i) {
       h += '<div style="display:grid;grid-template-columns:1fr auto auto;gap:6px;align-items:center;padding:8px 0;border-top:1px solid var(--hair);font-size:13px"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;background:' + COLORS[i % COLORS.length] + '"></span><b>' + _escH(r.name) + '</b></span>' +
@@ -3219,6 +3272,7 @@ function openPicker(o) {
   if (document.querySelector('[data-picker="1"]')) return; // ya está abierto: un segundo toque no apila otro menú
   var es = FT.lang === 'es', hg = o.ctx === 'hogar' && FT.hogarConnected();
   var items = hg ? [
+    { t: 'cheque', e: '🧾', l: es ? 'Recibí mi cheque' : 'I got paid', k: 'c' },
     { t: 'gasto', e: '💸', l: es ? 'Gasto del hogar' : 'Household expense', p: { hogar: true } },
     { t: 'ingreso', e: '💰', l: es ? 'Ingreso' : 'Income' },
     { t: 'ingreso', e: '🏠', l: es ? 'Aporte al hogar' : 'Household contribution', p: { incomeHogar: true } },
@@ -3227,6 +3281,7 @@ function openPicker(o) {
     { t: 'servicio', e: '🏠', l: es ? 'Servicio' : 'Utility bill' },
     { t: 'emerg-hogar', e: '🛡️', l: es ? 'Depósito a emergencia del hogar' : 'Household emergency deposit', k: 'h' }
   ] : [
+    { t: 'cheque', e: '🧾', l: es ? 'Recibí mi cheque' : 'I got paid', k: 'c' },
     { t: 'gasto', e: '💸', l: es ? 'Gasto' : 'Expense' }, { t: 'ingreso', e: '💰', l: es ? 'Ingreso' : 'Income' },
     { t: 'ahorro', e: '💵', l: es ? 'Ahorro' : 'Savings' }, { t: 'inversion', e: '📈', l: es ? 'Inversión' : 'Investment' },
     { t: 'suscripcion', e: '🔄', l: es ? 'Suscripción' : 'Subscription' }, { t: 'servicio', e: '🏠', l: es ? 'Servicio hogar' : 'Utility bill' },
@@ -3238,7 +3293,7 @@ function openPicker(o) {
     title: es ? '¿Qué quieres registrar?' : 'What do you want to log?',
     html: '<div style="display:grid;grid-template-columns:1fr 1fr;gap:9px">' +
       items.map(function (it, i) {
-        var sp = it.k ? 'grid-column:span 2;' : '', st = it.k === 'h' ? 'border-color:var(--g-main);background:var(--g-light);' : it.k === 'p' ? 'border-color:var(--blue);background:var(--sky-bg);' : 'border:1px solid var(--hair);background:var(--sunk);';
+        var sp = it.k ? 'grid-column:span 2;' : '', st = it.k === 'h' ? 'border-color:var(--g-main);background:var(--g-light);' : it.k === 'p' ? 'border-color:var(--blue);background:var(--sky-bg);' : it.k === 'c' ? 'border:1px solid var(--hair);background:var(--sunk);flex-direction:row;justify-content:center;padding:12px 8px;' : 'border:1px solid var(--hair);background:var(--sunk);';
         return '<button class="tap" data-i="' + i + '" style="' + sp + 'display:flex;flex-direction:column;align-items:center;gap:5px;padding:15px 8px;border-radius:13px;border:1px solid var(--hair);' + st + 'cursor:pointer;font-family:var(--ui-font);font-size:12px;font-weight:800;color:var(--ink)"><span style="font-size:21px">' + it.e + '</span>' + it.l + (it.k === 'h' ? tagH : it.k === 'p' ? tagP : '') + '</button>';
       }).join('') + '</div>'
   });
@@ -3247,7 +3302,8 @@ function openPicker(o) {
     b.addEventListener('click', function () {
       var it = items[parseInt(b.getAttribute('data-i'), 10)];
       FT.closeTop();
-      if (it.t === 'emerg-hogar') { if (typeof window.abrirAporteModal === 'function') window.abrirAporteModal('emerg'); else FT.go('hogar.html?deposit=emerg'); }
+      if (it.t === 'cheque') FT.openCheque();
+      else if (it.t === 'emerg-hogar') { if (typeof window.abrirAporteModal === 'function') window.abrirAporteModal('emerg'); else FT.go('hogar.html?deposit=emerg'); }
       else if (it.t === 'emerg-personal') openEntry('ahorro', { dest: 'emergencia' });
       else openEntry(it.t, it.p);
     });
