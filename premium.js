@@ -1970,7 +1970,7 @@ FT.expectedCheque = function () { var u = FT.user(); return +((parseFloat(u.inco
 FT.openCheque = function (o) {
   o = o || {};
   var es = FT.lang === 'es', h = FT.hogar(), u = FT.user();
-  var totH = (parseFloat(h.payPctHogar) || 50) + (parseFloat(h.saveHogarPct) || 10);
+  var totH = Math.min(100, (parseFloat(h.payPctHogar) || 50) + (parseFloat(h.saveHogarPct) || 10));
   var expected = FT.expectedCheque(), st = { tipo: 'nuevo' };
   var freqName = es ? { weekly: 'semanal', biweekly: 'quincenal', monthly: 'mensual' }[u.payFreq || 'monthly'] : { weekly: 'weekly', biweekly: 'biweekly', monthly: 'monthly' }[u.payFreq || 'monthly'];
   return FT.modal({
@@ -2150,7 +2150,7 @@ FT.openAsignar = function (opts) {
 FT.recordCheque = function (o) {
   var monto = parseFloat(o.monto); if (!monto || monto <= 0) return null;
   var h = FT.hogar();
-  var totHogar = (parseFloat(h.payPctHogar) || 50) + (parseFloat(h.saveHogarPct) || 10);
+  var totHogar = Math.min(100, (parseFloat(h.payPctHogar) || 50) + (parseFloat(h.saveHogarPct) || 10));   // nunca más del 100 %: lo personal no puede quedar negativo
   var hogarAmt = monto * totHogar / 100, personalAmt = monto - hogarAmt;
   var fecha = o.fecha || FT.todayISO();
   var dObj = new Date(fecha + 'T00:00:00');
@@ -4990,7 +4990,7 @@ FT.txRow = function (t, idx, o) {
   var mid;
   if (isCheque) {
     var h = FT.hogar();
-    var totH = (parseFloat(h.payPctHogar) || 50) + (parseFloat(h.saveHogarPct) || 10);
+    var totH = Math.min(100, (parseFloat(h.payPctHogar) || 50) + (parseFloat(h.saveHogarPct) || 10));
     var hogarAmt = (t.amount || 0) * totH / 100, persAmt = (t.amount || 0) - hogarAmt;
     mid = '<div class="ft-tx-name">' + _escH(t.desc || FT.catMeta(t.cat).label) + '</div>' +
           '<div class="ft-tx-breakdown">🏠 ' + FT.money(hogarAmt) + ' &nbsp;+&nbsp; 👤 ' + FT.money(persAmt) + '</div>';

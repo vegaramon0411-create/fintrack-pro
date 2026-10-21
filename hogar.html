@@ -555,6 +555,8 @@ function openEmergDetail() {
 function openChequesSheet() {
   var L = es(), list = _myCheques().slice(0, 8), pn = _escHg(FT.hogar().partnerName || (L ? 'tu pareja' : 'your partner'));
   var ph = _partnerCheques(), unP = FT.partnerUnassigned();
+  // Pendientes de la pareja que ya no vienen en sus movimientos sincronizados (mes anterior): también se listan.
+  unP.forEach(function (u) { if (!ph.list.some(function (t) { return String(t.id) === String(u.txId); })) ph.list.push({ id: u.txId, date: u.fecha, amount: u.total, _hogar: true }); });
   var chip = function (txt, bg, col) { return '<span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:99px;background:' + bg + ';color:' + col + '">' + txt + '</span>'; };
   var rows = list.map(function (c) {
     var sin = parseFloat(c.hogarSinAsignar) || 0, names = (c.asignaciones || []).map(function (a) { return _escHg(a.acctName || '') + ' ' + FT.money(a.amount, { cents: true }); }).join(' · ');
@@ -584,7 +586,7 @@ function openChequesSheet() {
     actions: [
       { label: '＋ ' + L2(L, 'Registrar mi cheque', 'Log my paycheck'), primary: true, onClick: function () { FT.openCheque({ onDone: function () { render(); } }); } },
       { label: '👤 ' + L2(L, 'Cambiar MIS reglas (mis cuentas)', 'Change MY rules (my accounts)'), onClick: function () { FT.openMisReglas({ onDone: function () { render(); } }); } }
-    ].concat(connected ? [{ label: '🏠 ' + L2(L, 'Cambiar las reglas de ' + FT.hogar().partnerName, "Change " + FT.hogar().partnerName + "'s rules"), onClick: function () { FT.openReglaPareja(); } }] : []),
+    ].concat(connected ? [{ label: '🏠 ' + L2(L, 'Cambiar las reglas de ' + pn, 'Change ' + pn + "'s rules"), onClick: function () { FT.openReglaPareja(); } }] : []),
     onOpen: function (body) {
       body.querySelectorAll('[data-asg]').forEach(function (b) { b.onclick = function () { var c = FT.cheques().find(function (x) { return _safeId(x.id) === b.getAttribute('data-asg'); }); if (!c) return; FT.closeTop(); FT.openAsignar({ target: 'mine', chequeId: c.id, monto: c.hogarSinAsignar, fecha: c.fecha, total: c.hogarAmt }); }; });
       body.querySelectorAll('[data-pasg]').forEach(function (b) { b.onclick = function () { var u = FT.partnerUnassigned().find(function (x) { return _safeId(x.id) === b.getAttribute('data-pasg'); }); if (!u) return; FT.closeTop(); FT.openAsignar({ target: 'partner', chequeId: u.id, monto: u.monto, fecha: u.fecha, total: u.total, partnerName: FT.hogar().partnerName }); }; });

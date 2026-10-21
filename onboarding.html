@@ -343,7 +343,9 @@ function obSplitPrevText() {
 }
 function obSplitInput() {
   var a = FT.numMoney(document.getElementById('obPayPct').value), b = FT.numMoney(document.getElementById('obSavePct').value);
-  a = Math.max(0, Math.min(100, a || 0)); b = Math.max(0, Math.min(100 - a, b || 0));
+  // Mínimo 1: en el resto de la app un 0 se lee como "sin dato" (50 % / 10 %), así que no se guarda un 0.
+  a = Math.max(1, Math.min(99, a || 50)); b = Math.max(1, Math.min(100 - a, b || 10));
+  document.getElementById('obPayPct').value = a; document.getElementById('obSavePct').value = b;
   var h = FT.hogar(); h.payPctHogar = a; h.saveHogarPct = b; FT.saveHogar(h);
   document.getElementById('obSplitPrev').innerHTML = obSplitPrevText();
 }
