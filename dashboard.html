@@ -443,11 +443,26 @@ function render() {
 }
 
 /* Próximos (20-oct-2026): gastos/ingresos con fecha futura, todavía no mueven cuentas ni presupuesto. */
+/* Mi emergencia: una sola fila compacta (sin etiqueta ni botón grande); al tocarla se abre el detalle con Depositar. Sale azul = solo mía. */
 function emergPersonalCardHTML(es) {
   var bal = FT.emergencyBalance();
-  var tag = '<span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:99px;background:var(--sky-bg);color:var(--blue)">👤 ' + (es ? 'SOLO MÍA' : 'ONLY MINE') + '</span>';
-  return '<div class="ft-card" style="border:1.5px solid var(--blue);background:var(--sky-bg)"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><b style="font-size:13px">🛡️ ' + (es ? 'Mi emergencia' : 'My emergency') + '</b>' + tag + '</div>' +
-    '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px"><div class="ft-num" style="font-size:22px">' + FT.money(bal, { cents: true }) + '</div><button class="ft-btn tap" style="margin:0;width:auto;padding:9px 14px;background:var(--blue);color:#fff" onclick="FT.openEntry(\'ahorro\', { dest: \'emergencia\' })">＋ ' + (es ? 'Depositar' : 'Deposit') + '</button></div></div>';
+  return '<button type="button" class="tap" onclick="openEmergPersonal()" style="display:flex;align-items:center;gap:8px;width:100%;text-align:left;font-family:inherit;color:inherit;cursor:pointer;padding:11px 12px;margin-bottom:12px;background:var(--card,#fff);border:1px solid var(--hair);border-radius:12px">' +
+    '<span style="font-size:15px">🛡️</span><span style="flex:1;min-width:0;font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--blue);margin-right:6px"></span>' + (es ? 'Mi emergencia' : 'My emergency') + '</span>' +
+    '<span class="ft-num" style="font-size:14px">' + FT.money(bal, { cents: true }) + '</span><span style="color:var(--text3)">›</span></button>';
+}
+function openEmergPersonal() {
+  var es = FT.lang === 'es', bal = FT.emergencyBalance();
+  var hist = (FT.emergencyHist() || []).filter(function (h) { return (h.tipo || 'deposito') === 'deposito'; }).sort(function (x, y) { return String(y.date || '').localeCompare(String(x.date || '')); }).slice(0, 3);
+  FT.sheet({
+    title: '🛡️ ' + (es ? 'Mi emergencia' : 'My emergency'),
+    html: '<div style="font-size:11px;color:var(--text3);margin-bottom:6px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--blue);margin-right:6px"></span>' + (es ? 'Solo mía · tu pareja no la ve' : 'Only mine · your partner cannot see it') + '</div>' +
+      '<div class="ft-num" style="font-size:26px">' + FT.money(bal, { cents: true }) + '</div>' +
+      (hist.length ? '<div style="font-size:11px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin:12px 0 2px">' + (es ? 'Últimos depósitos' : 'Latest deposits') + '</div>' + hist.map(function (h) { return '<div class="ft-row"><span class="k">' + FT.date(h.date) + '</span><span class="v">+' + FT.money(parseFloat(h.amount) || 0, { cents: true }) + '</span></div>'; }).join('') : ''),
+    actions: [
+      { label: (es ? '＋ Depositar' : '＋ Deposit'), primary: true, onClick: function () { FT.openEntry('ahorro', { dest: 'emergencia' }); } },
+      { label: es ? 'Ver historial completo' : 'See full history', onClick: function () { FT.go('emergencia.html'); } }
+    ]
+  });
 }
 function pendingBlockHTML(es) {
   var all = FT.txs().filter(FT.isPending).sort(function (a, b) { return String(a.date).localeCompare(String(b.date)); }), list = all.slice(0, 5);
