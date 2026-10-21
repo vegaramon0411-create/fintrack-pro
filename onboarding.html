@@ -344,7 +344,10 @@ function obHogarEmergNote() {
 }
 function obHemNoteText(cur, act) { var d = +(cur - act).toFixed(2); return d === 0 ? T('Sin cambios.', 'No changes.') : T('Se registrará un ajuste de ', 'An adjustment of ') + (d > 0 ? '+' : '') + FT.money(d, { cents: true }) + T(' al fondo.', ' will be recorded.'); }
 function obHemInput() {
-  var act = parseFloat((FT.hogarFondos().emerg || {}).actual) || 0, v = Math.max(0, FT.numMoney(document.getElementById('obHemTotal').value) || 0);
+  var act = parseFloat((FT.hogarFondos().emerg || {}).actual) || 0, raw = String(document.getElementById('obHemTotal').value || '').trim();
+  if (S.hemBase == null) S.hemBase = act;   // el total que el usuario vio al empezar a editar: el ajuste se calcula contra ese
+  if (raw === '') { S.hemTotal = null; document.getElementById('obHemNote').textContent = obHemNoteText(act, act); return; }   // campo vacío = sin cambio (nunca vaciar el fondo)
+  var v = Math.max(0, FT.numMoney(raw) || 0);
   S.hemTotal = v; document.getElementById('obHemNote').textContent = obHemNoteText(v, act);
 }
 /** Lo que el hogar ya tiene (fondos, metas, cuentas conjuntas, inversiones, deudas compartidas): aparece como dato por defecto y no se vuelve a agregar. */
@@ -583,8 +586,8 @@ function doSaveOnboarding() {
     var k = ACCT_KINDS[a.kind];
     return { id: rid('chk_'), name: (a.name || '').trim() || (L ? k.es : k.en), amount: num(a.amount), hogar: !!(a.hogar && (hogarOn || FT.hogar().pendingInvite)), kind: a.kind, updatedAt: hoy };
   });
-  var _have = {}; FT.checking().forEach(function (x) { _have[String(x.name || '').trim().toLowerCase()] = true; });
-  var _dupAcc = []; nuevas = nuevas.filter(function (x) { var k = String(x.name).trim().toLowerCase(); if (_have[k]) { _dupAcc.push(x.name); return false; } _have[k] = true; return true; });
+  var _have = {}; FT.checking().forEach(function (x) { _have[String(x.name || '').trim().toLowerCase() + '|' + (x.hogar ? 1 : 0)] = true; });
+  var _dupAcc = []; nuevas = nuevas.filter(function (x) { var k = String(x.name).trim().toLowerCase() + '|' + (x.hogar ? 1 : 0); if (_have[k]) { _dupAcc.push(x.name + (x.amount ? ' (' + FT.money(x.amount, { cents: true }) + ' no se sumó: edita su saldo en Cuentas)' : '')); return false; } return true; });
   if (_dupAcc.length) FT.toast(T('Ya existía(n): ' + _dupAcc.join(', ') + '. No se duplicó.', 'Already existed: ' + _dupAcc.join(', ') + '. Not duplicated.'));
   if (nuevas.length) FT.saveChecking(FT.checking().concat(nuevas));
   S.accounts.forEach(function (a) { a._saved = true; }); // si algo falla más abajo y se reintenta, esto no se vuelve a agregar
@@ -597,7 +600,7 @@ function doSaveOnboarding() {
     // Una meta con objetivo pero sin nada ahorrado todavía sí se guarda (en $0).
     if (monto <= 0 && !(a.kind === 'meta' && num(a.target) > 0)) return;
     var note = (L ? 'Saldo inicial: ' : 'Starting balance: ') + (nombre || (L ? SAV_KINDS[a.kind].es : SAV_KINDS[a.kind].en));
-    if (a.hogar && hogarOn_ && (a.kind === 'emergencia' || a.kind === 'meta')) { if (obSaveHogarSaving(a, monto, nombre, hoy) === false) FT.toast(T('Ya existe en el hogar: «' + nombre + '». No se duplicó.', 'Already in the household: "' + nombre + '". Not duplicated.')); a._saved = true; return; }
+    if (a.hogar && hogarOn_ && (a.kind === 'meta' || (a.kind === 'emergencia' && !obHogarEmergExists()))) { if (obSaveHogarSaving(a, monto, nombre, hoy) === false) FT.toast(T('Ya existe en el hogar: «' + nombre + '». No se duplicó.', 'Already in the household: "' + nombre + '". Not duplicated.')); a._saved = true; return; }
     if (a.kind === 'ahorro') { FT.addSavings({ id: rid('onb_'), amount: monto, date: hoy, tipo: 'deposito', note: note }); a._saved = true; }
     else if (a.kind === 'emergencia') { FT.addEmergency({ id: rid('onb_'), amount: monto, date: hoy, tipo: 'deposito', note: note }); a._saved = true; }
     else {
@@ -610,7 +613,7 @@ function doSaveOnboarding() {
   });
   if (goalsAdded) FT.saveGoals(personalGoals);
   // Total del fondo de emergencia del hogar corregido en el paso de Ahorros: se registra solo la DIFERENCIA, nunca un depósito nuevo completo.
-  if (S.hemTotal != null && hogarOn_) { var ff = FT.hogarFondos(), act0 = parseFloat((ff.emerg || {}).actual) || 0, dlt = +(S.hemTotal - act0).toFixed(2); if (Math.abs(dlt) > 0.004) { ff.emerg = ff.emerg || { meta: 0, fecha: '', actual: 0, hist: [] }; ff.emerg.hist = (ff.emerg.hist || []).concat([{ id: ridH('adj_'), monto: dlt, fecha: hoy, desdePres: false, nota: T('Ajuste al configurar', 'Adjustment when setting up') }]); ff.emerg.actual = ff.emerg.hist.reduce(function (s, h) { return s + (h.monto || 0); }, 0); FT.saveHogarFondos(ff); } S.hemTotal = null; }
+  if (S.hemTotal != null && hogarOn_) { var ff = FT.hogarFondos(), act0 = parseFloat((ff.emerg || {}).actual) || 0, dlt = +(S.hemTotal - (S.hemBase != null ? S.hemBase : act0)).toFixed(2); if (Math.abs(dlt) > 0.004) { ff.emerg = ff.emerg || { meta: 0, fecha: '', actual: 0, hist: [] }; ff.emerg.hist = (ff.emerg.hist || []).concat([{ id: ridH('adj_'), monto: dlt, fecha: hoy, desdePres: false, nota: T('Ajuste al configurar', 'Adjustment when setting up') }]); ff.emerg.actual = ff.emerg.hist.reduce(function (s, h) { return s + (h.monto || 0); }, 0); FT.saveHogarFondos(ff); } S.hemTotal = null; S.hemBase = null; }
   S.savings.forEach(function (a) { if (a.kind === 'meta') a._saved = true; });
 
   // Inversiones
