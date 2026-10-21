@@ -4111,6 +4111,8 @@ FT.gas = function (action, params) {
   return fetch(GAS_URL + '?action=' + action + (qs ? '&' + qs : '')).then(function (r) { return r.json(); });
 };
 FT.getPartnerProfile = function (email) { return FT.gas('getProfile', { email: email }); };
+// Link de invitación (?codigo=FT-XXXX): se guarda para que el código ya vaya puesto al unirse al hogar, aunque antes haya que registrarse.
+try { var _qc = (new URLSearchParams(location.search).get('codigo') || '').toUpperCase(); if (/^FT-[A-Z0-9]{4}$/.test(_qc)) localStorage.setItem('ft_pending_code', _qc); } catch (e) {}
 FT.createInvite = function (email, name, code) { return FT.gas('createInvite', { email: email, name: name || '', code: code }); };
 FT.acceptInvite = function (code, email, name) { return FT.gas('acceptInvite', { code: code, email: email, name: name || '' }); };
 FT.checkPartner = function (email) { return FT.gas('checkPartner', { email: email }); };
