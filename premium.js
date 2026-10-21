@@ -1962,6 +1962,48 @@ FT.openReglaPareja = function () {
   }
   return ov;
 };
+/** Mis reglas de reparto del hogar: una regla por cuenta conjunta (no recibe / monto fijo / porcentaje / lo que sobre),
+ *  con una barra y montos de ejemplo que se mueven mientras escribes. Aplica a los PRÓXIMOS cheques. o = { onDone, sample } */
+FT.openMisReglas = function (o) {
+  o = o || {};
+  var L = FT.lang === 'es', accts = FT.hogarJointAccounts();
+  if (!accts.length) { FT.toast(L ? 'Primero agrega una cuenta conjunta' : 'Add a joint account first'); return null; }
+  var last = FT.cheques().filter(function (c) { return c.tipo === 'nuevo'; }).sort(function (a, b) { return String(b.fecha).localeCompare(String(a.fecha)); })[0];
+  var sample = parseFloat(o.sample) || (last ? parseFloat(last.hogarAmt) : 0) || 500;
+  var rows = accts.map(function (a) { var r = a.rule || (a.autoDeposit ? { type: 'pct', value: 100 } : null); return { id: a.id, name: a.name || (L ? 'Cuenta' : 'Account'), t: r ? r.type : 'none', v: r && r.value != null ? r.value : 0 }; });
+  var COLORS = ['#1F8A5B', '#2F6FD0', '#B7791F', '#C0507A', '#6B5BD0', '#2C9AA6'];
+  function items() { return rows.map(function (r) { return { id: r.id, rule: r.t === 'none' ? null : (r.t === 'remainder' ? { type: 'remainder' } : { type: r.t, value: Math.max(0, parseFloat(r.v) || 0) }) }; }); }
+  var ov = FT.sheet({ title: '⚙️ ' + (L ? 'Mis reglas de reparto' : 'My split rules'), html: '<div id="mrBody"></div>', onOpen: function (body) { paint(body.querySelector('#mrBody')); } });
+  function preview(box) {
+    var out = FT.allocateByRules(sample, items()), used = 0;
+    rows.forEach(function (r) { used += out[r.id] || 0; });
+    var left = +(sample - used).toFixed(2);
+    box.querySelector('#mrBar').innerHTML = rows.map(function (r, i) { return '<i style="display:block;height:100%;width:' + (sample > 0 ? (out[r.id] || 0) / sample * 100 : 0) + '%;background:' + COLORS[i % COLORS.length] + '"></i>'; }).join('');
+    box.querySelector('#mrLeg').innerHTML = rows.filter(function (r) { return (out[r.id] || 0) > 0.004; }).map(function (r) { var i = rows.indexOf(r); return '<div style="display:flex;justify-content:space-between;font-size:12.5px;padding:2px 0"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;background:' + COLORS[i % COLORS.length] + '"></span>' + _escH(r.name) + '</span><b>' + FT.money(out[r.id], { cents: true }) + '</b></div>'; }).join('') || '<div style="font-size:12px;color:var(--text3)">' + (L ? 'Ninguna cuenta recibe dinero todavía.' : 'No account receives money yet.') + '</div>';
+    box.querySelector('#mrWarn').innerHTML = left > 0.004 ? '<div style="font-size:12px;color:#8a5a00;background:#FFF3DF;border-radius:9px;padding:8px 10px;margin-top:8px">' + (L ? 'Sobrarían ' + FT.money(left, { cents: true }) + ' sin destino: quedarían "sin asignar". Pon "Lo que sobre" en una cuenta.' : FT.money(left, { cents: true }) + ' would be left unassigned. Set "The rest" on one account.') + '</div>' : '';
+  }
+  function paint(box) {
+    var h = '<p style="font-size:12.5px;color:var(--text2);margin:0 0 10px">' + (L ? 'Así se repartirá la parte del hogar de tus próximos cheques, sin que tengas que hacer nada. Los cheques ya asignados no cambian.' : 'This is how the household part of your next paychecks will split, with nothing for you to do. Already-assigned paychecks do not change.') + '</p>' +
+      '<div class="ft-field"><label>' + (L ? 'Ejemplo: parte del hogar de un cheque' : 'Example: household part of a paycheck') + '</label><input id="mrSample" inputmode="decimal" value="' + sample + '"></div>';
+    rows.forEach(function (r, i) {
+      h += '<div style="display:grid;grid-template-columns:1fr auto auto;gap:6px;align-items:center;padding:8px 0;border-top:1px solid var(--hair);font-size:13px"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;background:' + COLORS[i % COLORS.length] + '"></span><b>' + _escH(r.name) + '</b></span>' +
+        '<select data-t="' + i + '" style="padding:7px;font-size:12.5px"><option value="none"' + (r.t === 'none' ? ' selected' : '') + '>' + (L ? 'No recibe' : 'None') + '</option><option value="fixed"' + (r.t === 'fixed' ? ' selected' : '') + '>' + (L ? 'Monto fijo' : 'Fixed amount') + '</option><option value="pct"' + (r.t === 'pct' ? ' selected' : '') + '>' + (L ? 'Porcentaje' : 'Percent') + '</option><option value="remainder"' + (r.t === 'remainder' ? ' selected' : '') + '>' + (L ? 'Lo que sobre' : 'The rest') + '</option></select>' +
+        (r.t === 'fixed' || r.t === 'pct' ? '<input data-v="' + i + '" inputmode="decimal" value="' + r.v + '" style="width:72px;text-align:right;padding:7px" aria-label="Valor">' : '<span style="width:72px"></span>') + '</div>';
+    });
+    h += '<div id="mrBar" style="display:flex;height:14px;border-radius:99px;overflow:hidden;background:var(--sunk);margin:10px 0 8px"></div><div id="mrLeg"></div><div id="mrWarn"></div>' +
+      '<button type="button" class="ft-btn ft-btn-primary tap" data-ok="1" style="margin-top:12px">' + (L ? 'Guardar reglas' : 'Save rules') + '</button>';
+    box.innerHTML = h; preview(box);
+    box.querySelector('#mrSample').oninput = function () { sample = FT.numMoney(this.value); preview(box); };
+    box.querySelectorAll('[data-t]').forEach(function (s) { s.onchange = function () { var r = rows[+s.getAttribute('data-t')]; if (r.t !== s.value) r.v = 0; r.t = s.value; if (s.value === 'remainder') rows.forEach(function (x) { if (x !== r && x.t === 'remainder') x.t = 'none'; }); paint(box); }; });
+    box.querySelectorAll('[data-v]').forEach(function (inp) { inp.oninput = function () { rows[+inp.getAttribute('data-v')].v = FT.numMoney(inp.value); preview(box); }; });
+    box.querySelector('[data-ok]').onclick = function () {
+      FT.setAccountRules(rows.map(function (r) { return { acctId: r.id, rule: r.t === 'none' ? null : (r.t === 'remainder' ? { type: 'remainder' } : { type: r.t, value: Math.max(0, parseFloat(r.v) || 0) }) }; }));
+      FT.toast(L ? '✅ Reglas guardadas para tus próximos cheques' : '✅ Rules saved for your next paychecks', { icon: '🏠' });
+      FT.closeTop(); if (o.onDone) o.onDone();
+    };
+  }
+  return ov;
+};
 /** Hoja "Asignar": opts = { target:'mine'|'partner', chequeId, monto, fecha, partnerName }. */
 FT.openAsignar = function (opts) {
   opts = opts || {};
@@ -4069,6 +4111,8 @@ FT.gas = function (action, params) {
   return fetch(GAS_URL + '?action=' + action + (qs ? '&' + qs : '')).then(function (r) { return r.json(); });
 };
 FT.getPartnerProfile = function (email) { return FT.gas('getProfile', { email: email }); };
+// Link de invitación (?codigo=FT-XXXX): se guarda para que el código ya vaya puesto al unirse al hogar, aunque antes haya que registrarse.
+try { var _qc = (new URLSearchParams(location.search).get('codigo') || '').toUpperCase(); if (/^FT-[A-Z0-9]{4}$/.test(_qc)) localStorage.setItem('ft_pending_code', _qc); } catch (e) {}
 FT.createInvite = function (email, name, code) { return FT.gas('createInvite', { email: email, name: name || '', code: code }); };
 FT.acceptInvite = function (code, email, name) { return FT.gas('acceptInvite', { code: code, email: email, name: name || '' }); };
 FT.checkPartner = function (email) { return FT.gas('checkPartner', { email: email }); };

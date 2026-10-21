@@ -236,7 +236,7 @@ function acctHtml(a) {
   var k = ACCT_KINDS[a.kind];
   return '<div class="item" data-list="accounts">' + head(k.ico, T(k.es, k.en), 'accounts', a) +
     nameField(a, T('Ej. Mi cuenta de SoFi', 'E.g. My SoFi account')) + amtField(a, T('¿Cuánto tiene hoy?', 'How much is in it today?')) +
-    (FT.hogarConnected()
+    (FT.hogarConnected() || FT.hogar().pendingInvite
       ? '<label>' + T('¿De quién es?', 'Whose is it?') + '</label><div class="seg"><button type="button" data-own="' + a.uid + ':0" class="' + (!a.hogar ? 'on' : '') + '">👤 ' + T('Mía', 'Mine') + '</button><button type="button" data-own="' + a.uid + ':1" class="' + (a.hogar ? 'on' : '') + '">🏠 ' + T('Conjunta', 'Joint') + '</button></div>'
       : '') + '</div>';
 }
@@ -282,8 +282,8 @@ function reviewHtml() {
     h += '<div class="tot"><span>' + T('Tienes (nuevo)', 'You have (new)') + '</span><b>' + FT.money(assets, { cents: true }) + '</b></div>' +
       '<div class="tot"><span>' + T('Debes (nuevo)', 'You owe (new)') + '</span><b>' + FT.money(owed, { cents: true }) + '</b></div>';
   }
-  if (FT.hogarConnected() && (S.accounts.some(function (a) { return a.hogar; }) || S.invs.some(function (a) { return a.hogar; }))) {
-    h += '<div class="ob-card" style="background:var(--g-light)"><div class="mini-note" style="color:var(--g-dark)">🏠 ' + T('Lo que marcaste como del hogar lo verá tu pareja, y podrá confirmarlo o corregirlo. Lo personal nunca se comparte.', 'What you marked as household will be shown to your partner, who can confirm or correct it. Personal items are never shared.') + '</div></div>';
+  if ((FT.hogarConnected() || FT.hogar().pendingInvite) && (S.accounts.some(function (a) { return a.hogar; }) || S.invs.some(function (a) { return a.hogar; }))) {
+    h += '<div class="ob-card" style="background:var(--g-light)"><div class="mini-note" style="color:var(--g-dark)">🏠 ' + T('Lo que marcaste como del hogar lo verá tu pareja cuando se conecte, y podrá confirmarlo o corregirlo. Lo personal nunca se comparte.', 'What you marked as household will be shown to your partner, who can confirm or correct it. Personal items are never shared.') + '</div></div>';
   }
   return h;
 }
@@ -340,38 +340,69 @@ function renderHogarCard() {
     return;
   }
   if (h.pendingInvite) {
+    var link = obInviteLink(h.inviteCode);
     el.innerHTML =
       '<div class="ch"><div class="ci" style="background:var(--sky-bg)">🏠</div>' +
-        '<div><b>' + (L ? 'Invitación enviada' : 'Invitation sent') + '</b>' +
-        '<small>' + (L ? 'Comparte este código con tu pareja' : 'Share this code with your partner') + '</small></div></div>' +
-      '<div style="background:var(--sunk);border:2px dashed var(--hair);border-radius:14px;padding:16px;text-align:center;margin-bottom:10px">' +
-        '<div class="ft-num" style="font-size:22px;letter-spacing:3px;color:var(--g-main)">' + esc(h.inviteCode || '—') + '</div></div>' +
-      '<div style="display:flex;gap:8px">' +
-        '<button type="button" class="add-row" style="flex:1;border-style:solid;color:var(--g-dark);border-color:var(--g-main)" onclick="obCopyCode(\'' + esc(h.inviteCode || '') + '\')">📋 ' + (L ? 'Copiar código' : 'Copy code') + '</button>' +
+        '<div><b>' + (L ? 'Invita a tu pareja' : 'Invite your partner') + '</b>' +
+        '<small>' + (L ? 'Le llega un mensaje con el código y el link de la app' : 'They get a message with the code and the app link') + '</small></div></div>' +
+      '<div style="background:var(--sunk);border:2px dashed var(--hair);border-radius:14px;padding:12px;text-align:center;margin-bottom:10px">' +
+        '<div class="ft-num" style="font-size:22px;letter-spacing:3px;color:var(--g-main)">' + esc(h.inviteCode || '—') + '</div>' +
+        '<div style="font-size:11px;color:var(--text3);margin-top:4px;word-break:break-all">' + esc(link) + '</div></div>' +
+      '<label for="obPartnerEmail">' + (L ? 'Su correo (opcional)' : 'Their email (optional)') + '</label><input id="obPartnerEmail" type="email" inputmode="email" placeholder="nombre@correo.com" value="' + esc(h.inviteEmail || '') + '">' +
+      '<button type="button" class="add-row" style="width:100%;margin-top:8px;border-style:solid;color:#fff;background:var(--g-main);border-color:var(--g-main)" onclick="obSendInvite()">✉️ ' + (L ? 'Enviar invitación' : 'Send invitation') + '</button>' +
+      '<div style="display:flex;gap:8px;margin-top:8px">' +
+        '<button type="button" class="add-row" style="flex:1;border-style:solid;color:var(--g-dark);border-color:var(--g-main)" onclick="obCopyCode(\'' + esc(link) + '\')">📋 ' + (L ? 'Copiar link' : 'Copy link') + '</button>' +
         '<button type="button" class="add-row" style="flex:0 0 100px;color:var(--red)" onclick="obCancelInvite()">' + (L ? 'Cancelar' : 'Cancel') + '</button>' +
-      '</div>';
+      '</div>' +
+      '<div class="mini-note">' + (L ? 'Puedes seguir sin esperar: tu parte del hogar queda lista y se conecta cuando tu pareja entre.' : 'You can keep going: your household part is ready and connects when your partner joins.') + '</div>';
     startObPolling();
     return;
   }
+  if (obDeclined()) {
+    el.innerHTML = '<div class="ch"><div class="ci" style="background:var(--sunk)">🏠</div><div><b>' + (L ? 'Sin hogar por ahora' : 'No household for now') + '</b><small>' + (L ? 'Puedes crearlo después desde la pestaña Hogar' : 'You can create it later from the Household tab') + '</small></div></div>' +
+      (obPendingCode() ? '<button type="button" class="add-row" style="width:100%;margin-bottom:8px;border-style:solid;color:#fff;background:var(--g-main);border-color:var(--g-main)" onclick="obAcceptCode(\'' + esc(obPendingCode()) + '\')">🏠 ' + (L ? 'Tu pareja te invitó (' + esc(obPendingCode()) + ') · Unirme' : 'Your partner invited you (' + esc(obPendingCode()) + ') · Join') + '</button>' : '') +
+      '<button type="button" class="link-btn" onclick="obSetDeclined(false)">' + (L ? 'Mejor sí quiero crear un hogar ›' : 'Actually, I want a household ›') + '</button>';
+    return;
+  }
+  var pc = obPendingCode();
   el.innerHTML =
     '<div class="ch"><div class="ci" style="background:var(--pink-bg,#FDEAF1)">🏠</div>' +
-      '<div><b>' + (L ? 'Hogar (opcional)' : 'Household (optional)') + '</b>' +
-      '<small>' + (L ? 'Comparte gastos e ingresos con tu pareja' : 'Share expenses and income with your partner') + '</small></div></div>' +
-    '<div style="display:flex;gap:8px">' +
-      '<button type="button" class="add-row" style="flex:1" onclick="obStartInvite()">+ ' + (L ? 'Invitar a mi hogar' : 'Invite to my household') + '</button>' +
+      '<div><b>' + (L ? '¿Quieres crear un hogar?' : 'Do you want a household?') + '</b>' +
+      '<small>' + (L ? 'Para compartir gastos con tu pareja. Ella o él solo ve lo del hogar, nunca tus cuentas ni ingresos personales.' : 'To share expenses with your partner. They only see household items, never your personal accounts or income.') + '</small></div></div>' +
+    (pc ? '<button type="button" class="add-row" style="width:100%;margin-bottom:8px;border-style:solid;color:#fff;background:var(--g-main);border-color:var(--g-main)" onclick="obAcceptCode(\'' + esc(pc) + '\')">🏠 ' + (L ? 'Tu pareja te invitó (' + esc(pc) + ') · Unirme' : 'Your partner invited you (' + esc(pc) + ') · Join') + '</button>' : '') +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+      '<button type="button" class="add-row" style="flex:1 1 100%" onclick="obStartInvite()">+ ' + (L ? 'Sí, invitar a mi pareja' : 'Yes, invite my partner') + '</button>' +
       '<button type="button" class="add-row" style="flex:1" onclick="obShowAcceptCode()">' + (L ? 'Ya tengo un código' : 'I have a code') + '</button>' +
+      '<button type="button" class="add-row" style="flex:1" onclick="obSetDeclined(true)">' + (L ? 'No, solo para mí' : 'No, just me') + '</button>' +
     '</div>';
+}
+function obDeclined() { try { return localStorage.getItem('ft_hogar_declined') === '1'; } catch (e) { return false; } }
+function obSetDeclined(v) { try { if (v) localStorage.setItem('ft_hogar_declined', '1'); else localStorage.removeItem('ft_hogar_declined'); } catch (e) {} renderStep(); }
+function obPendingCode() { try { var c = localStorage.getItem('ft_pending_code') || ''; return /^FT-[A-Z0-9]{4}$/.test(c) ? c : ''; } catch (e) { return ''; } }
+function obInviteLink(code) { return location.origin + '/?codigo=' + encodeURIComponent(code || ''); }
+/** Invitar es lo más fácil posible: menú de compartir del teléfono (WhatsApp, Mensajes, correo...) o, si no hay, abre el correo con el mensaje ya escrito. */
+function obSendInvite() {
+  var L = FT.lang === 'es', h = FT.hogar(), code = h.inviteCode || '', link = obInviteLink(code);
+  var em = ((document.getElementById('obPartnerEmail') || {}).value || '').trim();
+  if (em) { h.inviteEmail = em; FT.saveHogar(h); }
+  var subject = L ? FT.userName() + ' te invita a su hogar en FinTrack Pro' : FT.userName() + ' invites you to their household on FinTrack Pro';
+  var text = L ? 'Te invito a mi hogar en FinTrack Pro para compartir los gastos de la casa.\nMi código: ' + code + '\nAbre la app aquí (el código ya va puesto): ' + link
+    : 'I invite you to my household on FinTrack Pro to share home expenses.\nMy code: ' + code + '\nOpen the app here (the code is already filled in): ' + link;
+  function viaMail() { location.href = 'mailto:' + encodeURIComponent(em) + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(text); }
+  if (navigator.share) { navigator.share({ title: subject, text: text }).catch(function (e) { if (e && e.name !== 'AbortError') viaMail(); }); }
+  else viaMail();
 }
 function obStartInvite() {
   var code = 'FT-' + Math.random().toString(36).substring(2, 6).toUpperCase();
+  try { localStorage.removeItem('ft_hogar_declined'); } catch (e) {}
   FT.saveHogar({ connected: false, pendingInvite: true, inviteCode: code, myEmail: FT.user().email, myName: FT.userName() });
   FT.createInvite(FT.user().email, FT.userName(), code).catch(function () {});
-  renderHogarCard();
+  renderStep();
 }
-function obCopyCode(code) { navigator.clipboard && navigator.clipboard.writeText(code).catch(function () {}); FT.toast(FT.lang === 'es' ? '📋 Código copiado' : '📋 Code copied'); }
+function obCopyCode(code) { navigator.clipboard && navigator.clipboard.writeText(code).catch(function () {}); FT.toast(FT.lang === 'es' ? '📋 Copiado' : '📋 Copied'); }
 function obCancelInvite() {
   if (_obPollTimer) { clearInterval(_obPollTimer); _obPollTimer = null; }
-  FT.saveHogar({ connected: false, pendingInvite: false, manuallyLeft: false });
+  FT.saveHogar({ connected: false, pendingInvite: false, manuallyLeft: false }); S.accounts.forEach(function (x) { x.hogar = false; }); try { var ck = FT.checking(); if (ck.some(function (x) { return x.hogar; })) { ck.forEach(function (x) { if (x.hogar) { x.hogar = false; delete x.rule; } }); FT.saveChecking(ck); } } catch (e) {}
   renderHogarCard();
 }
 function startObPolling() {
@@ -399,7 +430,7 @@ function obShowAcceptCode() {
   FT.modal({
     title: L ? 'Ingresar código' : 'Enter code',
     html: '<p style="font-size:12px;color:var(--text3);margin:0 0 14px">' + (L ? 'Pide el código a quien te invitó' : 'Ask the person who invited you for their code') + '</p>' +
-      '<div class="ft-field"><input id="obCodeInput" style="text-align:center;font-size:20px;font-weight:800;letter-spacing:3px" placeholder="FT-XXXX" oninput="this.value=this.value.toUpperCase()"></div>',
+      '<div class="ft-field"><input id="obCodeInput" style="text-align:center;font-size:20px;font-weight:800;letter-spacing:3px" placeholder="FT-XXXX" value="' + esc(obPendingCode()) + '" oninput="this.value=this.value.toUpperCase()"></div>',
     saveLabel: L ? 'Unirme al hogar' : 'Join household',
     onSave: function (body) { return obAcceptCode(body.querySelector('#obCodeInput').value); }
   });
@@ -418,7 +449,7 @@ function obAcceptCode(raw) {
     }
     var hg = { connected: true, pendingInvite: false, inviteCode: code, myEmail: FT.user().email, myName: FT.userName(),
       partnerName: data.partnerName || (L ? 'Tu pareja' : 'Your partner'), partnerEmail: data.partnerEmail || '', connectedAt: new Date().toISOString() };
-    FT.saveHogar(hg);
+    FT.saveHogar(hg); try { localStorage.removeItem('ft_pending_code'); } catch (e) {}
     FT.toast('🏠 ' + (L ? '¡Conectado! ' : 'Connected! ') + (data.partnerName || (L ? 'tu pareja' : 'your partner')));
     FT.syncPartner();
     renderStep();
@@ -475,7 +506,7 @@ function doSaveOnboarding() {
     return !a._saved && !(String(a.amount).trim() === '' && (a.name || '').trim() === T(ACCT_KINDS[a.kind].defEs, ACCT_KINDS[a.kind].defEn) && !a._touched);
   }).map(function (a) {
     var k = ACCT_KINDS[a.kind];
-    return { id: rid('chk_'), name: (a.name || '').trim() || (L ? k.es : k.en), amount: num(a.amount), hogar: !!(a.hogar && hogarOn), kind: a.kind, updatedAt: hoy };
+    return { id: rid('chk_'), name: (a.name || '').trim() || (L ? k.es : k.en), amount: num(a.amount), hogar: !!(a.hogar && (hogarOn || FT.hogar().pendingInvite)), kind: a.kind, updatedAt: hoy };
   });
   if (nuevas.length) FT.saveChecking(FT.checking().concat(nuevas));
   S.accounts.forEach(function (a) { a._saved = true; }); // si algo falla más abajo y se reintenta, esto no se vuelve a agregar
