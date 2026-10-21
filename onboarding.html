@@ -244,7 +244,7 @@ function acctHtml(a) {
 ﻿function savHtml(a) {
   var k = SAV_KINDS[a.kind];
   // Con hogar: emergencia y metas se eligen Mías o Del hogar (las del hogar son de los dos y las ve tu pareja); el ahorro libre es siempre personal.
-  var own = (obHogarOn() && a.kind !== 'ahorro')
+  var own = (obHogarOn() && a.kind !== 'ahorro' && !(a.kind === 'emergencia' && obHogarEmergExists()))
     ? '<label>' + T('¿De quién es?', 'Whose is it?') + '</label><div class="seg"><button type="button" data-sown="' + a.uid + ':0" class="' + (!a.hogar ? 'on' : '') + '">👤 ' + T('Mío', 'Mine') + '</button><button type="button" data-sown="' + a.uid + ':1" class="' + (a.hogar ? 'on' : '') + '">🏠 ' + T('Del hogar', 'Household') + '</button></div>' + (a.hogar ? '<div class="mini-note" style="margin-top:6px">' + T('De los dos: tu pareja también lo ve.', 'Shared: your partner sees it too.') + '</div>' : '') : '';
   return '<div class="item" data-list="savings">' + head(k.ico, T(k.es, k.en), 'savings', a) +
     nameField(a, a.kind === 'meta' ? T('Ej. Vacaciones', 'E.g. Vacation') : '') + amtField(a, T('¿Cuánto tienes ahí hoy?', 'How much is in it today?')) + own +
@@ -332,23 +332,45 @@ document.getElementById('stepBody').addEventListener('click', function (e) {
    saveHogar/FT.hogar()), no una versión aparte. */
 var _obPollTimer = null;
 ﻿function obHogarOn() { return FT.hogarConnected() || !!FT.hogar().pendingInvite; }
-/** Si el hogar ya tiene fondo de emergencia (p. ej. el de tu pareja, que ya se sincronizó), se muestra para no crear otro por error. */
+﻿function obHogarEmergExists() { return obHogarOn() && ((parseFloat((FT.hogarFondos().emerg || {}).actual) || 0) > 0); }
+/** El hogar ya tiene fondo de emergencia (p. ej. vino de tu pareja al reconectar): se muestra su total como dato por defecto, editable, para no depositar de nuevo lo que ya estaba. */
 function obHogarEmergNote() {
-  if (!obHogarOn()) return '';
-  var e = (FT.hogarFondos().emerg) || {}, act = parseFloat(e.actual) || 0;
-  if (act <= 0) return '';
-  return '<div class="ob-card" style="padding:11px 12px"><div style="font-size:12.5px;line-height:1.45">🏠 <b>' + T('El hogar ya tiene fondo de emergencia', 'The household already has an emergency fund') + ': ' + FT.money(act, { cents: true }) + '</b> <span style="color:var(--text3)">(' + T('de los dos', 'shared') + ')</span><br><span style="color:var(--text3)">' + T('Aquí agrega solo el tuyo personal. Si quieres sumar al del hogar, elige «Del hogar» en el fondo.', 'Add only your personal one here. To add to the household one, pick "Household" on the fund.') + '</span></div></div>';
+  if (!obHogarEmergExists()) return '';
+  var e = FT.hogarFondos().emerg || {}, act = parseFloat(e.actual) || 0, cur = S.hemTotal != null ? S.hemTotal : act;
+  return '<div class="ob-card" style="padding:12px"><div style="font-size:12.5px;line-height:1.45;margin-bottom:8px">🏠 <b>' + T('El hogar ya tiene fondo de emergencia', 'The household already has an emergency fund') + '</b> <span style="color:var(--text3)">(' + T('de los dos', 'shared') + ')</span><br><span style="color:var(--text3)">' + T('Ya está registrado: no se vuelve a depositar. Si el total no es el correcto, cámbialo aquí.', 'It is already registered: it is not deposited again. If the total is wrong, change it here.') + '</span></div>' +
+    '<label for="obHemTotal" style="display:block;font-size:11px;font-weight:800;color:var(--text2);margin:0 0 3px">' + T('Total del fondo del hogar hoy', 'Household fund total today') + '</label>' +
+    '<input id="obHemTotal" type="text" inputmode="decimal" value="' + esc(String(cur)) + '" oninput="obHemInput()" style="width:100%;box-sizing:border-box;min-width:0;background:#fff;border:1.5px solid var(--hair);border-radius:10px;padding:10px 12px;font-size:14px;font-family:var(--ui-font)">' +
+    '<div id="obHemNote" style="font-size:11px;color:var(--text3);margin-top:4px">' + obHemNoteText(cur, act) + '</div></div>';
+}
+function obHemNoteText(cur, act) { var d = +(cur - act).toFixed(2); return d === 0 ? T('Sin cambios.', 'No changes.') : T('Se registrará un ajuste de ', 'An adjustment of ') + (d > 0 ? '+' : '') + FT.money(d, { cents: true }) + T(' al fondo.', ' will be recorded.'); }
+function obHemInput() {
+  var act = parseFloat((FT.hogarFondos().emerg || {}).actual) || 0, v = Math.max(0, FT.numMoney(document.getElementById('obHemTotal').value) || 0);
+  S.hemTotal = v; document.getElementById('obHemNote').textContent = obHemNoteText(v, act);
+}
+/** Lo que el hogar ya tiene (fondos, metas, cuentas conjuntas, inversiones, deudas compartidas): aparece como dato por defecto y no se vuelve a agregar. */
+function obHogarExistingHtml() {
+  var L = FT.lang === 'es', f = FT.hogarFondos(), rows = [];
+  var em = parseFloat((f.emerg || {}).actual) || 0; if (em > 0) rows.push(['🛡️', T('Fondo de emergencia', 'Emergency fund'), FT.money(em, { cents: true })]);
+  (f.metas || []).forEach(function (m) { rows.push(['🎯', esc(m.nombre || T('Meta', 'Goal')), FT.money(parseFloat(m.actual) || 0, { cents: true })]); });
+  var ja = FT.hogarJointAccounts().length + (FT.partnerJointAccounts ? FT.partnerJointAccounts().length : 0); if (ja) rows.push(['🏦', T('Cuentas conjuntas', 'Joint accounts'), String(ja)]);
+  var inv = (FT.investments('hogar') || []).length; if (inv) rows.push(['📈', T('Inversiones del hogar', 'Household investments'), String(inv)]);
+  var sd = (FT.debts() || []).filter(function (d) { return d.owner === 'both'; }).length; if (sd) rows.push(['💳', T('Deudas compartidas', 'Shared debts'), String(sd)]);
+  if (!rows.length) return '';
+  return '<div style="margin-top:10px;border-top:1px solid var(--hair);padding-top:8px"><b style="font-size:12.5px">' + T('Ya está en el hogar', 'Already in the household') + '</b><div style="font-size:11px;color:var(--text3);margin:2px 0 4px">' + T('Se detectó al conectar. No se vuelve a agregar; lo puedes editar en Hogar.', 'Detected when connecting. It is not added again; edit it in Household.') + '</div>' +
+    rows.map(function (r) { return '<div class="done-row"><span>' + r[0] + '</span><span class="nm">' + r[1] + '</span><span class="am">' + r[2] + '</span></div>'; }).join('') + '</div>';
 }
 /** Un ahorro del hogar (emergencia o meta) va a los fondos DEL HOGAR (ya lo tenían: no sale del presupuesto), no a los personales. */
 function ridH(p) { return p + Date.now() + '_' + Math.random().toString(36).slice(2, 7); }
 function obSaveHogarSaving(a, monto, nombre, hoy) {
-  var f = FT.hogarFondos(), id = ridH('onb_');
+  var f = FT.hogarFondos(), id = ridH('onb_'); if (a.kind === 'emergencia' && (parseFloat((f.emerg || {}).actual) || 0) > 0) return false;   // el hogar ya tiene fondo de emergencia: se edita su total, no se deposita otra vez
   if (a.kind === 'emergencia') {
     f.emerg = f.emerg || { meta: 0, fecha: '', actual: 0, hist: [] };
     f.emerg.hist = (f.emerg.hist || []).concat([{ id: id, monto: monto, fecha: hoy, desdePres: false }]);
     f.emerg.actual = f.emerg.hist.reduce(function (s, h) { return s + (h.monto || 0); }, 0);
   } else {
     f.metas = f.metas || [];
+    var nm0 = String(nombre || '').trim().toLowerCase();
+    if (nm0 && f.metas.some(function (m) { return String(m.nombre || '').trim().toLowerCase() === nm0; })) return false;   // ya existe una meta del hogar con ese nombre: no se duplica
     f.metas.push({ id: ridH('m_'), nombre: nombre || T('Meta', 'Goal'), meta: num(a.target) || monto, actual: monto, fecha: '', hist: monto > 0 ? [{ id: id, monto: monto, fecha: hoy, desdePres: false }] : [] });
   }
   FT.saveHogarFondos(f);
@@ -389,7 +411,7 @@ function renderHogarCard() {
       '<div class="ch"><div class="ci" style="background:var(--g-light)">🏠</div>' +
         '<div><b>' + (L ? 'Hogar conectado' : 'Household connected') + '</b>' +
         '<small>' + (L ? 'Con ' : 'With ') + esc(h.partnerName || (L ? 'tu pareja' : 'your partner')) + '</small></div></div>' +
-      '<div class="mini-note">' + (L ? 'Ya puedes marcar cuentas como "Conjunta".' : 'You can now mark accounts as "Joint".') + '</div>' + obSplitHtml();
+      '<div class="mini-note">' + (L ? 'Ya puedes marcar cuentas como "Conjunta".' : 'You can now mark accounts as "Joint".') + '</div>' + obHogarExistingHtml() + obSplitHtml();
     return;
   }
   if (h.pendingInvite) {
@@ -561,6 +583,9 @@ function doSaveOnboarding() {
     var k = ACCT_KINDS[a.kind];
     return { id: rid('chk_'), name: (a.name || '').trim() || (L ? k.es : k.en), amount: num(a.amount), hogar: !!(a.hogar && (hogarOn || FT.hogar().pendingInvite)), kind: a.kind, updatedAt: hoy };
   });
+  var _have = {}; FT.checking().forEach(function (x) { _have[String(x.name || '').trim().toLowerCase()] = true; });
+  var _dupAcc = []; nuevas = nuevas.filter(function (x) { var k = String(x.name).trim().toLowerCase(); if (_have[k]) { _dupAcc.push(x.name); return false; } _have[k] = true; return true; });
+  if (_dupAcc.length) FT.toast(T('Ya existía(n): ' + _dupAcc.join(', ') + '. No se duplicó.', 'Already existed: ' + _dupAcc.join(', ') + '. Not duplicated.'));
   if (nuevas.length) FT.saveChecking(FT.checking().concat(nuevas));
   S.accounts.forEach(function (a) { a._saved = true; }); // si algo falla más abajo y se reintenta, esto no se vuelve a agregar
 
@@ -572,7 +597,7 @@ function doSaveOnboarding() {
     // Una meta con objetivo pero sin nada ahorrado todavía sí se guarda (en $0).
     if (monto <= 0 && !(a.kind === 'meta' && num(a.target) > 0)) return;
     var note = (L ? 'Saldo inicial: ' : 'Starting balance: ') + (nombre || (L ? SAV_KINDS[a.kind].es : SAV_KINDS[a.kind].en));
-    if (a.hogar && hogarOn_ && (a.kind === 'emergencia' || a.kind === 'meta')) { obSaveHogarSaving(a, monto, nombre, hoy); a._saved = true; return; }
+    if (a.hogar && hogarOn_ && (a.kind === 'emergencia' || a.kind === 'meta')) { if (obSaveHogarSaving(a, monto, nombre, hoy) === false) FT.toast(T('Ya existe en el hogar: «' + nombre + '». No se duplicó.', 'Already in the household: "' + nombre + '". Not duplicated.')); a._saved = true; return; }
     if (a.kind === 'ahorro') { FT.addSavings({ id: rid('onb_'), amount: monto, date: hoy, tipo: 'deposito', note: note }); a._saved = true; }
     else if (a.kind === 'emergencia') { FT.addEmergency({ id: rid('onb_'), amount: monto, date: hoy, tipo: 'deposito', note: note }); a._saved = true; }
     else {
@@ -584,6 +609,8 @@ function doSaveOnboarding() {
     }
   });
   if (goalsAdded) FT.saveGoals(personalGoals);
+  // Total del fondo de emergencia del hogar corregido en el paso de Ahorros: se registra solo la DIFERENCIA, nunca un depósito nuevo completo.
+  if (S.hemTotal != null && hogarOn_) { var ff = FT.hogarFondos(), act0 = parseFloat((ff.emerg || {}).actual) || 0, dlt = +(S.hemTotal - act0).toFixed(2); if (Math.abs(dlt) > 0.004) { ff.emerg = ff.emerg || { meta: 0, fecha: '', actual: 0, hist: [] }; ff.emerg.hist = (ff.emerg.hist || []).concat([{ id: ridH('adj_'), monto: dlt, fecha: hoy, desdePres: false, nota: T('Ajuste al configurar', 'Adjustment when setting up') }]); ff.emerg.actual = ff.emerg.hist.reduce(function (s, h) { return s + (h.monto || 0); }, 0); FT.saveHogarFondos(ff); } S.hemTotal = null; }
   S.savings.forEach(function (a) { if (a.kind === 'meta') a._saved = true; });
 
   // Inversiones
