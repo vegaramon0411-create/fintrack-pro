@@ -191,6 +191,7 @@ function renderStep() {
   }
 
   if (st.k === 'ahorros') {
+    h += obHogarEmergNote();
     if (ex.savings > 0 || ex.emerg > 0) {
       h += '<div class="ob-card"><div class="ch"><div class="ci" style="background:var(--g-light)">✅</div><div><b>' + T('Ya tienes registrado', 'Already registered') + '</b><small>' + T('No se vuelve a agregar.', 'It is not added again.') + '</small></div></div>' +
         (ex.savings > 0 ? '<div class="done-row"><span>💵</span><span class="nm">' + T('Ahorro libre', 'Free savings') + '</span><span class="am">' + FT.money(ex.savings, { cents: true }) + '</span></div>' : '') +
@@ -240,10 +241,13 @@ function acctHtml(a) {
       ? '<label>' + T('¿De quién es?', 'Whose is it?') + '</label><div class="seg"><button type="button" data-own="' + a.uid + ':0" class="' + (!a.hogar ? 'on' : '') + '">👤 ' + T('Mía', 'Mine') + '</button><button type="button" data-own="' + a.uid + ':1" class="' + (a.hogar ? 'on' : '') + '">🏠 ' + T('Conjunta', 'Joint') + '</button></div>'
       : '') + '</div>';
 }
-function savHtml(a) {
+﻿function savHtml(a) {
   var k = SAV_KINDS[a.kind];
+  // Con hogar: emergencia y metas se eligen Mías o Del hogar (las del hogar son de los dos y las ve tu pareja); el ahorro libre es siempre personal.
+  var own = (obHogarOn() && a.kind !== 'ahorro')
+    ? '<label>' + T('¿De quién es?', 'Whose is it?') + '</label><div class="seg"><button type="button" data-sown="' + a.uid + ':0" class="' + (!a.hogar ? 'on' : '') + '">👤 ' + T('Mío', 'Mine') + '</button><button type="button" data-sown="' + a.uid + ':1" class="' + (a.hogar ? 'on' : '') + '">🏠 ' + T('Del hogar', 'Household') + '</button></div>' + (a.hogar ? '<div class="mini-note" style="margin-top:6px">' + T('De los dos: tu pareja también lo ve.', 'Shared: your partner sees it too.') + '</div>' : '') : '';
   return '<div class="item" data-list="savings">' + head(k.ico, T(k.es, k.en), 'savings', a) +
-    nameField(a, a.kind === 'meta' ? T('Ej. Vacaciones', 'E.g. Vacation') : '') + amtField(a, T('¿Cuánto tienes ahí hoy?', 'How much is in it today?')) +
+    nameField(a, a.kind === 'meta' ? T('Ej. Vacaciones', 'E.g. Vacation') : '') + amtField(a, T('¿Cuánto tienes ahí hoy?', 'How much is in it today?')) + own +
     (a.kind === 'meta' ? '<label>' + T('¿Cuánto quieres juntar? (opcional)', 'How much do you want to save? (optional)') + '</label><input data-f="target" data-uid="' + a.uid + '" type="text" inputmode="decimal" placeholder="$0.00" value="' + esc(a.target || '') + '">' : '') + '</div>';
 }
 function invHtml(a) {
@@ -319,6 +323,7 @@ document.getElementById('stepBody').addEventListener('click', function (e) {
   if (a) { var p = a.split(':'); addItem(p[0], p[1]); }
   else if (r) { var q = r.split(':'); removeItem(q[0], parseInt(q[1], 10)); }
   else if (o) { var w = o.split(':'), it = findItem('accounts', parseInt(w[0], 10)); if (it) { it.hogar = w[1] === '1'; it._touched = true; renderStep(); } }
+  else if (b.getAttribute('data-sown')) { var w2 = b.getAttribute('data-sown').split(':'), it2 = findItem('savings', parseInt(w2[0], 10)); if (it2) { it2.hogar = w2[1] === '1'; it2._touched = true; renderStep(); } }
   else if (g != null) goStep(parseInt(g, 10));
 });
 
@@ -326,20 +331,45 @@ document.getElementById('stepBody').addEventListener('click', function (e) {
    Mismo mecanismo que hogar.html (FT.createInvite/acceptInvite/checkPartner/
    saveHogar/FT.hogar()), no una versión aparte. */
 var _obPollTimer = null;
-/** % de cada cheque que va al hogar (gastos + ahorro del hogar) con el monto por cheque calculado de tu ingreso y frecuencia. */
+﻿function obHogarOn() { return FT.hogarConnected() || !!FT.hogar().pendingInvite; }
+/** Si el hogar ya tiene fondo de emergencia (p. ej. el de tu pareja, que ya se sincronizó), se muestra para no crear otro por error. */
+function obHogarEmergNote() {
+  if (!obHogarOn()) return '';
+  var e = (FT.hogarFondos().emerg) || {}, act = parseFloat(e.actual) || 0;
+  if (act <= 0) return '';
+  return '<div class="ob-card" style="padding:11px 12px"><div style="font-size:12.5px;line-height:1.45">🏠 <b>' + T('El hogar ya tiene fondo de emergencia', 'The household already has an emergency fund') + ': ' + FT.money(act, { cents: true }) + '</b> <span style="color:var(--text3)">(' + T('de los dos', 'shared') + ')</span><br><span style="color:var(--text3)">' + T('Aquí agrega solo el tuyo personal. Si quieres sumar al del hogar, elige «Del hogar» en el fondo.', 'Add only your personal one here. To add to the household one, pick "Household" on the fund.') + '</span></div></div>';
+}
+/** Un ahorro del hogar (emergencia o meta) va a los fondos DEL HOGAR (ya lo tenían: no sale del presupuesto), no a los personales. */
+function ridH(p) { return p + Date.now() + '_' + Math.random().toString(36).slice(2, 7); }
+function obSaveHogarSaving(a, monto, nombre, hoy) {
+  var f = FT.hogarFondos(), id = ridH('onb_');
+  if (a.kind === 'emergencia') {
+    f.emerg = f.emerg || { meta: 0, fecha: '', actual: 0, hist: [] };
+    f.emerg.hist = (f.emerg.hist || []).concat([{ id: id, monto: monto, fecha: hoy, desdePres: false }]);
+    f.emerg.actual = f.emerg.hist.reduce(function (s, h) { return s + (h.monto || 0); }, 0);
+  } else {
+    f.metas = f.metas || [];
+    f.metas.push({ id: ridH('m_'), nombre: nombre || T('Meta', 'Goal'), meta: num(a.target) || monto, actual: monto, fecha: '', hist: monto > 0 ? [{ id: id, monto: monto, fecha: hoy, desdePres: false }] : [] });
+  }
+  FT.saveHogarFondos(f);
+}
+/** % de cada cheque que va al hogar (gastos + ahorro del hogar). Compacto; el monto es de TU cheque. */
 function obSplitHtml() {
-  var L = FT.lang === 'es', h = FT.hogar();
-  return '<div style="margin-top:12px;border-top:1px solid var(--hair);padding-top:10px"><b style="font-size:13px">' + (L ? '¿Qué parte de cada cheque va al hogar?' : 'What part of each paycheck goes to the household?') + '</b>' +
-    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px"><div><label for="obPayPct">' + (L ? 'Gastos del hogar %' : 'Household bills %') + '</label><input id="obPayPct" type="text" inputmode="decimal" value="' + (parseFloat(h.payPctHogar) || 50) + '" oninput="obSplitInput()"></div>' +
-    '<div><label for="obSavePct">' + (L ? 'Ahorro del hogar %' : 'Household savings %') + '</label><input id="obSavePct" type="text" inputmode="decimal" value="' + (h.saveHogarPct != null ? parseFloat(h.saveHogarPct) : 10) + '" oninput="obSplitInput()"></div></div>' +
-    '<div id="obSplitPrev" class="mini-note" style="margin-top:8px">' + obSplitPrevText() + '</div></div>';
+  var L = FT.lang === 'es', h = FT.hogar(), pn = h.partnerName ? esc(String(h.partnerName).split(' ')[0]) : '';
+  var inp = 'width:100%;box-sizing:border-box;min-width:0;background:#fff;border:1.5px solid var(--hair);border-radius:10px;padding:9px 10px;font-size:14px;font-family:var(--ui-font)';
+  var lab = 'display:block;font-size:11px;font-weight:800;color:var(--text2);margin:0 0 3px';
+  return '<div style="margin-top:10px;border-top:1px solid var(--hair);padding-top:10px"><b style="font-size:12.5px">' + (L ? '¿Qué parte de TU cheque va al hogar?' : 'What part of YOUR paycheck goes to the household?') + '</b>' +
+    '<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;margin-top:6px"><div><label for="obPayPct" style="' + lab + '">' + (L ? 'Gastos %' : 'Bills %') + '</label><input id="obPayPct" type="text" inputmode="decimal" style="' + inp + '" value="' + (parseFloat(h.payPctHogar) || 50) + '" oninput="obSplitInput()"></div>' +
+    '<div><label for="obSavePct" style="' + lab + '">' + (L ? 'Ahorro %' : 'Savings %') + '</label><input id="obSavePct" type="text" inputmode="decimal" style="' + inp + '" value="' + (h.saveHogarPct != null ? parseFloat(h.saveHogarPct) : 10) + '" oninput="obSplitInput()"></div></div>' +
+    '<div id="obSplitPrev" style="font-size:12px;color:var(--text2);margin-top:6px;line-height:1.45">' + obSplitPrevText() + '</div>' +
+    (pn ? '<div style="font-size:10.5px;color:var(--text3);margin-top:2px">' + (L ? 'Es solo tu cheque: ' + pn + ' pone el suyo en su teléfono.' : 'This is only your paycheck: ' + pn + ' sets theirs on their phone.') + '</div>' : '') + '</div>';
 }
 function obSplitPrevText() {
-  var L = FT.lang === 'es', h = FT.hogar(), u = FT.user(), inc = parseFloat(u.income) || 0, per = FT.checksPerMonth(u.payFreq), tot = (parseFloat(h.payPctHogar) || 50) + (h.saveHogarPct != null ? parseFloat(h.saveHogarPct) : 10);
+  var L = FT.lang === 'es', h = FT.hogar(), u = FT.user(), inc = parseFloat(u.income) || 0, per = FT.checksPerMonth(u.payFreq), tot = Math.min(100, (parseFloat(h.payPctHogar) || 50) + (h.saveHogarPct != null ? parseFloat(h.saveHogarPct) : 10));
   var fq = L ? { weekly: 'semanal', biweekly: 'quincenal', monthly: 'mensual' }[u.payFreq || 'monthly'] : { weekly: 'weekly', biweekly: 'biweekly', monthly: 'monthly' }[u.payFreq || 'monthly'];
   if (!inc) return L ? 'Cuando pongas tu ingreso (en Perfil) verás aquí cuánto es de cada cheque.' : 'Once you set your income (in Profile) you will see the per-paycheck amount here.';
   var chk = inc / per;
-  return (L ? 'Cheque ' + fq + ' de ' : fq.charAt(0).toUpperCase() + fq.slice(1) + ' paycheck of ') + '<b>' + FT.money(chk) + '</b>: 🏠 <b>' + FT.money(chk * tot / 100) + '</b> ' + (L ? 'al hogar' : 'to household') + ' (' + tot + '%) · 👤 <b>' + FT.money(chk * (100 - tot) / 100) + '</b> ' + (L ? 'para ti' : 'for you');
+  return (L ? 'Tu cheque ' + fq + ' de ' : 'Your ' + fq + ' paycheck of ') + '<b>' + FT.money(chk) + '</b> → 🏠 <b>' + FT.money(chk * tot / 100) + '</b> (' + tot + '%) · 👤 <b>' + FT.money(chk * (100 - tot) / 100) + '</b>';
 }
 function obSplitInput() {
   var a = FT.numMoney(document.getElementById('obPayPct').value), b = FT.numMoney(document.getElementById('obSavePct').value);
@@ -535,13 +565,14 @@ function doSaveOnboarding() {
   S.accounts.forEach(function (a) { a._saved = true; }); // si algo falla más abajo y se reintenta, esto no se vuelve a agregar
 
   // Ahorros: libre, emergencia (saldo inicial) y metas/apartados
-  var personalGoals = null, goalsAdded = false;
+  var personalGoals = null, goalsAdded = false, hogarOn_ = hogarOn || !!FT.hogar().pendingInvite;
   S.savings.forEach(function (a, i) {
     if (a._saved) return;
     var monto = num(a.amount), nombre = (a.name || '').trim();
     // Una meta con objetivo pero sin nada ahorrado todavía sí se guarda (en $0).
     if (monto <= 0 && !(a.kind === 'meta' && num(a.target) > 0)) return;
     var note = (L ? 'Saldo inicial: ' : 'Starting balance: ') + (nombre || (L ? SAV_KINDS[a.kind].es : SAV_KINDS[a.kind].en));
+    if (a.hogar && hogarOn_ && (a.kind === 'emergencia' || a.kind === 'meta')) { obSaveHogarSaving(a, monto, nombre, hoy); a._saved = true; return; }
     if (a.kind === 'ahorro') { FT.addSavings({ id: rid('onb_'), amount: monto, date: hoy, tipo: 'deposito', note: note }); a._saved = true; }
     else if (a.kind === 'emergencia') { FT.addEmergency({ id: rid('onb_'), amount: monto, date: hoy, tipo: 'deposito', note: note }); a._saved = true; }
     else {
