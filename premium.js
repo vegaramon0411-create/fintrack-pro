@@ -1424,6 +1424,29 @@ FT.exportBackup = function () {
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
 };
+/** Descarga SOLO mis movimientos (sin cuentas, deudas ni ajustes). fmt: 'csv' (abre en Excel) o 'json' (para volver a importarlos). Solo los míos: nunca los de mi pareja. */
+FT.exportMovements = function (fmt) {
+  var es = FT.lang === 'es', accts = FT.checking(), nameOf = function (id) { var a = accts.find(function (x) { return String(x.id) === String(id); }); return a ? a.name : ''; };
+  var txs = (FT.data().transactions || []).filter(function (t) { return t && !t._partner; }).slice().sort(function (a, b) { return String(a.date || '').localeCompare(String(b.date || '')); });
+  var stamp = FT.todayISO(), blob, name;
+  if (fmt === 'json') {
+    blob = new Blob([JSON.stringify({ _meta: { app: 'FinTrack Pro', kind: 'movimientos', version: 1, exportedAt: new Date().toISOString(), user: FT.userName() || '', count: txs.length }, transactions: txs }, null, 2)], { type: 'application/json' });
+    name = 'fintrack-movimientos-' + stamp + '.json';
+  } else {
+    var head = es ? ['Fecha', 'Tipo', 'Descripción', 'Monto', 'Categoría', 'Ámbito', 'Cuenta', 'Estado', 'Registrado por', 'Nota', 'Id'] : ['Date', 'Type', 'Description', 'Amount', 'Category', 'Scope', 'Account', 'Status', 'Logged by', 'Note', 'Id'];
+    var cell = function (v) { var s = String(v == null ? '' : v); if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; return '"' + s.replace(/"/g, '""') + '"'; };
+    var rows = txs.map(function (t) {
+      return [t.date || '', t.type === 'ingreso' && t.incomeKind ? t.type + ' (' + t.incomeKind + ')' : (t.type || ''), t.desc || '', (parseFloat(t.amount) || 0).toFixed(2), t.cat || '', (t.hogar === true || t.isHogar) ? (es ? 'Hogar' : 'Household') : (es ? 'Personal' : 'Personal'), nameOf(t.checkingAccountId), FT.isPending(t) ? (es ? 'Pendiente' : 'Pending') : '', t.createdBy || '', t.note || '', t.id]
+        .map(function (v, i) { return i === 3 ? String(v) : cell(v); }).join(',');
+    });
+    blob = new Blob(['﻿' + [head.map(cell).join(',')].concat(rows).join('\r\n')], { type: 'text/csv;charset=utf-8' });
+    name = 'fintrack-movimientos-' + stamp + '.csv';
+  }
+  var url = URL.createObjectURL(blob), a = document.createElement('a');
+  a.href = url; a.download = name; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  return txs.length;
+};
 /** Lee y valida un archivo de respaldo sin aplicarlo todavía — el caller decide
  *  cuándo confirmar con el usuario antes de llamar a FT.applyBackup(). */
 FT.readBackupFile = function (file) {
