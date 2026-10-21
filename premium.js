@@ -1500,6 +1500,7 @@ FT.openExportMovements = function () {
 FT.parseMovementsFile = function (file) {
   return new Promise(function (resolve, reject) {
     if (!file) { reject(new Error('no_file')); return; }
+    if (file.size > 8 * 1024 * 1024) { reject(new Error('too_big')); return; }
     var reader = new FileReader();
     reader.onload = function (e) {
       var raw; try { raw = JSON.parse(e.target.result); } catch (err) { reject(new Error('invalid_json')); return; }
@@ -1509,6 +1510,7 @@ FT.parseMovementsFile = function (file) {
       if (!txs) { reject(new Error('invalid_movements')); return; }
       var TYPES = ['gasto', 'ingreso', 'ahorro', 'inversion', 'suscripcion', 'hipoteca', 'transferencia', 'servicio'];
       txs = txs.filter(function (t) { return t && typeof t === 'object' && TYPES.indexOf(t.type) > -1 && isFinite(parseFloat(t.amount)) && /^\d{4}-\d{2}-\d{2}$/.test(String(t.date || '')); });
+      if (txs.length > 20000) { reject(new Error('too_many')); return; }
       resolve({ meta: meta, txs: txs });
     };
     reader.onerror = function () { reject(new Error('read_error')); };
@@ -1516,51 +1518,70 @@ FT.parseMovementsFile = function (file) {
   });
 };
 function _movKey(t) { return String(t.date) + '|' + t.type + '|' + (parseFloat(t.amount) || 0).toFixed(2) + '|' + String(t.desc || '').trim().toLowerCase(); }
-/** Importa solo los grupos/ámbito escogidos. NO mueve saldos: se quita todo vínculo a cuentas, fondos, deudas o cheques. Omite los que ya existen. */
+﻿/** Importa solo los grupos/ámbito escogidos. NO mueve saldos: se arma cada movimiento nuevo con una lista blanca de campos (nada que enlace a cuentas, fondos, deudas, cheques o transferencias),
+ *  con id nuevo, `createdBy` = yo, textos recortados y monto válido. Omite lo que ya existe contando repetidos (dos cafés iguales el mismo día no se funden). */
 FT.importMovements = function (txs, o) {
   o = o || {};
-  var d = FT.data(), have = {}, ids = {}, added = 0, dup = 0, today = FT.todayISO();
-  (d.transactions || []).forEach(function (t) { have[_movKey(t)] = true; ids[String(t.id)] = true; });
-  var STRIP = ['checkingAccountId', 'acctCredited', 'acctPending', 'chequeId', 'fundSource', 'fundId', 'cobId', 'recId', 'editId', 'txId', 'auto', '_partner', 'goalId', 'debtId', 'dest'];
+  var d = FT.data(), today = FT.todayISO(), me = FT.userName() || '', added = 0, dup = 0, bad = 0;
+  var scopeKey = function (t) { return FT.movScope(t); };
+  var key = function (t) { return _movKey(t) + '|' + scopeKey(t); };
+  var have = {};   // cuántos hay ya de cada uno
+  (d.transactions || []).forEach(function (t) { var k = key(t); have[k] = (have[k] || 0) + 1; });
+  var str = function (v, n) { return String(v == null ? '' : v).replace(/[\u0000-\u001f]/g, ' ').slice(0, n); };
+  var KINDS = ['cheque', 'extra', 'venta', 'cobertura'];
   _movPick(txs, o.groups, o.scope).forEach(function (t) {
-    var k = _movKey(t); if (have[k]) { dup++; return; }
-    var n = JSON.parse(JSON.stringify(t));
-    STRIP.forEach(function (f) { delete n[f]; });
-    n.desc = String(n.desc || '').slice(0, 200); n.amount = parseFloat(n.amount);
-    if (!n.pendiente || String(n.date) <= today) delete n.pendiente;
-    var id = n.id; if (id == null || ids[String(id)]) id = _uidMono();
-    n.id = id; n.imported = true; ids[String(id)] = true; have[k] = true;
+    if (t.type === 'transferencia') { bad++; return; }   // las transferencias dependen de cuentas/fondos: no se importan
+    var amt = parseFloat(t.amount);
+    if (!(amt > 0 && amt <= 1e9) || !/^\d{4}-\d{2}-\d{2}$/.test(String(t.date))) { bad++; return; }
+    var k = key(t);
+    if (have[k] > 0) { have[k]--; dup++; return; }
+    var n = { id: _uidMono(), type: t.type, desc: str(t.desc, 200), amount: +amt.toFixed(2), date: String(t.date), cat: str(t.cat, 60), createdBy: me, imported: true };
+    if (t.hogar === true || t.isHogar === true) n.hogar = true;
+    if (t.type === 'ingreso' && KINDS.indexOf(t.incomeKind) > -1) n.incomeKind = t.incomeKind;
+    if (t.note) n.note = str(t.note, 300);
+    if (t.pendiente && String(t.date) > today) n.pendiente = true;
     d.transactions.push(n); added++;
   });
-  if (added) FT.saveData(d);
-  return { added: added, dup: dup };
+  if (added) {
+    var want = d.transactions.length;
+    FT.saveData(d);
+    var got = (FT.data().transactions || []).length;
+    if (got < want) return { added: 0, dup: dup, bad: bad, failed: true };   // no cupo en el almacenamiento: no se guardó nada
+  }
+  return { added: added, dup: dup, bad: bad };
 };
 /** Importar escogiendo qué: lee el archivo, muestra qué trae por grupo y lo que ya existe, y solo entonces importa. */
 FT.openImportMovements = function (file) {
   var L = FT.lang === 'es';
   FT.parseMovementsFile(file).then(function (res) {
     var st = { on: {}, scope: 'all' };
-    FT.MOV_GROUPS.forEach(function (g) { st.on[g.k] = g.impDef; });
-    var haveKeys = {}; (FT.data().transactions || []).forEach(function (t) { haveKeys[_movKey(t)] = true; });
-    function stats() { var c = {}, du = {}; _movPick(res.txs, null, st.scope).forEach(function (t) { var k = FT.movGroup(t); c[k] = (c[k] || 0) + 1; if (haveKeys[_movKey(t)]) du[k] = (du[k] || 0) + 1; }); return { c: c, du: du }; }
-    function chosen() { return FT.MOV_GROUPS.filter(function (g) { return st.on[g.k]; }).map(function (g) { return g.k; }); }
+    var IMPG = FT.MOV_GROUPS.filter(function (g) { return g.k !== 'transferencias'; });
+    IMPG.forEach(function (g) { st.on[g.k] = g.impDef; });
+    var haveCnt = {}; (FT.data().transactions || []).forEach(function (t) { var k = _movKey(t) + '|' + FT.movScope(t); haveCnt[k] = (haveCnt[k] || 0) + 1; });
+    function stats() { var c = {}, du = {}, left = Object.assign({}, haveCnt); _movPick(res.txs, null, st.scope).forEach(function (t) { var k = FT.movGroup(t), kk = _movKey(t) + '|' + FT.movScope(t); c[k] = (c[k] || 0) + 1; if (left[kk] > 0) { left[kk]--; du[k] = (du[k] || 0) + 1; } }); return { c: c, du: du }; }
+    function chosen() { return IMPG.filter(function (g) { return st.on[g.k]; }).map(function (g) { return g.k; }); }
+    var foreign = res.meta.user && String(res.meta.user).trim() && String(res.meta.user).trim() !== String(FT.userName() || '').trim();
     FT.sheet({ title: '📥 ' + (L ? 'Importar movimientos' : 'Import movements'), html: '<div id="imBody"></div>', onOpen: function (body) { paint(body.querySelector('#imBody')); },
       actions: [{ label: L ? 'Importar lo escogido' : 'Import selection', primary: true, onClick: function () {
         var g = chosen(); if (!g.length) { FT.toast(L ? 'Elige al menos un tipo' : 'Pick at least one type'); return; }
+        function run() {
         var r = FT.importMovements(res.txs, { groups: g, scope: st.scope });
-        FT.toast((L ? '✅ Importados ' : '✅ Imported ') + r.added + (r.dup ? (L ? ' · ya existían ' : ' · already there ') + r.dup : ''));
+        if (r.failed) { FT.toast(L ? '⚠️ No cupo en el almacenamiento del teléfono: no se importó nada' : '⚠️ Not enough storage on this phone: nothing was imported'); return; }
+        FT.toast((L ? '✅ Importados ' : '✅ Imported ') + r.added + (r.dup ? (L ? ' · ya existían ' : ' · already there ') + r.dup : '') + (r.bad ? (L ? ' · omitidos ' : ' · skipped ') + r.bad : ''));
         setTimeout(function () { try { location.reload(); } catch (e) {} }, 900);
+        }
+        if (foreign) FT.confirm(L ? 'Este archivo es de «' + _escH(res.meta.user) + '». Los movimientos pasarán a ser tuyos. ¿Importar de todos modos?' : 'This file is from "' + _escH(res.meta.user) + '". The movements will become yours. Import anyway?').then(function (ok) { if (ok) run(); }); else run();
       } }] });
     function paint(box) {
       var s = stats(), when = res.meta.exportedAt ? FT.date(String(res.meta.exportedAt).slice(0, 10)) : '';
-      box.innerHTML = '<p style="font-size:12.5px;color:var(--text2);margin:0 0 8px;line-height:1.5">' + (L ? 'El archivo trae ' + res.txs.length + ' movimientos' + (when ? ' (descargado el ' + when + ')' : '') + '. Escoge cuáles importar. Lo que ya existe se omite.' : 'The file has ' + res.txs.length + ' movements' + (when ? ' (downloaded ' + when + ')' : '') + '. Pick which to import. Anything already here is skipped.') + '</p>' +
+      box.innerHTML = (foreign ? '<div style="font-size:12px;color:#8a5a00;background:#FFF3DF;border-radius:9px;padding:8px 10px;margin-bottom:8px;line-height:1.45">⚠️ ' + (L ? 'Este archivo es de «' + _escH(res.meta.user) + '», no tuyo. Al importar, esos movimientos quedan como tuyos.' : 'This file is from "' + _escH(res.meta.user) + '", not yours. Imported movements become yours.') + '</div>' : '') + '<p style="font-size:12.5px;color:var(--text2);margin:0 0 8px;line-height:1.5">' + (L ? 'El archivo trae ' + res.txs.length + ' movimientos' + (when ? ' (descargado el ' + when + ')' : '') + '. Escoge cuáles importar. Lo que ya existe se omite.' : 'The file has ' + res.txs.length + ' movements' + (when ? ' (downloaded ' + when + ')' : '') + '. Pick which to import. Anything already here is skipped.') + '</p>' +
         '<div style="display:flex;gap:6px;margin-bottom:8px">' + [['all', L ? 'Todo' : 'All'], ['hogar', L ? 'Solo hogar' : 'Household only'], ['personal', L ? 'Solo personal' : 'Personal only']].map(function (x) { var on = st.scope === x[0]; return '<button type="button" data-sc="' + x[0] + '" class="tap" style="flex:1;padding:8px 4px;border-radius:10px;border:1.5px solid ' + (on ? 'var(--g-main)' : 'var(--hair)') + ';background:' + (on ? 'var(--g-light)' : 'var(--card,#fff)') + ';color:var(--ink);font:700 12px inherit;font-family:inherit;cursor:pointer">' + x[1] + '</button>'; }).join('') + '</div>' +
-        FT.MOV_GROUPS.map(function (g) { var n = s.c[g.k] || 0, dn = s.du[g.k] || 0; return '<label style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--hair);cursor:pointer;' + (n ? '' : 'opacity:.45') + '"><input type="checkbox" data-g="' + g.k + '"' + (st.on[g.k] ? ' checked' : '') + (n ? '' : ' disabled') + ' style="width:18px;height:18px"><span style="flex:1;font-size:13px">' + g.ico + ' ' + (L ? g.es : g.en) + '</span><span style="font-size:12px;color:var(--text3)">' + n + (dn ? ' · ' + dn + (L ? ' ya están' : ' exist') : '') + '</span></label>'; }).join('') +
-        '<div style="font-size:11px;color:var(--text3);line-height:1.45;margin-top:8px">' + (L ? 'Importar no cambia saldos ni fondos: los movimientos solo aparecen en tu historial y presupuesto. Cheques, ahorros, inversiones y transferencias quedan sin marcar porque dependen de cuentas y fondos que tendrás que crear de nuevo.' : 'Importing does not change balances or funds: movements only show in your history and budget. Paychecks, savings, investments and transfers are unchecked because they depend on accounts and funds you will recreate.') + '</div>';
+        IMPG.map(function (g) { var n = s.c[g.k] || 0, dn = s.du[g.k] || 0; return '<label style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--hair);cursor:pointer;' + (n ? '' : 'opacity:.45') + '"><input type="checkbox" data-g="' + g.k + '"' + (st.on[g.k] ? ' checked' : '') + (n ? '' : ' disabled') + ' style="width:18px;height:18px"><span style="flex:1;font-size:13px">' + g.ico + ' ' + (L ? g.es : g.en) + '</span><span style="font-size:12px;color:var(--text3)">' + n + (dn ? ' · ' + dn + (L ? ' ya están' : ' exist') : '') + '</span></label>'; }).join('') +
+        '<div style="font-size:11px;color:var(--text3);line-height:1.45;margin-top:8px">' + (L ? 'Importar no cambia saldos ni fondos: los movimientos solo aparecen en tu historial y presupuesto. Cheques, ahorros e inversiones quedan sin marcar porque dependen de cuentas y fondos que tendrás que crear de nuevo. Las transferencias no se importan.' : 'Importing does not change balances or funds: movements only show in your history and budget. Paychecks, savings and investments are unchecked because they depend on accounts and funds you will recreate. Transfers are not imported.') + '</div>';
       box.querySelectorAll('[data-sc]').forEach(function (b) { b.onclick = function () { st.scope = b.getAttribute('data-sc'); paint(box); }; });
       box.querySelectorAll('[data-g]').forEach(function (i) { i.onchange = function () { st.on[i.getAttribute('data-g')] = i.checked; }; });
     }
-  }).catch(function () { FT.toast(L ? '⚠️ Ese archivo no es de movimientos de FinTrack Pro' : '⚠️ That is not a FinTrack Pro movements file'); });
+  }).catch(function (e) { var m = e && e.message; FT.toast(m === 'too_big' ? (L ? '⚠️ El archivo es demasiado grande (máx. 8 MB)' : '⚠️ File too large (max 8 MB)') : m === 'too_many' ? (L ? '⚠️ Trae demasiados movimientos (máx. 20,000)' : '⚠️ Too many movements (max 20,000)') : (L ? '⚠️ Ese archivo no es de movimientos de FinTrack Pro' : '⚠️ That is not a FinTrack Pro movements file')); });
 };
 /** Lee y valida un archivo de respaldo sin aplicarlo todavía — el caller decide
  *  cuándo confirmar con el usuario antes de llamar a FT.applyBackup(). */
@@ -5155,7 +5176,7 @@ FT.txRow = function (t, idx, o) {
   var esHogarRow = t.hogar === true || t.isHogar === true;
   var who = (o.partner && t._partner && t.createdBy) ? ' · ' + _escH(t.createdBy) : '';
   var lbl = _escH(meta.label) + (FT.isPending(t) ? ' · ⏳ ' + (es ? 'Pendiente · ' + FT.date(t.date) : 'Pending · ' + FT.date(t.date)) : '') + (esHogarRow ? ' · 🏠 ' + (es ? 'Hogar' : 'Household') : '') + who;
-  return '<div class="ft-tx tap" data-txid="' + t.id + '" role="button" tabindex="0"' + (t._partner ? ' style="cursor:default"' : '') + '>' +
+  return '<div class="ft-tx tap" data-txid="' + _escH(t.id) + '" role="button" tabindex="0"' + (t._partner ? ' style="cursor:default"' : '') + '>' +
     '<div class="ft-tx-top"><span class="ft-pill">' + FT.date(t.date) + '</span>' +
       '<span class="ft-pill"' + (isIn ? ' style="color:var(--g-main)"' : '') + '>' + (isIn ? '+' : (neutralSign ? '' : '−')) + FT.money(t.amount, { cents: true, noSymbol: false }).replace('−', '') + '</span></div>' +
     '<div class="ft-tx-body">' +
@@ -5183,7 +5204,7 @@ FT.openTxDetail = function (tx, opts) {
   var hora = isNaN(created.getTime()) ? '—' : created.toLocaleTimeString(es ? 'es-MX' : 'en-US', { hour: '2-digit', minute: '2-digit' });
   var rows = [
     [es ? 'Tipo' : 'Type', typeName],
-    [es ? 'Categoría' : 'Category', tx.cat || '—'],
+    [es ? 'Categoría' : 'Category', _escH(tx.cat || '—')],
     [es ? 'Fecha' : 'Date', FT.date(tx.date)],
     [es ? 'Hora de registro' : 'Time recorded', hora]
   ];
@@ -5191,11 +5212,11 @@ FT.openTxDetail = function (tx, opts) {
   if (tx.auto) rows.push([es ? 'Origen' : 'Source', es ? 'Automático' : 'Automatic']);
   var html = '<div style="text-align:center;margin-bottom:16px">' +
       '<div class="ft-num" style="font-size:28px;color:' + (isCredit ? 'var(--g-main)' : 'var(--ink)') + '">' + (isCredit ? '+' : (tx.type === 'transferencia' ? '' : '−')) + FT.money(tx.amount, { cents: true }) + '</div>' +
-      (tx.type === 'transferencia' && tx.fromLabel && tx.toLabel ? '<div style="font-size:12px;color:var(--text3);margin-top:2px">' + tx.fromLabel + ' → ' + tx.toLabel + '</div>' : '') +
+      (tx.type === 'transferencia' && tx.fromLabel && tx.toLabel ? '<div style="font-size:12px;color:var(--text3);margin-top:2px">' + _escH(tx.fromLabel) + ' → ' + _escH(tx.toLabel) + '</div>' : '') +
       (esHogar ? '<span style="background:var(--g-light);color:var(--g-dark);font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;display:inline-block;margin-top:4px">🏠 ' + (es ? 'Del hogar' : 'Household') + '</span>' : '') +
     '</div>' +
     rows.map(function (r) { return '<div class="ft-row"><span class="k">' + r[0] + '</span><span class="v">' + r[1] + '</span></div>'; }).join('') +
-    (tx.note ? '<div style="margin-top:10px"><div style="font-size:11px;color:var(--text3);margin-bottom:4px">' + (es ? 'Nota' : 'Note') + '</div><div style="background:var(--sunk);border-radius:10px;padding:10px;font-size:13px">' + tx.note + '</div></div>' : '');
+    (tx.note ? '<div style="margin-top:10px"><div style="font-size:11px;color:var(--text3);margin-bottom:4px">' + (es ? 'Nota' : 'Note') + '</div><div style="background:var(--sunk);border-radius:10px;padding:10px;font-size:13px">' + _escH(tx.note) + '</div></div>' : '');
   // Revisión independiente: editar el monto de una TRANSFERENCIA con este
   // formulario genérico (no sabe nada de fromRef/toRef) desajustaba los dos
   // lados sin corregir ninguno -- y borrarla después revertía el monto
