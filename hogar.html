@@ -535,7 +535,7 @@ function openEmergDetail() {
   var hist = (e.hist || []).slice().sort(function (a, b) { return String(b.fecha).localeCompare(String(a.fecha)); }).slice(0, 4);
   FT.sheet({
     title: '🛡️ ' + (L ? 'Emergencia del hogar' : 'Household emergency'),
-    html: '<div style="font-size:11px;color:var(--text3);margin-bottom:6px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--g-main);margin-right:6px"></span>' + (L ? 'De los dos' : 'Shared') + '</div>' +
+    html: '<div style="font-size:11px;color:var(--text3);margin-bottom:6px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--g-main);margin-right:6px"></span>' + (L ? 'De los dos' : 'Shared') + '</div>' + (FT.hogarEditBadge(e) ? '<div style="margin-bottom:6px">' + FT.hogarEditBadge(e) + '</div>' : '') +
       '<div class="ft-num" style="font-size:26px">' + FT.money(actual, { cents: true }) + '</div>' +
       (meta > 0 ? '<div class="ft-track" style="height:8px;margin:10px 0 6px"><div class="ft-fill" style="width:' + pct + '%;background:var(--g-main)"></div></div><div style="font-size:12px;color:var(--text3)">' + pct + '% ' + (L ? 'de la meta de ' : 'of the goal of ') + FT.money(meta) + ' · ' + (L ? 'faltan ' : 'left: ') + FT.money(Math.max(0, meta - actual), { cents: true }) + '</div>' : '<div style="font-size:12px;color:var(--text3);margin-top:4px">' + (L ? 'Sin meta definida' : 'No goal set') + '</div>') +
       '<div class="ft-row" style="margin-top:10px"><span class="k">' + (L ? 'Guardada en' : 'Kept in') + '</span><span class="v">' + (ac ? _escHg(ac.name) + (L ? ' (apartado)' : ' (set aside)') : (L ? 'Sin cuenta' : 'No account')) + '</span></div>' +
@@ -786,7 +786,7 @@ function fondosCards(modo) {
     var rec = FT.recurList(function (r) { return r.kind === 'meta' && r.metaTipo === 'emerg'; })[0];
     return '<div class="ft-card">' +
       '<div style="font-size:14px;font-weight:800">🛡️ ' + (L ? 'Fondo de Emergencia del Hogar' : 'Household Emergency Fund') + '</div>' +
-      '<div style="font-size:11px;color:var(--text3);margin-bottom:10px">' + (L ? 'Solo para emergencias reales' : 'Only for real emergencies') + '</div>' +
+      '<div style="font-size:11px;color:var(--text3);margin-bottom:10px">' + (L ? 'Solo para emergencias reales' : 'Only for real emergencies') + '</div>' + (FT.hogarEditBadge(e) ? '<div style="margin:-6px 0 8px">' + FT.hogarEditBadge(e) + '</div>' : '') +
       '<div style="text-align:center;background:var(--sunk);border-radius:14px;padding:14px;margin-bottom:10px">' +
         '<div style="font-size:11px;color:var(--text3);margin-bottom:2px">' + (L ? 'Saldo actual' : 'Balance') + '</div><div class="ft-num" style="font-size:26px">' + FT.money(e.actual || 0) + '</div>' +
         (e.meta > 0 ? progBar(e.actual || 0, e.meta) : '') + '</div>' +
@@ -810,7 +810,7 @@ function fondosCards(modo) {
     return '<div class="ft-card">' +
       '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;gap:8px">' +
         '<div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:800">🎯 ' + (m.nombre || (L ? 'Meta' : 'Goal')) + '</div>' +
-        '<div style="font-size:11px;color:var(--text3)">' + (m.meta > 0 ? FT.money(m.meta) + ' ' + (L ? 'objetivo' : 'target') : (L ? 'Sin monto objetivo' : 'No target amount')) + (m.fecha ? ' · ' + m.fecha : '') + '</div></div>' +
+        '<div style="font-size:11px;color:var(--text3)">' + (m.meta > 0 ? FT.money(m.meta) + ' ' + (L ? 'objetivo' : 'target') : (L ? 'Sin monto objetivo' : 'No target amount')) + (m.fecha ? ' · ' + m.fecha : '') + '</div>' + FT.hogarEditBadge(m) + '</div>' +
         '<div style="display:flex;gap:6px;flex-shrink:0">' +
         '<button class="tap" style="background:var(--sunk);border:1.5px solid var(--hair);border-radius:10px;padding:6px 9px;font-size:12px;cursor:pointer;font-family:inherit" onclick="configMeta(' + idx + ')">⚙️</button>' +
         '<button class="tap" style="background:var(--red-dim);color:var(--red);border:none;border-radius:10px;padding:6px 9px;font-size:12px;cursor:pointer;font-family:inherit" onclick="eliminarMeta(' + idx + ')">🗑</button></div>' +
@@ -833,7 +833,8 @@ function recPill(rec) {
 }
 function tabMetas() { return fondosCards('metas'); }
 
-function configFondo(tipo) {
+function configFondo(tipo) { var e0 = FT.hogarFondos().emerg; FT.confirmHogarEdit(e0, es() ? 'el fondo de emergencia' : 'the emergency fund').then(function (ok) { if (ok) _configFondo(tipo); }); }
+function _configFondo(tipo) {
   var L = es(), fondos = FT.hogarFondos(), e = fondos.emerg;
   FT.modal({
     title: L ? 'Configurar fondo de emergencia' : 'Configure emergency fund',
@@ -849,7 +850,8 @@ function configFondo(tipo) {
     }
   });
 }
-function configMeta(idx) {
+function configMeta(idx) { var m0 = (FT.hogarFondos().metas || [])[idx]; FT.confirmHogarEdit(m0, m0 && m0.nombre).then(function (ok) { if (ok) _configMeta(idx); }); }
+function _configMeta(idx) {
   var L = es(), fondos = FT.hogarFondos(), m = fondos.metas[idx]; if (!m) return;
   FT.modal({
     title: L ? 'Configurar meta' : 'Configure goal',
@@ -873,7 +875,8 @@ function agregarMeta() {
   FT.saveHogarFondos(f);
   switchTab('metas');
 }
-function eliminarMeta(idx) {
+function eliminarMeta(idx) { var m0 = (FT.hogarFondos().metas || [])[idx]; FT.confirmHogarEdit(m0, m0 && m0.nombre).then(function (ok) { if (ok) _eliminarMeta(idx); }); }
+function _eliminarMeta(idx) {
   var L = es();
   FT.confirm(L ? '¿Eliminar esta meta?' : 'Delete this goal?').then(function (ok) {
     if (!ok) return;
