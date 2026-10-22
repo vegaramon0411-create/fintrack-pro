@@ -334,10 +334,19 @@ var _obPollTimer = null;
 function obHogarEmergNote() {
   if (!obHogarEmergExists()) return '';
   var e = FT.hogarFondos().emerg || {}, act = parseFloat(e.actual) || 0, cur = S.hemTotal != null ? S.hemTotal : act;
-  return '<div class="ob-card" style="padding:12px"><div style="font-size:12.5px;line-height:1.45;margin-bottom:8px">🏠 <b>' + T('El hogar ya tiene fondo de emergencia', 'The household already has an emergency fund') + '</b> <span style="color:var(--text3)">(' + T('de los dos', 'shared') + ')</span><br><span style="color:var(--text3)">' + T('Ya está registrado: no se vuelve a depositar. Si el total no es el correcto, cámbialo aquí.', 'It is already registered: it is not deposited again. If the total is wrong, change it here.') + '</span></div>' +
+  return '<div class="ob-card" style="padding:12px"><div style="font-size:12.5px;line-height:1.45;margin-bottom:8px">🏠 <b>' + T('El hogar ya tiene fondo de emergencia', 'The household already has an emergency fund') + '</b> <span style="color:var(--text3)">(' + T('de los dos', 'shared') + ')</span><br><span style="color:var(--text3)">' + T('Ya está registrado: no se vuelve a depositar. Si el total no es el correcto, cámbialo aquí.', 'It is already registered: it is not deposited again. If the total is wrong, change it here.') + '</span>' + (FT.hogarEditBadge(e) ? '<br>' + FT.hogarEditBadge(e) : '') + '</div>' +
     '<label for="obHemTotal" style="display:block;font-size:11px;font-weight:800;color:var(--text2);margin:0 0 3px">' + T('Total del fondo del hogar hoy', 'Household fund total today') + '</label>' +
-    '<input id="obHemTotal" type="text" inputmode="decimal" value="' + esc(String(cur)) + '" oninput="obHemInput()" style="width:100%;box-sizing:border-box;min-width:0;background:#fff;border:1.5px solid var(--hair);border-radius:10px;padding:10px 12px;font-size:14px;font-family:var(--ui-font)">' +
+    '<input id="obHemTotal" type="text" inputmode="decimal" value="' + esc(String(cur)) + '" oninput="obHemInput()" onchange="obHemGuard()" style="width:100%;box-sizing:border-box;min-width:0;background:#fff;border:1.5px solid var(--hair);border-radius:10px;padding:10px 12px;font-size:14px;font-family:var(--ui-font)">' +
     '<div id="obHemNote" style="font-size:11px;color:var(--text3);margin-top:4px">' + obHemNoteText(cur, act) + '</div></div>';
+}
+/** Si mi pareja modificó el fondo hace poco, antes de aceptar mi cambio se avisa y se pide confirmar (si no, vuelve al total que había). */
+function obHemGuard() {
+  if (S.hemTotal == null || S.hemOk) return;
+  var e = FT.hogarFondos().emerg || {}, act = parseFloat(e.actual) || 0;
+  FT.confirmHogarEdit(e, T('el fondo de emergencia del hogar', 'the household emergency fund')).then(function (ok) {
+    if (ok) { S.hemOk = true; return; }
+    S.hemTotal = null; S.hemBase = null; var i = document.getElementById('obHemTotal'); if (i) i.value = act; var n = document.getElementById('obHemNote'); if (n) n.textContent = obHemNoteText(act, act);
+  });
 }
 function obHemNoteText(cur, act) { var d = +(cur - act).toFixed(2); return d === 0 ? T('Sin cambios.', 'No changes.') : T('Se registrará un ajuste de ', 'An adjustment of ') + (d > 0 ? '+' : '') + FT.money(d, { cents: true }) + T(' al fondo.', ' will be recorded.'); }
 function obHemInput() {
@@ -356,11 +365,18 @@ function obHogarMetasHtml() {
   return '<div class="ob-card" style="padding:12px"><div style="font-size:12.5px;line-height:1.45"><b>🏠 ' + T('Metas del hogar ya registradas', 'Household goals already registered') + '</b><br><span style="color:var(--text3)">' + T('Ya están: no se vuelven a depositar. Corrige lo que no esté bien.', 'They are already there: not deposited again. Fix anything that is off.') + '</span></div>' +
     ms.map(function (m, i) {
       var st = (S.hm && S.hm[m.id]) || {}, tot = st.tot != null ? st.tot : (parseFloat(m.actual) || 0), tgt = st.tgt != null ? st.tgt : (parseFloat(m.meta) || 0);
-      return '<div style="margin-top:8px;border-top:1px solid var(--hair);padding-top:8px"><b style="font-size:13px">🎯 ' + esc(m.nombre || T('Meta', 'Goal')) + '</b>' +
-        '<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;margin-top:5px"><div><label style="' + _obLab + '">' + T('Ahorrado hoy', 'Saved today') + '</label><input type="text" inputmode="decimal" data-i="' + i + '" data-f="tot" value="' + esc(String(tot)) + '" oninput="obHmInput(this)" style="' + _obInp + '"></div>' +
-        '<div><label style="' + _obLab + '">' + T('Meta', 'Goal') + '</label><input type="text" inputmode="decimal" data-i="' + i + '" data-f="tgt" value="' + esc(String(tgt)) + '" oninput="obHmInput(this)" style="' + _obInp + '"></div></div>' +
+      return '<div style="margin-top:8px;border-top:1px solid var(--hair);padding-top:8px"><b style="font-size:13px">🎯 ' + esc(m.nombre || T('Meta', 'Goal')) + '</b>' + (FT.hogarEditBadge(m) ? '<br>' + FT.hogarEditBadge(m) : '') +
+        '<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;margin-top:5px"><div><label style="' + _obLab + '">' + T('Ahorrado hoy', 'Saved today') + '</label><input type="text" inputmode="decimal" data-i="' + i + '" data-f="tot" value="' + esc(String(tot)) + '" oninput="obHmInput(this)" onchange="obHmGuard(this)" style="' + _obInp + '"></div>' +
+        '<div><label style="' + _obLab + '">' + T('Meta', 'Goal') + '</label><input type="text" inputmode="decimal" data-i="' + i + '" data-f="tgt" value="' + esc(String(tgt)) + '" oninput="obHmInput(this)" onchange="obHmGuard(this)" style="' + _obInp + '"></div></div>' +
         '<div id="obHmNote' + i + '" style="font-size:11px;color:var(--text3);margin-top:3px">' + obHmNoteText(m, st) + '</div></div>';
     }).join('') + '</div>';
+}
+function obHmGuard(el) {
+  var ms = FT.hogarFondos().metas || [], m = ms[parseInt(el.getAttribute('data-i'), 10)]; if (!m || !S.hm || !S.hm[m.id] || S.hm[m.id].ok) return;
+  FT.confirmHogarEdit(m, m.nombre).then(function (ok) {
+    if (ok) { S.hm[m.id].ok = true; return; }
+    delete S.hm[m.id]; renderStep();   // vuelve a lo que había
+  });
 }
 function obHmNoteText(m, st) { var base = st.base != null ? st.base : (parseFloat(m.actual) || 0), d = st.tot != null ? +(st.tot - base).toFixed(2) : 0; return d === 0 ? T('Sin cambios.', 'No changes.') : T('Se registrará un ajuste de ', 'An adjustment of ') + (d > 0 ? '+' : '') + FT.money(d, { cents: true }) + '.'; }
 function obHmInput(el) {
@@ -672,7 +688,7 @@ function doSaveOnboarding() {
   });
   if (goalsAdded) FT.saveGoals(personalGoals);
   // Total del fondo de emergencia del hogar corregido en el paso de Ahorros: se registra solo la DIFERENCIA, nunca un depósito nuevo completo.
-  if (S.hemTotal != null && hogarOn_) { var ff = FT.hogarFondos(), act0 = parseFloat((ff.emerg || {}).actual) || 0, dlt = +(S.hemTotal - (S.hemBase != null ? S.hemBase : act0)).toFixed(2); if (Math.abs(dlt) > 0.004) { ff.emerg = ff.emerg || { meta: 0, fecha: '', actual: 0, hist: [] }; ff.emerg.hist = (ff.emerg.hist || []).concat([{ id: ridH('adj_'), monto: dlt, fecha: hoy, desdePres: false, nota: T('Ajuste al configurar', 'Adjustment when setting up') }]); ff.emerg.actual = ff.emerg.hist.reduce(function (s, h) { return s + (h.monto || 0); }, 0); FT.saveHogarFondos(ff); } S.hemTotal = null; S.hemBase = null; }
+  if (S.hemTotal != null && hogarOn_) { var ff = FT.hogarFondos(), act0 = parseFloat((ff.emerg || {}).actual) || 0, dlt = +(S.hemTotal - (S.hemBase != null ? S.hemBase : act0)).toFixed(2); if (Math.abs(dlt) > 0.004) { ff.emerg = ff.emerg || { meta: 0, fecha: '', actual: 0, hist: [] }; ff.emerg.hist = (ff.emerg.hist || []).concat([{ id: ridH('adj_'), monto: dlt, fecha: hoy, desdePres: false, nota: T('Ajuste al configurar', 'Adjustment when setting up') }]); ff.emerg.actual = ff.emerg.hist.reduce(function (s, h) { return s + (h.monto || 0); }, 0); FT.saveHogarFondos(ff); } S.hemTotal = null; S.hemBase = null; S.hemOk = false; }
   // Ahorros personales corregidos (cada fondo de ahorro libre y la emergencia personal): solo la DIFERENCIA, sin tocar cuentas.
   if (S.ps) { Object.keys(S.ps).forEach(function (k) { var st = S.ps[k]; if (st.tot == null) return; var dl = +(st.tot - st.base).toFixed(2); if (Math.abs(dl) < 0.005) return; var nota = T('Ajuste al configurar', 'Adjustment when setting up'), tipo = dl > 0 ? 'deposito' : 'retiro', amt = Math.abs(dl); if (k === 'e') FT.addEmergency({ id: ridH('adj_'), amount: amt, date: hoy, tipo: tipo, note: nota, _noAcctMove: true }); else FT.addSavings({ id: ridH('adj_'), amount: amt, date: hoy, tipo: tipo, note: nota, fundId: k.slice(2), _noAcctMove: true }); }); S.ps = null; }
   // Metas del hogar corregidas: solo la diferencia (ajuste) y el objetivo nuevo; nunca un depósito completo.
