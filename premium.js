@@ -1404,38 +1404,41 @@ FT.hogarFondos = function () {
   if (!Array.isArray(f.metas)) f.metas = [];
   return f;
 };
-﻿/* ── Quién modificó lo compartido del hogar (21-oct-2026) ──
+/* ── Quién modificó lo compartido del hogar (21-oct-2026) ──
    Cada fondo/meta del hogar guarda `lastEdit: {by, at}` cuando cambia su total, objetivo, nombre, fecha o depósitos. Lo que llega por sync de mi pareja
    conserva SU sello (nunca se re-sella como mío). Se muestra como etiqueta y, antes de sobrescribir algo que ella modificó hace poco, se pide confirmar. */
 function _fondoSig(it) { it = it || {}; return [it.nombre || '', Math.round((parseFloat(it.actual) || 0) * 100), Math.round((parseFloat(it.meta) || 0) * 100), it.fecha || '', (it.hist || []).length].join('|'); }
 function _stampFondos(f) {
-  var old = FT.get(K.hogarFondos, null) || {}, mark = { by: String(FT.userName() || '').slice(0, 40), at: new Date().toISOString() };
+  var old = FT.get(K.hogarFondos, null) || {}, mark = { by: String(FT.userName() || '').slice(0, 40), uid: String((FT.user() || {}).email || '').toLowerCase().slice(0, 80), at: new Date().toISOString() };
   if (f.emerg && _fondoSig(f.emerg) !== _fondoSig(old.emerg)) f.emerg.lastEdit = Object.assign({}, mark);
   (f.metas || []).forEach(function (m) { var o2 = (old.metas || []).find(function (x) { return String(x.id) === String(m.id); }); if (!o2 || _fondoSig(m) !== _fondoSig(o2)) m.lastEdit = Object.assign({}, mark); });
 }
+function _localDay(iso) { var d = new Date(iso); return isNaN(d) ? '' : d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }   // fecha LOCAL (no UTC)
 function _latestEdit(a, b) { var ta = a && a.at ? Date.parse(a.at) : 0, tb = b && b.at ? Date.parse(b.at) : 0; return (tb > ta ? b : a) || undefined; }
 FT.saveHogarFondos = function (f, o) { if (!(o && o.noStamp)) { try { _stampFondos(f); } catch (e) {} } FT.set(K.hogarFondos, f); FT._changed(); };
 FT._mergeFondosInto = function (mine, theirs) { return _mergeFondosInto(mine, theirs); };   // expuesto para pruebas
 /** Info de la última modificación de un fondo/meta: { by, at, mine, days } o null si no hay sello. */
 FT.hogarEditInfo = function (item) {
   var le = item && item.lastEdit; if (!le || !le.at || isNaN(Date.parse(le.at))) return null;
-  var days = Math.floor((Date.now() - Date.parse(le.at)) / 86400000), me = String(FT.userName() || '').trim().toLowerCase();
-  return { by: String(le.by || '').trim(), at: le.at, mine: !!me && String(le.by || '').trim().toLowerCase() === me, days: Math.max(0, days) };
+  var days = Math.floor((Date.now() - Date.parse(le.at)) / 86400000), me = String(FT.userName() || '').trim().toLowerCase(), myUid = String((FT.user() || {}).email || '').toLowerCase();
+  // Identidad: el correo si el sello lo trae (dos personas pueden llamarse igual); si no, el nombre.
+  var mine = le.uid && myUid ? String(le.uid).toLowerCase() === myUid : (!!me && String(le.by || '').trim().toLowerCase() === me);
+  return { by: String(le.by || '').trim(), at: le.at, mine: mine, days: Math.max(0, days), local: _localDay(le.at) };
 };
 FT.hogarEditAgo = function (days) { var es = FT.lang === 'es'; return days <= 0 ? (es ? 'hoy' : 'today') : days === 1 ? (es ? 'ayer' : 'yesterday') : (es ? 'hace ' + days + ' días' : days + ' days ago'); };
 /** Etiqueta chica "✏️ Modificado por Yesica · hace 2 días (20/10/26)"; ámbar si fue mi pareja y fue reciente (≤ 7 días). '' si no hay sello. */
 FT.hogarEditBadge = function (item) {
   var i = FT.hogarEditInfo(item); if (!i) return '';
   var es = FT.lang === 'es', who = i.mine ? (es ? 'ti' : 'you') : _escH(i.by || (es ? 'tu pareja' : 'your partner')), hot = !i.mine && i.days <= 7;
-  return '<span style="display:inline-block;font-size:10.5px;font-weight:700;border-radius:99px;padding:2px 8px;margin-top:3px;' + (hot ? 'background:#FFF3DF;color:#8a5a00' : 'background:var(--sunk);color:var(--text3)') + '">✏️ ' + (es ? 'Modificado por ' : 'Edited by ') + who + ' · ' + FT.hogarEditAgo(i.days) + ' (' + FT.date(String(i.at).slice(0, 10)) + ')</span>';
+  return '<span style="display:inline-block;font-size:10.5px;font-weight:700;border-radius:99px;padding:2px 8px;margin-top:3px;' + (hot ? 'background:#FFF3DF;color:#8a5a00' : 'background:var(--sunk);color:var(--text3)') + '">✏️ ' + (es ? 'Modificado por ' : 'Edited by ') + who + ' · ' + FT.hogarEditAgo(i.days) + ' (' + FT.date(i.local) + ')</span>';
 };
 /** Antes de modificar algo del hogar que mi pareja cambió hace poco (≤ 7 días): avisa y pide confirmar. Resuelve true si puede seguir. */
 FT.confirmHogarEdit = function (item, what) {
   var i = FT.hogarEditInfo(item);
   if (!i || i.mine || i.days > 7) return Promise.resolve(true);
   var es = FT.lang === 'es', who = _escH(i.by || (es ? 'Tu pareja' : 'Your partner'));
-  return FT.confirm(es ? '⚠️ ' + who + ' modificó ' + (what ? '«' + _escH(what) + '» ' : 'esto ') + FT.hogarEditAgo(i.days) + ' (' + FT.date(String(i.at).slice(0, 10)) + '). Si sigues, puedes descuadrar lo que ya registró. ¿Seguro que quieres modificarlo?'
-    : '⚠️ ' + who + ' changed ' + (what ? '"' + _escH(what) + '" ' : 'this ') + FT.hogarEditAgo(i.days) + ' (' + FT.date(String(i.at).slice(0, 10)) + '). If you continue you may throw off what they already logged. Are you sure you want to change it?',
+  return FT.confirm(es ? '⚠️ ' + who + ' modificó ' + (what ? '«' + _escH(what) + '» ' : 'esto ') + FT.hogarEditAgo(i.days) + ' (' + FT.date(i.local) + '). Si sigues, puedes descuadrar lo que ya registró. ¿Seguro que quieres modificarlo?'
+    : '⚠️ ' + who + ' changed ' + (what ? '"' + _escH(what) + '" ' : 'this ') + FT.hogarEditAgo(i.days) + ' (' + FT.date(i.local) + '). If you continue you may throw off what they already logged. Are you sure you want to change it?',
     { title: es ? 'Modificado recientemente' : 'Recently changed', okLabel: es ? 'Sí, modificar' : 'Yes, change it' });
 };
 FT.distPcts = function () { return FT.get(K.distPcts, null) || { ahorro: 50, emergencia: 25, inversion: 25 }; };
@@ -1457,7 +1460,7 @@ FT.exportBackup = function () {
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
 };
-﻿/* ── Movimientos: exportar / importar escogiendo qué (21-oct-2026) ──
+/* ── Movimientos: exportar / importar escogiendo qué (21-oct-2026) ──
    Grupos: gastos, ingresos (extras/ventas), cheques, ahorros (ahorro + emergencia), inversiones, transferencias. Ámbito: todo / solo hogar / solo personal. */
 FT.MOV_GROUPS = [
   { k: 'gastos', ico: '💸', es: 'Gastos', en: 'Expenses', impDef: true },
@@ -1551,7 +1554,7 @@ FT.parseMovementsFile = function (file) {
   });
 };
 function _movKey(t) { return String(t.date) + '|' + t.type + '|' + (parseFloat(t.amount) || 0).toFixed(2) + '|' + String(t.desc || '').trim().toLowerCase(); }
-﻿/** Importa solo los grupos/ámbito escogidos. NO mueve saldos: se arma cada movimiento nuevo con una lista blanca de campos (nada que enlace a cuentas, fondos, deudas, cheques o transferencias),
+/** Importa solo los grupos/ámbito escogidos. NO mueve saldos: se arma cada movimiento nuevo con una lista blanca de campos (nada que enlace a cuentas, fondos, deudas, cheques o transferencias),
  *  con id nuevo, `createdBy` = yo, textos recortados y monto válido. Omite lo que ya existe contando repetidos (dos cafés iguales el mismo día no se funden). */
 FT.importMovements = function (txs, o) {
   o = o || {};
@@ -2722,7 +2725,7 @@ function _applyRecMeta(rec, hoy, nextId) {
     if (meta.hist.some(function (h) { return h.fecha === hoy && (h.recId === rec.id || !h.recId); })) return 'already';
     meta.hist.push({ id: 'd_' + nextId(), monto: rec.amount, fecha: hoy, desdePres: rec.desdePres, auto: true, recId: rec.id });
     meta.actual = meta.hist.reduce(function (a, h) { return a + (h.monto || 0); }, 0);
-    FT.set(K.hogarFondos, f);
+    FT.saveHogarFondos(f);   // el aporte automático es mío: sella la modificación
     if (!rec.desdePres && srcAcct) FT.deductChecking(srcAcct, rec.amount, hoy); // meta vinculada: el aporte siempre sale del libre de su cuenta
     if (rec.desdePres) {
       // Si este aporte recurrente se configuró para salir de una cuenta de
