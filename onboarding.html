@@ -193,11 +193,7 @@ function renderStep() {
   if (st.k === 'ahorros') {
     h += obHogarEmergNote();
     h += obHogarMetasHtml();
-    if (ex.savings > 0 || ex.emerg > 0) {
-      h += '<div class="ob-card"><div class="ch"><div class="ci" style="background:var(--g-light)">✅</div><div><b>' + T('Ya tienes registrado', 'Already registered') + '</b><small>' + T('No se vuelve a agregar.', 'It is not added again.') + '</small></div></div>' +
-        (ex.savings > 0 ? '<div class="done-row"><span>💵</span><span class="nm">' + T('Ahorro libre', 'Free savings') + '</span><span class="am">' + FT.money(ex.savings, { cents: true }) + '</span></div>' : '') +
-        (ex.emerg > 0 ? '<div class="done-row"><span>🛡️</span><span class="nm">' + T('Fondo de emergencia', 'Emergency fund') + '</span><span class="am">' + FT.money(ex.emerg, { cents: true }) + '</span></div>' : '') + '</div>';
-    }
+    h += obPersonalSavingsHtml();
     h += S.savings.map(function (a) { return savHtml(a); }).join('');
     h += '<div class="addbar"><div class="t">' + T('＋ Agregar:', '＋ Add:') + '</div><div class="chips">' +
       Object.keys(SAV_KINDS).map(function (k) { return '<button type="button" data-add="savings:' + k + '">' + SAV_KINDS[k].ico + ' ' + T(SAV_KINDS[k].es, SAV_KINDS[k].en) + '</button>'; }).join('') + '</div></div>';
@@ -390,6 +386,28 @@ function obDebtsListHtml(list) {
   return '<div class="ob-card" style="padding:12px"><div style="font-size:12.5px;line-height:1.45"><b>✅ ' + T('Ya tienes ', 'You already have ') + list.length + T(' deuda(s) registrada(s)', ' debt(s) registered') + '</b><br><span style="color:var(--text3)">' + T('No se vuelven a agregar.', 'They are not added again.') + '</span></div>' +
     list.map(function (d) { return '<div class="done-row"><span>' + (d.owner === 'both' ? '🏠' : '💳') + '</span><span class="nm">' + esc(d.name || T('Deuda', 'Debt')) + ' <small style="color:var(--text3);font-weight:700">· ' + (d.owner === 'both' ? T('compartida', 'shared') : T('tuya', 'yours')) + '</small></span><span class="am">' + FT.money(parseFloat(d.balance) || 0, { cents: true }) + '</span></div>'; }).join('') +
     '<button type="button" class="link-btn" onclick="FT.go(\'deudas.html\')">' + T('Editar en Deudas ›', 'Edit in Debts ›') + '</button></div>';
+}
+﻿/** Ahorros PERSONALES que ya tienes (cada fondo de ahorro libre y tu emergencia personal): siempre 👤 tuyos, con su total editable (solo se registra la diferencia). */
+function obPersonalSavingsHtml() {
+  var funds = (FT.savingsFunds() || []).filter(function (f) { return (parseFloat(f.actual) || 0) > 0; });
+  var em = 0; try { em = parseFloat(FT.data().emergency) || 0; } catch (e) {}
+  if (!funds.length && em <= 0) return '';
+  var row = function (label, key, cur, base) {
+    var d = +(cur - base).toFixed(2);
+    return '<div style="margin-top:8px;border-top:1px solid var(--hair);padding-top:8px"><label style="' + _obLab + '">' + label + '</label><input type="text" inputmode="decimal" data-ps="' + esc(key) + '" value="' + esc(String(cur)) + '" oninput="obPsInput(this)" style="' + _obInp + '"><div id="obPsNote_' + esc(key) + '" style="font-size:11px;color:var(--text3);margin-top:3px">' + (d === 0 ? T('Sin cambios.', 'No changes.') : T('Se registrará un ajuste de ', 'An adjustment of ') + (d > 0 ? '+' : '') + FT.money(d, { cents: true }) + '.') + '</div></div>';
+  };
+  var rows = funds.map(function (f) { var st = (S.ps && S.ps['f:' + f.id]) || {}, b = parseFloat(f.actual) || 0; return row('💵 ' + esc(f.name || T('Ahorro libre', 'Free savings')), 'f:' + f.id, st.tot != null ? st.tot : b, b); }).join('');
+  if (em > 0) { var se = (S.ps && S.ps.e) || {}; rows += row('🛡️ ' + T('Tu fondo de emergencia', 'Your emergency fund'), 'e', se.tot != null ? se.tot : em, em); }
+  return '<div class="ob-card" style="padding:12px"><div style="font-size:12.5px;line-height:1.45"><b>👤 ' + T('Tus ahorros personales ya registrados', 'Your personal savings already registered') + '</b><br><span style="color:var(--text3)">' + T('Son solo tuyos (tu pareja no los ve). No se vuelven a depositar: corrige el total si no es el correcto.', 'They are only yours (your partner cannot see them). They are not deposited again: fix the total if it is wrong.') + '</span></div>' + rows + '</div>';
+}
+function obPsInput(el) {
+  var key = el.getAttribute('data-ps'), raw = String(el.value || '').trim(); S.ps = S.ps || {};
+  var base = 0;
+  if (key === 'e') { base = parseFloat(FT.data().emergency) || 0; } else { var fd = (FT.savingsFunds() || []).find(function (f) { return 'f:' + f.id === key; }); base = fd ? (parseFloat(fd.actual) || 0) : 0; }
+  var st = S.ps[key] = S.ps[key] || { base: base };
+  if (raw === '') delete st.tot; else st.tot = Math.max(0, FT.numMoney(raw) || 0);
+  var d = st.tot != null ? +(st.tot - st.base).toFixed(2) : 0, n = document.getElementById('obPsNote_' + key);
+  if (n) n.textContent = d === 0 ? T('Sin cambios.', 'No changes.') : T('Se registrará un ajuste de ', 'An adjustment of ') + (d > 0 ? '+' : '') + FT.money(d, { cents: true }) + '.';
 }
 /** Lo que el hogar ya tiene (fondos, metas, cuentas conjuntas, inversiones, deudas compartidas): aparece como dato por defecto y no se vuelve a agregar. */
 function obHogarExistingHtml() {
@@ -655,6 +673,8 @@ function doSaveOnboarding() {
   if (goalsAdded) FT.saveGoals(personalGoals);
   // Total del fondo de emergencia del hogar corregido en el paso de Ahorros: se registra solo la DIFERENCIA, nunca un depósito nuevo completo.
   if (S.hemTotal != null && hogarOn_) { var ff = FT.hogarFondos(), act0 = parseFloat((ff.emerg || {}).actual) || 0, dlt = +(S.hemTotal - (S.hemBase != null ? S.hemBase : act0)).toFixed(2); if (Math.abs(dlt) > 0.004) { ff.emerg = ff.emerg || { meta: 0, fecha: '', actual: 0, hist: [] }; ff.emerg.hist = (ff.emerg.hist || []).concat([{ id: ridH('adj_'), monto: dlt, fecha: hoy, desdePres: false, nota: T('Ajuste al configurar', 'Adjustment when setting up') }]); ff.emerg.actual = ff.emerg.hist.reduce(function (s, h) { return s + (h.monto || 0); }, 0); FT.saveHogarFondos(ff); } S.hemTotal = null; S.hemBase = null; }
+  // Ahorros personales corregidos (cada fondo de ahorro libre y la emergencia personal): solo la DIFERENCIA, sin tocar cuentas.
+  if (S.ps) { Object.keys(S.ps).forEach(function (k) { var st = S.ps[k]; if (st.tot == null) return; var dl = +(st.tot - st.base).toFixed(2); if (Math.abs(dl) < 0.005) return; var nota = T('Ajuste al configurar', 'Adjustment when setting up'), tipo = dl > 0 ? 'deposito' : 'retiro', amt = Math.abs(dl); if (k === 'e') FT.addEmergency({ id: ridH('adj_'), amount: amt, date: hoy, tipo: tipo, note: nota, _noAcctMove: true }); else FT.addSavings({ id: ridH('adj_'), amount: amt, date: hoy, tipo: tipo, note: nota, fundId: k.slice(2), _noAcctMove: true }); }); S.ps = null; }
   // Metas del hogar corregidas: solo la diferencia (ajuste) y el objetivo nuevo; nunca un depósito completo.
   if (S.hm && hogarOn_) { var fm = FT.hogarFondos(), chg = false; Object.keys(S.hm).forEach(function (id) { var st = S.hm[id], m = (fm.metas || []).find(function (x) { return String(x.id) === String(id); }); if (!m) return; if (st.tot != null) { var dl = +(st.tot - (st.base != null ? st.base : (parseFloat(m.actual) || 0))).toFixed(2); if (Math.abs(dl) > 0.004) { m.hist = (m.hist || []).concat([{ id: ridH('adj_'), monto: dl, fecha: hoy, desdePres: false, nota: T('Ajuste al configurar', 'Adjustment when setting up') }]); m.actual = m.hist.reduce(function (s, h) { return s + (h.monto || 0); }, 0); chg = true; } } if (st.tgt != null && st.tgt > 0 && st.tgt !== (parseFloat(m.meta) || 0)) { m.meta = st.tgt; chg = true; } }); if (chg) FT.saveHogarFondos(fm); S.hm = null; }
   // Inversiones ya registradas con el valor corregido.
