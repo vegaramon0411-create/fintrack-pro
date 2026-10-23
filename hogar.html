@@ -355,6 +355,7 @@ function renderDashboard(hogar) {
 
   var h =
     unassignedCardsHtml(partnerName) +
+    newAcctCardsHtml(partnerName) +
     changeCardsHtml(partnerName) +
     reviewCardsHtml(partnerName) +
     '<div class="hg-hero">' +
@@ -451,6 +452,16 @@ function _mySetup() {
   return items;
 }
 /* ── DINERO SIN ASIGNAR Y CAMBIOS ENTRE LOS DOS (20-oct-2026) ── */
+/** Mi pareja agregó una cuenta conjunta: tarjeta con quién, cuál y cuándo; "Entendido" la marca como vista. */
+function newAcctCardsHtml(partnerName) {
+  var L = es(), list = FT.partnerNewJointAccounts(); if (!list.length) return '';
+  var ids = list.map(function (a) { return _safeId(a.id); }).join(',');
+  return '<div class="ft-card" style="border:1.5px solid var(--g-main)"><div style="font-size:13.5px;font-weight:800;margin-bottom:4px">🏦 ' + (L ? 'Cuenta conjunta nueva' : 'New joint account') + '</div>' +
+    list.map(function (a) { return '<div style="font-size:12.5px;padding:3px 0"><b>' + _escHg(a.name || (L ? 'Cuenta' : 'Account')) + '</b> · ' + FT.money(FT.accountTotal(a), { cents: true }) + '<div style="font-size:11px;color:var(--text3)">' + (L ? 'Agregada por ' : 'Added by ') + _escHg(a.jointBy || partnerName) + ' · ' + FT.date(FT.localDay(a.jointSince)) + '</div></div>'; }).join('') +
+    '<div style="display:flex;gap:8px;margin-top:8px"><button type="button" class="ft-btn ft-btn-primary tap" style="margin:0;flex:1;padding:9px" onclick="verCuentaNueva(\'' + ids + '\')">' + (L ? 'Ver cuentas' : 'See accounts') + '</button><button type="button" class="ft-btn ft-btn-ghost tap" style="margin:0;flex:1;padding:9px" onclick="entendidoCuentaNueva(\'' + ids + '\')">' + (L ? 'Entendido' : 'Got it') + '</button></div></div>';
+}
+function entendidoCuentaNueva(ids) { FT.markPartnerAcctsSeen(String(ids).split(',')); render(); }
+function verCuentaNueva(ids) { FT.markPartnerAcctsSeen(String(ids).split(',')); FT.checkingAccountsScreen(true); }
 function _safeId(x) { return String(x == null ? '' : x).replace(/[^\w\-]/g, ''); }
 function _sentFor(chequeId) { return FT.sentHogarEdits().filter(function (e) { return e.op === 'assign' && String(e.chequeId) === String(chequeId) && !e.undone && e.status === 'sent'; })[0]; } // solo mientras sigue 'Enviado'
 function unassignedCardsHtml(partnerName) {

@@ -610,7 +610,20 @@ FT.checking = function () {
   if (raw && typeof raw === 'object') return [{ id: 'chk_legacy', name: 'Cuenta', amount: parseFloat(raw.amount || raw) || 0, hogar: !!raw.hogar, updatedAt: FT.todayISO() }];
   return [];
 };
-FT.saveChecking = function (list) { FT.set(K.checking, list); FT._changed(); };
+/* Cuenta conjunta nueva (22-oct-2026): cuando una cuenta pasa a ser del hogar (nueva o marcada Conjunta) se sella con quién y cuándo, para que mi pareja lo vea. */
+FT.saveChecking = function (list) {
+  try {
+    var old = FT.get(K.checking, []) || [], oldMap = {}; (Array.isArray(old) ? old : []).forEach(function (a) { if (a) oldMap[a.id] = a; });
+    (list || []).forEach(function (a) { if (a && a.hogar === true) { var o = oldMap[a.id]; if (!o || o.hogar !== true) { a.jointSince = new Date().toISOString(); a.jointBy = String(FT.userName() || '').slice(0, 40); } } else if (a && a.jointSince) { delete a.jointSince; delete a.jointBy; } });
+  } catch (e) {}
+  FT.set(K.checking, list); FT._changed();
+};
+/** Cuentas conjuntas que mi pareja agregó (últimos 30 días) y que yo aún no marqué como vistas. */
+FT.partnerNewJointAccounts = function () {
+  var seen = FT.get('ft_seen_partner_accts', []) || [], since = Date.now() - 30 * 86400000;
+  return FT.partnerJointAccounts().filter(function (a) { var t = a.jointSince ? Date.parse(a.jointSince) : 0; return t > since && seen.indexOf(String(a.id)) < 0; });
+};
+FT.markPartnerAcctsSeen = function (ids) { var seen = FT.get('ft_seen_partner_accts', []) || []; (ids || []).forEach(function (i) { if (seen.indexOf(String(i)) < 0) seen.push(String(i)); }); FT.set('ft_seen_partner_accts', seen.slice(-100)); FT._changed(); };
 /** Descuenta `amount` del saldo de una cuenta de cheques (por id) -- para que
  *  un gasto/abono pagado con una cuenta conjunta se refleje solo ahí, sin
  *  que alguien tenga que ir a actualizar el saldo a mano. No-op si el id no
@@ -802,7 +815,7 @@ FT.checkingAccountsScreen = function (isHogar) {
           .map(function (t) { return { date: t.date, desc: t.desc, amount: t.acctCredited ? parseFloat(t.amount) || 0 : -(parseFloat(t.amount) || 0), by: t.createdBy }; });
         var op = !!_open['p' + c.id];
         return '<div style="border:1px solid var(--hair);border-radius:14px;margin-bottom:8px;overflow:hidden">' +
-          '<button type="button" class="tap" data-mv="' + _escH('p' + c.id) + '" aria-expanded="' + op + '" style="display:flex;align-items:center;gap:10px;width:100%;padding:11px 12px;background:var(--sunk);border:none;font-family:inherit;color:inherit;text-align:left;cursor:pointer"><div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:800">' + _escH(c.name || (L ? 'Cuenta' : 'Account')) + '</div><div style="font-size:15px;font-weight:900">' + FT.money(FT.accountTotal(c), { cents: true }) + '</div></div><span style="font-size:11px;color:var(--text3)">' + (op ? '▴' : '▾') + ' ' + (L ? 'Movimientos' : 'Activity') + '</span></button>' +
+          '<button type="button" class="tap" data-mv="' + _escH('p' + c.id) + '" aria-expanded="' + op + '" style="display:flex;align-items:center;gap:10px;width:100%;padding:11px 12px;background:var(--sunk);border:none;font-family:inherit;color:inherit;text-align:left;cursor:pointer"><div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:800">' + _escH(c.name || (L ? 'Cuenta' : 'Account')) + '</div>' + (c.jointSince && Date.parse(c.jointSince) > Date.now() - 30 * 86400000 ? '<div style="font-size:10.5px;font-weight:800;color:#8a5a00;background:#FFF3DF;border-radius:99px;padding:2px 8px;display:inline-block;margin:2px 0">🆕 ' + (L ? 'Agregada por ' : 'Added by ') + _escH(c.jointBy || pn) + ' · ' + FT.date(_localDay(c.jointSince)) + '</div>' : '') + '<div style="font-size:15px;font-weight:900">' + FT.money(FT.accountTotal(c), { cents: true }) + '</div></div><span style="font-size:11px;color:var(--text3)">' + (op ? '▴' : '▾') + ' ' + (L ? 'Movimientos' : 'Activity') + '</span></button>' +
           (op ? '<div style="padding:4px 12px 8px">' + movRows(mv) + '</div>' : '') + '</div>';
       }).join('');
   }
@@ -1414,6 +1427,7 @@ function _stampFondos(f) {
   (f.metas || []).forEach(function (m) { var o2 = (old.metas || []).find(function (x) { return String(x.id) === String(m.id); }); if (!o2 || _fondoSig(m) !== _fondoSig(o2)) m.lastEdit = Object.assign({}, mark); });
 }
 function _localDay(iso) { var d = new Date(iso); return isNaN(d) ? '' : d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }   // fecha LOCAL (no UTC)
+FT.localDay = _localDay;
 function _latestEdit(a, b) { var ta = a && a.at ? Date.parse(a.at) : 0, tb = b && b.at ? Date.parse(b.at) : 0; return (tb > ta ? b : a) || undefined; }
 FT.saveHogarFondos = function (f, o) { if (!(o && o.noStamp)) { try { _stampFondos(f); } catch (e) {} } FT.set(K.hogarFondos, f); FT._changed(); };
 FT._mergeFondosInto = function (mine, theirs) { return _mergeFondosInto(mine, theirs); };   // expuesto para pruebas
@@ -4269,6 +4283,7 @@ FT.getNotifications = function () {
   try {
     FT.hogarUnassigned().forEach(function (u) { out.push({ icon: '💵', tone: 'amber', url: 'hogar.html', text: FT.money(u.monto, { cents: true }) + (es ? ' del hogar sin asignar a ninguna cuenta' : ' of household money not assigned to any account') }); });
     FT.partnerUnassigned().forEach(function (u) { out.push({ icon: '💵', tone: 'amber', url: 'hogar.html', text: FT.money(u.monto, { cents: true }) + (es ? ' de tu pareja sin asignar a ninguna cuenta' : ' of your partner\'s money not assigned to any account') }); });
+    FT.partnerNewJointAccounts().forEach(function (a) { out.push({ icon: '🏦', tone: 'blue', url: 'hogar.html', text: _escH(a.jointBy || (es ? 'Tu pareja' : 'Your partner')) + (es ? ' agregó la cuenta conjunta «' : ' added the joint account "') + _escH(a.name || '') + (es ? '»' : '"') }); });
     FT.hogarNotices().forEach(function (nt) { out.push({ icon: '🏠', tone: 'blue', url: 'hogar.html', text: _escH(nt.by || (es ? 'Tu pareja' : 'Your partner')) + (nt.kind === 'assign' ? (es ? ' asignó un cheque del hogar' : ' assigned a household paycheck') : nt.kind === 'undo' ? (es ? ' deshizo un reparto del hogar' : ' undid a household split') : (es ? ' cambió una regla de reparto' : ' changed a split rule')) }); });
   } catch (e) {}
 
